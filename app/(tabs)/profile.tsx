@@ -1,219 +1,196 @@
 import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
-import { useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
-import {
-    Alert,
-    Pressable,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-} from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
+import { Alert, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useUserProfile } from "../../lib/useUserProfile";
+import AppButton from "@/components/AppButton";
+import { BOTTOM_NAV_BASE_HEIGHT } from "@/components/BottomNav";
+import { qaClear, qaGetNickname, qaIsSignedIn } from "@/lib/qaSession";
+
+function getIsQaMode() {
+  const envVal = (process.env.EXPO_PUBLIC_QA || "").toString().trim();
+  return __DEV__ || envVal === "1" || envVal.toLowerCase() === "true";
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { profile } = useUserProfile();
+  const insets = useSafeAreaInsets();
 
-  const user = auth().currentUser;
-  const uid = user?.uid;
+  const isQaMode = useMemo(() => getIsQaMode(), []);
+  const [firebaseEmail, setFirebaseEmail] = useState<string | null>(
+    auth().currentUser?.email ?? null
+  );
+  const [hasFirebaseUser, setHasFirebaseUser] = useState<boolean>(
+    !!auth().currentUser
+  );
 
-  const initialName = useMemo(() => {
-    return profile?.displayName?.trim() || user?.displayName?.trim() || "";
-  }, [profile?.displayName, user?.displayName]);
+  const [qaSignedIn, setQaSignedIn] = useState(false);
+  const [qaNickname, setQaNickname] = useState<string | null>(null);
 
-  const [nickname, setNickname] = useState("");
-  const [saving, setSaving] = useState(false);
+  const bottomPad = BOTTOM_NAV_BASE_HEIGHT + insets.bottom + 12;
 
-  useEffect(() => {
-    setNickname(initialName);
-  }, [initialName]);
+  const refreshSessionState = useCallback(async () => {
+    // Firebase state
+    const u = auth().currentUser;
+    setHasFirebaseUser(!!u);
+    setFirebaseEmail(u?.email ?? null);
 
-  const goHome = () => {
-    router.replace("/" as any);
-  };
-
-  const saveProfile = async () => {
-    if (!uid || !user) {
-      Alert.alert("Not signed in", "Please sign in to edit your profile.");
-      router.replace("/sign-in" as any);
-      return;
-    }
-
-    const name = nickname.trim();
-    if (!name) {
-      Alert.alert("Nickname required", "Please enter a nickname.");
-      return;
-    }
-
-    setSaving(true);
+    // QA state
     try {
-      await firestore().collection("users").doc(uid).set(
-        {
-          displayName: name,
-          updatedAt: firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
+      const signedIn = await qaIsSignedIn();
+      const nick = await qaGetNickname();
+      setQaSignedIn(signedIn);
+      setQaNickname(nick);
+    } catch {
+      // If SecureStore isn't available (old dev client), keep QA state false/null
+      setQaSignedIn(false);
+      setQaNickname(null);
+    }
+  }, []);
 
-      await user.updateProfile({ displayName: name });
+  // ✅ Refresh every time Profile is shown again (fixes the "set nickname then it disappears" loop)
+  useFocusEffect(
+    useCallback(() => {
+      refreshSessionState();
 
-      Alert.alert("Saved", "Your nickname has been updated.");
+      const unsub = auth().onAuthStateChanged((u) => {
+        setHasFirebaseUser(!!u);
+        setFirebaseEmail(u?.email ?? null);
+      });
+
+      return () => unsub();
+    }, [refreshSessionState])
+  );
+
+  const isActuallySignedIn = hasFirebaseUser || (isQaMode && qaSignedIn);
+
+  const onPressSignOut = async () => {
+    try {
+      if (auth().currentUser) {
+        await auth().signOut();
+      }
+      if (isQaMode) {
+        await qaClear();
+        setQaSignedIn(false);
+        setQaNickname(null);
+      }
+
+      Alert.alert("Signed out", "You have been signed out.");
+      router.replace("/sign-in");
     } catch (e: any) {
-      Alert.alert("Save failed", e?.message || "Unknown error.");
-    } finally {
-      setSaving(false);
+      Alert.alert("Sign out failed", e?.message ?? "Unknown error");
     }
   };
 
-  const signOut = async () => {
-    Alert.alert("Sign out?", "You will need to sign in again.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Sign Out",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await auth().signOut();
-            router.replace("/sign-in" as any);
-          } catch (e: any) {
-            Alert.alert("Sign out failed", e?.message || "Unknown error.");
-          }
-        },
-      },
-    ]);
+  const onPressResetQa = async () => {
+    try {
+      await qaClear();
+      setQaSignedIn(false);
+      setQaNickname(null);
+      Alert.alert("QA reset", "QA session cleared. Use Sign In → Continue to App (QA) again.");
+    } catch (e: any) {
+      Alert.alert("Reset failed", e?.message ?? "Unknown error");
+    }
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        {/* Back */}
-        <Pressable style={styles.backHomeBtn} onPress={goHome}>
-          <Text style={styles.backHomeText}>⬅ Back to Home</Text>
-        </Pressable>
+    <View style={[styles.container, { paddingBottom: bottomPad }]}>
+      <AppButton
+        label="← Back to Home"
+        onPress={() => router.replace("/")}
+        secondary
+        compact
+        style={styles.backBtn}
+      />
 
-        <Text style={styles.title}>My Profile</Text>
+      <Text style={styles.h1}>My Profile</Text>
 
-        <Text style={styles.label}>Nickname</Text>
-        <TextInput
-          value={nickname}
-          onChangeText={setNickname}
-          placeholder="Your name in camp"
-          placeholderTextColor="#aaa"
-          autoCapitalize="words"
-          style={styles.input}
-        />
+      <View style={styles.section}>
+        <Text style={styles.label}>Account</Text>
 
-        <Pressable
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-          onPress={saveProfile}
-          disabled={saving}
-        >
-          <Text style={styles.saveBtnText}>
-            {saving ? "Saving…" : "Save"}
-          </Text>
-        </Pressable>
+        {isActuallySignedIn ? (
+          <>
+            <Text style={styles.value}>
+              {hasFirebaseUser
+                ? `Signed in${firebaseEmail ? ` as ${firebaseEmail}` : ""}`
+                : "Signed in (QA mock)"}
+            </Text>
 
-        {/* Sign out */}
-        <Pressable style={styles.signOutBtn} onPress={signOut}>
-          <Text style={styles.signOutText}>Sign Out</Text>
-          <Text style={styles.signOutSub}>Tap to sign out</Text>
-        </Pressable>
+            <View style={styles.row}>
+              <AppButton
+                label="Sign Out"
+                onPress={onPressSignOut}
+                secondary
+                compact
+                style={{ flex: 1 }}
+              />
+              {isQaMode && (
+                <AppButton
+                  label="Reset QA"
+                  onPress={onPressResetQa}
+                  compact
+                  style={{ flex: 1 }}
+                />
+              )}
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={styles.value}>
+              Not signed in{isQaMode ? " (QA build allows mock access)" : ""}.
+            </Text>
 
-        <Text style={styles.note}>
-          This name appears on memories and comments.
-        </Text>
+            <AppButton
+              label="Sign In"
+              onPress={() => router.push("/sign-in")}
+              compact
+              style={styles.signInBtn}
+            />
+          </>
+        )}
       </View>
-    </SafeAreaView>
+
+      <View style={styles.section}>
+        <Text style={styles.label}>Nickname</Text>
+
+        <Text style={styles.valueMuted}>
+          {qaNickname ? `Current: ${qaNickname}` : "No nickname set yet."}
+        </Text>
+
+        <AppButton
+          label="Set / Edit Nickname"
+          onPress={() => router.push("/set-nickname")}
+          secondary
+          compact
+        />
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
-  container: { padding: 16 },
+  container: { flex: 1, padding: 16 },
+  backBtn: { alignSelf: "flex-start", paddingHorizontal: 14 },
 
-  backHomeBtn: {
-    marginTop: 6,
-    borderWidth: 1,
-    borderColor: "#111",
-    borderRadius: 999,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    alignSelf: "flex-start",
-    backgroundColor: "#fff",
+  h1: { fontSize: 40, fontWeight: "900", marginTop: 14, marginBottom: 18 },
+
+  section: {
+    borderWidth: 2,
+    borderColor: "#222",
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 14,
   },
-  backHomeText: {
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#111",
-  },
 
-  title: {
-    fontSize: 40,
-    fontWeight: "900",
-    marginBottom: 18,
-    color: "#111",
-  },
+  label: { fontSize: 18, fontWeight: "900", marginBottom: 8 },
+  value: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
+  valueMuted: { fontSize: 14, color: "#777", marginBottom: 12 },
 
-  label: {
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 8,
-    color: "#111",
-  },
+  signInBtn: { alignSelf: "flex-start", paddingHorizontal: 18 },
 
-  input: {
-    borderWidth: 3,
-    borderColor: "#111",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 20,
-    fontWeight: "800",
-  },
-
-  saveBtn: {
-    marginTop: 14,
-    height: 72,
-    borderRadius: 22,
-    backgroundColor: "#111",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  saveBtnDisabled: {
-    backgroundColor: "#888",
-  },
-  saveBtnText: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#fff",
-  },
-
-  signOutBtn: {
-    marginTop: 24,
-    alignItems: "center",
-  },
-  signOutText: {
-    fontSize: 16, // slightly smaller
-    fontWeight: "900",
-    color: "#c00",
-  },
-  signOutSub: {
-    marginTop: 2,
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#c00",
-    opacity: 0.75,
-  },
-
-  note: {
-    marginTop: 18,
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#666",
+  row: {
+    flexDirection: "row",
+    gap: 12,
   },
 });
