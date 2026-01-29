@@ -1,169 +1,337 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>DeerCamp</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DeerCamp — A private place to remember the moments that matter</title>
+    <meta
+      name="description"
+      content="DeerCamp is a calm, private space for capturing memories with the people you choose — using words, photos, and voice."
+    />
 
-    <link rel="stylesheet" href="style.css" />
+    <style>
+      :root {
+        --bg: #0b1220;
+        --panel: rgba(255, 255, 255, 0.06);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.72);
+        --border: rgba(255, 255, 255, 0.14);
+        --accent: #93c5fd; /* soft blue */
+        --accent2: #a7f3d0; /* soft mint */
+        --max: 1040px;
+        --radius: 16px;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji",
+          "Segoe UI Emoji";
+        background: radial-gradient(1200px 600px at 20% 0%, rgba(147, 197, 253, 0.18), transparent 60%),
+          radial-gradient(900px 500px at 90% 20%, rgba(167, 243, 208, 0.12), transparent 55%),
+          var(--bg);
+        color: var(--text);
+        line-height: 1.55;
+      }
+
+      a { color: inherit; text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      .wrap { max-width: var(--max); margin: 0 auto; padding: 0 20px; }
+
+      header {
+        position: sticky;
+        top: 0;
+        backdrop-filter: blur(10px);
+        background: rgba(11, 18, 32, 0.6);
+        border-bottom: 1px solid var(--border);
+        z-index: 50;
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 0;
+        gap: 14px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+      }
+
+      .brand-badge {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, rgba(147,197,253,0.35), rgba(167,243,208,0.25));
+        border: 1px solid var(--border);
+      }
+
+      nav ul {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin: 0;
+        padding: 0;
+      }
+
+      nav a {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      nav a:hover { color: var(--text); text-decoration: none; }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        font-weight: 700;
+        font-size: 14px;
+        gap: 10px;
+        transition: transform 0.08s ease, background 0.12s ease;
+      }
+
+      .cta:hover { background: rgba(255, 255, 255, 0.1); text-decoration: none; }
+      .cta:active { transform: translateY(1px); }
+
+      .primary {
+        border-color: rgba(147, 197, 253, 0.45);
+        background: linear-gradient(135deg, rgba(147,197,253,0.22), rgba(167,243,208,0.14));
+      }
+
+      main { padding: 44px 0 66px; }
+
+      section { padding: 26px 0; }
+
+      .hero {
+        padding-top: 22px;
+        padding-bottom: 10px;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1.25fr 0.75fr;
+        gap: 18px;
+        align-items: start;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 22px;
+      }
+
+      h1 {
+        font-size: clamp(30px, 3.6vw, 46px);
+        line-height: 1.15;
+        margin: 0 0 12px;
+        letter-spacing: -0.4px;
+      }
+
+      h2 {
+        font-size: 22px;
+        margin: 0 0 10px;
+        letter-spacing: -0.2px;
+      }
+
+      p { margin: 0 0 12px; color: var(--muted); }
+
+      .hero p { font-size: 16px; }
+
+      .btn-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+      .note { font-size: 13px; color: rgba(255,255,255,0.65); }
+
+      .bullets {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+      }
+      .bullets li { margin: 8px 0; }
+
+      .link-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: rgba(255,255,255,0.85);
+        font-weight: 700;
+        font-size: 14px;
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 18px 0;
+        color: rgba(255,255,255,0.62);
+        font-size: 13px;
+      }
+
+      .footer-links { display: flex; gap: 14px; flex-wrap: wrap; }
+
+      /* Responsive */
+      @media (max-width: 860px) {
+        .hero-grid { grid-template-columns: 1fr; }
+        nav ul { display: none; }
+      }
+    </style>
   </head>
 
-  <body id="top">
-    <main class="wrap">
-      <!-- HERO -->
-      <section class="hero" role="banner" aria-label="DeerCamp homepage hero">
-        <!-- HERO IMAGE (with fade overlay) -->
-        <div class="hero-media">
-          <img
-            class="hero-img"
-            src="https://assets.codepen.io/15184625/DeerCampHero_1.png"
-            alt="DeerCamp hero image"
-            loading="eager"
-            fetchpriority="high"
-          />
-          <div class="hero-fade" aria-hidden="true"></div>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="nav">
+          <a class="brand" href="#top" aria-label="DeerCamp home">
+            <span class="brand-badge" aria-hidden="true"></span>
+            DeerCamp
+          </a>
+
+          <nav aria-label="Primary navigation">
+            <ul>
+              <li><a href="#camp">What is a Camp?</a></li>
+              <li><a href="#privacy">Privacy &amp; Trust</a></li>
+              <li><a href="#get">Get the App</a></li>
+            </ul>
+          </nav>
+
+          <a class="cta primary" href="#get">Get the App</a>
         </div>
+      </div>
+    </header>
 
-        <!-- TAGLINE -->
-        <p class="hero-tagline">
-          For remembering together — and carrying it forward.
-        </p>
-
-        <!-- NAV -->
-        <nav class="nav" aria-label="Primary">
-          <a class="nav-link" href="#about">About DeerCamp</a>
-          <span class="nav-sep" aria-hidden="true">·</span>
-          <a class="nav-link" href="#what-is-a-camp">What Is a Camp?</a>
-          <span class="nav-sep" aria-hidden="true">·</span>
-          <a class="nav-link" href="#stewardship">Stewardship &amp; Legacy</a>
-        </nav>
-
-        <!-- CampCards! CTA (under nav) -->
-        <section class="campcards-cta" aria-label="CampCards examples call to action">
-          <div class="campcards-card">
-            <div class="campcards-copy">
-              <p class="campcards-kicker">CampCards!</p>
-              <h2 class="campcards-title">Explore CampCards! Examples</h2>
-              <p class="campcards-text">
-                Five short moments — voice-first — that show what DeerCamp is for.
+    <main id="top">
+      <div class="wrap">
+        <!-- HERO -->
+        <section class="hero">
+          <div class="hero-grid">
+            <div class="panel">
+              <h1>A private place to remember the moments that matter.</h1>
+              <p>
+                DeerCamp is a calm, private space for capturing memories with the people you choose — using words, photos,
+                and voice.
               </p>
+
+              <div class="btn-row">
+                <!-- Replace href with your Play Store URL when ready -->
+                <a class="cta primary" href="#" aria-label="Get DeerCamp for Android (link coming soon)">
+                  Get DeerCamp for Android
+                </a>
+                <span class="note">iOS coming later</span>
+              </div>
             </div>
 
-            <div class="campcards-actions">
-              <a class="btn btn-primary" href="/campcards.html">
-                Open CampCards! Examples
-              </a>
-              <a class="btn btn-ghost" href="https://privacy.ourdeercamp.com">
-                Privacy
-              </a>
+            <div class="panel">
+              <h2>Built for memories, not feeds.</h2>
+              <p>
+                Small groups. Quiet design. A place your moments can live over time — without algorithms, ads, or noise.
+              </p>
             </div>
           </div>
         </section>
-      </section>
 
-      <!-- ABOUT -->
-      <section id="about" class="page" aria-label="About DeerCamp section">
-        <article class="sheet" aria-label="About DeerCamp">
-          <header class="sheet-head">
-            <p class="kicker">DeerCamp</p>
-            <h1 class="title">About DeerCamp</h1>
-            <p class="lede">
-              DeerCamp is a place to remember together — and to carry those memories forward.
-            </p>
-          </header>
-
-          <div class="rule" aria-hidden="true"></div>
-
-          <section class="content">
+        <!-- WHAT IT IS -->
+        <section aria-labelledby="what">
+          <div class="panel">
+            <h2 id="what">Built for memories, not feeds.</h2>
             <p>
-              For many people, “deer camp” is more than a place. It’s a tradition. A gathering.
-              A shared rhythm that returns each year.
+              DeerCamp helps small groups capture and keep meaningful moments over time. There are no algorithms, no public
+              timelines, and no pressure to perform — just a shared place to remember what mattered.
             </p>
-
-            <p class="closing">
-              DeerCamp is for those who believe that some things are worth holding onto — together.
-            </p>
-
-            <a class="back-link" href="#top" aria-label="Back to top">↑ Back to top</a>
-          </section>
-        </article>
-      </section>
-
-      <!-- WHAT IS A CAMP -->
-      <section id="what-is-a-camp" class="page" aria-label="What is a camp section">
-        <article class="sheet" aria-label="What Is a Camp?">
-          <header class="sheet-head">
-            <p class="kicker">DeerCamp</p>
-            <h1 class="title">What Is a Camp?</h1>
-            <p class="lede">A camp is not just land or a cabin. A camp is a shared history.</p>
-          </header>
-
-          <div class="rule" aria-hidden="true"></div>
-
-          <section class="content">
             <p>
-              A camp can be a place you return to every year — or one you carry with you long after
-              the land has changed hands.
+              You can add memories as text, photos, or voice notes, and return to them whenever you want.
             </p>
+          </div>
+        </section>
 
-            <p>What makes something a camp isn’t ownership — it’s continuity.</p>
-
-            <h2>What camps are built from</h2>
-            <ul>
-              <li>Shared effort.</li>
-              <li>Repeated rituals.</li>
-              <li>Unrecorded stories.</li>
-              <li>Moments that feel ordinary until they’re gone.</li>
+        <!-- DIFFERENT -->
+        <section aria-labelledby="different">
+          <div class="panel">
+            <h2 id="different">Designed for presence, not engagement.</h2>
+            <ul class="bullets">
+              <li>Private by default — nothing is public unless you choose</li>
+              <li>No ads, no metrics, no endless scrolling</li>
+              <li>Built for continuity, not attention</li>
             </ul>
-
-            <p class="closing">
-              When people return, stories accumulate, and meaning grows — you have a camp.
+            <p style="margin-top: 12px;">
+              DeerCamp is meant to feel quieter than social media — and more human.
             </p>
+          </div>
+        </section>
 
-            <a class="back-link" href="#top" aria-label="Back to top">↑ Back to top</a>
-          </section>
-        </article>
-      </section>
-
-      <!-- STEWARDSHIP -->
-      <section id="stewardship" class="page" aria-label="Stewardship and legacy section">
-        <article class="sheet" aria-label="Stewardship & Legacy">
-          <header class="sheet-head">
-            <p class="kicker">DeerCamp</p>
-            <h1 class="title">Stewardship &amp; Legacy</h1>
-            <p class="lede">
-              Every camp eventually faces the same question: how will this be carried forward?
-            </p>
-          </header>
-
-          <div class="rule" aria-hidden="true"></div>
-
-          <section class="content">
+        <!-- CAMP -->
+        <section id="camp" aria-labelledby="campTitle">
+          <div class="panel">
+            <h2 id="campTitle">What is a Camp?</h2>
             <p>
-              Stewardship is the act of caring for something you did not create — and may not control forever.
+              A Camp is a shared memory space for a group of people connected by a place, a time, or a story.
             </p>
+            <p>
+              It might be a family cabin, a group of friends, a season outdoors, or something deeply personal. You invite
+              who belongs, and memories live there over time.
+            </p>
+            <a class="link-row" href="/camp.html" aria-label="Learn more about what a Camp is">
+              Learn more about what a Camp is →
+            </a>
+          </div>
+        </section>
 
-            <h2>How DeerCamp supports stewardship</h2>
-            <ul>
-              <li>Collect and organize shared memories.</li>
-              <li>Invite participation without pressure.</li>
-              <li>Protect access and roles thoughtfully.</li>
-              <li>Help meaning travel forward — not just assets.</li>
+        <!-- PRIVACY -->
+        <section id="privacy" aria-labelledby="privacyTitle">
+          <div class="panel">
+            <h2 id="privacyTitle">Private by design.</h2>
+            <ul class="bullets">
+              <li>Camps are private and invitation-only</li>
+              <li>Your memories aren’t sold, shared, or advertised</li>
+              <li>You control who sees what, always</li>
             </ul>
+            <p style="margin-top: 12px;">We believe trust is built by default, not buried in fine print.</p>
+            <a class="link-row" href="/privacy.html" aria-label="How privacy works">
+              How privacy works →
+            </a>
+          </div>
+        </section>
 
-            <p class="closing">
-              Legacy isn’t something you leave behind. It’s something you tend — while you’re still here.
-            </p>
-
-            <a class="back-link" href="#top" aria-label="Back to top">↑ Back to top</a>
-          </section>
-        </article>
-      </section>
-
-      <!-- FOOTER -->
-      <footer class="site-footer" aria-label="Site footer">
-        <p>© DeerCamp</p>
-      </footer>
+        <!-- GET APP -->
+        <section id="get" aria-labelledby="getTitle">
+          <div class="panel">
+            <h2 id="getTitle">Start remembering together.</h2>
+            <p>If you’re looking for a more intentional way to keep memories — DeerCamp is ready when you are.</p>
+            <div class="btn-row">
+              <!-- Replace href with your Play Store URL when ready -->
+              <a class="cta primary" href="#" aria-label="Get DeerCamp for Android (link coming soon)">
+                Get DeerCamp for Android
+              </a>
+              <span class="note">iOS coming later</span>
+            </div>
+          </div>
+        </section>
+      </div>
     </main>
+
+    <footer>
+      <div class="wrap">
+        <div class="footer-links">
+          <a href="/privacy-policy.html">Privacy Policy</a>
+          <a href="/terms.html">Terms</a>
+          <a href="/contact.html">Contact</a>
+        </div>
+        <div style="margin-top: 10px;">© <span id="year"></span> DeerCamp</div>
+      </div>
+    </footer>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
   </body>
 </html>
