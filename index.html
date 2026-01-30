@@ -124,6 +124,7 @@
       color:var(--ink);
     }
 
+    /* ---------- CampCards ---------- */
     .campcards-grid{
       display:grid;
       grid-template-columns:repeat(3,1fr);
@@ -136,12 +137,24 @@
       background:#fff;
       border:1px solid var(--border);
       cursor:pointer;
+      box-shadow:0 10px 22px rgba(0,0,0,.06);
+      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+      outline:none;
+    }
+    .campcard:hover{
+      transform:translateY(-2px);
+      box-shadow:0 16px 34px rgba(0,0,0,.10);
+      border-color:rgba(0,0,0,.12);
+    }
+    .campcard:focus-visible{
+      box-shadow:0 0 0 4px rgba(59,130,246,.22), 0 16px 34px rgba(0,0,0,.10);
     }
     .campcard img{
       width:100%;
       height:180px;
       object-fit:cover;
       display:block;
+      background:#f3f4f6;
     }
     .campcard .meta{
       padding:12px;
@@ -150,11 +163,79 @@
       font-weight:900;
       font-size:14px;
       margin:0 0 4px;
+      color:var(--ink);
     }
     .campcard .desc{
       font-size:12px;
       color:var(--muted);
       margin:0;
+    }
+
+    /* ---------- Lightbox Modal ---------- */
+    .modal{
+      position:fixed;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding:18px;
+      background:rgba(0,0,0,.65);
+      z-index:9999;
+    }
+    .modal.open{ display:flex; }
+
+    .modal-inner{
+      position:relative;
+      width:min(1100px, 100%);
+      max-height:calc(100vh - 36px);
+      border-radius:18px;
+      overflow:hidden;
+      background:#111827;
+      box-shadow:0 30px 70px rgba(0,0,0,.45);
+    }
+    .modal-topbar{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      background:rgba(17,24,39,.92);
+      border-bottom:1px solid rgba(255,255,255,.10);
+    }
+    .modal-title{
+      color:#fff;
+      font-weight:900;
+      font-size:14px;
+      letter-spacing:.2px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      white-space:nowrap;
+      max-width:70%;
+    }
+    .modal-close{
+      border:1px solid rgba(255,255,255,.22);
+      background:rgba(255,255,255,.06);
+      color:#fff;
+      font-weight:900;
+      padding:8px 12px;
+      border-radius:999px;
+      cursor:pointer;
+    }
+    .modal-body{
+      background:#0b1220;
+      padding:14px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      max-height:calc(100vh - 36px - 50px);
+    }
+    .modal-body img{
+      width:auto;
+      height:auto;
+      max-width:100%;
+      max-height:calc(100vh - 36px - 50px - 28px);
+      border-radius:14px;
+      background:#fff;
     }
 
     footer{
@@ -167,6 +248,11 @@
     @media(max-width:900px){
       .grid{ grid-template-columns:1fr; }
       .campcards-grid{ grid-template-columns:repeat(2,1fr); }
+    }
+    @media(max-width:520px){
+      .campcards-grid{ grid-template-columns:1fr; }
+      .campcard img{ height:200px; }
+      h1{ font-size:28px; }
     }
   </style>
 </head>
@@ -189,7 +275,7 @@
     <div class="links">
       <a href="#campcards">CampCards</a>
       <a href="#what-is-a-camp">What is a Camp?</a>
-      <a href="https://privacy.ourdeercamp.com/" target="_blank">Privacy & Trust</a>
+      <a href="https://privacy.ourdeercamp.com/" target="_blank" rel="noopener">Privacy &amp; Trust</a>
       <a href="#get-the-app">Get the App</a>
     </div>
     <button class="cta" onclick="document.getElementById('get-the-app').scrollIntoView({behavior:'smooth'})">
@@ -211,15 +297,74 @@
 
   <section id="campcards" class="card" style="margin-top:18px;">
     <h2>CampCards</h2>
-    <p>A visual tour of DeerCamp’s core screens.</p>
+    <p>A visual tour of DeerCamp’s core screens. Click any card to preview full size.</p>
 
     <div class="campcards-grid">
-      <div class="campcard"><img src="home.png"><div class="meta"><p class="title">Home</p><p class="desc">Entry point into your camp</p></div></div>
-      <div class="campcard"><img src="memories-feed.png"><div class="meta"><p class="title">Memories Feed</p><p class="desc">Scrollable list of moments</p></div></div>
-      <div class="campcard"><img src="memory-detail.png"><div class="meta"><p class="title">Memory Detail</p><p class="desc">Single post with comments</p></div></div>
-      <div class="campcard"><img src="add-memory.png"><div class="meta"><p class="title">Add Memory</p><p class="desc">Text, photo, or voice</p></div></div>
-      <div class="campcard"><img src="comments.png"><div class="meta"><p class="title">Comments</p><p class="desc">Conversation on a memory</p></div></div>
-      <div class="campcard"><img src="profile.png"><div class="meta"><p class="title">Profile</p><p class="desc">Account & nickname</p></div></div>
+      <button class="campcard" type="button"
+        data-title="Home"
+        data-src="home.png"
+        aria-label="Preview Home screen">
+        <img src="home.png" alt="Home screen">
+        <div class="meta">
+          <p class="title">Home</p>
+          <p class="desc">Entry point into your camp</p>
+        </div>
+      </button>
+
+      <button class="campcard" type="button"
+        data-title="Memories Feed"
+        data-src="memories-feed.png"
+        aria-label="Preview Memories Feed screen">
+        <img src="memories-feed.png" alt="Memories Feed screen">
+        <div class="meta">
+          <p class="title">Memories Feed</p>
+          <p class="desc">Scrollable list of moments</p>
+        </div>
+      </button>
+
+      <button class="campcard" type="button"
+        data-title="Memory Detail"
+        data-src="memory-detail.png"
+        aria-label="Preview Memory Detail screen">
+        <img src="memory-detail.png" alt="Memory Detail screen">
+        <div class="meta">
+          <p class="title">Memory Detail</p>
+          <p class="desc">Single post with comments</p>
+        </div>
+      </button>
+
+      <button class="campcard" type="button"
+        data-title="Add Memory"
+        data-src="add-memory.png"
+        aria-label="Preview Add Memory screen">
+        <img src="add-memory.png" alt="Add Memory screen">
+        <div class="meta">
+          <p class="title">Add Memory</p>
+          <p class="desc">Text, photo, or voice</p>
+        </div>
+      </button>
+
+      <button class="campcard" type="button"
+        data-title="Comments"
+        data-src="comments.png"
+        aria-label="Preview Comments screen">
+        <img src="comments.png" alt="Comments screen">
+        <div class="meta">
+          <p class="title">Comments</p>
+          <p class="desc">Conversation on a memory</p>
+        </div>
+      </button>
+
+      <button class="campcard" type="button"
+        data-title="Profile"
+        data-src="profile.png"
+        aria-label="Preview Profile screen">
+        <img src="profile.png" alt="Profile screen">
+        <div class="meta">
+          <p class="title">Profile</p>
+          <p class="desc">Account &amp; nickname</p>
+        </div>
+      </button>
     </div>
   </section>
 
@@ -236,5 +381,80 @@
 </main>
 
 <footer>© 2026 DeerCamp</footer>
+
+<!-- Lightbox Modal -->
+<div class="modal" id="imgModal" aria-hidden="true">
+  <div class="modal-inner" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-topbar">
+      <div class="modal-title" id="modalTitle">Preview</div>
+      <button class="modal-close" type="button" id="modalClose" aria-label="Close preview">Close ✕</button>
+    </div>
+    <div class="modal-body">
+      <img id="modalImg" alt="">
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    const modal = document.getElementById('imgModal');
+    const modalImg = document.getElementById('modalImg');
+    const modalTitle = document.getElementById('modalTitle');
+    const closeBtn = document.getElementById('modalClose');
+
+    let lastFocusedEl = null;
+
+    function openModal(src, title) {
+      lastFocusedEl = document.activeElement;
+
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+
+      // Cache-bust lightly in case Cloudflare holds onto an older image.
+      const cacheBustedSrc = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
+
+      modalImg.src = cacheBustedSrc;
+      modalImg.alt = title ? (title + ' preview') : 'Preview';
+      modalTitle.textContent = title || 'Preview';
+
+      closeBtn.focus();
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+
+      modalImg.removeAttribute('src');
+      document.body.style.overflow = '';
+
+      if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
+        lastFocusedEl.focus();
+      }
+    }
+
+    // Click handlers for each campcard
+    document.querySelectorAll('.campcard').forEach((card) => {
+      card.addEventListener('click', () => {
+        const src = card.getAttribute('data-src');
+        const title = card.getAttribute('data-title');
+        if (src) openModal(src, title);
+      });
+    });
+
+    // Close interactions
+    closeBtn.addEventListener('click', closeModal);
+
+    // Click outside dialog closes
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    // Esc closes
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
+    });
+  })();
+</script>
 </body>
 </html>
