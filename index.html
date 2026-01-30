@@ -1,594 +1,789 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>DeerCamp</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>DeerCamp</title>
+    <meta
+      name="description"
+      content="DeerCamp is a calm, private space for capturing memories with the people you choose — using words, photos, and voice."
+    />
 
-  <style>
-    :root{
-      --bgTop:#f7f3ea;
-      --bgBottom:#eef0e6;
-      --surface:#ffffff;
-      --ink:#1f2933;
-      --muted:#6b7280;
-      --border:rgba(0,0,0,0.08);
-      --shadow:0 14px 34px rgba(0,0,0,.08);
-      --shadowStrong:0 18px 44px rgba(0,0,0,.14);
-      --radius:22px;
-      --link:#374151;
-      --btn:#eef3ef;
-      --btnBorder:rgba(0,0,0,.08);
-      --header:#f3eddf;
-    }
-
-    *{ box-sizing:border-box; }
-    html{ scroll-behavior:smooth; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      color:var(--ink);
-      background:linear-gradient(180deg,var(--bgTop) 0%, var(--bgBottom) 100%);
-    }
-
-    header{
-      background:var(--header);
-      border-bottom:1px solid rgba(0,0,0,.05);
-    }
-    .header-inner{
-      max-width:1200px;
-      margin:0 auto;
-      padding:14px 20px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-    }
-    .brand-badge{
-      width:28px;height:28px;border-radius:8px;
-      background:linear-gradient(135deg,#e7dcc3,#d4c7a6);
-    }
-    .brand{ font-weight:900; }
-
-    .container{
-      max-width:1200px;
-      margin:0 auto;
-      padding:22px 20px 64px;
-    }
-
-    .hero{
-      border-radius:28px;
-      overflow:hidden;
-      box-shadow:var(--shadowStrong);
-    }
-    .hero img{
-      width:100%;
-      height:auto;
-      display:block;
-    }
-
-    .under-hero{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      gap:14px;
-      padding:16px 6px 24px;
-      flex-wrap:wrap;
-    }
-    .links{
-      display:flex;
-      gap:18px;
-      flex-wrap:wrap;
-    }
-    .links a{
-      text-decoration:none;
-      color:var(--link);
-      font-weight:800;
-      font-size:14px;
-    }
-
-    .cta{
-      padding:10px 16px;
-      border-radius:999px;
-      border:1px solid var(--btnBorder);
-      background:#fff;
-      font-weight:900;
-      cursor:pointer;
-    }
-
-    .card{
-      background:var(--surface);
-      border:1px solid var(--border);
-      border-radius:var(--radius);
-      padding:26px;
-      box-shadow:var(--shadow);
-    }
-
-    h1{ font-size:32px; margin:0 0 14px; }
-    h2{ font-size:22px; margin:0 0 10px; }
-    h3{ font-size:18px; margin:0 0 8px; }
-    p{ color:var(--muted); line-height:1.6; }
-
-    .btn-primary{
-      display:inline-block;
-      padding:12px 18px;
-      border-radius:999px;
-      border:1px solid var(--btnBorder);
-      background:var(--btn);
-      font-weight:900;
-      text-decoration:none;
-      color:var(--ink);
-    }
-
-    /* ---------- NEW: Combined hero pill ---------- */
-    .hero-pill{
-      display:flex;
-      align-items:stretch;
-      gap:22px;
-    }
-    .hero-pill .left{
-      flex:1.4;
-      min-width:0;
-    }
-    .hero-pill .right{
-      flex:1;
-      min-width:0;
-    }
-    .hero-pill .divider{
-      width:1px;
-      background:rgba(0,0,0,.07);
-      border-radius:999px;
-    }
-
-    /* ---------- Gallery blocks ---------- */
-    .subsection{
-      margin-top:18px;
-      padding-top:6px;
-    }
-    .subhead{
-      display:flex;
-      align-items:baseline;
-      justify-content:space-between;
-      gap:12px;
-      flex-wrap:wrap;
-      margin:0 0 10px;
-    }
-    .subhead h3{
-      margin:0;
-      font-size:18px;
-      font-weight:950;
-    }
-    .subhead .hint{
-      margin:0;
-      font-size:13px;
-      color:var(--muted);
-    }
-    .divider-line{
-      height:1px;
-      background:rgba(0,0,0,.06);
-      margin:14px 0 8px;
-    }
-
-    .gallery-grid{
-      display:grid;
-      grid-template-columns:repeat(3,1fr);
-      gap:16px;
-      margin-top:10px;
-    }
-
-    /* Same “clickable card” component for both galleries */
-    .tile{
-      border-radius:18px;
-      overflow:hidden;
-      background:#fff;
-      border:1px solid var(--border);
-      cursor:pointer;
-      box-shadow:0 10px 22px rgba(0,0,0,.06);
-      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-      outline:none;
-      padding:0;
-      text-align:left;
-    }
-    .tile:hover{
-      transform:translateY(-2px);
-      box-shadow:0 16px 34px rgba(0,0,0,.10);
-      border-color:rgba(0,0,0,.12);
-    }
-    .tile:focus-visible{
-      box-shadow:0 0 0 4px rgba(59,130,246,.22), 0 16px 34px rgba(0,0,0,.10);
-    }
-    .tile img{
-      width:100%;
-      height:180px;
-      object-fit:cover;
-      display:block;
-      background:#f3f4f6;
-    }
-    .tile .meta{
-      padding:12px;
-    }
-    .tile .title{
-      font-weight:900;
-      font-size:14px;
-      margin:0 0 4px;
-      color:var(--ink);
-    }
-    .tile .desc{
-      font-size:12px;
-      color:var(--muted);
-      margin:0;
-    }
-
-    /* ---------- Lightbox Modal ---------- */
-    .modal{
-      position:fixed;
-      inset:0;
-      display:none;
-      align-items:center;
-      justify-content:center;
-      padding:18px;
-      background:rgba(0,0,0,.65);
-      z-index:9999;
-    }
-    .modal.open{ display:flex; }
-
-    .modal-inner{
-      position:relative;
-      width:min(1100px, 100%);
-      max-height:calc(100vh - 36px);
-      border-radius:18px;
-      overflow:hidden;
-      background:#111827;
-      box-shadow:0 30px 70px rgba(0,0,0,.45);
-    }
-    .modal-topbar{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding:12px 14px;
-      background:rgba(17,24,39,.92);
-      border-bottom:1px solid rgba(255,255,255,.10);
-    }
-    .modal-title{
-      color:#fff;
-      font-weight:900;
-      font-size:14px;
-      letter-spacing:.2px;
-      overflow:hidden;
-      text-overflow:ellipsis;
-      white-space:nowrap;
-      max-width:70%;
-    }
-    .modal-close{
-      border:1px solid rgba(255,255,255,.22);
-      background:rgba(255,255,255,.06);
-      color:#fff;
-      font-weight:900;
-      padding:8px 12px;
-      border-radius:999px;
-      cursor:pointer;
-    }
-    .modal-body{
-      background:#0b1220;
-      padding:14px;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      max-height:calc(100vh - 36px - 50px);
-    }
-    .modal-body img{
-      width:auto;
-      height:auto;
-      max-width:100%;
-      max-height:calc(100vh - 36px - 50px - 28px);
-      border-radius:14px;
-      background:#fff;
-    }
-
-    footer{
-      text-align:center;
-      font-size:13px;
-      color:var(--muted);
-      padding:20px;
-    }
-
-    @media(max-width:900px){
-      .gallery-grid{ grid-template-columns:repeat(2,1fr); }
-      .hero-pill{
-        flex-direction:column;
-        gap:16px;
+    <style>
+      :root {
+        --bg1: #f6efe6;
+        --bg2: #efe7da;
+        --card: rgba(255, 255, 255, 0.82);
+        --card2: rgba(255, 255, 255, 0.9);
+        --ink: #1f2a37;
+        --muted: #5b6776;
+        --line: rgba(31, 42, 55, 0.12);
+        --shadow: 0 18px 50px rgba(20, 25, 30, 0.12);
+        --radius: 26px;
+        --radius2: 18px;
       }
-      .hero-pill .divider{
-        width:100%;
-        height:1px;
+
+      * {
+        box-sizing: border-box;
       }
-    }
-    @media(max-width:520px){
-      .gallery-grid{ grid-template-columns:1fr; }
-      .tile img{ height:200px; }
-      h1{ font-size:28px; }
-    }
-  </style>
-</head>
 
-<body>
-<header>
-  <div class="header-inner">
-    <div class="brand-badge"></div>
-    <div class="brand">DeerCamp</div>
-  </div>
-</header>
-
-<main class="container">
-
-  <section class="hero">
-    <img src="DeerCampHero.png" alt="DeerCamp hero with cabin and campfire">
-  </section>
-
-  <div class="under-hero">
-    <div class="links">
-      <a href="#tour">Tour</a>
-      <a href="#what-is-a-camp">What is a Camp?</a>
-      <a href="https://privacy.ourdeercamp.com/" target="_blank" rel="noopener">Privacy &amp; Trust</a>
-      <a href="#get-the-app">Get the App</a>
-    </div>
-    <button class="cta" onclick="document.getElementById('get-the-app').scrollIntoView({behavior:'smooth'})">
-      Get the App
-    </button>
-  </div>
-
-  <!-- COMBINED PILL (replaces the 2 separate cards) -->
-  <section class="card hero-pill">
-    <div class="left">
-      <h1>A private place to remember the moments that matter.</h1>
-      <p>DeerCamp is a calm, private space for capturing memories with people you choose — using words, photos, and voice.</p>
-      <a class="btn-primary" href="#get-the-app">Get DeerCamp for Android</a>
-    </div>
-
-    <div class="divider" aria-hidden="true"></div>
-
-    <div class="right">
-      <h3>Built for memories, not feeds.</h3>
-      <p>No algorithms. No ads. Just a shared place to remember what mattered.</p>
-    </div>
-  </section>
-
-  <!-- TOUR SECTION -->
-  <section id="tour" class="card" style="margin-top:18px;">
-    <h2>Tour</h2>
-    <p>A quick look at the app — and the moments it’s built for.</p>
-
-    <!-- 1) SCREENSHOTS -->
-    <div class="subsection" id="screenshots">
-      <div class="subhead">
-        <h3>Screenshots</h3>
-        <p class="hint">A visual tour of DeerCamp’s core screens. Click any image to preview full size.</p>
-      </div>
-
-      <div class="gallery-grid">
-        <button class="tile" type="button"
-          data-title="Home"
-          data-src="home.png"
-          aria-label="Preview Home screenshot">
-          <img src="home.png" alt="Home screen screenshot">
-          <div class="meta">
-            <p class="title">Home</p>
-            <p class="desc">Entry point into your camp</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Memories Feed"
-          data-src="memories-feed.png"
-          aria-label="Preview Memories Feed screenshot">
-          <img src="memories-feed.png" alt="Memories Feed screenshot">
-          <div class="meta">
-            <p class="title">Memories Feed</p>
-            <p class="desc">Scrollable list of moments</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Memory Detail"
-          data-src="memory-detail.png"
-          aria-label="Preview Memory Detail screenshot">
-          <img src="memory-detail.png" alt="Memory Detail screenshot">
-          <div class="meta">
-            <p class="title">Memory Detail</p>
-            <p class="desc">Single post with comments</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Add Memory"
-          data-src="add-memory.png"
-          aria-label="Preview Add Memory screenshot">
-          <img src="add-memory.png" alt="Add Memory screenshot">
-          <div class="meta">
-            <p class="title">Add Memory</p>
-            <p class="desc">Text, photo, or voice</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Comments"
-          data-src="comments.png"
-          aria-label="Preview Comments screenshot">
-          <img src="comments.png" alt="Comments screenshot">
-          <div class="meta">
-            <p class="title">Comments</p>
-            <p class="desc">Conversation on a memory</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Profile"
-          data-src="profile.png"
-          aria-label="Preview Profile screenshot">
-          <img src="profile.png" alt="Profile screenshot">
-          <div class="meta">
-            <p class="title">Profile</p>
-            <p class="desc">Account &amp; nickname</p>
-          </div>
-        </button>
-      </div>
-    </div>
-
-    <div class="divider-line"></div>
-
-    <!-- 2) CAMPCARDS -->
-    <div class="subsection" id="campcards">
-      <div class="subhead">
-        <h3>CampCards</h3>
-        <p class="hint">Five sample moments (text / photo / voice) — a feel for how memories show up in your camp.</p>
-      </div>
-
-      <div class="gallery-grid">
-        <button class="tile" type="button"
-          data-title="Opening Morning"
-          data-src="opening-morning.png"
-          aria-label="Preview Opening Morning CampCard">
-          <img src="opening-morning.png" alt="Opening Morning CampCard">
-          <div class="meta">
-            <p class="title">Opening Morning</p>
-            <p class="desc">Photo moment</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="First Snow"
-          data-src="first-snow.png"
-          aria-label="Preview First Snow CampCard">
-          <img src="first-snow.png" alt="First Snow CampCard">
-          <div class="meta">
-            <p class="title">First Snow</p>
-            <p class="desc">Photo moment</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="First Coffee"
-          data-src="first-coffee.png"
-          aria-label="Preview First Coffee CampCard">
-          <img src="first-coffee.png" alt="First Coffee CampCard">
-          <div class="meta">
-            <p class="title">First Coffee</p>
-            <p class="desc">Voice or text moment</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Grandma’s Kitchen"
-          data-src="grandmas-kitchen.png"
-          aria-label="Preview Grandma’s Kitchen CampCard">
-          <img src="grandmas-kitchen.png" alt="Grandma’s Kitchen CampCard">
-          <div class="meta">
-            <p class="title">Grandma’s Kitchen</p>
-            <p class="desc">Story moment</p>
-          </div>
-        </button>
-
-        <button class="tile" type="button"
-          data-title="Packers & Burgers"
-          data-src="packers-burgers.png"
-          aria-label="Preview Packers & Burgers CampCard">
-          <img src="packers-burgers.png" alt="Packers & Burgers CampCard">
-          <div class="meta">
-            <p class="title">Packers &amp; Burgers</p>
-            <p class="desc">Photo moment</p>
-          </div>
-        </button>
-      </div>
-    </div>
-  </section>
-
-  <section id="what-is-a-camp" class="card" style="margin-top:18px;">
-    <h2>What is a Camp?</h2>
-    <p>A Camp is a private space for a small group — family, friends, or a shared tradition — to collect memories over time.</p>
-  </section>
-
-  <section id="get-the-app" class="card" style="margin-top:18px;">
-    <h2>Get the App</h2>
-    <p>Android first. iOS coming later.</p>
-  </section>
-
-</main>
-
-<footer>© 2026 DeerCamp</footer>
-
-<!-- Lightbox Modal -->
-<div class="modal" id="imgModal" aria-hidden="true">
-  <div class="modal-inner" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="modal-topbar">
-      <div class="modal-title" id="modalTitle">Preview</div>
-      <button class="modal-close" type="button" id="modalClose" aria-label="Close preview">Close ✕</button>
-    </div>
-    <div class="modal-body">
-      <img id="modalImg" alt="">
-    </div>
-  </div>
-</div>
-
-<script>
-  (function () {
-    const modal = document.getElementById('imgModal');
-    const modalImg = document.getElementById('modalImg');
-    const modalTitle = document.getElementById('modalTitle');
-    const closeBtn = document.getElementById('modalClose');
-
-    let lastFocusedEl = null;
-
-    function openModal(src, title) {
-      lastFocusedEl = document.activeElement;
-
-      modal.classList.add('open');
-      modal.setAttribute('aria-hidden', 'false');
-
-      // Cache-bust lightly in case Cloudflare holds onto an older image.
-      const cacheBustedSrc = src + (src.includes('?') ? '&' : '?') + 'v=' + Date.now();
-
-      modalImg.src = cacheBustedSrc;
-      modalImg.alt = title ? (title + ' preview') : 'Preview';
-      modalTitle.textContent = title || 'Preview';
-
-      closeBtn.focus();
-      document.body.style.overflow = 'hidden';
-    }
-
-    function closeModal() {
-      modal.classList.remove('open');
-      modal.setAttribute('aria-hidden', 'true');
-
-      modalImg.removeAttribute('src');
-      document.body.style.overflow = '';
-
-      if (lastFocusedEl && typeof lastFocusedEl.focus === 'function') {
-        lastFocusedEl.focus();
+      html,
+      body {
+        height: 100%;
       }
-    }
 
-    // Click handlers for any clickable tile
-    document.querySelectorAll('.tile').forEach((tile) => {
-      tile.addEventListener('click', () => {
-        const src = tile.getAttribute('data-src');
-        const title = tile.getAttribute('data-title');
-        if (src) openModal(src, title);
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+          Arial, "Apple Color Emoji", "Segoe UI Emoji";
+        color: var(--ink);
+        background: radial-gradient(
+            1200px 500px at 30% 10%,
+            rgba(255, 255, 255, 0.65),
+            transparent 55%
+          ),
+          linear-gradient(180deg, var(--bg1), var(--bg2));
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .wrap {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 18px 18px 70px;
+      }
+
+      /* Header */
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        backdrop-filter: blur(10px);
+        background: rgba(246, 239, 230, 0.75);
+        border-bottom: 1px solid rgba(31, 42, 55, 0.06);
+      }
+
+      .topbar {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 12px 18px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 750;
+        letter-spacing: -0.2px;
+      }
+
+      .brand-badge {
+        width: 28px;
+        height: 28px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #eedcc3, #d8c3a2);
+        box-shadow: 0 6px 18px rgba(30, 25, 18, 0.12);
+        border: 1px solid rgba(31, 42, 55, 0.12);
+      }
+
+      .cta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .btn {
+        border: 1px solid rgba(31, 42, 55, 0.15);
+        background: rgba(255, 255, 255, 0.75);
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-weight: 650;
+        font-size: 14px;
+        cursor: pointer;
+        transition: transform 0.06s ease, background 0.2s ease;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.92);
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      /* Hero */
+      .hero {
+        margin-top: 18px;
+        border-radius: var(--radius);
+        overflow: hidden;
+        box-shadow: var(--shadow);
+        border: 1px solid rgba(31, 42, 55, 0.08);
+        background: #fff;
+      }
+
+      .heroArt {
+        position: relative;
+        min-height: 420px;
+        background-image: url("DeerCampHero.png");
+        background-size: cover;
+        /* IMPORTANT: show cabin + fire pit */
+        background-position: center 72%;
+      }
+
+      /* subtle bottom fade like your "Better!" screenshot */
+      .heroArt::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0) 50%,
+          rgba(246, 239, 230, 0.95) 100%
+        );
+        pointer-events: none;
+      }
+
+      .heroOverlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        pointer-events: none;
+      }
+
+      .heroTitle {
+        margin-top: 44px;
+        font-family: ui-serif, Georgia, "Times New Roman", serif;
+        font-weight: 700;
+        font-size: clamp(42px, 6vw, 74px);
+        letter-spacing: -0.4px;
+        color: rgba(255, 255, 255, 0.9);
+        text-shadow: 0 10px 34px rgba(0, 0, 0, 0.35);
+        pointer-events: none;
+        padding: 0 18px;
+        text-align: center;
+      }
+
+      /* Combined “pill” card below hero art */
+      .heroCardRow {
+        padding: 18px 18px 18px;
+        background: linear-gradient(180deg, rgba(246, 239, 230, 0.96), #f3eadb);
+      }
+
+      .heroPill {
+        background: var(--card2);
+        border: 1px solid rgba(31, 42, 55, 0.12);
+        border-radius: 22px;
+        box-shadow: 0 20px 60px rgba(20, 25, 30, 0.08);
+        padding: 22px 22px;
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 18px;
+        align-items: center;
+      }
+
+      .kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 13px;
+        font-weight: 650;
+        color: rgba(255, 255, 255, 0.9);
+        background: rgba(0, 0, 0, 0.38);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 8px 12px;
+        border-radius: 999px;
+        margin-bottom: 10px;
+      }
+
+      .heroHeadline {
+        margin: 0 0 10px;
+        font-size: clamp(28px, 3.2vw, 44px);
+        letter-spacing: -0.4px;
+        line-height: 1.08;
+      }
+
+      .heroCopy {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 16px;
+      }
+
+      .heroActions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        margin-top: 14px;
+      }
+
+      .btnPrimary {
+        border: 1px solid rgba(31, 42, 55, 0.15);
+        background: #eef3ee;
+        padding: 11px 16px;
+        border-radius: 999px;
+        font-weight: 750;
+        cursor: pointer;
+      }
+
+      .subtle {
+        color: rgba(31, 42, 55, 0.58);
+        font-size: 13px;
+      }
+
+      .sideNote {
+        border-left: 1px solid rgba(31, 42, 55, 0.12);
+        padding-left: 16px;
+      }
+
+      .sideTitle {
+        font-weight: 800;
+        letter-spacing: -0.2px;
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+
+      .sideCopy {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.5;
+        font-size: 14px;
+      }
+
+      /* Jump links row (UNDER hero, per your preference) */
+      .jumpLinks {
+        margin-top: 14px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .pillLink {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 42, 55, 0.12);
+        background: rgba(255, 255, 255, 0.7);
+        font-weight: 650;
+        font-size: 13px;
+        transition: background 0.2s ease, transform 0.06s ease;
+      }
+
+      .pillLink:hover {
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .pillLink:active {
+        transform: translateY(1px);
+      }
+
+      /* Sections */
+      section {
+        margin-top: 22px;
+      }
+
+      .sectionCard {
+        background: var(--card);
+        border: 1px solid rgba(31, 42, 55, 0.1);
+        border-radius: var(--radius2);
+        box-shadow: 0 18px 55px rgba(20, 25, 30, 0.06);
+        padding: 18px 18px;
+      }
+
+      .sectionHeader {
+        display: flex;
+        align-items: baseline;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .sectionHeader h2 {
+        margin: 0;
+        font-size: 20px;
+        letter-spacing: -0.2px;
+      }
+
+      .sectionHeader .desc {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .sectionHeader .desc::before {
+        content: "—";
+        margin: 0 8px 0 2px;
+        color: rgba(31, 42, 55, 0.35);
+      }
+
+      .bullets {
+        margin: 12px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      /* Screenshots grid */
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+      }
+
+      .shot {
+        border-radius: 16px;
+        overflow: hidden;
+        border: 1px solid rgba(31, 42, 55, 0.12);
+        background: rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        transition: transform 0.08s ease, box-shadow 0.2s ease;
+      }
+
+      .shot:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 55px rgba(20, 25, 30, 0.12);
+      }
+
+      .shotImg {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        display: block;
+        background: #fff;
+      }
+
+      .shotMeta {
+        padding: 10px 12px 12px;
+      }
+
+      .shotTitle {
+        font-weight: 800;
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: -0.1px;
+      }
+
+      .shotSub {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      /* Modal preview */
+      .modal {
+        position: fixed;
+        inset: 0;
+        z-index: 99;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(10, 12, 14, 0.62);
+        backdrop-filter: blur(6px);
+      }
+
+      .modal[aria-hidden="false"] {
+        display: flex;
+      }
+
+      .modalInner {
+        width: min(1100px, 96vw);
+        max-height: 90vh;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        border-radius: 18px;
+        box-shadow: 0 30px 120px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 1fr;
+      }
+
+      .modalBar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid rgba(31, 42, 55, 0.12);
+      }
+
+      .modalTitle {
+        font-weight: 800;
+        letter-spacing: -0.2px;
+        font-size: 14px;
+      }
+
+      .modalClose {
+        border: 1px solid rgba(31, 42, 55, 0.14);
+        background: rgba(255, 255, 255, 0.86);
+        padding: 8px 10px;
+        border-radius: 999px;
+        cursor: pointer;
+        font-weight: 750;
+      }
+
+      .modalBody {
+        overflow: auto;
+        padding: 12px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
+      .modalBody img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 14px;
+        border: 1px solid rgba(31, 42, 55, 0.12);
+        background: #fff;
+      }
+
+      /* CampCards embed */
+      .embed {
+        border: 1px solid rgba(31, 42, 55, 0.12);
+        border-radius: 16px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.9);
+      }
+
+      .embed iframe {
+        width: 100%;
+        height: 980px; /* roomy on desktop; scroll inside if needed */
+        border: 0;
+        display: block;
+        background: transparent;
+      }
+
+      footer {
+        text-align: center;
+        padding: 20px 0 0;
+        color: rgba(31, 42, 55, 0.55);
+        font-size: 13px;
+      }
+
+      /* Responsive */
+      @media (max-width: 980px) {
+        .heroPill {
+          grid-template-columns: 1fr;
+        }
+        .sideNote {
+          border-left: none;
+          padding-left: 0;
+          border-top: 1px solid rgba(31, 42, 55, 0.12);
+          padding-top: 14px;
+        }
+        .grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .embed iframe {
+          height: 1100px;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .heroArt {
+          min-height: 320px;
+          background-position: center 74%;
+        }
+        .heroTitle {
+          margin-top: 34px;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .shotImg {
+          aspect-ratio: 16 / 10;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <div class="topbar">
+        <div class="brand" aria-label="DeerCamp">
+          <div class="brand-badge" aria-hidden="true"></div>
+          <div>DeerCamp</div>
+        </div>
+
+        <!-- No duplicate “Get the App” label; just the button -->
+        <div class="cta">
+          <a class="btn" href="#get-the-app">Get the App</a>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- HERO -->
+      <div class="hero">
+        <div class="heroArt" role="img" aria-label="DeerCamp hero image">
+          <div class="heroOverlay" aria-hidden="true">
+            <div class="heroTitle">DeerCamp</div>
+          </div>
+        </div>
+
+        <!-- Combined into ONE pill/card -->
+        <div class="heroCardRow">
+          <div class="heroPill">
+            <div>
+              <div class="kicker">Private • Calm • Built for small groups</div>
+              <h1 class="heroHeadline">
+                A private place to remember the moments that matter.
+              </h1>
+              <p class="heroCopy">
+                DeerCamp is a calm, private space for capturing memories with the
+                people you choose — using words, photos, and voice.
+              </p>
+
+              <div class="heroActions">
+                <a class="btnPrimary" href="#get-the-app">Get DeerCamp for Android</a>
+                <span class="subtle">iOS coming later</span>
+              </div>
+            </div>
+
+            <div class="sideNote">
+              <p class="sideTitle">Built for memories, not feeds.</p>
+              <p class="sideCopy">
+                No algorithms. No ads. Just a shared place to remember what
+                mattered.
+              </p>
+            </div>
+          </div>
+
+          <!-- Links UNDER the hero area (matches scroll behavior) -->
+          <div class="jumpLinks" aria-label="Jump links">
+            <a class="pillLink" href="#what-is-a-camp">What is a Camp?</a>
+            <!-- Privacy on homepage is only a short section; full policy is external -->
+            <a class="pillLink" href="#privacy-trust">Privacy &amp; Trust (summary)</a>
+            <a class="pillLink" href="#screenshots">Screenshots</a>
+            <a class="pillLink" href="#campcards">CampCards</a>
+            <a class="pillLink" href="#get-the-app">Get the App</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- What is a Camp (homepage section is fine) -->
+      <section id="what-is-a-camp" class="sectionCard">
+        <div class="sectionHeader">
+          <h2>What is a Camp?</h2>
+          <p class="desc">
+            A small private group — family, friends, or a shared tradition.
+          </p>
+        </div>
+        <p style="margin: 0; color: var(--muted); line-height: 1.6">
+          A Camp is a private space for a small group to collect memories over
+          time. Think: one place for the moments you’d tell around a fire — not a
+          public timeline.
+        </p>
+        <ul class="bullets">
+          <li><b>Small groups:</b> meant for people who know each other.</li>
+          <li><b>Simple posts:</b> text, photos, and voice notes.</li>
+          <li><b>Continuity:</b> memories stay organized and easy to return to.</li>
+        </ul>
+      </section>
+
+      <!-- Privacy & Trust (homepage summary only) -->
+      <section id="privacy-trust" class="sectionCard">
+        <div class="sectionHeader">
+          <h2>Privacy &amp; Trust</h2>
+          <p class="desc">
+            Summary here; full policy lives on the privacy subdomain.
+          </p>
+        </div>
+
+        <p style="margin: 0; color: var(--muted); line-height: 1.6">
+          DeerCamp is designed to feel calm and private. No public feeds. No
+          engagement metrics. No pressure to perform.
+        </p>
+
+        <ul class="bullets">
+          <li><b>Private by default:</b> nothing is public unless you choose.</li>
+          <li><b>No ads:</b> no tracking for advertising purposes.</li>
+          <li><b>Clarity:</b> simple settings, clear labels, quiet UI.</li>
+        </ul>
+
+        <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap">
+          <!-- External full policy -->
+          <a class="pillLink" href="https://privacy.ourdeercamp.com/" target="_blank" rel="noopener">
+            Read the full Privacy Policy
+          </a>
+        </div>
+      </section>
+
+      <!-- Screenshots (click to preview full size) -->
+      <section id="screenshots" class="sectionCard">
+        <div class="sectionHeader">
+          <h2>Screenshots</h2>
+          <p class="desc">
+            A visual tour of DeerCamp’s core screens. Click any image to preview full size.
+          </p>
+        </div>
+
+        <div class="grid" id="shotsGrid">
+          <!-- Uses your repo filenames (per your screenshot list). Adjust titles/subtitles freely. -->
+          <div class="shot" data-full="home.png" data-title="Home">
+            <img class="shotImg" src="home.png" alt="Home screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Home</p>
+              <p class="shotSub">Entry point into your camp</p>
+            </div>
+          </div>
+
+          <div class="shot" data-full="memories-feed.png" data-title="Memories Feed">
+            <img class="shotImg" src="memories-feed.png" alt="Memories Feed screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Memories Feed</p>
+              <p class="shotSub">Scrollable list of moments</p>
+            </div>
+          </div>
+
+          <div class="shot" data-full="memory-detail.png" data-title="Memory Detail">
+            <img class="shotImg" src="memory-detail.png" alt="Memory Detail screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Memory Detail</p>
+              <p class="shotSub">Single post with comments</p>
+            </div>
+          </div>
+
+          <div class="shot" data-full="add-memory.png" data-title="Add Memory">
+            <img class="shotImg" src="add-memory.png" alt="Add Memory screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Add Memory</p>
+              <p class="shotSub">Text, photo, or voice</p>
+            </div>
+          </div>
+
+          <div class="shot" data-full="comments.png" data-title="Comments">
+            <img class="shotImg" src="comments.png" alt="Comments screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Comments</p>
+              <p class="shotSub">Conversation on a memory</p>
+            </div>
+          </div>
+
+          <div class="shot" data-full="profile.png" data-title="Profile">
+            <img class="shotImg" src="profile.png" alt="Profile screenshot" />
+            <div class="shotMeta">
+              <p class="shotTitle">Profile</p>
+              <p class="shotSub">Account &amp; nickname</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CampCards (original 5) -->
+      <section id="campcards" class="sectionCard">
+        <div class="sectionHeader">
+          <h2>CampCards</h2>
+          <p class="desc">
+            Five sample moments (text / photo / voice) — a feel for how memories show up in your camp.
+          </p>
+        </div>
+
+        <!-- Keep your existing working CampCards implementation intact by embedding campcards.html -->
+        <div class="embed">
+          <iframe
+            src="campcards.html"
+            title="CampCards"
+            loading="lazy"
+          ></iframe>
+        </div>
+
+        <p style="margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5">
+          Tip: If you want CampCards to open in a new tab instead, we can swap this embed for a button/link.
+        </p>
+      </section>
+
+      <!-- Get the App -->
+      <section id="get-the-app" class="sectionCard">
+        <div class="sectionHeader">
+          <h2>Get the App</h2>
+          <p class="desc">Android first. iOS coming later.</p>
+        </div>
+
+        <p style="margin: 0; color: var(--muted); line-height: 1.6">
+          DeerCamp is currently Android-first. When iOS is ready, we’ll post it here.
+        </p>
+
+        <div style="margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap">
+          <a class="btnPrimary" href="#" onclick="alert('Replace this link with your Play Store URL when ready.'); return false;">
+            Get DeerCamp for Android
+          </a>
+          <span class="subtle">iOS coming later</span>
+        </div>
+      </section>
+
+      <footer>© 2026 DeerCamp</footer>
+    </main>
+
+    <!-- Modal -->
+    <div class="modal" id="modal" aria-hidden="true" role="dialog" aria-modal="true">
+      <div class="modalInner" role="document">
+        <div class="modalBar">
+          <div class="modalTitle" id="modalTitle">Preview</div>
+          <button class="modalClose" id="modalClose" type="button">Close</button>
+        </div>
+        <div class="modalBody">
+          <img id="modalImg" src="" alt="" />
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Screenshot click-to-preview modal
+      const modal = document.getElementById("modal");
+      const modalImg = document.getElementById("modalImg");
+      const modalTitle = document.getElementById("modalTitle");
+      const modalClose = document.getElementById("modalClose");
+      const shotsGrid = document.getElementById("shotsGrid");
+
+      function openModal(src, title) {
+        modalImg.src = src;
+        modalImg.alt = title ? `${title} full-size preview` : "Full-size preview";
+        modalTitle.textContent = title || "Preview";
+        modal.setAttribute("aria-hidden", "false");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeModal() {
+        modal.setAttribute("aria-hidden", "true");
+        modalImg.src = "";
+        document.body.style.overflow = "";
+      }
+
+      shotsGrid.addEventListener("click", (e) => {
+        const card = e.target.closest(".shot");
+        if (!card) return;
+        const src = card.getAttribute("data-full");
+        const title = card.getAttribute("data-title") || "Preview";
+        openModal(src, title);
       });
-    });
 
-    // Close interactions
-    closeBtn.addEventListener('click', closeModal);
+      modalClose.addEventListener("click", closeModal);
 
-    // Click outside dialog closes
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) closeModal();
-    });
+      modal.addEventListener("click", (e) => {
+        // click outside the inner container closes
+        if (e.target === modal) closeModal();
+      });
 
-    // Esc closes
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.classList.contains('open')) closeModal();
-    });
-  })();
-</script>
-</body>
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && modal.getAttribute("aria-hidden") === "false") {
+          closeModal();
+        }
+      });
+    </script>
+  </body>
 </html>
