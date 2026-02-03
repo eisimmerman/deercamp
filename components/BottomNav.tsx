@@ -1,27 +1,71 @@
-import { useRouter } from "expo-router";
+// DeerCamp/components/BottomNav.tsx
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-export const BOTTOM_NAV_BASE_HEIGHT = 86; // without safe-area
+// Glove-friendly target: screens can use this for bottom padding if needed
+export const BOTTOM_NAV_BASE_HEIGHT = 96;
 
-export default function BottomNav() {
-  const router = useRouter();
+type TabBarProps = {
+  state: any;
+  descriptors: any;
+  navigation: any;
+};
+
+// Allow BottomNav to be used accidentally without props in screens.
+// In that case, render nothing (prevents duplicate nav + fixes TS).
+type Props = Partial<TabBarProps>;
+
+export default function BottomNav({ state, descriptors, navigation }: Props) {
   const insets = useSafeAreaInsets();
+
+  // If used without TabBar props (e.g., <BottomNav /> inside a screen),
+  // render nothing. The real nav should come from Tabs tabBar.
+  if (!state || !descriptors || !navigation) return null;
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       <View style={styles.row}>
-        <Pressable
-          style={[styles.btn, styles.btnLight]}
-          onPress={() => router.replace("/" as any)}
-        >
-          <Text style={styles.btnTextDark}>Home</Text>
-        </Pressable>
+        {state.routes.map((route: any, index: number) => {
+          const { options } = descriptors[route.key];
+          const label = options.title ?? route.name;
+          const isFocused = state.index === index;
 
-        <Pressable style={[styles.btn, styles.btnLight]} onPress={() => router.back()}>
-          <Text style={styles.btnTextDark}>Back</Text>
-        </Pressable>
+          const onPress = () => {
+            const event = navigation.emit({
+              type: "tabPress",
+              target: route.key,
+              canPreventDefault: true
+            });
+
+            if (!isFocused && !event.defaultPrevented) {
+              navigation.navigate(route.name);
+            }
+          };
+
+          const onLongPress = () => {
+            navigation.emit({ type: "tabLongPress", target: route.key });
+          };
+
+          return (
+            <Pressable
+              key={route.key}
+              accessibilityRole="button"
+              accessibilityState={isFocused ? { selected: true } : {}}
+              onPress={onPress}
+              onLongPress={onLongPress}
+              style={({ pressed }) => [
+                styles.btn,
+                isFocused ? styles.btnActive : styles.btnInactive,
+                pressed ? styles.btnPressed : null
+              ]}
+            >
+              <Text style={[styles.text, isFocused ? styles.textActive : styles.textInactive]}>
+                {String(label).toUpperCase()}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
     </View>
   );
@@ -29,37 +73,39 @@ export default function BottomNav() {
 
 const styles = StyleSheet.create({
   wrap: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: "#fff",
     borderTopWidth: 1,
-    borderTopColor: "#eaeaea",
-    paddingTop: 10,
+    borderTopColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "#000",
     paddingHorizontal: 14,
+    paddingTop: 12
   },
-  row: {
-    flexDirection: "row",
-    gap: 12,
-    alignItems: "center",
-    justifyContent: "center", // ✅ center the 2 buttons
-  },
+
+  row: { flexDirection: "row", gap: 12 },
+
   btn: {
-    height: 64,
+    flex: 1,
+    minHeight: 62, // glove-friendly
     borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
-    width: 160, // ✅ fixed width so Home/Back sit centered as a pair
+    borderWidth: 2
   },
-  btnLight: {
+
+  btnActive: {
     backgroundColor: "#fff",
-    borderWidth: 3,
-    borderColor: "#111",
+    borderColor: "#fff"
   },
-  btnTextDark: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#111",
+
+  btnInactive: {
+    backgroundColor: "transparent",
+    borderColor: "rgba(255,255,255,0.65)"
   },
+
+  btnPressed: {
+    opacity: 0.9
+  },
+
+  text: { fontSize: 18, fontWeight: "900" },
+  textActive: { color: "#111" },
+  textInactive: { color: "#fff" }
 });

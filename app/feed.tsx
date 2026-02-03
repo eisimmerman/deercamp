@@ -1,4 +1,4 @@
-// DeerCamp/app/(tabs)/feed.tsx
+// DeerCamp/app/feed.tsx
 // Feed (Camp Memories) screen with photo preview + inline voice pill playback.
 // Polished: stops audio on blur/navigation and before opening details.
 
@@ -14,8 +14,11 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+import BottomNav, { BOTTOM_NAV_BASE_HEIGHT } from "../components/BottomNav";
 
 type Visibility = "public" | "camp";
 
@@ -23,8 +26,8 @@ type Entry = {
   id: string;
   title?: string;
   details?: string;
-  visibility?: Visibility | string; // older values tolerated
-  createdAt?: any; // Firestore Timestamp
+  visibility?: Visibility | string;
+  createdAt?: any;
   photoUrl?: string | null;
   voiceUrl?: string | null;
   voiceDurationMs?: number | null;
@@ -35,7 +38,6 @@ function visibilityLabel(v?: string) {
   const normalized = (v || "").toLowerCase().trim();
   if (normalized === "public") return "Public";
   if (normalized === "camp") return "Camp";
-  // Back-compat / unexpected values:
   if (normalized === "private") return "Camp";
   return "Camp";
 }
@@ -49,10 +51,11 @@ function formatDuration(ms?: number | null) {
 }
 
 export default function FeedScreen() {
+  const insets = useSafeAreaInsets();
+
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Audio (single instance for the feed)
   const soundRef = useRef<Audio.Sound | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -60,14 +63,13 @@ export default function FeedScreen() {
   const uid = auth().currentUser?.uid;
 
   useEffect(() => {
-    // Android audio mode (safe defaults)
     Audio.setAudioModeAsync({
       allowsRecordingIOS: false,
       playsInSilentModeIOS: true,
       staysActiveInBackground: false,
       shouldDuckAndroid: true,
       interruptionModeAndroid: 1,
-      interruptionModeIOS: 1,
+      interruptionModeIOS: 1
     }).catch(() => {});
   }, []);
 
@@ -76,7 +78,7 @@ export default function FeedScreen() {
       if (soundRef.current) {
         try {
           const st = await soundRef.current.getStatusAsync();
-          if (st.isLoaded && st.isPlaying) {
+          if ((st as any).isLoaded && (st as any).isPlaying) {
             await soundRef.current.stopAsync();
           }
         } catch {}
@@ -85,14 +87,12 @@ export default function FeedScreen() {
         soundRef.current = null;
       }
     } catch {
-      // ignore
     } finally {
       setPlayingId(null);
       setIsPlaying(false);
     }
   }, []);
 
-  // ✅ Strong cleanup: when feed loses focus (tab switch / navigate)
   useFocusEffect(
     useCallback(() => {
       return () => {
@@ -121,7 +121,7 @@ export default function FeedScreen() {
               photoUrl: data.photoUrl ?? null,
               voiceUrl: data.voiceUrl ?? null,
               voiceDurationMs: data.voiceDurationMs ?? null,
-              authorUid: data.authorUid ?? data.uid ?? undefined,
+              authorUid: data.authorUid ?? data.uid ?? undefined
             };
           });
 
@@ -141,10 +141,9 @@ export default function FeedScreen() {
   const playOrToggle = async (entry: Entry) => {
     if (!entry.voiceUrl) return;
 
-    // If tapping the same entry: toggle pause/play
     if (playingId === entry.id && soundRef.current) {
       try {
-        const status = await soundRef.current.getStatusAsync();
+        const status = (await soundRef.current.getStatusAsync()) as any;
         if (!status.isLoaded) return;
 
         if (status.isPlaying) {
@@ -161,7 +160,6 @@ export default function FeedScreen() {
       }
     }
 
-    // New entry: stop any current audio first
     await stopAndUnload();
 
     try {
@@ -169,12 +167,9 @@ export default function FeedScreen() {
         { uri: entry.voiceUrl },
         { shouldPlay: true, isLooping: false },
         (status) => {
-          if (!status.isLoaded) return;
-
-          // If finished, reset UI + prevent looping / repeated playback
-          if (status.didJustFinish) {
-            void stopAndUnload();
-          }
+          const s = status as any;
+          if (!s.isLoaded) return;
+          if (s.didJustFinish) void stopAndUnload();
         }
       );
 
@@ -188,7 +183,6 @@ export default function FeedScreen() {
   };
 
   const openDetails = async (id: string) => {
-    // ✅ Prevent overlap: stop feed audio before navigating
     await stopAndUnload();
     router.push(`/entry/${id}` as any);
   };
@@ -210,7 +204,7 @@ export default function FeedScreen() {
           <View
             style={[
               styles.pill,
-              pillText === "Public" ? styles.pillPublic : styles.pillCamp,
+              pillText === "Public" ? styles.pillPublic : styles.pillCamp
             ]}
           >
             <Text style={styles.pillText}>{pillText}</Text>
@@ -231,8 +225,7 @@ export default function FeedScreen() {
           <Pressable
             style={styles.voicePill}
             onPress={(e) => {
-              // prevent card navigation
-              // @ts-ignore - RN event supports stopPropagation
+              // @ts-ignore
               e?.stopPropagation?.();
               void playOrToggle(item);
             }}
@@ -264,7 +257,10 @@ export default function FeedScreen() {
         data={entries}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: BOTTOM_NAV_BASE_HEIGHT + Math.max(insets.bottom, 10) + 18
+        }}
         ListEmptyComponent={
           <View style={styles.center}>
             <Text style={styles.emptyTitle}>No memories yet</Text>
@@ -272,20 +268,21 @@ export default function FeedScreen() {
           </View>
         }
       />
+
+      <BottomNav />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0B0E12" },
-  listContent: { padding: 16, paddingBottom: 28 },
 
   center: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#0B0E12",
-    padding: 16,
+    padding: 16
   },
   loadingText: { marginTop: 10, color: "rgba(255,255,255,0.75)" },
 
@@ -293,7 +290,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 6,
     color: "rgba(255,255,255,0.75)",
-    textAlign: "center",
+    textAlign: "center"
   },
 
   card: {
@@ -302,14 +299,14 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(255,255,255,0.08)"
   },
 
   cardTopRow: {
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 10
   },
 
   title: {
@@ -317,22 +314,22 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "800",
-    lineHeight: 20,
+    lineHeight: 20
   },
 
   pill: {
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    borderWidth: 1,
+    borderWidth: 1
   },
   pillPublic: {
     backgroundColor: "rgba(46, 204, 113, 0.12)",
-    borderColor: "rgba(46, 204, 113, 0.35)",
+    borderColor: "rgba(46, 204, 113, 0.35)"
   },
   pillCamp: {
     backgroundColor: "rgba(52, 152, 219, 0.12)",
-    borderColor: "rgba(52, 152, 219, 0.35)",
+    borderColor: "rgba(52, 152, 219, 0.35)"
   },
   pillText: { color: "white", fontSize: 12, fontWeight: "700" },
 
@@ -341,14 +338,14 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 12,
     marginTop: 10,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(255,255,255,0.06)"
   },
 
   details: {
     marginTop: 10,
     color: "rgba(255,255,255,0.78)",
     fontSize: 13,
-    lineHeight: 18,
+    lineHeight: 18
   },
 
   voicePill: {
@@ -359,11 +356,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.08)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
-    alignSelf: "flex-start",
+    alignSelf: "flex-start"
   },
   voicePillText: {
     color: "white",
     fontSize: 13,
-    fontWeight: "800",
-  },
+    fontWeight: "800"
+  }
 });

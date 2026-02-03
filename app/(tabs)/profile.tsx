@@ -1,161 +1,84 @@
 import auth from "@react-native-firebase/auth";
 import { useFocusEffect, useRouter } from "expo-router";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import AppButton from "@/components/AppButton";
 import { BOTTOM_NAV_BASE_HEIGHT } from "@/components/BottomNav";
-import { qaClear, qaGetNickname, qaIsSignedIn } from "@/lib/qaSession";
-
-function getIsQaMode() {
-  const envVal = (process.env.EXPO_PUBLIC_QA || "").toString().trim();
-  return __DEV__ || envVal === "1" || envVal.toLowerCase() === "true";
-}
+import { getNickname } from "@/lib/localPrefs";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const isQaMode = useMemo(() => getIsQaMode(), []);
-  const [firebaseEmail, setFirebaseEmail] = useState<string | null>(
-    auth().currentUser?.email ?? null
-  );
-  const [hasFirebaseUser, setHasFirebaseUser] = useState<boolean>(
-    !!auth().currentUser
-  );
-
-  const [qaSignedIn, setQaSignedIn] = useState(false);
-  const [qaNickname, setQaNickname] = useState<string | null>(null);
-
   const bottomPad = BOTTOM_NAV_BASE_HEIGHT + insets.bottom + 12;
 
-  const refreshSessionState = useCallback(async () => {
-    // Firebase state
-    const u = auth().currentUser;
-    setHasFirebaseUser(!!u);
-    setFirebaseEmail(u?.email ?? null);
+  const [emailOrStatus, setEmailOrStatus] = useState<string>("Signed out");
+  const [nickname, setNicknameState] = useState<string | null>(null);
 
-    // QA state
+  const refresh = useCallback(async () => {
+    const u = auth().currentUser;
+
+    if (!u) setEmailOrStatus("Not signed in");
+    else if (u.isAnonymous) setEmailOrStatus("Signed in (anonymous)");
+    else setEmailOrStatus(u.email ? `Signed in as ${u.email}` : "Signed in");
+
     try {
-      const signedIn = await qaIsSignedIn();
-      const nick = await qaGetNickname();
-      setQaSignedIn(signedIn);
-      setQaNickname(nick);
+      const n = await getNickname();
+      setNicknameState(n);
     } catch {
-      // If SecureStore isn't available (old dev client), keep QA state false/null
-      setQaSignedIn(false);
-      setQaNickname(null);
+      setNicknameState(null);
     }
   }, []);
 
-  // ✅ Refresh every time Profile is shown again (fixes the "set nickname then it disappears" loop)
   useFocusEffect(
     useCallback(() => {
-      refreshSessionState();
-
-      const unsub = auth().onAuthStateChanged((u) => {
-        setHasFirebaseUser(!!u);
-        setFirebaseEmail(u?.email ?? null);
-      });
-
+      refresh();
+      const unsub = auth().onAuthStateChanged(() => refresh());
       return () => unsub();
-    }, [refreshSessionState])
+    }, [refresh])
   );
-
-  const isActuallySignedIn = hasFirebaseUser || (isQaMode && qaSignedIn);
 
   const onPressSignOut = async () => {
     try {
-      if (auth().currentUser) {
-        await auth().signOut();
-      }
-      if (isQaMode) {
-        await qaClear();
-        setQaSignedIn(false);
-        setQaNickname(null);
-      }
-
+      await auth().signOut();
       Alert.alert("Signed out", "You have been signed out.");
-      router.replace("/sign-in");
+      router.replace("/(auth)/sign-in");
     } catch (e: any) {
       Alert.alert("Sign out failed", e?.message ?? "Unknown error");
     }
   };
 
-  const onPressResetQa = async () => {
-    try {
-      await qaClear();
-      setQaSignedIn(false);
-      setQaNickname(null);
-      Alert.alert("QA reset", "QA session cleared. Use Sign In → Continue to App (QA) again.");
-    } catch (e: any) {
-      Alert.alert("Reset failed", e?.message ?? "Unknown error");
-    }
-  };
-
   return (
     <View style={[styles.container, { paddingBottom: bottomPad }]}>
+      <Text style={styles.h1}>My Profile</Text>
+
       <AppButton
         label="← Back to Home"
-        onPress={() => router.replace("/")}
+        onPress={() => router.replace("/(tabs)")}
         secondary
         compact
         style={styles.backBtn}
       />
 
-      <Text style={styles.h1}>My Profile</Text>
-
       <View style={styles.section}>
         <Text style={styles.label}>Account</Text>
+        <Text style={styles.value}>{emailOrStatus}</Text>
 
-        {isActuallySignedIn ? (
-          <>
-            <Text style={styles.value}>
-              {hasFirebaseUser
-                ? `Signed in${firebaseEmail ? ` as ${firebaseEmail}` : ""}`
-                : "Signed in (QA mock)"}
-            </Text>
-
-            <View style={styles.row}>
-              <AppButton
-                label="Sign Out"
-                onPress={onPressSignOut}
-                secondary
-                compact
-                style={{ flex: 1 }}
-              />
-              {isQaMode && (
-                <AppButton
-                  label="Reset QA"
-                  onPress={onPressResetQa}
-                  compact
-                  style={{ flex: 1 }}
-                />
-              )}
-            </View>
-          </>
-        ) : (
-          <>
-            <Text style={styles.value}>
-              Not signed in{isQaMode ? " (QA build allows mock access)" : ""}.
-            </Text>
-
-            <AppButton
-              label="Sign In"
-              onPress={() => router.push("/sign-in")}
-              compact
-              style={styles.signInBtn}
-            />
-          </>
-        )}
+        <AppButton
+          label="Sign Out"
+          onPress={onPressSignOut}
+          secondary
+          compact
+          style={{ alignSelf: "flex-start" }}
+        />
       </View>
 
       <View style={styles.section}>
         <Text style={styles.label}>Nickname</Text>
 
         <Text style={styles.valueMuted}>
-          {qaNickname ? `Current: ${qaNickname}` : "No nickname set yet."}
+          {nickname ? `Current: ${nickname}` : "No nickname set yet."}
         </Text>
 
         <AppButton
@@ -170,10 +93,21 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  backBtn: { alignSelf: "flex-start", paddingHorizontal: 14 },
+  container: { flex: 1, padding: 16, backgroundColor: "#000" },
 
-  h1: { fontSize: 40, fontWeight: "900", marginTop: 14, marginBottom: 18 },
+  h1: {
+    fontSize: 40,
+    fontWeight: "900",
+    marginTop: 8,
+    marginBottom: 10,
+    color: "#fff",
+  },
+
+  backBtn: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
 
   section: {
     borderWidth: 2,
@@ -181,16 +115,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 14,
+    backgroundColor: "#0b0b0b",
   },
 
-  label: { fontSize: 18, fontWeight: "900", marginBottom: 8 },
-  value: { fontSize: 16, fontWeight: "700", marginBottom: 12 },
-  valueMuted: { fontSize: 14, color: "#777", marginBottom: 12 },
-
-  signInBtn: { alignSelf: "flex-start", paddingHorizontal: 18 },
-
-  row: {
-    flexDirection: "row",
-    gap: 12,
-  },
+  label: { fontSize: 18, fontWeight: "900", marginBottom: 8, color: "#fff" },
+  value: { fontSize: 16, fontWeight: "700", marginBottom: 12, color: "#ddd" },
+  valueMuted: { fontSize: 14, color: "#999", marginBottom: 12 },
 });

@@ -9,7 +9,6 @@ import "react-native-reanimated";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
-  // You can keep this, but we now explicitly include (auth) + (tabs) below.
   anchor: "(tabs)",
 };
 
@@ -32,16 +31,15 @@ export default function RootLayout() {
   useEffect(() => {
     if (!isReady) return;
 
-    // segments[0] is the top-level route group: "(tabs)" or "(auth)" (or undefined at startup)
     const inAuthGroup = segments[0] === "(auth)";
 
-    // QA-safe auth guard:
-    // - If NOT signed in, force to /sign-in
+    // ✅ Firebase-only guard:
+    // - If NOT signed in, force to /(auth)/sign-in
     // - If signed in, keep out of auth screens
     if (!isAuthed && !inAuthGroup) {
-      router.replace("/sign-in"); // NOTE: route groups are NOT in the URL
+      router.replace("/(auth)/sign-in");
     } else if (isAuthed && inAuthGroup) {
-      router.replace("/"); // goes to tabs index
+      router.replace("/(tabs)");
     }
   }, [isReady, isAuthed, segments, router]);
 
@@ -59,11 +57,8 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
-        {/* IMPORTANT: include BOTH route groups so "(auth)" exists */}
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
-
-        {/* Other routes */}
         <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
       </Stack>
 

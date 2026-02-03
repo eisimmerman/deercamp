@@ -18,15 +18,15 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import BottomNav, { BOTTOM_NAV_BASE_HEIGHT } from "../components/BottomNav";
 import { useUserProfile } from "../lib/useUserProfile";
+import { getNickname } from "../lib/localPrefs";
 
 type Visibility = "public" | "camp";
-
 type MicStatus = "unknown" | "granted" | "denied";
 
 export default function NewEntryScreen() {
@@ -35,14 +35,28 @@ export default function NewEntryScreen() {
   const { profile } = useUserProfile();
   const user = auth().currentUser;
 
+  // --- deterministic display name ---
+  const [nickname, setNickname] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setNickname(await getNickname());
+      } catch {
+        setNickname(null);
+      }
+    };
+    load();
+  }, []);
+
   // --- Form fields ---
   const [title, setTitle] = useState("");
   const [details, setDetails] = useState("");
   const [visibility, setVisibility] = useState<Visibility>("public");
 
   // --- Photo (optional) ---
-  const [photoUri, setPhotoUri] = useState<string>(""); // local
-  const [photoUrl, setPhotoUrl] = useState<string>(""); // uploaded
+  const [photoUri, setPhotoUri] = useState<string>("");
+  const [photoUrl, setPhotoUrl] = useState<string>("");
 
   // --- Voice note ---
   const recordingRef = useRef<Audio.Recording | null>(null);
@@ -51,8 +65,8 @@ export default function NewEntryScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
 
-  const [voiceUri, setVoiceUri] = useState<string>(""); // local file uri
-  const [voiceUrl, setVoiceUrl] = useState<string>(""); // uploaded url
+  const [voiceUri, setVoiceUri] = useState<string>("");
+  const [voiceUrl, setVoiceUrl] = useState<string>("");
   const [voiceDurationMs, setVoiceDurationMs] = useState<number>(0);
 
   // --- Posting ---
@@ -63,9 +77,14 @@ export default function NewEntryScreen() {
   const [showMicSettingsCard, setShowMicSettingsCard] = useState(false);
 
   const displayName = useMemo(() => {
-    const n = profile?.displayName?.trim();
-    return n || "Hunter";
-  }, [profile?.displayName]);
+    const n = (nickname || "").trim();
+    if (n) return n;
+
+    const p = (profile?.displayName || "").trim();
+    if (p) return p;
+
+    return "Guest";
+  }, [nickname, profile?.displayName]);
 
   const canPost = useMemo(() => {
     return !!user && title.trim().length > 0 && details.trim().length > 0 && !posting;
@@ -92,7 +111,7 @@ export default function NewEntryScreen() {
   }, []);
 
   // --------------------------
-  // Mic Permission (Ask once + Settings flow + re-check on return)
+  // Mic Permission
   // --------------------------
   const checkMicPermission = async (): Promise<boolean> => {
     try {
@@ -107,18 +126,14 @@ export default function NewEntryScreen() {
     }
   };
 
-  // Initial check on mount
   useEffect(() => {
     void checkMicPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-check mic permission when returning from Settings / app foreground
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active") {
-        void checkMicPermission();
-      }
+      if (state === "active") void checkMicPermission();
     });
     return () => sub.remove();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -148,7 +163,6 @@ export default function NewEntryScreen() {
         return true;
       }
 
-      // Denied: show our simple elderly-friendly UI (no repeated alerts)
       setMicStatus("denied");
       setShowMicSettingsCard(true);
       return false;
@@ -161,7 +175,7 @@ export default function NewEntryScreen() {
   };
 
   // --------------------------
-  // Photo picker (optional)
+  // Photo picker
   // --------------------------
   const pickPhoto = async () => {
     try {
@@ -174,7 +188,7 @@ export default function NewEntryScreen() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        quality: 0.85,
+        quality: 0.85
       });
 
       if (result.canceled) return;
@@ -182,7 +196,7 @@ export default function NewEntryScreen() {
       if (!asset?.uri) return;
 
       setPhotoUri(asset.uri);
-      setPhotoUrl(""); // reset uploaded url (will re-upload on post)
+      setPhotoUrl("");
     } catch (e: any) {
       Alert.alert("Photo pick failed", e?.message || "Unknown error.");
     }
@@ -211,21 +225,18 @@ export default function NewEntryScreen() {
       return;
     }
 
-    // ✅ Ask once. If denied, show Settings card UI.
     const ok = await requestMicPermissionOnce();
     if (!ok) return;
 
     try {
-      // Stop any playback first
       await stopAndUnloadSound();
 
-      // Set audio mode for recording
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+        playThroughEarpieceAndroid: false
       });
 
       const recording = new Audio.Recording();
@@ -236,7 +247,6 @@ export default function NewEntryScreen() {
 
       setIsRecording(true);
 
-      // reset previous audio
       setVoiceUri("");
       setVoiceUrl("");
       setVoiceDurationMs(0);
@@ -268,13 +278,12 @@ export default function NewEntryScreen() {
       setVoiceUri(uri);
       setVoiceDurationMs((status as any)?.durationMillis || 0);
 
-      // Reset audio mode for playback
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: false,
         playsInSilentModeIOS: true,
         staysActiveInBackground: false,
         shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
+        playThroughEarpieceAndroid: false
       });
     } catch (e: any) {
       setIsRecording(false);
@@ -286,10 +295,8 @@ export default function NewEntryScreen() {
   const togglePlay = async () => {
     try {
       if (!voiceUri && !voiceUrl) return;
-
       const sourceUri = voiceUri || voiceUrl;
 
-      // If already loaded, toggle play/pause
       if (soundRef.current) {
         const status = await soundRef.current.getStatusAsync();
         const s = status as any;
@@ -305,7 +312,6 @@ export default function NewEntryScreen() {
         return;
       }
 
-      // Load new sound (no looping)
       const { sound } = await Audio.Sound.createAsync(
         { uri: sourceUri },
         { shouldPlay: true, isLooping: false }
@@ -318,7 +324,6 @@ export default function NewEntryScreen() {
         if (!status?.isLoaded) return;
         setIsPlaying(!!status.isPlaying);
 
-        // When finished: reset to 0 and keep Play visible
         if (status.didJustFinish) {
           (async () => {
             try {
@@ -361,7 +366,7 @@ export default function NewEntryScreen() {
   };
 
   // --------------------------
-  // Post entry (with step-specific errors)
+  // Post entry
   // --------------------------
   const postEntry = async () => {
     try {
@@ -378,54 +383,34 @@ export default function NewEntryScreen() {
 
       setPosting(true);
 
-      // Upload photo (if selected)
       let finalPhotoUrl = photoUrl;
       if (photoUri && !finalPhotoUrl) {
-        try {
-          const ext = photoUri.toLowerCase().includes(".png") ? "png" : "jpg";
-          const path = `entries/${user.uid}/photos/photo_${Date.now()}.${ext}`;
-          finalPhotoUrl = await uploadFileToStorage(photoUri, path);
-        } catch (e: any) {
-          Alert.alert("Photo upload failed", e?.message || "Could not upload photo.");
-          return;
-        }
+        const ext = photoUri.toLowerCase().includes(".png") ? "png" : "jpg";
+        const path = `entries/${user.uid}/photos/photo_${Date.now()}.${ext}`;
+        finalPhotoUrl = await uploadFileToStorage(photoUri, path);
       }
 
-      // Upload voice note (if recorded)
       let finalVoiceUrl = voiceUrl;
       if (voiceUri && !finalVoiceUrl) {
-        try {
-          const ext = "m4a";
-          const path = `entries/${user.uid}/audio/voice_${Date.now()}.${ext}`;
-          finalVoiceUrl = await uploadFileToStorage(voiceUri, path);
-        } catch (e: any) {
-          Alert.alert("Voice upload failed", e?.message || "Could not upload voice note.");
-          return;
-        }
+        const path = `entries/${user.uid}/audio/voice_${Date.now()}.m4a`;
+        finalVoiceUrl = await uploadFileToStorage(voiceUri, path);
       }
 
-      // Create Firestore doc
-      try {
-        await firestore().collection("entries").add({
-          title: title.trim(),
-          details: details.trim(),
-          visibility, // ✅ "public" or "camp"
-          createdAt: firestore.FieldValue.serverTimestamp(),
-          clientCreatedAt: Date.now(), // feed sorting stable immediately
-          authorId: user.uid,
-          authorName: displayName,
-          photoUrl: finalPhotoUrl || "",
-          voiceUrl: finalVoiceUrl || "",
-          voiceDurationMs: finalVoiceUrl ? voiceDurationMs : 0,
-        });
-      } catch (e: any) {
-        Alert.alert("Saving memory failed", e?.message || "Could not save your memory.");
-        return;
-      }
+      await firestore().collection("entries").add({
+        title: title.trim(),
+        details: details.trim(),
+        visibility,
+        createdAt: firestore.FieldValue.serverTimestamp(),
+        clientCreatedAt: Date.now(),
+        authorId: user.uid,
+        authorName: displayName, // ✅ deterministic now
+        photoUrl: finalPhotoUrl || "",
+        voiceUrl: finalVoiceUrl || "",
+        voiceDurationMs: finalVoiceUrl ? voiceDurationMs : 0
+      });
 
       Alert.alert("Posted!", "Your memory is live.");
 
-      // Optional: clear form state (keeps UX clean if user returns)
       setTitle("");
       setDetails("");
       setPhotoUri("");
@@ -436,7 +421,7 @@ export default function NewEntryScreen() {
       setVoiceDurationMs(0);
       setIsRecording(false);
 
-      router.replace("/feed" as any);
+      router.replace("/(tabs)/memories" as any);
     } catch (e: any) {
       Alert.alert("Post failed", e?.message || "Unknown error.");
     } finally {
@@ -450,13 +435,12 @@ export default function NewEntryScreen() {
         contentContainerStyle={{
           paddingHorizontal: 16,
           paddingTop: 14,
-          paddingBottom: BOTTOM_NAV_BASE_HEIGHT + Math.max(insets.bottom, 10) + 24,
+          paddingBottom: BOTTOM_NAV_BASE_HEIGHT + Math.max(insets.bottom, 10) + 24
         }}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.h1}>+ Add Memory</Text>
 
-        {/* Title */}
         <Text style={styles.label}>Title</Text>
         <TextInput
           value={title}
@@ -466,7 +450,6 @@ export default function NewEntryScreen() {
           style={styles.input}
         />
 
-        {/* Details */}
         <Text style={styles.label}>Details</Text>
         <TextInput
           value={details}
@@ -477,7 +460,6 @@ export default function NewEntryScreen() {
           multiline
         />
 
-        {/* Photo attach */}
         <View style={{ marginTop: 14 }}>
           <Text style={styles.sectionTitle}>Photo (optional)</Text>
 
@@ -492,11 +474,9 @@ export default function NewEntryScreen() {
           </Pressable>
         </View>
 
-        {/* Voice note */}
         <View style={{ marginTop: 18 }}>
           <Text style={styles.sectionTitle}>Voice note (optional)</Text>
 
-          {/* ✅ Permission-denied UI (simple, elderly-friendly) */}
           {showMicSettingsCard && micStatus === "denied" ? (
             <View style={styles.micCard}>
               <Text style={styles.micTitle}>Microphone access is needed</Text>
@@ -513,10 +493,7 @@ export default function NewEntryScreen() {
 
               <Pressable
                 style={[styles.btn, styles.btnLight, { marginTop: 12 }]}
-                onPress={() => {
-                  // user can retry without alert loops
-                  setShowMicSettingsCard(false);
-                }}
+                onPress={() => setShowMicSettingsCard(false)}
               >
                 <Text style={styles.btnTextDark}>Not now</Text>
               </Pressable>
@@ -550,7 +527,6 @@ export default function NewEntryScreen() {
           ) : null}
         </View>
 
-        {/* Posting as / visibility */}
         <View style={styles.metaRow}>
           <Text style={styles.metaLabel}>Posting as</Text>
           <Text style={styles.metaValue}>{displayName}</Text>
@@ -566,7 +542,6 @@ export default function NewEntryScreen() {
           </Pressable>
         </View>
 
-        {/* Post */}
         <Pressable
           disabled={!canPost}
           style={[styles.postBtn, !canPost ? styles.postBtnDisabled : null]}
@@ -575,9 +550,7 @@ export default function NewEntryScreen() {
           {posting ? <ActivityIndicator /> : <Text style={styles.postText}>Post</Text>}
         </Pressable>
 
-        {!user ? (
-          <Text style={styles.helpText}>You’re not signed in. Tap Home → Sign in to post.</Text>
-        ) : null}
+        {!user ? <Text style={styles.helpText}>You’re not signed in. Tap Home → Continue as Guest.</Text> : null}
       </ScrollView>
 
       <BottomNav />
@@ -596,7 +569,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 20,
-    fontWeight: "700",
+    fontWeight: "700"
   },
   textArea: { minHeight: 140, textAlignVertical: "top" },
 
@@ -608,7 +581,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 14,
     marginBottom: 14,
-    backgroundColor: "#fff",
+    backgroundColor: "#fff"
   },
   micTitle: { fontSize: 22, fontWeight: "900", color: "#111" },
   micBody: { marginTop: 6, fontSize: 18, fontWeight: "800", color: "#555", lineHeight: 24 },
@@ -621,7 +594,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#111",
     marginTop: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 14
   },
   btnLight: { backgroundColor: "#fff" },
   btnDark: { backgroundColor: "#111" },
@@ -636,7 +609,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#fff",
     opacity: 0.95,
-    textAlign: "center",
+    textAlign: "center"
   },
   btnTextStop: { fontSize: 22, fontWeight: "900", color: "#111", lineHeight: 24 },
   btnTextStopSub: { marginTop: 4, fontSize: 16, fontWeight: "900", color: "#111", opacity: 0.75 },
@@ -649,7 +622,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderColor: "#111",
+    borderColor: "#111"
   },
   smallBtnDark: { backgroundColor: "#111" },
   smallBtnLight: { backgroundColor: "#fff" },
@@ -664,7 +637,7 @@ const styles = StyleSheet.create({
     borderColor: "#e5e5e5",
     borderRadius: 18,
     overflow: "hidden",
-    marginBottom: 10,
+    marginBottom: 10
   },
   photo: { width: "100%", height: 220 },
 
@@ -678,7 +651,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 14,
-    backgroundColor: "#fff",
+    backgroundColor: "#fff"
   },
   visibilityText: { fontSize: 18, fontWeight: "900" },
 
@@ -688,10 +661,10 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "#111",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "center"
   },
   postBtnDisabled: { backgroundColor: "#aaa" },
   postText: { fontSize: 24, fontWeight: "900", color: "#fff" },
 
-  helpText: { marginTop: 12, color: "#666", fontSize: 14, fontWeight: "700" },
+  helpText: { marginTop: 12, color: "#666", fontSize: 14, fontWeight: "700" }
 });
