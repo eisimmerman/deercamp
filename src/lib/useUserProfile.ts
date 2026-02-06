@@ -1,63 +1,69 @@
-// lib/useUserProfile.ts
-import { useEffect, useMemo, useState } from "react";
-import { auth, db } from "@/src/lib/firebase";
+// src/lib/useUserProfile.ts
+import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "@/src/lib/firebase";
 
 export type UserProfile = {
   uid: string;
+  /** User-chosen name shown in UI */
+  nickname?: string;
+  /** Optional legacy / auth display name */
   displayName?: string;
-  email?: string;
-  updatedAt?: any;
 };
 
 export function useUserProfile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const uid = auth.currentUser?.uid;
-
   useEffect(() => {
-    if (!uid) {
+    const user = auth.currentUser;
+
+    if (!user) {
       setProfile(null);
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    const ref = doc(db, "users", uid);
+    const ref = doc(db, "users", user.uid);
 
     const unsub = onSnapshot(
       ref,
       (snap) => {
         if (!snap.exists()) {
-          setProfile({ uid });
-        } else {
-          const data = snap.data() as any;
+          // User has no profile doc yet
           setProfile({
-            uid,
-            displayName: data?.displayName ?? "",
-            email: data?.email ?? "",
-            updatedAt: data?.updatedAt,
+            uid: user.uid,
+            displayName: user.displayName ?? undefined,
           });
+          setLoading(false);
+          return;
         }
+
+        const data = snap.data();
+
+        setProfile({
+          uid: user.uid,
+          nickname: typeof data.nickname === "string" ? data.nickname : undefined,
+          displayName:
+            typeof data.displayName === "string"
+              ? data.displayName
+              : user.displayName ?? undefined,
+        });
+
         setLoading(false);
       },
-      () => {
-        setProfile({ uid });
+      (err) => {
+        console.error("useUserProfile error:", err);
+        setProfile({
+          uid: user.uid,
+          displayName: user.displayName ?? undefined,
+        });
         setLoading(false);
       }
     );
 
     return () => unsub();
-  }, [uid]);
+  }, []);
 
-  const displayName = useMemo(() => {
-    return (
-      profile?.displayName?.trim() ||
-      auth.currentUser?.displayName?.trim() ||
-      "Hunter"
-    );
-  }, [profile?.displayName]);
-
-  return { profile, displayName, loading };
+  return { profile, loading };
 }
