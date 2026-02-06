@@ -1,12 +1,33 @@
 // app/(tabs)/explore.tsx
-import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useState } from "react";
+import { Alert, ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 
-import AppButton from "@/components/AppButton";
+import AppButton from "../../components/AppButton";
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const [saving, setSaving] = useState(false);
+
+  const onNewMemory = useCallback(async () => {
+    if (saving) return;
+
+    try {
+      setSaving(true);
+
+      // Journal capture system isn’t present in the repo right now.
+      // Keep the UI stable and route the user to the existing flow instead.
+      Alert.alert(
+        "Coming next",
+        "Quick-capture isn’t wired yet. For now, use the existing Memories flow."
+      );
+
+      // Safe default navigation (won’t crash if route exists)
+      router.push("/(tabs)/memories");
+    } finally {
+      setSaving(false);
+    }
+  }, [saving, router]);
 
   return (
     <View style={styles.container}>
@@ -26,12 +47,19 @@ export default function ExploreScreen() {
         />
 
         <AppButton
-          label="New Entry"
-          onPress={() => router.push("/new-entry")}
+          label={saving ? "Working…" : "+ New Memory"}
+          onPress={onNewMemory}
           secondary
           compact
           style={{ marginTop: 12 }}
         />
+
+        {saving ? (
+          <View style={styles.savingRow}>
+            <ActivityIndicator />
+            <Text style={styles.savingText}>Opening…</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -50,4 +78,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#0b0b0b",
   },
   cardTitle: { fontSize: 18, fontWeight: "900", color: "#fff" },
+
+  savingRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  savingText: {
+    color: "rgba(255,255,255,0.65)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 });

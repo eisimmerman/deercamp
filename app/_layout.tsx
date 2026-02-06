@@ -1,68 +1,51 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import auth from "@react-native-firebase/auth";
-import { Stack, useRouter, useSegments } from "expo-router";
-import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import "react-native-reanimated";
+// app/_layout.tsx
+import { Stack } from "expo-router";
+import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
 
-import { useColorScheme } from "@/hooks/use-color-scheme";
+// Initialize Firebase Web SDK (Expo Go compatible)
+import "@/src/lib/firebase";
 
-export const unstable_settings = {
-  anchor: "(tabs)",
-};
+
+type FirebaseState =
+  | { status: "loading" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-  const router = useRouter();
-  const segments = useSegments();
-
-  const [isReady, setIsReady] = useState(false);
-  const [isAuthed, setIsAuthed] = useState<boolean>(false);
+  const [fb, setFb] = useState<FirebaseState>({ status: "loading" });
 
   useEffect(() => {
-    const unsub = auth().onAuthStateChanged((user) => {
-      setIsAuthed(!!user);
-      setIsReady(true);
-    });
-    return unsub;
+    try {
+      setFb({ status: "ready" });
+    } catch (e: any) {
+      setFb({ status: "error", message: e?.message ?? String(e) });
+    }
   }, []);
 
-  useEffect(() => {
-    if (!isReady) return;
-
-    const inAuthGroup = segments[0] === "(auth)";
-
-    // ✅ Firebase-only guard:
-    // - If NOT signed in, force to /(auth)/sign-in
-    // - If signed in, keep out of auth screens
-    if (!isAuthed && !inAuthGroup) {
-      router.replace("/(auth)/sign-in");
-    } else if (isAuthed && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [isReady, isAuthed, segments, router]);
-
-  if (!isReady) {
+  if (fb.status === "loading") {
     return (
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator />
-        </View>
-        <StatusBar style="auto" />
-      </ThemeProvider>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <Text>Starting DeerCamp…</Text>
+      </View>
+    );
+  }
+
+  if (fb.status === "error") {
+    return (
+      <View style={{ flex: 1, padding: 20, justifyContent: "center" }}>
+        <Text style={{ fontSize: 18, fontWeight: "700", marginBottom: 10 }}>
+          Firebase not ready
+        </Text>
+        <Text style={{ opacity: 0.8 }}>{fb.message}</Text>
+      </View>
     );
   }
 
   return (
-    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="modal" options={{ presentation: "modal", title: "Modal" }} />
-      </Stack>
-
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
   );
 }

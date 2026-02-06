@@ -1,24 +1,18 @@
+// components/themed-view.tsx
 import React from "react";
-import { StyleProp, Text, TextProps, TextStyle } from "react-native";
+import { View, type ViewProps, type StyleProp, type ViewStyle } from "react-native";
 
-export type ThemedTextProps = TextProps & {
-  type?: "default" | "defaultSemiBold" | "title" | "subtitle";
-  style?: StyleProp<TextStyle>;
+export type ThemedViewProps = ViewProps & {
+  style?: StyleProp<ViewStyle>;
 };
 
-export function ThemedText({
-  type = "default",
-  style,
-  ...rest
-}: ThemedTextProps) {
-  const base: TextStyle = { color: "#111827" };
-
-  const variants: Record<string, TextStyle> = {
-    default: { fontSize: 16 },
-    defaultSemiBold: { fontSize: 16, fontWeight: "600" },
-    title: { fontSize: 34, fontWeight: "800", letterSpacing: -0.3 },
-    subtitle: { fontSize: 18, fontWeight: "700" },
-  };
-
-  return <Text {...rest} style={[base, variants[type], style]} />;
+/**
+ * DeerCamp uses a calm, readable default surface.
+ * This is intentionally minimal: a predictable wrapper around <View>.
+ */
+export function ThemedView({ style, ...rest }: ThemedViewProps) {
+  return <View {...rest} style={style} />;
 }
+
+// Optional default export for convenience (won't break named import usage)
+export default ThemedView;

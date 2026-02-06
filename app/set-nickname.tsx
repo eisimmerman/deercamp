@@ -1,13 +1,21 @@
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+// app/set-nickname.tsx
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { Alert, Pressable, Text, TextInput, View } from "react-native";
-import { useUserProfile } from "../lib/useUserProfile";
+
+import { useUserProfile } from "../src/lib/useUserProfile";
+
+
+import { auth, db } from "@/src/lib/firebase";
+
+
+
+import { updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 
 export default function SetNicknameScreen() {
   const router = useRouter();
-  const user = auth().currentUser;
+  const user = auth.currentUser;
   const { profile } = useUserProfile();
 
   const [name, setName] = useState(profile?.displayName ?? "");
@@ -25,32 +33,30 @@ export default function SetNicknameScreen() {
     }
 
     try {
-      await firestore().collection("users").doc(user.uid).set(
+      await setDoc(
+        doc(db, "users", user.uid),
         {
           uid: user.uid,
           email: user.email ?? "",
           displayName: trimmed,
-          updatedAt: firestore.FieldValue.serverTimestamp(),
+          updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
+
+      await updateProfile(user, { displayName: trimmed });
 
       Alert.alert("Saved", `Alright, ${trimmed}.`);
       router.replace("/(tabs)" as any);
     } catch (err: any) {
       console.error("Failed to save nickname", err);
-      Alert.alert(
-        "Could not save nickname",
-        err?.message ?? "Please try again."
-      );
+      Alert.alert("Could not save nickname", err?.message ?? "Please try again.");
     }
   };
 
   return (
     <View style={{ flex: 1, backgroundColor: "#FAFAFA", padding: 20 }}>
-      <Text style={{ fontSize: 28, fontWeight: "800" }}>
-        Camp Nickname
-      </Text>
+      <Text style={{ fontSize: 28, fontWeight: "800" }}>Camp Nickname</Text>
 
       <Text style={{ marginTop: 10, opacity: 0.7 }}>
         What do folks call you at camp?

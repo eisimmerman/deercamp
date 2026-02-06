@@ -1,5 +1,4 @@
-import auth from "@react-native-firebase/auth";
-import firestore from "@react-native-firebase/firestore";
+// app/profile.tsx
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -12,13 +11,21 @@ import {
   View,
 } from "react-native";
 
-import { useUserProfile } from "../lib/useUserProfile";
+import { useUserProfile } from "../src/lib/useUserProfile";
+
+
+import { auth, db } from "@/src/lib/firebase";
+
+
+
+import { signOut as fbSignOut, updateProfile } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { profile } = useUserProfile();
 
-  const user = auth().currentUser;
+  const user = auth.currentUser;
   const uid = user?.uid;
 
   const initialName = useMemo(() => {
@@ -51,17 +58,16 @@ export default function ProfileScreen() {
 
     setSaving(true);
     try {
-      // Save to Firestore (source of truth for your app)
-      await firestore().collection("users").doc(uid).set(
+      await setDoc(
+        doc(db, "users", uid),
         {
           displayName: name,
-          updatedAt: firestore.FieldValue.serverTimestamp(),
+          updatedAt: serverTimestamp(),
         },
         { merge: true }
       );
 
-      // Also update Firebase Auth displayName (nice-to-have)
-      await user.updateProfile({ displayName: name });
+      await updateProfile(user, { displayName: name });
 
       Alert.alert("Saved", "Your nickname has been updated.");
     } catch (e: any) {
@@ -79,7 +85,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await auth().signOut();
+            await fbSignOut(auth);
             router.replace("/sign-in" as any);
           } catch (e: any) {
             Alert.alert("Sign out failed", e?.message || "Unknown error.");
@@ -92,7 +98,6 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.container}>
-        {/* ✅ Big, obvious Home button */}
         <Pressable style={styles.backHomeBtn} onPress={goHome}>
           <Text style={styles.backHomeText}>⬅ Back to Home</Text>
         </Pressable>
