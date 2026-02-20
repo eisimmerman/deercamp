@@ -1,26 +1,91 @@
 (() => {
-  const links = Array.from(document.querySelectorAll(".nav-link"));
-  const sections = links
-    .map((a) => document.querySelector(a.getAttribute("href")))
-    .filter(Boolean);
+  // ---------- Lightbox ----------
+  const lb = document.getElementById("lightbox");
+  const lbImg = lb?.querySelector(".lightbox-img");
+  const lbClose = lb?.querySelector(".lightbox-close");
 
-  if (!sections.length) return;
+  function openLightbox(src, alt = "") {
+    if (!lb || !lbImg) return;
+    lbImg.src = src;
+    lbImg.alt = alt || "";
+    lb.setAttribute("aria-hidden", "false");
+  }
 
-  const onIntersect = (entries) => {
-    const visible = entries
-      .filter((e) => e.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+  function closeLightbox() {
+    if (!lb || !lbImg) return;
+    lb.setAttribute("aria-hidden", "true");
+    lbImg.src = "";
+    lbImg.alt = "";
+  }
 
-    if (!visible) return;
-
-    const id = "#" + visible.target.id;
-    links.forEach((a) => a.classList.toggle("is-active", a.getAttribute("href") === id));
-  };
-
-  const io = new IntersectionObserver(onIntersect, {
-    root: null,
-    threshold: 0.3,
+  document.querySelectorAll(".shot-open").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const imgSrc = btn.getAttribute("data-img");
+      const figure = btn.closest(".shot");
+      const img = figure?.querySelector("img");
+      if (imgSrc) openLightbox(imgSrc, img?.alt || "");
+    });
   });
 
-  sections.forEach((s) => io.observe(s));
+  lbClose?.addEventListener("click", closeLightbox);
+  lb?.addEventListener("click", (e) => {
+    if (e.target === lb) closeLightbox();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
+  });
+
+  // ---------- Audio per card (stop others automatically) ----------
+  let currentAudio = null;
+  let currentBtn = null;
+
+  function stopCurrent() {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    if (currentBtn) currentBtn.textContent = "Play";
+    currentAudio = null;
+    currentBtn = null;
+  }
+
+  document.querySelectorAll(".shot.has-audio").forEach(card => {
+    const audioSrc = card.getAttribute("data-audio");
+    const btn = card.querySelector(".audio-btn");
+    if (!audioSrc || !btn) return;
+
+    const audio = new Audio(audioSrc);
+    audio.preload = "none";
+
+    btn.addEventListener("click", (e) => {
+      // Prevent opening the lightbox when clicking play/pause
+      e.stopPropagation();
+
+      if (currentAudio && currentAudio !== audio) stopCurrent();
+
+      if (audio.paused) {
+        currentAudio = audio;
+        currentBtn = btn;
+        btn.textContent = "Pause";
+        audio.play().catch(() => {
+          btn.textContent = "Play";
+          currentAudio = null;
+          currentBtn = null;
+        });
+      } else {
+        audio.pause();
+        btn.textContent = "Play";
+        currentAudio = null;
+        currentBtn = null;
+      }
+    });
+
+    audio.addEventListener("ended", () => {
+      if (currentBtn === btn) btn.textContent = "Play";
+      if (currentAudio === audio) {
+        currentAudio = null;
+        currentBtn = null;
+      }
+    });
+  });
 })();
