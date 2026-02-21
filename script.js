@@ -1,200 +1,132 @@
-/* =========================
-   DeerCamp - script.js
-   - Lightbox image viewer
-   - CampCards audio play/pause (thumbnail + lightbox)
-   ========================= */
-
-(function () {
+(() => {
   const lightbox = document.getElementById("lightbox");
-  if (!lightbox) return;
+  const lbImg = lightbox?.querySelector(".lightbox-img");
+  const lbCloseX = lightbox?.querySelector(".lightbox-close");
+  const lbCloseBtn = lightbox?.querySelector(".lightbox-close-btn");
+  const lbAudioBtn = lightbox?.querySelector(".lightbox-audio-btn");
 
-  // Ensure inner wrapper exists (so we can add controls cleanly)
-  let inner = lightbox.querySelector(".lightbox-inner");
-  const imgEl = lightbox.querySelector(".lightbox-img");
-  const closeBtn = lightbox.querySelector(".lightbox-close");
-
-  if (!inner) {
-    inner = document.createElement("div");
-    inner.className = "lightbox-inner";
-
-    // Move existing elements into inner
-    const existingClose = closeBtn;
-    const existingImg = imgEl;
-
-    lightbox.innerHTML = "";
-    inner.appendChild(existingClose);
-    inner.appendChild(existingImg);
-    lightbox.appendChild(inner);
-  }
-
-  // Create controls bar (title + audio button). Hidden unless audio exists.
-  const controls = document.createElement("div");
-  controls.className = "lightbox-controls";
-  controls.style.display = "none";
-  controls.innerHTML = `
-    <div class="lightbox-title"></div>
-    <button class="lightbox-audio-btn" type="button">Play</button>
-  `;
-  inner.appendChild(controls);
-
-  const lbTitle = controls.querySelector(".lightbox-title");
-  const lbAudioBtn = controls.querySelector(".lightbox-audio-btn");
-
-  // Single global audio element
-  const audio = new Audio();
-  audio.preload = "none";
-
-  let currentFigure = null; // currently opened figure in lightbox
-
-  function setButtonState(btn, isPlaying) {
-    if (!btn) return;
-    btn.classList.toggle("is-playing", !!isPlaying);
-    btn.textContent = isPlaying ? "Pause" : "Play";
-  }
+  let audio = null;
+  let activeAudioBtn = null;
 
   function stopAudio() {
-    try {
-      audio.pause();
-      audio.currentTime = 0;
-    } catch (e) {}
-    // reset all thumbnail buttons UI
-    document.querySelectorAll(".audio-btn").forEach((b) => setButtonState(b, false));
-    setButtonState(lbAudioBtn, false);
-  }
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    audio = null;
 
-  function playFigureAudio(fig) {
-    if (!fig) return;
-
-    const src = fig.getAttribute("data-audio");
-    if (!src) return;
-
-    // If switching tracks or starting fresh
-    if (audio.src !== new URL(src, window.location.href).href) {
-      audio.src = src;
+    if (activeAudioBtn) {
+      activeAudioBtn.textContent = "Play";
+      activeAudioBtn = null;
     }
-
-    audio.play().then(() => {
-      // Update UI buttons
-      document.querySelectorAll(".audio-btn").forEach((b) => setButtonState(b, false));
-      const thumbBtn = fig.querySelector(".audio-btn");
-      setButtonState(thumbBtn, true);
-      setButtonState(lbAudioBtn, true);
-    }).catch(() => {
-      // autoplay policies sometimes block; user can click again
-    });
-  }
-
-  function toggleFigureAudio(fig, sourceBtn) {
-    const src = fig.getAttribute("data-audio");
-    if (!src) return;
-
-    const absolute = new URL(src, window.location.href).href;
-    const isSame = audio.src === absolute;
-    const isPlaying = !audio.paused && isSame;
-
-    if (isPlaying) {
-      audio.pause();
-      setButtonState(sourceBtn, false);
-      // also update other matching buttons
-      setButtonState(fig.querySelector(".audio-btn"), false);
-      setButtonState(lbAudioBtn, false);
-    } else {
-      // If different track: stop and switch
-      if (!isSame) stopAudio();
-      playFigureAudio(fig);
-    }
-  }
-
-  function openLightbox(src, titleText, fig) {
-    currentFigure = fig || null;
-
-    imgEl.src = src;
-    imgEl.alt = titleText || "";
-
-    // Controls visibility based on audio
-    const hasAudio = fig && fig.classList.contains("has-audio") && fig.getAttribute("data-audio");
-    if (hasAudio) {
-      controls.style.display = "flex";
-      lbTitle.textContent = titleText || "CampCard";
-      setButtonState(lbAudioBtn, false);
-    } else {
-      controls.style.display = "none";
-      lbTitle.textContent = "";
-      setButtonState(lbAudioBtn, false);
-    }
-
-    lightbox.classList.add("is-open");
-    lightbox.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
+    if (lbAudioBtn) lbAudioBtn.textContent = "Play";
   }
 
   function closeLightbox() {
-    lightbox.classList.remove("is-open");
+    if (!lightbox) return;
+    stopAudio();
+    lightbox.classList.remove("open");
     lightbox.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
-    imgEl.src = "";
-    imgEl.alt = "";
-    currentFigure = null;
-    // Do NOT force-stop audio on close (feels nice to keep narration going)
-    // If you want it to stop: uncomment next line.
-    // stopAudio();
+    if (lbImg) lbImg.src = "";
+    if (lbAudioBtn) {
+      lbAudioBtn.style.display = "none";
+      lbAudioBtn.removeAttribute("data-audio");
+    }
   }
 
-  // ===== Thumbnail: open image (but not when clicking Play) =====
-  document.addEventListener("click", (e) => {
-    const audioBtn = e.target.closest(".audio-btn");
-    if (audioBtn) {
-      // Play button should NOT open lightbox
-      e.preventDefault();
+  function openLightbox({ imgSrc, audioSrc }) {
+    if (!lightbox || !lbImg) return;
+
+    lbImg.src = imgSrc;
+    lightbox.classList.add("open");
+    lightbox.setAttribute("aria-hidden", "false");
+
+    // Lightbox audio button visibility/behavior
+    if (lbAudioBtn) {
+      if (audioSrc) {
+        lbAudioBtn.style.display = "inline-flex";
+        lbAudioBtn.setAttribute("data-audio", audioSrc);
+        lbAudioBtn.textContent = "Play";
+      } else {
+        lbAudioBtn.style.display = "none";
+        lbAudioBtn.removeAttribute("data-audio");
+      }
+    }
+  }
+
+  // Bind thumbnail open (image -> lightbox)
+  document.querySelectorAll(".shot .shot-open").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const fig = btn.closest(".shot");
+      const imgSrc = btn.getAttribute("data-img");
+      const audioSrc = fig?.getAttribute("data-audio") || "";
+
+      openLightbox({ imgSrc, audioSrc });
+    });
+  });
+
+  // Bind thumbnail audio buttons
+  document.querySelectorAll(".shot.has-audio .audio-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const fig = audioBtn.closest("figure.shot");
-      if (!fig) return;
-      toggleFigureAudio(fig, audioBtn);
-      return;
-    }
-
-    const openBtn = e.target.closest(".shot-open");
-    if (openBtn) {
       e.preventDefault();
-      const fig = openBtn.closest("figure.shot");
-      const src = openBtn.getAttribute("data-img");
-      const titleText = fig?.querySelector("figcaption span")?.textContent
-        || fig?.querySelector("figcaption")?.textContent
-        || "Image";
-      if (src) openLightbox(src, titleText.trim(), fig);
-      return;
-    }
+
+      const fig = btn.closest(".shot.has-audio");
+      const src = fig?.getAttribute("data-audio");
+      if (!src) return;
+
+      // If different button, stop old audio first
+      if (activeAudioBtn && activeAudioBtn !== btn) stopAudio();
+
+      // Toggle
+      if (!audio) {
+        audio = new Audio(src);
+        audio.addEventListener("ended", () => {
+          stopAudio();
+        });
+        audio.play().catch(() => {});
+        btn.textContent = "Pause";
+        activeAudioBtn = btn;
+      } else {
+        stopAudio();
+      }
+    });
   });
 
-  // ===== Lightbox audio button =====
-  lbAudioBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    if (!currentFigure) return;
-    toggleFigureAudio(currentFigure, lbAudioBtn);
-  });
+  // Lightbox audio button
+  if (lbAudioBtn) {
+    lbAudioBtn.addEventListener("click", () => {
+      const src = lbAudioBtn.getAttribute("data-audio");
+      if (!src) return;
 
-  // ===== Close actions =====
-  closeBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    closeLightbox();
-  });
+      // If any thumbnail audio playing, stop it
+      stopAudio();
 
-  // Click backdrop closes (but not clicks inside inner)
-  lightbox.addEventListener("click", (e) => {
+      // Toggle lightbox audio using same global `audio`
+      if (!audio) {
+        audio = new Audio(src);
+        audio.addEventListener("ended", () => stopAudio());
+        audio.play().catch(() => {});
+        lbAudioBtn.textContent = "Pause";
+        activeAudioBtn = null; // lightbox owns UI now
+      } else {
+        stopAudio();
+      }
+    });
+  }
+
+  // Close handlers
+  lbCloseX?.addEventListener("click", closeLightbox);
+  lbCloseBtn?.addEventListener("click", closeLightbox);
+
+  // Close when clicking outside image
+  lightbox?.addEventListener("click", (e) => {
     if (e.target === lightbox) closeLightbox();
   });
 
   // ESC closes
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && lightbox.classList.contains("is-open")) {
+    if (e.key === "Escape" && lightbox?.classList.contains("open")) {
       closeLightbox();
     }
   });
-
-  // When audio ends, reset buttons
-  audio.addEventListener("ended", () => {
-    document.querySelectorAll(".audio-btn").forEach((b) => setButtonState(b, false));
-    setButtonState(lbAudioBtn, false);
-  });
-
 })();
