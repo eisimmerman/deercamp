@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" id="top">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,6 +19,7 @@
 </head>
 
 <body>
+  <div id="top" tabindex="-1"></div>
 
   <!-- ================= NAV ================= -->
   <header class="site-header">
@@ -42,7 +43,7 @@
         Get the app
       </a>
 
-      <!-- Mobile menu toggle (CSS provides layout; tiny JS below toggles drawer) -->
+      <!-- Mobile menu toggle -->
       <button class="nav-toggle" type="button" aria-label="Menu" aria-controls="navDrawer" aria-expanded="false">
         <span></span><span></span><span></span>
       </button>
@@ -168,7 +169,6 @@
         <p class="section-subtitle">Before apps, before feeds — we had a place that made memories feel permanent.</p>
       </div>
 
-      <!-- TL;DR cards show on mobile per CSS -->
       <div class="origin-tldr">
         <div class="card">
           The Deer Den was our “memory wall.” Every rack told a story. DeerCamp brings that feeling forward — private, personal, and built to last.
@@ -226,7 +226,6 @@
         </div>
       </div>
 
-      <!-- Cards 1–6 -->
       <div class="shot-grid">
 
         <figure class="shot has-audio" data-audio="./campcards/audio/bens-first-buck.mp3">
@@ -288,7 +287,6 @@
       <!-- Back to top after Card 6 -->
       <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
 
-      <!-- Cards 7–12 -->
       <div class="shot-grid">
 
         <figure class="shot has-audio" data-audio="./campcards/audio/first-snow.mp3">
@@ -464,54 +462,47 @@
 
   <script src="/script.js?v=3"></script>
 
-  <!-- Tiny menu toggle (unified) -->
+  <!-- Unified mobile drawer toggle -->
   <script>
     document.addEventListener("DOMContentLoaded", () => {
-      const toggle = document.querySelector(".nav-toggle");
+      const btn = document.querySelector(".nav-toggle");
       const drawer = document.getElementById("navDrawer");
-      if (!toggle || !drawer) return;
+      if (!btn || !drawer) return;
 
       const setOpen = (open) => {
-        // class-based (preferred)
         drawer.classList.toggle("open", open);
-
-        // fallback for any CSS that relies on inline display
-        drawer.style.display = open ? "block" : "none";
-
-        toggle.setAttribute("aria-expanded", String(open));
+        drawer.style.display = open ? "block" : "none"; // works even if CSS missing
+        btn.setAttribute("aria-expanded", String(open));
         drawer.setAttribute("aria-hidden", String(!open));
-
-        // prevent background scroll on mobile when open
         document.body.style.overflow = open ? "hidden" : "";
       };
 
-      const isOpen = () => toggle.getAttribute("aria-expanded") === "true";
+      const isOpen = () => btn.getAttribute("aria-expanded") === "true";
 
-      toggle.addEventListener("click", (e) => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
         e.stopPropagation();
         setOpen(!isOpen());
       });
 
-      // Close when tapping outside
+      // Close on outside tap/click
       document.addEventListener("click", (e) => {
         if (!isOpen()) return;
-        if (drawer.contains(e.target) || toggle.contains(e.target)) return;
+        if (drawer.contains(e.target) || btn.contains(e.target)) return;
         setOpen(false);
       });
 
-      // Close when a drawer link is clicked (in-page anchors)
+      // Close when tapping a drawer link
       drawer.addEventListener("click", (e) => {
-        const link = e.target.closest("a");
-        if (!link) return;
-        if (link.getAttribute("href")?.startsWith("#")) setOpen(false);
+        const a = e.target.closest("a");
+        if (a) setOpen(false);
       });
 
-      // Close on ESC
+      // Close on Escape
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") setOpen(false);
       });
 
-      // Start closed
       setOpen(false);
     });
   </script>
