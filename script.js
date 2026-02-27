@@ -1,9 +1,11 @@
 /* =========================================================
-   DeerCamp — script.js (v6)
-   Goal:
-   - Mobile: CampCards open lightbox + audio + prev/next (works today)
-   - Desktop: CampCards DO NOT open lightbox (cards are already readable)
-   - App Screens (and any non-CampCards): can still open lightbox on all sizes
+   DeerCamp — script.js (v7)
+   Behavior:
+   - CampCards (#campcards):
+       * Mobile (<=760px): lightbox open + prev/next + audio
+       * Desktop: NO lightbox (cards are readable in-grid)
+   - App Screens (#screens / #app-screens / #appscreens):
+       * NO lightbox on desktop (and we also disable on mobile to keep it simple)
    ========================================================= */
 
 (function () {
@@ -21,14 +23,12 @@
   const audioBtn = $(".lb-audio", lightbox);
   const controls = $(".lightbox-controls", lightbox);
 
-  // If lightbox markup isn't present, nothing to do
   if (!lightbox || !imgEl || !titleEl || !closeX || !closeBtn || !audioBtn || !controls) return;
 
-  // Single audio instance to avoid jank
   const player = new Audio();
   player.preload = "none";
 
-  // Inject Prev/Next controls (no HTML changes needed)
+  // Inject Prev/Next UI
   const leftGroup = document.createElement("div");
   leftGroup.className = "lb-left";
 
@@ -59,9 +59,18 @@
   let currentIndex = -1;
   let currentMode = "generic"; // "campcards" | "generic"
 
-  // Mobile-only lightbox for CampCards
-  function campcardsLightboxEnabled() {
+  function isMobile() {
     return window.matchMedia("(max-width: 760px)").matches;
+  }
+
+  // Detect App Screens section (covers common IDs)
+  function isInAppScreens(fig) {
+    return !!(
+      fig.closest("#screens") ||
+      fig.closest("#app-screens") ||
+      fig.closest("#appscreens") ||
+      fig.closest("[data-section='screens']")
+    );
   }
 
   function stopAudio() {
@@ -140,11 +149,9 @@
   function getDataFromFigure(fig) {
     const btn = $(".shot-open", fig);
     const img = $("img", fig);
-
     const src = (btn && btn.dataset.img) || (img && img.getAttribute("src")) || "";
     const title = (btn && btn.dataset.title) || (img && img.getAttribute("alt")) || "Preview";
     const audioSrc = fig.classList.contains("has-audio") ? (fig.dataset.audio || "") : "";
-
     return { src, title, audioSrc };
   }
 
@@ -166,20 +173,17 @@
     });
   }
 
-  // Click handling (delegated)
   document.addEventListener("click", (e) => {
-    // Let audio button behave normally (and do NOT open lightbox)
+    // Don’t hijack audio button
     if (e.target.closest(".audio-btn")) return;
 
-    // Close if click outside panel
+    // Close lightbox
     if (lightbox.style.display === "flex" && e.target === lightbox) {
       e.preventDefault();
       closeLightbox();
       return;
     }
-
-    // Close X
-    if (e.target.closest(".lightbox-x")) {
+    if (e.target.closest(".lightbox-x") || e.target === closeBtn) {
       e.preventDefault();
       closeLightbox();
       return;
@@ -197,7 +201,7 @@
       return;
     }
 
-    // Audio in lightbox
+    // Lightbox audio
     if (e.target === audioBtn) {
       e.preventDefault();
       const src = audioBtn.dataset.src;
@@ -220,45 +224,38 @@
       return;
     }
 
-    // Close button
-    if (e.target === closeBtn) {
-      e.preventDefault();
-      closeLightbox();
-      return;
-    }
-
-    // Detect click on a shot (either overlay button or figure)
+    // Identify clicked shot
     const openBtn = e.target.closest(".shot-open");
     const fig = openBtn ? openBtn.closest("figure.shot") : e.target.closest("figure.shot");
     if (!fig) return;
 
     const inCampcards = !!fig.closest("#campcards");
+    const inScreens = isInAppScreens(fig);
+
+    // ✅ App Screens: no lightbox (desktop + mobile)
+    if (inScreens) return;
 
     // ✅ CampCards:
     // - Mobile: open lightbox
-    // - Desktop: do nothing (cards already readable at grid size)
+    // - Desktop: no lightbox
     if (inCampcards) {
-      if (!campcardsLightboxEnabled()) {
-        // desktop: explicitly do nothing
-        return;
-      }
+      if (!isMobile()) return;
 
       const campSection = fig.closest("#campcards");
       const campButtons = $$(".shot-open", campSection);
       const btnForThisFig = $(".shot-open", fig);
-      const idx = btnForThisFig ? campButtons.indexOf(btnForThisFig) : -1;
+      const idx = btnForThisFig ? campButtons.indexOf(btnForThisFig) : 0;
 
       currentList = campButtons;
       openCampcardsByIndex(idx >= 0 ? idx : 0);
       return;
     }
 
-    // ✅ Non-campcards (App Screens, etc.) open everywhere
+    // ✅ Everything else (if any): can still open
     const { src, title, audioSrc } = getDataFromFigure(fig);
     openLightbox({ src, title, audioSrc, mode: "generic", list: [], index: -1 });
   });
 
-  // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
     const isOpen = lightbox.style.display === "flex";
     if (!isOpen) return;
@@ -269,7 +266,6 @@
       return;
     }
 
-    // Only navigate when CampCards lightbox is active
     if (currentMode === "campcards") {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -285,6 +281,5 @@
     audioBtn.textContent = "Play";
   });
 
-  // Ensure closed on load
   closeLightbox();
 })();
