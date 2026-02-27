@@ -1,13 +1,12 @@
 /* =========================================================
-   DeerCamp — script.js (v5)
-   Fixes:
-   - Campfires (and any card) always opens: click button OR image OR tile
-   - Prevent “freeze”: single init guard + decode + preload neighbors
-   - Lightbox Prev/Next navigation for CampCards
+   DeerCamp — script.js (v6)
+   Goal:
+   - Mobile: CampCards open lightbox + audio + prev/next (works today)
+   - Desktop: CampCards DO NOT open lightbox (cards are already readable)
+   - App Screens (and any non-CampCards): can still open lightbox on all sizes
    ========================================================= */
 
 (function () {
-  // Guard against double-loading (can cause “freezing” behavior)
   if (window.__DEERCAMP_LIGHTBOX_INIT__) return;
   window.__DEERCAMP_LIGHTBOX_INIT__ = true;
 
@@ -22,13 +21,14 @@
   const audioBtn = $(".lb-audio", lightbox);
   const controls = $(".lightbox-controls", lightbox);
 
+  // If lightbox markup isn't present, nothing to do
   if (!lightbox || !imgEl || !titleEl || !closeX || !closeBtn || !audioBtn || !controls) return;
 
-  // Single audio instance (avoids stacking & jank)
+  // Single audio instance to avoid jank
   const player = new Audio();
   player.preload = "none";
 
-  // Build Prev/Next UI without changing HTML
+  // Inject Prev/Next controls (no HTML changes needed)
   const leftGroup = document.createElement("div");
   leftGroup.className = "lb-left";
 
@@ -48,7 +48,6 @@
   leftGroup.appendChild(prevBtn);
   leftGroup.appendChild(nextBtn);
 
-  // Re-home existing buttons
   rightGroup.appendChild(closeBtn);
   rightGroup.appendChild(audioBtn);
 
@@ -59,6 +58,11 @@
   let currentList = [];
   let currentIndex = -1;
   let currentMode = "generic"; // "campcards" | "generic"
+
+  // Mobile-only lightbox for CampCards
+  function campcardsLightboxEnabled() {
+    return window.matchMedia("(max-width: 760px)").matches;
+  }
 
   function stopAudio() {
     try { player.pause(); player.currentTime = 0; } catch (e) {}
@@ -80,7 +84,6 @@
     nextBtn.style.display = navEnabled ? "" : "none";
   }
 
-  // Preload adjacent images to reduce perceived “freeze”
   function preloadNeighbors(idx) {
     if (!currentList.length) return;
     const n = currentList.length;
@@ -98,14 +101,11 @@
   }
 
   async function swapImage(src) {
-    // Decode before showing (reduces flicker/jank on some devices)
     imgEl.decoding = "async";
     imgEl.src = src;
     try {
       if (imgEl.decode) await imgEl.decode();
-    } catch (e) {
-      // decode can fail on cross-origin or some browsers—ignore
-    }
+    } catch (e) {}
   }
 
   async function openLightbox({ src, title, audioSrc, mode, list, index }) {
@@ -132,7 +132,6 @@
     lightbox.style.display = "none";
     lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
-
     currentList = [];
     currentIndex = -1;
     currentMode = "generic";
@@ -144,8 +143,8 @@
 
     const src = (btn && btn.dataset.img) || (img && img.getAttribute("src")) || "";
     const title = (btn && btn.dataset.title) || (img && img.getAttribute("alt")) || "Preview";
-
     const audioSrc = fig.classList.contains("has-audio") ? (fig.dataset.audio || "") : "";
+
     return { src, title, audioSrc };
   }
 
@@ -156,29 +155,37 @@
     const btn = currentList[safe];
     const fig = btn.closest("figure");
     const { src, title, audioSrc } = getDataFromFigure(fig);
-    openLightbox({ src, title, audioSrc, mode: "campcards", list: currentList, index: safe });
+
+    openLightbox({
+      src,
+      title,
+      audioSrc,
+      mode: "campcards",
+      list: currentList,
+      index: safe
+    });
   }
 
-  // CLICK: open when user clicks the overlay button OR the tile/image itself
+  // Click handling (delegated)
   document.addEventListener("click", (e) => {
-    // If audio button clicked, do not trigger open
+    // Let audio button behave normally (and do NOT open lightbox)
     if (e.target.closest(".audio-btn")) return;
 
-    // Lightbox close on background click
+    // Close if click outside panel
     if (lightbox.style.display === "flex" && e.target === lightbox) {
       e.preventDefault();
       closeLightbox();
       return;
     }
 
-    // Lightbox X
+    // Close X
     if (e.target.closest(".lightbox-x")) {
       e.preventDefault();
       closeLightbox();
       return;
     }
 
-    // Lightbox prev/next
+    // Prev/Next
     if (e.target === prevBtn) {
       e.preventDefault();
       if (currentMode === "campcards") openCampcardsByIndex(currentIndex - 1);
@@ -190,7 +197,7 @@
       return;
     }
 
-    // Lightbox audio
+    // Audio in lightbox
     if (e.target === audioBtn) {
       e.preventDefault();
       const src = audioBtn.dataset.src;
@@ -213,44 +220,45 @@
       return;
     }
 
-    // Lightbox close button
+    // Close button
     if (e.target === closeBtn) {
       e.preventDefault();
       closeLightbox();
       return;
     }
 
-    // Open logic: overlay OR the tile itself
+    // Detect click on a shot (either overlay button or figure)
     const openBtn = e.target.closest(".shot-open");
     const fig = openBtn ? openBtn.closest("figure.shot") : e.target.closest("figure.shot");
-
     if (!fig) return;
 
-    // CampCards mode only in #campcards
-    const isCampcards = !!fig.closest("#campcards");
+    const inCampcards = !!fig.closest("#campcards");
 
-    if (isCampcards) {
+    // ✅ CampCards:
+    // - Mobile: open lightbox
+    // - Desktop: do nothing (cards already readable at grid size)
+    if (inCampcards) {
+      if (!campcardsLightboxEnabled()) {
+        // desktop: explicitly do nothing
+        return;
+      }
+
       const campSection = fig.closest("#campcards");
       const campButtons = $$(".shot-open", campSection);
       const btnForThisFig = $(".shot-open", fig);
-
-      // If for some reason a card has no .shot-open, fallback to index by figure position
-      let idx = btnForThisFig ? campButtons.indexOf(btnForThisFig) : -1;
-      if (idx < 0) {
-        const figs = $$("figure.shot", campSection);
-        idx = figs.indexOf(fig);
-      }
+      const idx = btnForThisFig ? campButtons.indexOf(btnForThisFig) : -1;
 
       currentList = campButtons;
-      openCampcardsByIndex(idx);
-    } else {
-      // Generic (App Screens etc.)
-      const { src, title, audioSrc } = getDataFromFigure(fig);
-      openLightbox({ src, title, audioSrc, mode: "generic", list: [], index: -1 });
+      openCampcardsByIndex(idx >= 0 ? idx : 0);
+      return;
     }
+
+    // ✅ Non-campcards (App Screens, etc.) open everywhere
+    const { src, title, audioSrc } = getDataFromFigure(fig);
+    openLightbox({ src, title, audioSrc, mode: "generic", list: [], index: -1 });
   });
 
-  // Keyboard
+  // Keyboard shortcuts
   document.addEventListener("keydown", (e) => {
     const isOpen = lightbox.style.display === "flex";
     if (!isOpen) return;
@@ -261,6 +269,7 @@
       return;
     }
 
+    // Only navigate when CampCards lightbox is active
     if (currentMode === "campcards") {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -276,6 +285,6 @@
     audioBtn.textContent = "Play";
   });
 
-  // Start closed
+  // Ensure closed on load
   closeLightbox();
 })();
