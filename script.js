@@ -1,231 +1,281 @@
-(() => {
-  const qs = (sel, root = document) => root.querySelector(sel);
-  const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+/* =========================================================
+   DeerCamp — script.js (v5)
+   Fixes:
+   - Campfires (and any card) always opens: click button OR image OR tile
+   - Prevent “freeze”: single init guard + decode + preload neighbors
+   - Lightbox Prev/Next navigation for CampCards
+   ========================================================= */
 
-  // ---------------------------
-  // Mobile nav drawer
-  // ---------------------------
-  const toggle = qs(".nav-toggle");
-  const drawer = qs(".nav-drawer");
+(function () {
+  // Guard against double-loading (can cause “freezing” behavior)
+  if (window.__DEERCAMP_LIGHTBOX_INIT__) return;
+  window.__DEERCAMP_LIGHTBOX_INIT__ = true;
 
-  const openDrawer = () => {
-    drawer.style.display = "block";
-    drawer.setAttribute("aria-hidden", "false");
-    toggle.setAttribute("aria-expanded", "true");
-    document.body.style.overflow = "hidden";
-  };
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  const closeDrawer = () => {
-    drawer.style.display = "none";
-    drawer.setAttribute("aria-hidden", "true");
-    toggle.setAttribute("aria-expanded", "false");
-    document.body.style.overflow = "";
-  };
+  const lightbox = $("#lightbox");
+  const imgEl = $(".lightbox-img", lightbox);
+  const titleEl = $("#lightboxTitle");
+  const closeX = $(".lightbox-x", lightbox);
+  const closeBtn = $(".lb-close", lightbox);
+  const audioBtn = $(".lb-audio", lightbox);
+  const controls = $(".lightbox-controls", lightbox);
 
-  if (toggle && drawer) {
-    toggle.addEventListener("click", () => {
-      const isOpen = toggle.getAttribute("aria-expanded") === "true";
-      isOpen ? closeDrawer() : openDrawer();
-    });
+  if (!lightbox || !imgEl || !titleEl || !closeX || !closeBtn || !audioBtn || !controls) return;
 
-    drawer.addEventListener("click", (e) => {
-      // click outside inner closes
-      if (e.target === drawer) closeDrawer();
-    });
+  // Single audio instance (avoids stacking & jank)
+  const player = new Audio();
+  player.preload = "none";
 
-    qsa(".nav-drawer a").forEach(a => {
-      a.addEventListener("click", () => closeDrawer());
-    });
+  // Build Prev/Next UI without changing HTML
+  const leftGroup = document.createElement("div");
+  leftGroup.className = "lb-left";
 
-    window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") closeDrawer();
+  const rightGroup = document.createElement("div");
+  rightGroup.className = "lb-right";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.type = "button";
+  prevBtn.className = "lb-btn lb-nav";
+  prevBtn.textContent = "← Prev";
+
+  const nextBtn = document.createElement("button");
+  nextBtn.type = "button";
+  nextBtn.className = "lb-btn lb-nav";
+  nextBtn.textContent = "Next →";
+
+  leftGroup.appendChild(prevBtn);
+  leftGroup.appendChild(nextBtn);
+
+  // Re-home existing buttons
+  rightGroup.appendChild(closeBtn);
+  rightGroup.appendChild(audioBtn);
+
+  controls.innerHTML = "";
+  controls.appendChild(leftGroup);
+  controls.appendChild(rightGroup);
+
+  let currentList = [];
+  let currentIndex = -1;
+  let currentMode = "generic"; // "campcards" | "generic"
+
+  function stopAudio() {
+    try { player.pause(); player.currentTime = 0; } catch (e) {}
+    audioBtn.style.display = "none";
+    audioBtn.dataset.src = "";
+    audioBtn.textContent = "Play";
+  }
+
+  function setAudio(src) {
+    stopAudio();
+    if (!src) return;
+    audioBtn.style.display = "";
+    audioBtn.dataset.src = src;
+  }
+
+  function setNavVisibility() {
+    const navEnabled = currentMode === "campcards" && currentList.length > 1 && currentIndex >= 0;
+    prevBtn.style.display = navEnabled ? "" : "none";
+    nextBtn.style.display = navEnabled ? "" : "none";
+  }
+
+  // Preload adjacent images to reduce perceived “freeze”
+  function preloadNeighbors(idx) {
+    if (!currentList.length) return;
+    const n = currentList.length;
+    const prev = (idx - 1 + n) % n;
+    const next = (idx + 1) % n;
+
+    [prev, next].forEach((i) => {
+      const btn = currentList[i];
+      const src = btn?.dataset?.img;
+      if (!src) return;
+      const im = new Image();
+      im.decoding = "async";
+      im.src = src;
     });
   }
 
-  // ---------------------------
-  // Shared audio controller
-  // ---------------------------
-  const audio = new Audio();
-  audio.preload = "none";
-
-  let activeAudioBtn = null;    // button in grid (if any)
-  let activeFigure = null;      // figure tied to audio
-  let lightboxAudioBtn = null;  // button in lightbox (if any)
-
-  const setBtnState = (btn, playing) => {
-    if (!btn) return;
-    btn.textContent = playing ? "Pause" : "Play";
-    btn.setAttribute("aria-label", playing ? "Pause audio" : "Play audio");
-  };
-
-  const stopAudio = () => {
-    audio.pause();
-    audio.currentTime = 0;
-    setBtnState(activeAudioBtn, false);
-    setBtnState(lightboxAudioBtn, false);
-    activeAudioBtn = null;
-    activeFigure = null;
-  };
-
-  const playAudioSrc = (src, btnToUpdate = null) => {
-    if (!src) return;
-
-    // If same src toggles pause/play
-    const same = (audio.src && audio.src.endsWith(src)) || audio.src === src;
-
-    if (same && !audio.paused) {
-      audio.pause();
-      setBtnState(btnToUpdate, false);
-      setBtnState(lightboxAudioBtn, false);
-      return;
+  async function swapImage(src) {
+    // Decode before showing (reduces flicker/jank on some devices)
+    imgEl.decoding = "async";
+    imgEl.src = src;
+    try {
+      if (imgEl.decode) await imgEl.decode();
+    } catch (e) {
+      // decode can fail on cross-origin or some browsers—ignore
     }
+  }
 
-    // Switching tracks: stop previous
-    if (!same) {
-      setBtnState(activeAudioBtn, false);
-      setBtnState(lightboxAudioBtn, false);
-      audio.src = src;
-    }
+  async function openLightbox({ src, title, audioSrc, mode, list, index }) {
+    currentMode = mode || "generic";
+    currentList = Array.isArray(list) ? list : [];
+    currentIndex = Number.isFinite(index) ? index : -1;
 
-    audio.play().then(() => {
-      setBtnState(btnToUpdate, true);
-      setBtnState(lightboxAudioBtn, true);
-    }).catch(() => {
-      // Autoplay restrictions can block. User can tap again.
-      setBtnState(btnToUpdate, false);
-      setBtnState(lightboxAudioBtn, false);
-    });
-  };
+    titleEl.textContent = title || "Preview";
+    setAudio(audioSrc);
+    setNavVisibility();
 
-  audio.addEventListener("ended", () => {
-    setBtnState(activeAudioBtn, false);
-    setBtnState(lightboxAudioBtn, false);
-  });
-
-  // ---------------------------
-  // Lightbox with "Close" above Play
-  // ---------------------------
-  const lightbox = qs("#lightbox");
-  const lbImg = qs(".lightbox-img");
-  const lbX = qs(".lightbox-x");
-  const lbClose = qs(".lb-close");
-  const lbAudio = qs(".lb-audio");
-  const lbTitle = qs("#lightboxTitle");
-
-  let lightboxAudioSrc = null;
-
-  const openLightbox = ({ imgSrc, title, audioSrc }) => {
-    if (!lightbox || !lbImg) return;
-
-    lbImg.src = imgSrc;
-    lbImg.alt = title || "";
-    if (lbTitle) lbTitle.textContent = title || "";
-
-    lightboxAudioSrc = audioSrc || null;
-    lightboxAudioBtn = lbAudio;
-
-    // Show/hide play button depending on whether this is an audio card
-    if (lbAudio) {
-      lbAudio.style.display = lightboxAudioSrc ? "inline-flex" : "none";
-      setBtnState(lbAudio, false);
-    }
-
-    lightbox.classList.add("open");
+    lightbox.style.display = "flex";
     lightbox.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
-  };
 
-  const closeLightbox = () => {
-    if (!lightbox) return;
-    lightbox.classList.remove("open");
+    await swapImage(src);
+
+    if (currentMode === "campcards") preloadNeighbors(currentIndex);
+  }
+
+  function closeLightbox() {
+    stopAudio();
+    imgEl.src = "";
+    lightbox.style.display = "none";
     lightbox.setAttribute("aria-hidden", "true");
     document.body.style.overflow = "";
 
-    // If audio was started from lightbox, stop it (clean + intuitive)
-    stopAudio();
-
-    // Clear image
-    if (lbImg) lbImg.src = "";
-    if (lbTitle) lbTitle.textContent = "";
-    lightboxAudioSrc = null;
-  };
-
-  if (lbX) lbX.addEventListener("click", closeLightbox);
-  if (lbClose) lbClose.addEventListener("click", closeLightbox);
-  if (lightbox) {
-    lightbox.addEventListener("click", (e) => {
-      // clicking outside the panel closes
-      if (e.target === lightbox) closeLightbox();
-    });
-  }
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeLightbox();
-  });
-
-  if (lbAudio) {
-    lbAudio.addEventListener("click", () => {
-      if (!lightboxAudioSrc) return;
-      // Lightbox controls drive shared audio instance
-      activeAudioBtn = null; // grid button not driving this right now
-      playAudioSrc(lightboxAudioSrc, lbAudio);
-    });
+    currentList = [];
+    currentIndex = -1;
+    currentMode = "generic";
   }
 
-  // ---------------------------
-  // CampCards grid behavior
-  // ---------------------------
-  qsa(".shot").forEach(fig => {
-    const openBtn = qs(".shot-open", fig);
-    const audioBtn = qs(".audio-btn", fig);
-    const img = qs("img", fig);
-    const title = fig.getAttribute("data-title") || (img ? img.alt : "");
-    const audioSrc = fig.getAttribute("data-audio");
+  function getDataFromFigure(fig) {
+    const btn = $(".shot-open", fig);
+    const img = $("img", fig);
 
-    // Open expanded view
-    if (openBtn) {
-      openBtn.addEventListener("click", () => {
-        const imgSrc = openBtn.getAttribute("data-img") || (img ? img.src : "");
-        openLightbox({ imgSrc, title, audioSrc });
-      });
+    const src = (btn && btn.dataset.img) || (img && img.getAttribute("src")) || "";
+    const title = (btn && btn.dataset.title) || (img && img.getAttribute("alt")) || "Preview";
+
+    const audioSrc = fig.classList.contains("has-audio") ? (fig.dataset.audio || "") : "";
+    return { src, title, audioSrc };
+  }
+
+  function openCampcardsByIndex(idx) {
+    if (!currentList.length) return;
+    const n = currentList.length;
+    const safe = (idx + n) % n;
+    const btn = currentList[safe];
+    const fig = btn.closest("figure");
+    const { src, title, audioSrc } = getDataFromFigure(fig);
+    openLightbox({ src, title, audioSrc, mode: "campcards", list: currentList, index: safe });
+  }
+
+  // CLICK: open when user clicks the overlay button OR the tile/image itself
+  document.addEventListener("click", (e) => {
+    // If audio button clicked, do not trigger open
+    if (e.target.closest(".audio-btn")) return;
+
+    // Lightbox close on background click
+    if (lightbox.style.display === "flex" && e.target === lightbox) {
+      e.preventDefault();
+      closeLightbox();
+      return;
     }
 
-    // Play in-grid
-    if (audioBtn && audioSrc) {
-      audioBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        activeAudioBtn = audioBtn;
-        activeFigure = fig;
+    // Lightbox X
+    if (e.target.closest(".lightbox-x")) {
+      e.preventDefault();
+      closeLightbox();
+      return;
+    }
 
-        // ensure lightbox button (if open) reflects state
-        if (lightbox && lightbox.classList.contains("open")) {
-          // if currently open and same audio, keep in sync
-          lightboxAudioBtn = lbAudio;
-        } else {
-          lightboxAudioBtn = null;
+    // Lightbox prev/next
+    if (e.target === prevBtn) {
+      e.preventDefault();
+      if (currentMode === "campcards") openCampcardsByIndex(currentIndex - 1);
+      return;
+    }
+    if (e.target === nextBtn) {
+      e.preventDefault();
+      if (currentMode === "campcards") openCampcardsByIndex(currentIndex + 1);
+      return;
+    }
+
+    // Lightbox audio
+    if (e.target === audioBtn) {
+      e.preventDefault();
+      const src = audioBtn.dataset.src;
+      if (!src) return;
+
+      if (!player.paused && player.src && player.src.includes(src)) {
+        player.pause();
+        audioBtn.textContent = "Play";
+      } else {
+        try {
+          player.pause();
+          player.currentTime = 0;
+          player.src = src;
+          player.play();
+          audioBtn.textContent = "Pause";
+        } catch (err) {
+          audioBtn.textContent = "Play";
         }
+      }
+      return;
+    }
 
-        playAudioSrc(audioSrc, audioBtn);
-      });
+    // Lightbox close button
+    if (e.target === closeBtn) {
+      e.preventDefault();
+      closeLightbox();
+      return;
+    }
+
+    // Open logic: overlay OR the tile itself
+    const openBtn = e.target.closest(".shot-open");
+    const fig = openBtn ? openBtn.closest("figure.shot") : e.target.closest("figure.shot");
+
+    if (!fig) return;
+
+    // CampCards mode only in #campcards
+    const isCampcards = !!fig.closest("#campcards");
+
+    if (isCampcards) {
+      const campSection = fig.closest("#campcards");
+      const campButtons = $$(".shot-open", campSection);
+      const btnForThisFig = $(".shot-open", fig);
+
+      // If for some reason a card has no .shot-open, fallback to index by figure position
+      let idx = btnForThisFig ? campButtons.indexOf(btnForThisFig) : -1;
+      if (idx < 0) {
+        const figs = $$("figure.shot", campSection);
+        idx = figs.indexOf(fig);
+      }
+
+      currentList = campButtons;
+      openCampcardsByIndex(idx);
+    } else {
+      // Generic (App Screens etc.)
+      const { src, title, audioSrc } = getDataFromFigure(fig);
+      openLightbox({ src, title, audioSrc, mode: "generic", list: [], index: -1 });
     }
   });
 
-})();
-// Mobile nav toggle
-(() => {
-  const btn = document.querySelector('.nav-toggle');
-  const nav = document.querySelector('.site-nav');
-  if (!btn || !nav) return;
+  // Keyboard
+  document.addEventListener("keydown", (e) => {
+    const isOpen = lightbox.style.display === "flex";
+    if (!isOpen) return;
 
-  btn.addEventListener('click', () => {
-    const isOpen = nav.classList.toggle('open');
-    btn.setAttribute('aria-expanded', String(isOpen));
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeLightbox();
+      return;
+    }
+
+    if (currentMode === "campcards") {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        openCampcardsByIndex(currentIndex - 1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        openCampcardsByIndex(currentIndex + 1);
+      }
+    }
   });
 
-  // Close menu on link click (mobile)
-  nav.querySelectorAll('a').forEach(a => {
-    a.addEventListener('click', () => {
-      nav.classList.remove('open');
-      btn.setAttribute('aria-expanded', 'false');
-    });
+  player.addEventListener("ended", () => {
+    audioBtn.textContent = "Play";
   });
+
+  // Start closed
+  closeLightbox();
 })();
