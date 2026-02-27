@@ -490,6 +490,51 @@
       closeDrawer();
     })();
   </script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const toggle = document.querySelector(".nav-toggle");
+  const drawer = document.getElementById("navDrawer");
+  if (!toggle || !drawer) return;
 
+  const openDrawer = () => {
+    drawer.classList.add("open");
+    toggle.setAttribute("aria-expanded", "true");
+    drawer.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden"; // prevent background scroll
+  };
+
+  const closeDrawer = () => {
+    drawer.classList.remove("open");
+    toggle.setAttribute("aria-expanded", "false");
+    drawer.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = ""; // restore scroll
+  };
+
+  const isOpen = () => drawer.classList.contains("open");
+
+  toggle.addEventListener("click", (e) => {
+    e.stopPropagation();
+    isOpen() ? closeDrawer() : openDrawer();
+  });
+
+  // Close when tapping outside drawer
+  document.addEventListener("click", (e) => {
+    if (!isOpen()) return;
+    if (drawer.contains(e.target) || toggle.contains(e.target)) return;
+    closeDrawer();
+  });
+
+  // Close when a drawer link is clicked
+  drawer.addEventListener("click", (e) => {
+    const link = e.target.closest("a");
+    if (link && link.getAttribute("href")?.startsWith("#")) closeDrawer();
+  });
+
+  // Close on ESC (desktop / accessibility)
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isOpen()) closeDrawer();
+  });
+});
+</script>
 </body>
 </html>
