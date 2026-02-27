@@ -138,6 +138,9 @@ h1, h2, h3, .brand{
   justify-content:center;
   gap: 4px;
   padding: 10px;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 65; /* ensure tap works above hero */
 }
 .nav-toggle span{
   display:block;
@@ -194,10 +197,6 @@ h1, h2, h3, .brand{
 }
 
 /* =============== HERO =============== */
-/* ✅ Make the lodge/cabin visible:
-   - shift image background-position to the right/bottom
-   - slightly reduce overlay wash so the cabin doesn’t fade out
-*/
 .hero{
   position: relative;
   min-height: 460px;
@@ -224,13 +223,14 @@ h1, h2, h3, .brand{
 
   background-size: cover;
   /* per-layer positions: gradient, gradient, IMAGE */
-  background-position: center, center, 72% 62%; /* ✅ cabin lives on right side */
+  background-position: center, center, 72% 62%; /* desktop: cabin lives on right side */
   border-bottom: 1px solid rgba(31,27,22,.10);
 }
 
 .hero-inner{
   width:min(980px, calc(100% - 40px));
   position: relative;
+  z-index: 2;
   padding: 18px 18px 16px;
   border-radius: 22px;
   background: rgba(246,239,227,.16);
@@ -251,7 +251,7 @@ h1, h2, h3, .brand{
   max-width: 70ch;
   color: rgba(31,27,22,.88);
   font-family: var(--font-sans);
-  font-size: 16px; /* ✅ slightly tighter/cleaner */
+  font-size: 16px;
   line-height: 1.55;
   text-shadow: 0 12px 28px rgba(0,0,0,.14);
 }
@@ -268,22 +268,28 @@ h1, h2, h3, .brand{
 
 /* ✅ Mobile-only hero refinements */
 @media (max-width: 720px){
-  /* Mobile-only hero refinements (emotion-first, lighter density) */
   .hero{
     padding: 48px 0 28px;
     min-height: 460px;
 
-    /* Keep cabin visible + better focal point on smaller screens */
-    background-position: center, center, 70% 58%;
+    /* KEY FIX:
+       On mobile, the word "DeerCamp" is part of the hero image.
+       The old 70%/58% was pushing the left side offscreen.
+       Center it so the word is never clipped.
+    */
+    background-position: center, center, 50% 34%;
   }
 
   .hero-inner{
     width: min(980px, calc(100% - 28px));
     padding: 16px 14px 14px;
-
-    /* Slightly cleaner glass on mobile */
     background: rgba(246,239,227,.22);
     backdrop-filter: blur(4px);
+
+    /* ensure it never disappears */
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 
   .hero h1{
@@ -296,15 +302,18 @@ h1, h2, h3, .brand{
     margin: 0 auto 24px;
   }
 
-  /* Hero CTA only: keep desktop/button system intact elsewhere */
+  /* Hero CTA only */
   .hero .primary-button{
     background: #2a231c;
     padding: 14px 22px;
   }
 
-  /* Keep the hero emotionally clean; move logic below the fold */
   .hero-foot{
     display:none;
+  }
+
+  html, body{
+    overflow-x: hidden;
   }
 }
 
@@ -328,7 +337,7 @@ h1, h2, h3, .brand{
 
 /* ✅ Bottom CTA button pops on dark background */
 .final-cta .primary-button{
-  border: 2px solid rgba(255,255,255,.88) !important; /* <-- requested */
+  border: 2px solid rgba(255,255,255,.88) !important;
   box-shadow: 0 18px 55px rgba(0,0,0,.28);
 }
 
@@ -686,58 +695,4 @@ h1, h2, h3, .brand{
   font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.55;
-}
-
-/* MOBILE: hide the giant hero wordmark so it can’t clip */
-@media (max-width: 768px) {
-  /* common class names */
-  .bg-wordmark,
-  .hero-wordmark,
-  .watermark,
-  .deercamp-ghost,
-  .brand-bg,
-  .hero .wordmark,
-  .hero .brandmark {
-    display: none !important;
-  }
-
-  /* safety: prevent horizontal clip/scroll issues */
-  html, body {
-    overflow-x: hidden !important;
-  }
-}
-/* MOBILE: wordmark control (applied by JS) */
-@media (max-width: 768px) {
-  .dc-hero-wordmark {
-    left: 50% !important;
-    right: auto !important;
-    transform: translateX(-50%) !important;
-    max-width: 100vw !important;
-    white-space: nowrap !important;
-    text-align: center !important;
-  }
-
-  /* optional: if you decide to hide it instead, just uncomment */
-  /* .dc-hero-wordmark { display:none !important; } */
-
-  html, body { overflow-x: hidden !important; }
-}
-/* =========================================
-   MOBILE FIX: Remove decorative hero wordmark
-   ========================================= */
-@media (max-width: 768px) {
-
-  /* Remove any pseudo-element decorative wordmark */
-  .hero::before,
-  .hero::after,
-  .hero-inner::before,
-  .hero-inner::after {
-    content: none !important;
-    display: none !important;
-  }
-
-  /* Prevent clipping artifacts */
-  html, body {
-    overflow-x: hidden !important;
-  }
 }
