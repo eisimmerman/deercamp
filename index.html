@@ -226,6 +226,7 @@
         </div>
       </div>
 
+      <!-- Cards 1–6 -->
       <div class="shot-grid">
 
         <figure class="shot has-audio" data-audio="./campcards/audio/bens-first-buck.mp3">
@@ -281,6 +282,14 @@
             <button class="audio-btn" type="button" aria-label="Play audio">Play</button>
           </figcaption>
         </figure>
+
+      </div>
+
+      <!-- Back to top after Card 6 -->
+      <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
+
+      <!-- Cards 7–12 -->
+      <div class="shot-grid">
 
         <figure class="shot has-audio" data-audio="./campcards/audio/first-snow.mp3">
           <button class="shot-open" type="button" data-img="./campcards/images/first-snow.png" data-title="First Snow" aria-label="Open First Snow"></button>
@@ -455,104 +464,56 @@
 
   <script src="/script.js?v=3"></script>
 
-  <!-- Tiny menu toggle -->
+  <!-- Tiny menu toggle (unified) -->
   <script>
-    (function () {
-      const btn = document.querySelector(".nav-toggle");
+    document.addEventListener("DOMContentLoaded", () => {
+      const toggle = document.querySelector(".nav-toggle");
       const drawer = document.getElementById("navDrawer");
-      if (!btn || !drawer) return;
+      if (!toggle || !drawer) return;
 
-      function closeDrawer() {
-        drawer.style.display = "none";
-        drawer.setAttribute("aria-hidden", "true");
-        btn.setAttribute("aria-expanded", "false");
-      }
+      const setOpen = (open) => {
+        // class-based (preferred)
+        drawer.classList.toggle("open", open);
 
-      function openDrawer() {
-        drawer.style.display = "block";
-        drawer.setAttribute("aria-hidden", "false");
-        btn.setAttribute("aria-expanded", "true");
-      }
+        // fallback for any CSS that relies on inline display
+        drawer.style.display = open ? "block" : "none";
 
-      btn.addEventListener("click", () => {
-        const expanded = btn.getAttribute("aria-expanded") === "true";
-        expanded ? closeDrawer() : openDrawer();
+        toggle.setAttribute("aria-expanded", String(open));
+        drawer.setAttribute("aria-hidden", String(!open));
+
+        // prevent background scroll on mobile when open
+        document.body.style.overflow = open ? "hidden" : "";
+      };
+
+      const isOpen = () => toggle.getAttribute("aria-expanded") === "true";
+
+      toggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        setOpen(!isOpen());
       });
 
+      // Close when tapping outside
+      document.addEventListener("click", (e) => {
+        if (!isOpen()) return;
+        if (drawer.contains(e.target) || toggle.contains(e.target)) return;
+        setOpen(false);
+      });
+
+      // Close when a drawer link is clicked (in-page anchors)
       drawer.addEventListener("click", (e) => {
-        if (e.target && e.target.tagName === "A") closeDrawer();
+        const link = e.target.closest("a");
+        if (!link) return;
+        if (link.getAttribute("href")?.startsWith("#")) setOpen(false);
       });
 
+      // Close on ESC
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape") closeDrawer();
+        if (e.key === "Escape") setOpen(false);
       });
 
-      closeDrawer();
-    })();
+      // Start closed
+      setOpen(false);
+    });
   </script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const toggle = document.querySelector(".nav-toggle");
-  const drawer = document.getElementById("navDrawer");
-  if (!toggle || !drawer) return;
-
-  const openDrawer = () => {
-    drawer.classList.add("open");
-    toggle.setAttribute("aria-expanded", "true");
-    drawer.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden"; // prevent background scroll
-  };
-
-  const closeDrawer = () => {
-    drawer.classList.remove("open");
-    toggle.setAttribute("aria-expanded", "false");
-    drawer.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = ""; // restore scroll
-  };
-
-  const isOpen = () => drawer.classList.contains("open");
-
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    isOpen() ? closeDrawer() : openDrawer();
-  });
-
-  // Close when tapping outside drawer
-  document.addEventListener("click", (e) => {
-    if (!isOpen()) return;
-    if (drawer.contains(e.target) || toggle.contains(e.target)) return;
-    closeDrawer();
-  });
-
-  // Close when a drawer link is clicked
-  drawer.addEventListener("click", (e) => {
-    const link = e.target.closest("a");
-    if (link && link.getAttribute("href")?.startsWith("#")) closeDrawer();
-  });
-
-  // Close on ESC (desktop / accessibility)
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && isOpen()) closeDrawer();
-  });
-});
-</script>
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const toggle = document.querySelector(".nav-toggle");
-  const drawer = document.getElementById("navDrawer");
-  if (!toggle || !drawer) return;
-
-  toggle.addEventListener("click", (e) => {
-    e.stopPropagation();
-    drawer.classList.toggle("open");
-  });
-
-  document.addEventListener("click", () => {
-    drawer.classList.remove("open");
-  });
-
-  drawer.addEventListener("click", (e) => e.stopPropagation());
-});
-</script>
 </body>
 </html>
