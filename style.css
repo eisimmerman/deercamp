@@ -1,316 +1,618 @@
-/* =====================================================
-   DeerCamp Style Sheet
-   Updated: Grid fix for CampCards + App Screens
-   ===================================================== */
+/* =========================================================
+   DeerCamp — style.css
+   Targets current index.html structure:
+   .wrap, .section, .shot-grid/.shot, #origin, nav drawer, lightbox, etc.
+   Source HTML: uploaded index.html :contentReference[oaicite:2]{index=2}
+   ========================================================= */
 
-/* ================= RESET ================= */
+/* -----------------------------
+   Base + Reset
+------------------------------ */
 
 *,
 *::before,
-*::after {
-  box-sizing: border-box;
-}
+*::after { box-sizing: border-box; }
 
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  background: #0b0c0d;
-  color: #f2f2f2;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  color: rgba(255,255,255,0.92);
   line-height: 1.6;
+
+  /* Warm, not “pure black” */
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(202,163,95,0.18), transparent 60%),
+    radial-gradient(900px 600px at 90% 10%, rgba(231,192,122,0.10), transparent 55%),
+    #0e0c0a;
 }
 
-img {
-  max-width: 100%;
-  display: block;
-  height: auto;
+img { max-width: 100%; height: auto; display: block; }
+
+/* Kill default figure margins (prevents “pushed left”) */
+figure { margin: 0; }
+
+/* -----------------------------
+   Tokens
+------------------------------ */
+
+:root{
+  --bg: #0e0c0a;
+  --panel: rgba(255,255,255,0.06);
+  --panel2: rgba(255,255,255,0.08);
+  --border: rgba(255,255,255,0.12);
+  --text: rgba(255,255,255,0.92);
+  --muted: rgba(255,255,255,0.72);
+  --muted2: rgba(255,255,255,0.58);
+
+  --accent: #e7c07a;   /* warm gold */
+  --accent2:#caa35f;   /* deeper gold */
+
+  --max: 1200px;
+  --pad: 20px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 20px;
+
+  --shadow: 0 16px 48px rgba(0,0,0,0.38);
 }
 
-/* ================= LAYOUT ================= */
+/* -----------------------------
+   Layout
+------------------------------ */
 
 .wrap {
-  max-width: 1200px;
+  max-width: var(--max);
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 var(--pad);
 }
 
 .section {
-  padding: 80px 0;
-  border-top: 1px solid rgba(255,255,255,0.05);
+  padding: 70px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
 
-.section-head {
+.section-head{
   text-align: center;
-  margin-bottom: 50px;
+  margin-bottom: 40px;
 }
 
-.section-head h2 {
-  font-size: 32px;
-  margin-bottom: 12px;
+.section-head h2{
+  margin: 0 0 10px;
+  font-size: 34px;
+  letter-spacing: -0.02em;
 }
 
-.section-subtitle {
-  color: rgba(255,255,255,0.7);
-  max-width: 700px;
+.section-kicker{
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(231,192,122,0.85);
+}
+
+.section-subtitle{
   margin: 0 auto;
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 16px;
 }
 
-/* ================= NAV ================= */
+/* Back to top link (appears at top of each section in your HTML) */
+.back-top{
+  display: inline-block;
+  margin: 0 0 16px;
+  color: rgba(231,192,122,0.85);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 14px;
+}
+.back-top:hover{ text-decoration: underline; text-underline-offset: 3px; }
 
-.site-header {
+/* -----------------------------
+   Cards + Columns
+------------------------------ */
+
+.card{
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 18px 18px;
+}
+
+.two-col{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 22px;
+}
+
+.col h3{
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+
+.mt{ margin-top: 14px; }
+
+/* checklist in Privacy section */
+.checklist{
+  margin: 12px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+.checklist li{ margin: 6px 0; }
+
+.cta-row{
+  display: flex;
+  gap: 14px;
+  margin-top: 16px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.text-link{
+  color: rgba(231,192,122,0.9);
+  text-decoration: none;
+  font-weight: 700;
+}
+.text-link:hover{ text-decoration: underline; text-underline-offset: 3px; }
+
+/* -----------------------------
+   Nav
+------------------------------ */
+
+.site-header{
   position: sticky;
   top: 0;
   z-index: 999;
-  background: rgba(11,12,13,0.95);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(14,12,10,0.86);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-.nav-wrap {
-  max-width: 1200px;
+.nav-wrap{
+  max-width: var(--max);
   margin: 0 auto;
-  padding: 16px 20px;
+  padding: 14px var(--pad);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 14px;
 }
 
-.brand-text {
-  font-weight: 700;
+.brand{
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+.brand-text{
   font-size: 20px;
 }
 
-.site-nav {
+.site-nav{
+  margin-left: auto;
   display: flex;
-  gap: 20px;
+  gap: 18px;
+  align-items: center;
 }
 
-.site-nav a {
-  color: rgba(255,255,255,0.7);
+.site-nav a{
+  color: var(--muted);
   text-decoration: none;
+  font-weight: 700;
   font-size: 14px;
+  padding: 8px 10px;
+  border-radius: 10px;
+}
+.site-nav a:hover{
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
 }
 
-.site-nav a:hover {
-  color: #fff;
-}
-
-/* ================= HERO ================= */
-
-.hero {
-  text-align: center;
-  padding: 100px 20px 80px;
-}
-
-.hero h1 {
-  font-size: 44px;
-  margin-bottom: 16px;
-}
-
-.hero-sub {
-  font-size: 18px;
-  color: rgba(255,255,255,0.75);
-  margin-bottom: 30px;
-}
-
-.primary-button {
-  background: #caa35f;
-  color: #111;
-  padding: 14px 26px;
-  border-radius: 30px;
-  font-weight: 600;
+.nav-cta{
+  margin-left: 10px;
+  color: #14110d;
+  background: linear-gradient(180deg, rgba(231,192,122,0.95), rgba(202,163,95,0.95));
+  padding: 10px 14px;
+  border-radius: 999px;
   text-decoration: none;
+  font-weight: 900;
+  border: 1px solid rgba(231,192,122,0.45);
+  box-shadow: 0 14px 40px rgba(0,0,0,0.25);
+}
+.nav-cta:hover{ filter: brightness(1.03); }
+
+/* Mobile toggle */
+.nav-toggle{
+  display: none;
+  margin-left: 6px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  cursor: pointer;
+}
+.nav-toggle span{
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: rgba(255,255,255,0.85);
+  margin: 5px auto;
+  border-radius: 2px;
 }
 
-.primary-button:hover {
-  background: #e7c07a;
+/* Drawer (your JS toggles display block/none) */
+.nav-drawer{
+  display: none;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(14,12,10,0.92);
 }
-
-/* =====================================================
-   SHOT GRID (CampCards + App Screens)
-   ===================================================== */
-
-.shot-grid {
+.nav-drawer-inner{
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 14px var(--pad) 18px;
+}
+.nav-drawer-links{
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 30px;
+  gap: 10px;
+  margin-bottom: 14px;
 }
-
-/* Card container */
-.shot {
-  position: relative;
-  background: rgba(255,255,255,0.04);
-  border-radius: 18px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.08);
-  transition: transform 0.2s ease, border 0.2s ease;
+.nav-drawer-links a{
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 800;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
 }
-
-.shot:hover {
-  transform: translateY(-4px);
-  border-color: rgba(202,163,95,0.4);
-}
-
-/* Image inside card */
-.shot img {
+.drawer-cta{
+  display: inline-flex;
+  justify-content: center;
   width: 100%;
-  height: auto;
+  text-decoration: none;
+  font-weight: 900;
+  padding: 12px 14px;
+  border-radius: 999px;
+  color: #14110d;
+  background: linear-gradient(180deg, rgba(231,192,122,0.95), rgba(202,163,95,0.95));
+  border: 1px solid rgba(231,192,122,0.45);
+}
+
+/* -----------------------------
+   Hero
+------------------------------ */
+
+.hero{
+  padding: 92px 0 70px;
+  text-align: center;
+}
+
+.hero-inner{
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 var(--pad);
+}
+
+.hero h1{
+  margin: 0 0 14px;
+  font-size: 56px;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+
+.hero-sub{
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 18px;
+}
+
+.hero-actions{
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.primary-button{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-weight: 900;
+  padding: 14px 18px;
+  border-radius: 999px;
+  color: #14110d;
+  background: linear-gradient(180deg, rgba(231,192,122,0.95), rgba(202,163,95,0.95));
+  border: 1px solid rgba(231,192,122,0.45);
+  box-shadow: 0 16px 44px rgba(0,0,0,0.28);
+}
+.primary-button:hover{ filter: brightness(1.03); }
+
+.hero-foot{
+  margin: 16px 0 0;
+  color: rgba(231,192,122,0.85);
+  font-weight: 800;
+}
+
+/* -----------------------------
+   Origin (FIX: reduce “too large”)
+------------------------------ */
+
+.origin-tldr{
+  display: none; /* shown on mobile below */
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.origin-grid{
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Deer den image: constrain height so it doesn’t dominate */
+.origin-media img{
+  width: 100%;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,0.10);
+  max-height: 360px;
   object-fit: cover;
 }
 
 /* Caption */
-.shot figcaption {
-  padding: 14px;
+.origin-media figcaption{
+  margin-top: 10px;
+  color: var(--muted2);
   font-size: 14px;
-  text-align: center;
-  color: rgba(255,255,255,0.8);
 }
 
-/* Audio button row */
-.cap-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px;
+/* Origin copy: keep readable + not giant spacing */
+.origin-copy h3{
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.origin-copy p{
+  margin: 10px 0;
+  color: var(--muted);
 }
 
-.audio-btn {
-  background: rgba(255,255,255,0.08);
-  border: none;
-  color: #fff;
-  padding: 6px 14px;
-  border-radius: 20px;
-  cursor: pointer;
-}
-
-/* =====================================================
-   RESPONSIVE GRID CONTROL
-   ===================================================== */
-
-/* Desktop default: 3 across */
-
-/* Tablet */
-@media (max-width: 1000px) {
-  .shot-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-/* Mobile */
-@media (max-width: 600px) {
-  .shot-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero h1 {
-    font-size: 30px;
-  }
-}
-
-/* =====================================================
-   LIGHTBOX
-   ===================================================== */
-
-.lightbox {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.85);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.lightbox-panel {
-  max-width: 900px;
-  width: 90%;
-}
-
-.lightbox-img {
+/* Dad image: your HTML already calls out a 380px intent */
+.origin-dad{
+  margin-top: 14px;
   width: 100%;
-  border-radius: 12px;
+  max-height: 380px;
+  object-fit: cover;
+  border-radius: var(--r-md);
+  border: 1px solid rgba(255,255,255,0.10);
 }
 
-.lightbox-top {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
+/* -----------------------------
+   CampCards + App Screens Grid
+   (Both use .shot-grid / .shot in your HTML)
+------------------------------ */
 
-.lightbox-x {
-  background: none;
-  border: none;
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-}
-/* =========================================================
-   FIX: Restore centered layout + grids for CampCards/App Screens
-   Paste at END of style.css
-   ========================================================= */
-
-/* 1) Kill default figure margins that push content left */
-figure {
-  margin: 0;
-}
-
-/* 2) Ensure your .wrap containers are centered and constrained */
-.wrap {
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 20px;
-  padding-right: 20px;
-}
-
-/* 3) Force the grid for BOTH CampCards and App Screens
-      (both use .shot-grid in your HTML) */
-.shot-grid {
-  display: grid !important;
+.shot-grid{
+  display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 24px;
   align-items: start;
 }
 
-/* 4) Make each card behave properly inside the grid */
-.shot {
-  width: 100%;
-  max-width: 100%;
-  border-radius: 18px;
+/* Tile */
+.shot{
+  position: relative;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--r-lg);
   overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
-/* 5) Prevent “giant” screenshots — keep images responsive */
-.shot img {
+.shot:hover{
+  transform: translateY(-4px);
+  border-color: rgba(231,192,122,0.28);
+  background: rgba(255,255,255,0.06);
+}
+
+/* Click overlay button (your HTML uses a button to open lightbox) */
+.shot-open{
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* Image */
+.shot img{
   width: 100%;
   height: auto;
   display: block;
   max-width: 100%;
 }
 
-/* If any old CSS is forcing huge heights, this neutralizes it */
-.shot img,
-.shot {
-  max-height: none !important;
+/* Caption styles */
+.shot figcaption{
+  padding: 12px 14px;
+  text-align: center;
+  font-weight: 800;
+  color: rgba(255,255,255,0.85);
 }
 
-/* 6) Make captions behave consistently */
-.shot figcaption,
-.cap-row {
+/* CampCards caption row w/ audio button */
+.cap-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  font-weight: 900;
+}
+
+.audio-btn{
+  position: relative;
+  z-index: 3;
+  border: 1px solid rgba(231,192,122,0.26);
+  background: rgba(231,192,122,0.12);
+  color: rgba(255,255,255,0.92);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 900;
+}
+.audio-btn:hover{
+  background: rgba(231,192,122,0.18);
+}
+
+/* -----------------------------
+   Final CTA
+------------------------------ */
+
+.final-cta{
+  padding: 70px 0;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.final-cta-inner{
+  text-align: center;
+}
+
+.final-cta h2{
+  margin: 0 0 10px;
+  font-size: 34px;
+  letter-spacing: -0.02em;
+}
+
+.final-cta p{
+  margin: 0 0 18px;
+  color: var(--muted);
+}
+
+/* -----------------------------
+   Lightbox (your HTML IDs/classes)
+------------------------------ */
+
+.lightbox{
+  position: fixed;
+  inset: 0;
+  display: none; /* JS should toggle */
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.82);
+  z-index: 2000;
+  padding: 24px;
+}
+
+.lightbox-panel{
+  width: min(980px, 100%);
+  background: rgba(16,14,12,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: var(--r-lg);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55);
+  overflow: hidden;
+}
+
+.lightbox-top{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+}
+
+.lightbox-title{
+  font-weight: 1000;
+  color: var(--text);
+}
+
+.lightbox-x{
+  border: 0;
+  background: transparent;
+  color: rgba(255,255,255,0.90);
+  font-size: 26px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.lightbox-img{
   width: 100%;
+  height: auto;
+  display: block;
 }
 
-/* 7) Responsive columns */
-@media (max-width: 1000px) {
-  .shot-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.lightbox-controls{
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 12px 16px 16px;
+  border-top: 1px solid rgba(255,255,255,0.10);
 }
 
-@media (max-width: 600px) {
-  .shot-grid {
-    grid-template-columns: 1fr;
-  }
+.lb-close,
+.lb-audio{
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.lb-close{
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.92);
+}
+
+.lb-audio{
+  border: 1px solid rgba(231,192,122,0.38);
+  background: rgba(231,192,122,0.18);
+  color: rgba(255,255,255,0.92);
+}
+
+/* -----------------------------
+   Responsive
+------------------------------ */
+
+@media (max-width: 1040px){
+  .hero h1{ font-size: 46px; }
+  .shot-grid{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .origin-grid{ grid-template-columns: 1fr; }
+  .origin-media img{ max-height: 340px; }
+}
+
+@media (max-width: 760px){
+  .site-nav{ display: none; }
+  .nav-toggle{ display: inline-block; margin-left: auto; }
+  .nav-cta{ display: none; } /* CTA lives in drawer on mobile */
+
+  .section{ padding: 58px 0; }
+  .section-head h2{ font-size: 28px; }
+
+  .two-col{ grid-template-columns: 1fr; }
+
+  /* Mobile-friendly Origin TL;DR cards */
+  .origin-tldr{ display: grid; }
+  .origin-grid{ gap: 16px; }
+}
+
+@media (max-width: 560px){
+  .hero{ padding: 74px 0 56px; }
+  .hero h1{ font-size: 34px; }
+  .hero-sub{ font-size: 16px; }
+
+  .shot-grid{ grid-template-columns: 1fr; }
+}
+
+/* Focus visible */
+:focus-visible{
+  outline: 2px solid rgba(231,192,122,0.70);
+  outline-offset: 2px;
+  border-radius: 10px;
 }
