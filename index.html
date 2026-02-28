@@ -5,146 +5,136 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <!-- Keep your existing stylesheet -->
-  <link rel="stylesheet" href="/style.css?v=80" />
+  <link rel="stylesheet" href="/style.css?v=81" />
 
-  <!-- Small, safe stability styles (won’t fight your main CSS) -->
   <style>
-    /* --- Mobile nav button: bigger + label for older users --- */
-    .nav-toggle {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      min-height: 48px;
-      min-width: 56px;
-      touch-action: manipulation;
+    /* =========================
+       NAV: bigger + labeled toggle
+       ========================= */
+    .nav-toggle{
+      display:inline-flex;align-items:center;gap:10px;
+      padding:12px 14px;border-radius:12px;
+      min-height:48px;min-width:56px;touch-action:manipulation;
     }
-    .nav-toggle .menu-label {
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: .2px;
-      opacity: .85;
+    .nav-toggle .menu-label{font-size:14px;font-weight:600;letter-spacing:.2px;opacity:.85}
+
+    /* =========================
+       CAMP CARDS: FORCE images to show (override legacy CSS)
+       ========================= */
+    .shot-grid{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:18px;
+      margin-top:18px;
+    }
+    @media (max-width: 980px){ .shot-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    @media (max-width: 560px){ .shot-grid{grid-template-columns:1fr} }
+
+    /* card layout */
+    figure.shot{
+      margin:0;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      border-radius:18px;
+      overflow:hidden;
+      background: rgba(255,255,255,.35);
+      box-shadow: 0 10px 24px rgba(0,0,0,.08);
+      border: 1px solid rgba(0,0,0,.06);
     }
 
-    /* --- CampCards grid: stable + responsive --- */
-    .shot-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 18px;
-      margin-top: 18px;
+    /* the image button */
+    .shot-open{
+      display:block;
+      width:100%;
+      border:0;
+      padding:0;
+      margin:0;
+      cursor:pointer;
+      background:#efe8dc;
+      /* fixed visual area so image can't collapse to 0 height */
+      aspect-ratio: 4 / 3;
+      overflow:hidden;
     }
-    @media (max-width: 980px) {
-      .shot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 560px) {
-      .shot-grid { grid-template-columns: 1fr; }
-    }
-
-    /* Ensure images never blow up the layout */
-    .shot img {
-      width: 100%;
-      height: auto;
-      display: block;
-      object-fit: cover;
+    .shot-open img{
+      width:100% !important;
+      height:100% !important;
+      display:block !important;
+      object-fit:cover;
     }
 
-    /* --- Simple viewer (mobile-first) --- */
-    .dc-viewer {
-      position: fixed;
-      inset: 0;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(0,0,0,.62);
-      z-index: 9999;
+    /* caption area */
+    figure.shot figcaption{
+      padding: 14px 14px 16px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
     }
-    .dc-viewer[aria-hidden="false"] { display: flex; }
-
-    .dc-viewer-card {
-      width: min(920px, 100%);
-      max-height: min(86vh, 820px);
-      background: #fff;
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 12px 40px rgba(0,0,0,.25);
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-    }
-    .dc-viewer-head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(0,0,0,.08);
-      gap: 10px;
-    }
-    .dc-viewer-title {
-      font-size: 16px;
-      font-weight: 700;
-      margin: 0;
-      line-height: 1.2;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .dc-viewer-close {
-      border: 0;
-      background: rgba(0,0,0,.06);
-      border-radius: 12px;
-      padding: 10px 12px;
-      cursor: pointer;
-      font-weight: 700;
-      min-height: 44px;
-      touch-action: manipulation;
-    }
-    .dc-viewer-body {
-      overflow: auto;
-      background: #f6f6f6;
-      display: grid;
-      place-items: center;
-      padding: 10px;
-    }
-    .dc-viewer-body img {
-      width: 100%;
-      height: auto;
-      max-height: 68vh;
-      object-fit: contain;
-      border-radius: 12px;
-      background: #fff;
-    }
-    .dc-viewer-controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: space-between;
-      padding: 12px 14px;
-      border-top: 1px solid rgba(0,0,0,.08);
-      flex-wrap: wrap;
-    }
-    .dc-btn {
-      border: 0;
-      background: rgba(0,0,0,.07);
-      border-radius: 12px;
-      padding: 10px 12px;
-      cursor: pointer;
-      font-weight: 700;
-      min-height: 44px;
-      touch-action: manipulation;
-    }
-    .dc-btn.primary { background: rgba(0,0,0,.12); }
-    .dc-viewer-hint {
-      font-size: 13px;
-      opacity: .75;
-      margin-left: auto;
+    figure.shot h3{
+      margin:0;
+      font-size: 22px;
+      line-height: 1.05;
     }
 
-    /* Desktop: viewer only opens if user clicks image AND we allow it (we won't) */
-    @media (min-width: 981px) {
-      .dc-viewer-hint { display: none; }
+    /* play button */
+    .play-btn{
+      align-self:flex-start;
+      border:1px solid rgba(0,0,0,.55);
+      background: rgba(255,255,255,.65);
+      border-radius:10px;
+      padding:8px 10px;
+      font-weight:700;
+      cursor:pointer;
+      min-height:40px;
+      touch-action:manipulation;
     }
+
+    /* =========================
+       MOBILE VIEWER
+       ========================= */
+    .dc-viewer{
+      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
+      padding:18px;background:rgba(0,0,0,.62);z-index:9999;
+    }
+    .dc-viewer[aria-hidden="false"]{display:flex}
+    .dc-viewer-card{
+      width:min(920px,100%);max-height:min(86vh,820px);
+      background:#fff;border-radius:18px;overflow:hidden;
+      box-shadow:0 12px 40px rgba(0,0,0,.25);
+      display:grid;grid-template-rows:auto 1fr auto;
+    }
+    .dc-viewer-head{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:12px 14px;border-bottom:1px solid rgba(0,0,0,.08);gap:10px;
+    }
+    .dc-viewer-title{
+      font-size:16px;font-weight:800;margin:0;line-height:1.2;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    }
+    .dc-viewer-close{
+      border:0;background:rgba(0,0,0,.06);border-radius:12px;
+      padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;
+      touch-action:manipulation;
+    }
+    .dc-viewer-body{
+      overflow:auto;background:#f6f6f6;display:grid;place-items:center;padding:10px;
+    }
+    .dc-viewer-body img{
+      width:100%;height:auto;max-height:68vh;object-fit:contain;
+      border-radius:12px;background:#fff;
+    }
+    .dc-viewer-controls{
+      display:flex;gap:10px;align-items:center;justify-content:space-between;
+      padding:12px 14px;border-top:1px solid rgba(0,0,0,.08);flex-wrap:wrap;
+    }
+    .dc-btn{
+      border:0;background:rgba(0,0,0,.07);border-radius:12px;
+      padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;
+      touch-action:manipulation;
+    }
+    .dc-btn.primary{background:rgba(0,0,0,.12)}
+    .dc-viewer-hint{font-size:13px;opacity:.75;margin-left:auto}
+    @media (min-width: 981px){ .dc-viewer-hint{display:none} }
   </style>
 </head>
 
@@ -202,12 +192,10 @@
   <div class="hero-inner">
     <h1>Capture the moments that become legacy.</h1>
 
-    <!-- Desktop copy -->
     <p class="hero-sub">
       A private memory engine built for camp life.
     </p>
 
-    <!-- Mobile-only copy -->
     <p class="hero-sub mobile-hero-copy">
       A living archive for camp life.<br>
       Moments, photos, and voice notes — kept private and preserved.<br>
@@ -233,22 +221,6 @@
         Create a memory in seconds: record a voice note, add a photo, and write a quick caption — even after a long day in camp.
       </p>
     </div>
-
-    <div class="feature-grid">
-      <div class="feature-card">
-        <h3>Record</h3>
-        <p>Tap once and capture the story while it’s fresh.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Add photos</h3>
-        <p>Attach the moments that matter — from camp life to the woods.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Keep it private</h3>
-        <p>Your memories aren’t content. They’re legacy.</p>
-      </div>
-    </div>
-
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
   </div>
 </section>
@@ -262,22 +234,6 @@
         A Camp is your circle — the people you trust. DeerCamp is built for your memories first.
       </p>
     </div>
-
-    <div class="feature-grid">
-      <div class="feature-card">
-        <h3>Your people</h3>
-        <p>Keep the experience close to those who lived it.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Your stories</h3>
-        <p>Voice-first memories that feel like being back at camp.</p>
-      </div>
-      <div class="feature-card">
-        <h3>Your timeline</h3>
-        <p>Organize seasons and moments without turning it into social media.</p>
-      </div>
-    </div>
-
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
   </div>
 </section>
@@ -291,7 +247,6 @@
         DeerCamp was built to protect the stories that used to live around a fire — and keep them for the next generation.
       </p>
     </div>
-
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
   </div>
 </section>
@@ -308,10 +263,9 @@
       </p>
     </div>
 
-    <!-- Desktop = stable grid. Mobile = tap image opens viewer with prev/next. -->
     <div class="shot-grid" id="campcardsGrid">
+      <!-- NOTE: if any filename differs, tell me your exact 12 filenames and I'll patch immediately -->
 
-      <!-- 1 -->
       <figure class="shot has-audio" data-title="Ben’s First Buck"
               data-img="/campcards/images/bens-first-buck.png"
               data-audio="/campcards/audio/bens-first-buck.mp3">
@@ -324,7 +278,6 @@
         </figcaption>
       </figure>
 
-      <!-- 2 -->
       <figure class="shot has-audio" data-title="Brittney’s First Deer"
               data-img="/campcards/images/brittneys-first-deer.png"
               data-audio="/campcards/audio/brittneys-first-deer.mp3">
@@ -337,7 +290,6 @@
         </figcaption>
       </figure>
 
-      <!-- 3 -->
       <figure class="shot has-audio" data-title="Camp Tracker"
               data-img="/campcards/images/camp-tracker.png"
               data-audio="/campcards/audio/camp-tracker.mp3">
@@ -350,7 +302,6 @@
         </figcaption>
       </figure>
 
-      <!-- 4 -->
       <figure class="shot has-audio" data-title="Campfire Camaraderie"
               data-img="/campcards/images/campfire-camaraderie.png"
               data-audio="/campcards/audio/campfire-camaraderie.mp3">
@@ -363,7 +314,6 @@
         </figcaption>
       </figure>
 
-      <!-- 5 -->
       <figure class="shot has-audio" data-title="Fall Scouting"
               data-img="/campcards/images/fall-scouting.png"
               data-audio="/campcards/audio/fall-scouting.mp3">
@@ -376,7 +326,6 @@
         </figcaption>
       </figure>
 
-      <!-- 6 -->
       <figure class="shot has-audio" data-title="First Coffee"
               data-img="/campcards/images/first-coffee.png"
               data-audio="/campcards/audio/first-coffee.mp3">
@@ -389,7 +338,6 @@
         </figcaption>
       </figure>
 
-      <!-- 7 -->
       <figure class="shot has-audio" data-title="First Snow"
               data-img="/campcards/images/first-snow.png"
               data-audio="/campcards/audio/first-snow.mp3">
@@ -402,7 +350,6 @@
         </figcaption>
       </figure>
 
-      <!-- 8 -->
       <figure class="shot has-audio" data-title="Grandma’s Kitchen"
               data-img="/campcards/images/grandmas-kitchen.png"
               data-audio="/campcards/audio/grandmas-kitchen.mp3">
@@ -415,7 +362,6 @@
         </figcaption>
       </figure>
 
-      <!-- 9 -->
       <figure class="shot has-audio" data-title="Grandpa’s Biggest Buck"
               data-img="/campcards/images/grandpas-biggest-buck.png"
               data-audio="/campcards/audio/grandpas-biggest-buck.mp3">
@@ -428,7 +374,6 @@
         </figcaption>
       </figure>
 
-      <!-- 10 -->
       <figure class="shot has-audio" data-title="Spring Scouting"
               data-img="/campcards/images/spring-scouting.png"
               data-audio="/campcards/audio/spring-scouting.mp3">
@@ -441,7 +386,6 @@
         </figcaption>
       </figure>
 
-      <!-- 11 -->
       <figure class="shot has-audio" data-title="Dad Deer"
               data-img="/campcards/images/dad-deer.png"
               data-audio="/campcards/audio/dad-deer.mp3">
@@ -454,7 +398,6 @@
         </figcaption>
       </figure>
 
-      <!-- 12 -->
       <figure class="shot has-audio" data-title="Opening Morning"
               data-img="/campcards/images/opening-morning.png"
               data-audio="/campcards/audio/opening-morning.mp3">
@@ -466,7 +409,6 @@
           <button class="play-btn" type="button">▶ Play</button>
         </figcaption>
       </figure>
-
     </div>
 
     <div class="cta-row" style="margin-top:22px;">
@@ -493,8 +435,6 @@
       </p>
     </div>
 
-    <!-- If you have actual screenshot assets, we can populate this next.
-         For now, we keep it production-clean (no empty image placeholders). -->
     <div class="feature-card">
       <h3>Coming next</h3>
       <p>Add your real app screenshots here once you confirm the file paths.</p>
@@ -513,7 +453,6 @@
         This isn’t social media. DeerCamp is built for privacy — so your memories stay with your camp.
       </p>
     </div>
-
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
   </div>
 </section>
@@ -525,23 +464,21 @@
   </div>
 </section>
 
-<!-- ================= MOBILE VIEWER (for CampCards) ================= -->
+<!-- ================= MOBILE VIEWER (CampCards) ================= -->
 <div class="dc-viewer" id="dcViewer" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="dc-viewer-card" role="document">
     <div class="dc-viewer-head">
       <p class="dc-viewer-title" id="dcViewerTitle">CampCard</p>
       <button class="dc-viewer-close" id="dcViewerClose" type="button" aria-label="Close">Close ✕</button>
     </div>
-
     <div class="dc-viewer-body">
       <img id="dcViewerImg" src="" alt="">
     </div>
-
     <div class="dc-viewer-controls">
       <button class="dc-btn" id="dcPrev" type="button">← Prev</button>
       <button class="dc-btn primary" id="dcPlay" type="button">▶ Play</button>
       <button class="dc-btn" id="dcNext" type="button">Next →</button>
-      <span class="dc-viewer-hint">Tip: Swipe not required — use Prev/Next</span>
+      <span class="dc-viewer-hint">Tip: Use Prev/Next</span>
     </div>
   </div>
 </div>
@@ -553,7 +490,6 @@
   (function () {
     const toggle = document.getElementById('navToggle');
     const drawer = document.getElementById('navDrawer');
-
     if (!toggle || !drawer) return;
 
     function openDrawer() {
@@ -566,32 +502,16 @@
       drawer.setAttribute('aria-hidden', 'true');
       document.body.classList.remove('drawer-open');
     }
-    function isOpen() {
-      return toggle.getAttribute('aria-expanded') === 'true';
-    }
+    function isOpen() { return toggle.getAttribute('aria-expanded') === 'true'; }
 
-    toggle.addEventListener('click', () => {
-      isOpen() ? closeDrawer() : openDrawer();
-    });
-
-    // Close on link click
-    drawer.querySelectorAll('a[href^="#"]').forEach(a => {
-      a.addEventListener('click', () => closeDrawer());
-    });
-
-    // Close on escape
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isOpen()) closeDrawer();
-    });
-
-    // Close when clicking outside drawer on mobile
-    drawer.addEventListener('click', (e) => {
-      if (e.target === drawer) closeDrawer();
-    });
+    toggle.addEventListener('click', () => { isOpen() ? closeDrawer() : openDrawer(); });
+    drawer.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', closeDrawer));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeDrawer(); });
+    drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
   })();
 
   // =========================
-  // CAMP CARDS (audio + mobile viewer)
+  // CAMP CARDS (images forced visible + TRUE pause)
   // =========================
   (function () {
     const grid = document.getElementById('campcardsGrid');
@@ -600,10 +520,11 @@
     const cards = Array.from(grid.querySelectorAll('figure.shot.has-audio'));
     if (!cards.length) return;
 
-    // Single audio element for the page
     const audio = new Audio();
     audio.preload = 'none';
 
+    // Track which play button is "active"
+    let activeBtn = null;
     let currentIndex = -1;
 
     // Viewer elements
@@ -615,47 +536,77 @@
     const btnNext = document.getElementById('dcNext');
     const btnPlay = document.getElementById('dcPlay');
 
-    function isMobile() {
-      return window.matchMedia('(max-width: 980px)').matches;
+    const isMobile = () => window.matchMedia('(max-width: 980px)').matches;
+
+    // IMPORTANT: compare absolute URLs so we don't "reset to 0" every click
+    const abs = (p) => new URL(p, window.location.href).href;
+
+    function setBtnState(btn, state) {
+      if (!btn) return;
+      btn.textContent = state === 'pause' ? '⏸ Pause' : '▶ Play';
+    }
+
+    function stopAudio() {
+      audio.pause();
+      // do not reset currentTime unless switching tracks
+      if (activeBtn) setBtnState(activeBtn, 'play');
+      activeBtn = null;
+      if (btnPlay) btnPlay.textContent = '▶ Play';
+    }
+
+    function togglePlayFor(card, btn) {
+      const audRel = card.getAttribute('data-audio') || '';
+      if (!audRel) return;
+
+      const nextSrc = abs(audRel);
+
+      // If switching tracks, stop and load new without treating it as "pause"
+      const switching = audio.src && audio.src !== nextSrc;
+
+      if (switching) {
+        stopAudio();
+        audio.src = nextSrc;
+        audio.currentTime = 0;
+      } else if (!audio.src) {
+        audio.src = nextSrc;
+      }
+
+      // Toggle play/pause WITHOUT resetting time
+      if (audio.paused) {
+        audio.play().then(() => {
+          if (activeBtn && activeBtn !== btn) setBtnState(activeBtn, 'play');
+          activeBtn = btn;
+          setBtnState(btn, 'pause');
+          if (btnPlay) btnPlay.textContent = '⏸ Pause';
+        }).catch(() => {});
+      } else {
+        audio.pause();
+        setBtnState(btn, 'play');
+        if (btnPlay) btnPlay.textContent = '▶ Play';
+      }
+
+      audio.onended = () => stopAudio();
     }
 
     function loadCard(index) {
       const card = cards[index];
       if (!card) return;
-
       currentIndex = index;
 
       const title = card.getAttribute('data-title') || 'CampCard';
       const img = card.getAttribute('data-img') || '';
-      const aud = card.getAttribute('data-audio') || '';
-
       viewerTitle.textContent = title;
       viewerImg.src = img;
       viewerImg.alt = title;
 
-      audio.src = aud;
-      btnPlay.textContent = '▶ Play';
-    }
-
-    function playPause() {
-      if (!audio.src) return;
-      if (audio.paused) {
-        audio.play().then(() => {
-          btnPlay.textContent = '⏸ Pause';
-        }).catch(() => {
-          // Autoplay restrictions: user must press play (they did)
-          btnPlay.textContent = '▶ Play';
-        });
-      } else {
-        audio.pause();
-        btnPlay.textContent = '▶ Play';
-      }
-    }
-
-    function stopAudio() {
-      audio.pause();
+      // Load audio but do not autoplay
+      const aud = card.getAttribute('data-audio') || '';
+      audio.src = aud ? abs(aud) : '';
+      if (btnPlay) btnPlay.textContent = '▶ Play';
+      if (activeBtn) setBtnState(activeBtn, 'play');
+      activeBtn = null;
       audio.currentTime = 0;
-      btnPlay.textContent = '▶ Play';
+      audio.pause();
     }
 
     function openViewer(index) {
@@ -663,63 +614,37 @@
       viewer.setAttribute('aria-hidden', 'false');
       document.body.style.overflow = 'hidden';
     }
-
     function closeViewer() {
       viewer.setAttribute('aria-hidden', 'true');
       document.body.style.overflow = '';
       stopAudio();
     }
+    function prev() { loadCard((currentIndex - 1 + cards.length) % cards.length); }
+    function next() { loadCard((currentIndex + 1) % cards.length); }
 
-    function prev() {
-      const nextIndex = (currentIndex - 1 + cards.length) % cards.length;
-      loadCard(nextIndex);
-      stopAudio();
+    function viewerPlayPause() {
+      if (!audio.src) return;
+      if (audio.paused) {
+        audio.play().then(() => { btnPlay.textContent = '⏸ Pause'; }).catch(() => {});
+      } else {
+        audio.pause();
+        btnPlay.textContent = '▶ Play';
+      }
+      audio.onended = () => { btnPlay.textContent = '▶ Play'; };
     }
 
-    function next() {
-      const nextIndex = (currentIndex + 1) % cards.length;
-      loadCard(nextIndex);
-      stopAudio();
-    }
-
-    // Desktop behavior: no viewer expansion. Play inline only.
-    // Mobile behavior: tap image opens viewer.
+    // Wire up each card
     cards.forEach((card, index) => {
       const playBtn = card.querySelector('.play-btn');
       const openBtn = card.querySelector('.shot-open');
 
-      // Play button always works (mobile + desktop)
       if (playBtn) {
-        playBtn.addEventListener('click', () => {
-          const aud = card.getAttribute('data-audio') || '';
-          if (!aud) return;
-
-          // If switching cards, reset
-          if (audio.src !== aud) {
-            audio.src = aud;
-            audio.currentTime = 0;
-          }
-
-          // Toggle play/pause
-          if (audio.paused) {
-            audio.play().catch(() => {});
-            playBtn.textContent = '⏸ Pause';
-          } else {
-            audio.pause();
-            playBtn.textContent = '▶ Play';
-          }
-
-          // When audio ends, reset button label
-          audio.onended = () => { playBtn.textContent = '▶ Play'; };
-        });
+        playBtn.addEventListener('click', () => togglePlayFor(card, playBtn));
       }
 
-      // Open viewer only on mobile sizes
+      // Mobile-only viewer open (desktop stays stable, no expand)
       if (openBtn) {
-        openBtn.addEventListener('click', () => {
-          if (!isMobile()) return; // Desktop: do nothing (stability)
-          openViewer(index);
-        });
+        openBtn.addEventListener('click', () => { if (isMobile()) openViewer(index); });
       }
     });
 
@@ -727,27 +652,19 @@
     if (btnClose) btnClose.addEventListener('click', closeViewer);
     if (btnPrev) btnPrev.addEventListener('click', prev);
     if (btnNext) btnNext.addEventListener('click', next);
-    if (btnPlay) btnPlay.addEventListener('click', playPause);
+    if (btnPlay) btnPlay.addEventListener('click', viewerPlayPause);
 
-    // Close viewer by clicking overlay
-    if (viewer) {
-      viewer.addEventListener('click', (e) => {
-        if (e.target === viewer) closeViewer();
-      });
-    }
+    // Overlay click closes
+    if (viewer) viewer.addEventListener('click', (e) => { if (e.target === viewer) closeViewer(); });
 
     // Esc closes viewer
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && viewer.getAttribute('aria-hidden') === 'false') {
-        closeViewer();
-      }
+      if (e.key === 'Escape' && viewer.getAttribute('aria-hidden') === 'false') closeViewer();
     });
 
-    // If viewport grows to desktop while viewer open, close (prevents weird states)
+    // If viewport grows to desktop while viewer open, close to prevent weirdness
     window.addEventListener('resize', () => {
-      if (!isMobile() && viewer.getAttribute('aria-hidden') === 'false') {
-        closeViewer();
-      }
+      if (!isMobile() && viewer.getAttribute('aria-hidden') === 'false') closeViewer();
     });
   })();
 </script>
