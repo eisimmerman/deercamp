@@ -1,143 +1,373 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeerCamp — Capture the moments that become legacy</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>CampCards! — DeerCamp</title>
 
-  <link rel="stylesheet" href="/style.css?v=79" />
+  <!-- CampCards page lives in /campcards/, so ../style.css points to site root stylesheet -->
+  <link rel="stylesheet" href="../style.css?v=84" />
+
+  <!-- CampCards-only layout + interactions (scoped so it won't mess other pages) -->
+  <style>
+    /* ===== CampCards page scope ===== */
+    body.campcards-page .wrap{
+      width: min(1100px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 0;
+      position: relative;
+    }
+
+    body.campcards-page .deck-grid{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr)); /* ✅ desktop: 4 across */
+      gap: 18px;
+      margin-top: 14px;
+    }
+
+    /* Tablet */
+    @media (max-width: 980px){
+      body.campcards-page .deck-grid{
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* Mobile */
+    @media (max-width: 720px){
+      body.campcards-page .deck-grid{
+        grid-template-columns: 1fr;
+      }
+
+      /* ✅ mobile: show first 4 only */
+      body.campcards-page .deck-grid > .card:nth-child(n+5){
+        display: none;
+      }
+
+      /* when expanded, show all */
+      body.campcards-page .deck-grid.expanded > .card:nth-child(n+5){
+        display: block;
+      }
+    }
+
+    /* Card styling (light touch; relies on your base theme) */
+    body.campcards-page .card{
+      background: rgba(251,244,232,.92);
+      border: 1px solid rgba(31,27,22,.12);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(31,27,22,.10);
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+
+    /* ✅ hover lift on desktop/laptops only */
+    @media (hover:hover){
+      body.campcards-page .card:hover{
+        transform: translateY(-6px);
+        box-shadow: 0 20px 56px rgba(31,27,22,.16);
+      }
+    }
+
+    body.campcards-page .card-media{
+      background: rgba(255,255,255,.35);
+      border-bottom: 1px solid rgba(31,27,22,.10);
+    }
+    body.campcards-page .card-media img{
+      width: 100%;
+      height: 230px;
+      object-fit: contain;
+      display: block;
+    }
+    @media (max-width: 720px){
+      body.campcards-page .card-media img{
+        height: 260px;
+      }
+    }
+
+    body.campcards-page .card-body{
+      padding: 12px 12px 14px;
+    }
+    body.campcards-page .card-title{
+      margin: 0 0 10px;
+      font-size: 18px;
+      font-weight: 800;
+      font-family: var(--font-serif, Georgia, "Times New Roman", serif);
+      color: rgba(31,27,22,.92);
+      letter-spacing: -0.01em;
+    }
+
+    body.campcards-page .player{
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    body.campcards-page .play-btn{
+      font-family: var(--font-sans, system-ui);
+      font-weight: 900;
+      font-size: 13px;
+      border-radius: 999px;
+      padding: 10px 14px;
+      border: 1px solid rgba(31,27,22,.16);
+      background: rgba(255,255,255,.70);
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(31,27,22,.10);
+    }
+    body.campcards-page .play-btn:hover{
+      background: rgba(255,255,255,.86);
+    }
+    body.campcards-page .badge{
+      font-family: var(--font-sans, system-ui);
+      font-weight: 900;
+      font-size: 12px;
+      color: rgba(31,27,22,.70);
+      background: rgba(255,255,255,.55);
+      border: 1px solid rgba(31,27,22,.12);
+      padding: 6px 10px;
+      border-radius: 999px;
+    }
+
+    /* Toggle button */
+    body.campcards-page .deck-controls{
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+    body.campcards-page .deck-controls button{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      font-family: var(--font-sans, system-ui);
+      font-weight: 900;
+      font-size: 14px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid rgba(31,27,22,.16);
+      background: rgba(255,255,255,.72);
+      cursor: pointer;
+      box-shadow: 0 10px 22px rgba(31,27,22,.10);
+    }
+    body.campcards-page .deck-controls button:hover{
+      background: rgba(255,255,255,.90);
+    }
+
+    /* Hide toggle on desktop (since 12 cards are fine there) */
+    @media (min-width: 721px){
+      body.campcards-page .deck-controls{ display: none; }
+    }
+  </style>
 </head>
 
-<body>
-<div id="top"></div>
+<body class="campcards-page">
+<main class="wrap">
 
-<!-- ================= NAV ================= -->
-<header class="site-header">
-  <div class="nav-wrap">
-    <a class="brand" href="#top">DeerCamp</a>
-
-    <nav class="site-nav">
-      <a href="#how">How it works</a>
-      <a href="#camp">What is a Camp?</a>
-      <a href="#origin">Origin</a>
-      <a href="#campcards">CampCards</a>
-      <a href="#screens">App Screens</a>
-      <a href="#privacy">Privacy</a>
-    </nav>
-
-    <a class="nav-cta"
-       href="https://play.google.com/store/apps/details?id=com.simmerman.deercamp"
-       target="_blank">
-      Get the app
-    </a>
-
-    <button class="nav-toggle" aria-expanded="false">
-      <span></span><span></span><span></span>
-    </button>
+  <div class="topbar">
+    <a href="/" aria-label="Back to DeerCamp home">← Back</a>
+    <a href="https://privacy.ourdeercamp.com">Privacy</a>
   </div>
 
-  <div class="nav-drawer" id="navDrawer" aria-hidden="true">
-    <div class="nav-drawer-inner">
-      <div class="nav-drawer-links">
-        <a href="#how">How it works</a>
-        <a href="#camp">What is a Camp?</a>
-        <a href="#origin">Origin</a>
-        <a href="#campcards">CampCards</a>
-        <a href="#screens">App Screens</a>
-        <a href="#privacy">Privacy</a>
-      </div>
+  <article class="sheet">
+    <header class="sheet-head">
+      <p class="kicker">CampCards!</p>
+      <h1 class="title">CampCards! Examples</h1>
+      <p class="lede">Twelve voice-first memories that show what DeerCamp is for.</p>
+    </header>
 
-      <a class="drawer-cta"
-         href="https://play.google.com/store/apps/details?id=com.simmerman.deercamp"
-         target="_blank">
-        Download on Google Play
-      </a>
+    <div class="rule"></div>
+
+    <section class="deck-grid" id="deckGrid">
+
+      <!-- 1 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/bens-first-buck.png" alt="Ben’s First Buck" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Ben’s First Buck</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/bens-first-buck.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/brittneys-first-deer.png" alt="Brittney’s First Deer" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Brittney’s First Deer</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/brittneys-first-deer.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 3 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/camp-tracker.png" alt="Camp Tracker" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Camp Tracker</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/camp-tracker.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 4 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/campfire-camaraderie.png" alt="Campfire Camaraderie" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Campfire Camaraderie</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/campfire-camaraderie.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 5 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/fall-scouting.png" alt="Fall Scouting" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Fall Scouting</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/fall-scouting.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 6 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/first-coffee.png" alt="First Coffee" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">First Coffee</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/first-coffee.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 7 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/first-snow.png" alt="First Snow" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">First Snow</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/first-snow.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 8 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/grandmas-kitchen.png" alt="Grandma’s Kitchen" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Grandma’s Kitchen</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/grandmas-kitchen.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 9 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/grandpas-biggest-buck.png" alt="Grandpa’s Biggest Buck" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Grandpa’s Biggest Buck</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/grandpas-biggest-buck.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 10 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/opening-morning.png" alt="Opening Morning" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Opening Morning</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/opening-morning.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 11 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/packers-burgers.png" alt="Packers & Burgers" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Packers &amp; Burgers</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/packers-burgers.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+      <!-- 12 -->
+      <article class="card" data-card>
+        <div class="card-media"><img src="images/spring-scouting.png" alt="Spring Scouting" loading="lazy"></div>
+        <div class="card-body">
+          <h2 class="card-title">Spring Scouting</h2>
+          <div class="player">
+            <button class="play-btn" type="button" data-play aria-pressed="false">▶ Play</button>
+            <span class="badge" data-time>—:—</span>
+            <audio preload="metadata" src="audio/spring-scouting.mp3"></audio>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ✅ Mobile toggle (only visible on mobile via CSS above) -->
+    <div class="deck-controls">
+      <button id="toggleDeck" type="button" aria-expanded="false">Show all 12</button>
     </div>
-  </div>
-</header>
 
+  </article>
 
-<!-- ================= HERO ================= -->
-<section class="hero">
-  <div class="hero-inner">
+</main>
 
-    <h1>Capture the moments that become legacy.</h1>
+<script src="campcards.js"></script>
 
-    <!-- Desktop copy (unchanged) -->
-    <p class="hero-sub">
-      A private memory engine built for camp life.
-    </p>
+<!-- Mobile show/hide toggle -->
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const grid = document.getElementById("deckGrid");
+  const btn = document.getElementById("toggleDeck");
+  if(!grid || !btn) return;
 
-    <!-- Mobile-only copy -->
-    <p class="hero-sub mobile-hero-copy">
-      A living archive for camp life.<br>
-      Moments, photos, and voice notes — kept private and preserved.<br>
-      <strong>This isn’t social media. It’s protecting what matters.</strong>
-    </p>
+  function setExpanded(expanded){
+    grid.classList.toggle("expanded", expanded);
+    btn.setAttribute("aria-expanded", String(expanded));
+    btn.textContent = expanded ? "Show less" : "Show all 12";
+  }
 
-    <div class="hero-actions">
-      <a class="primary-button"
-         href="https://play.google.com/store/apps/details?id=com.simmerman.deercamp"
-         target="_blank">
-        Download on Google Play
-      </a>
-    </div>
+  setExpanded(false);
 
-  </div>
-</section>
-
-
-<!-- ================= CAMP CARDS ================= -->
-<section id="campcards" class="section">
-  <div class="wrap">
-
-    <div class="section-head">
-      <h2>CampCards</h2>
-      <p class="section-subtitle">
-        Examples of what camp life memories can look like.
-      </p>
-    </div>
-
-    <div class="shot-grid">
-      <!-- Your existing CampCards figures remain here unchanged -->
-    </div>
-
-    <div style="text-align:center; margin-top:30px;">
-      <a href="#top" class="back-top">Back to top ↑</a>
-    </div>
-
-  </div>
-</section>
-
-
-<!-- ================= APP SCREENS ================= -->
-<section id="screens" class="section">
-  <div class="wrap">
-
-    <div class="section-head">
-      <h2>App Screens</h2>
-      <p class="section-subtitle">
-        Clean. Simple. Built for camp life.
-      </p>
-    </div>
-
-    <div class="shot-grid">
-      <!-- Your existing App Screens figures remain here unchanged -->
-    </div>
-
-  </div>
-</section>
-
-
-<!-- ================= FOOTER ================= -->
-<section class="final-cta">
-  <div class="wrap">
-    <a href="#top" class="back-top">Back to top ↑</a>
-  </div>
-</section>
-
-
-<script src="/script.js?v=5"></script>
+  btn.addEventListener("click", function(){
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    setExpanded(!expanded);
+    if (expanded) grid.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+});
+</script>
 
 </body>
 </html>
