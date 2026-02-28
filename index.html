@@ -5,44 +5,84 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=83" />
+  <link rel="stylesheet" href="/style.css?v=84" />
 
   <style>
-    /* NAV: bigger + labeled toggle */
-    .nav-toggle{display:inline-flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;min-height:48px;min-width:56px;touch-action:manipulation}
+    /* =========================
+       GLOBAL LAYOUT STABILIZATION
+       (scoped, minimal, production-safe)
+       ========================= */
+
+    /* Prevent accidental huge section heights from older CSS */
+    .section {
+      padding: clamp(28px, 5vw, 64px) 0 !important;
+      margin: 0 !important;
+      min-height: 0 !important;
+    }
+
+    /* Normalize wrap widths; prevents sections from stretching weirdly */
+    .wrap {
+      width: min(1100px, calc(100% - 48px));
+      margin: 0 auto;
+    }
+    @media (max-width: 560px) {
+      .wrap { width: calc(100% - 28px); }
+    }
+
+    /* If older CSS created giant vertical spacing after hero/section-head */
+    .section-head { margin: 0 0 18px !important; }
+    .section-head h2 { margin: 0 0 10px !important; }
+    .section-subtitle { margin: 0 !important; }
+
+    /* Back-to-top buttons should not create “empty blocks” */
+    .back-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 14px 0 0 !important;
+    }
+
+    /* =========================
+       NAV: bigger + labeled toggle
+       ========================= */
+    .nav-toggle{
+      display:inline-flex;align-items:center;gap:10px;
+      padding:12px 14px;border-radius:12px;
+      min-height:48px;min-width:56px;touch-action:manipulation
+    }
     .nav-toggle .menu-label{font-size:14px;font-weight:600;letter-spacing:.2px;opacity:.85}
 
-    /* CampCards grid */
+    /* =========================
+       CAMP CARDS GRID
+       ========================= */
     .shot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:18px}
     @media (max-width:980px){.shot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     @media (max-width:560px){.shot-grid{grid-template-columns:1fr}}
 
-    /* Card */
-    figure.shot{margin:0;display:flex;flex-direction:column;gap:12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.35);box-shadow:0 10px 24px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.06)}
-
-    /* Image button area: fixed height via aspect-ratio */
-    .shot-open{display:block;width:100%;border:0;padding:0;margin:0;cursor:pointer;background:#efe8dc;aspect-ratio:4/3;overflow:hidden}
-
-    /* FORCE image visibility even if legacy CSS is hiding it */
-    .shot-open img{
-      width:100% !important;
-      height:100% !important;
-      display:block !important;
-      object-fit:cover !important;
-      opacity:1 !important;
-      visibility:visible !important;
-      max-width:none !important;
-      max-height:none !important;
-      transform:none !important;
-      filter:none !important;
+    figure.shot{
+      margin:0;display:flex;flex-direction:column;gap:12px;border-radius:18px;
+      overflow:hidden;background:rgba(255,255,255,.35);
+      box-shadow:0 10px 24px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.06)
     }
-
+    .shot-open{
+      display:block;width:100%;border:0;padding:0;margin:0;cursor:pointer;
+      background:#efe8dc;aspect-ratio:4/3;overflow:hidden
+    }
+    .shot-open img{
+      width:100%!important;height:100%!important;display:block!important;object-fit:cover!important;
+      opacity:1!important;visibility:visible!important;transform:none!important
+    }
     figure.shot figcaption{padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px}
     figure.shot h3{margin:0;font-size:22px;line-height:1.05}
+    .play-btn{
+      align-self:flex-start;border:1px solid rgba(0,0,0,.55);
+      background:rgba(255,255,255,.65);border-radius:10px;padding:8px 10px;
+      font-weight:700;cursor:pointer;min-height:40px;touch-action:manipulation
+    }
 
-    .play-btn{align-self:flex-start;border:1px solid rgba(0,0,0,.55);background:rgba(255,255,255,.65);border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer;min-height:40px;touch-action:manipulation}
-
-    /* Mobile viewer */
+    /* =========================
+       MOBILE VIEWER
+       ========================= */
     .dc-viewer{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.62);z-index:9999}
     .dc-viewer[aria-hidden="false"]{display:flex}
     .dc-viewer-card{width:min(920px,100%);max-height:min(86vh,820px);background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.25);display:grid;grid-template-rows:auto 1fr auto}
@@ -173,10 +213,6 @@
     </div>
 
     <div class="shot-grid" id="campcardsGrid">
-      <!-- Filenames match your screenshot -->
-      <!-- NOTE: audio filenames are assumed to match. If any differ, I’ll patch instantly. -->
-
-      <!-- helper: one card template repeated -->
       <figure class="shot has-audio" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
         <button class="shot-open" type="button" aria-label="View Ben’s First Buck"><img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck"></button>
         <figcaption><h3>Ben’s First Buck</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
@@ -314,7 +350,7 @@
     drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
   })();
 
-  // CampCards: TRUE pause (no restart) + mobile viewer
+  // CampCards audio: one audio at a time + true pause
   (function () {
     const grid = document.getElementById('campcardsGrid');
     if (!grid) return;
@@ -326,6 +362,7 @@
     audio.preload = 'none';
 
     let activeBtn = null;
+    let activeCard = null;
     let currentIndex = -1;
 
     const viewer = document.getElementById('dcViewer');
@@ -345,6 +382,7 @@
       audio.pause();
       if (activeBtn) setBtn(activeBtn,'play');
       activeBtn = null;
+      activeCard = null;
       if (btnPlay) btnPlay.textContent = '▶ Play';
     }
 
@@ -353,6 +391,8 @@
       if (!rel) return;
 
       const nextSrc = abs(rel);
+
+      // If user clicks a different card while one is playing, switch cleanly
       const switching = audio.src && audio.src !== nextSrc;
 
       if (switching) {
@@ -363,17 +403,28 @@
         audio.src = nextSrc;
       }
 
+      // If the same card, just toggle pause/play without resetting time
+      const sameCard = activeCard === card;
+
       if (audio.paused) {
         audio.play().then(() => {
+          // update previous
           if (activeBtn && activeBtn !== btn) setBtn(activeBtn,'play');
           activeBtn = btn;
+          activeCard = card;
           setBtn(btn,'pause');
           if (btnPlay) btnPlay.textContent = '⏸ Pause';
         }).catch(()=>{});
       } else {
+        // If playing and same card -> pause. If playing but different card -> should not happen due to switching.
         audio.pause();
-        setBtn(btn,'play');
-        if (btnPlay) btnPlay.textContent = '▶ Play';
+        if (sameCard) {
+          setBtn(btn,'play');
+          if (btnPlay) btnPlay.textContent = '▶ Play';
+        } else {
+          // safety
+          stopAudio();
+        }
       }
 
       audio.onended = () => stopAudio();
