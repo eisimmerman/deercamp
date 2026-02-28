@@ -5,143 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=81" />
+  <link rel="stylesheet" href="/style.css?v=82" />
 
   <style>
-    /* =========================
-       NAV: bigger + labeled toggle
-       ========================= */
-    .nav-toggle{
-      display:inline-flex;align-items:center;gap:10px;
-      padding:12px 14px;border-radius:12px;
-      min-height:48px;min-width:56px;touch-action:manipulation;
-    }
+    .nav-toggle{display:inline-flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;min-height:48px;min-width:56px;touch-action:manipulation}
     .nav-toggle .menu-label{font-size:14px;font-weight:600;letter-spacing:.2px;opacity:.85}
 
-    /* =========================
-       CAMP CARDS: FORCE images to show (override legacy CSS)
-       ========================= */
-    .shot-grid{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(0,1fr));
-      gap:18px;
-      margin-top:18px;
-    }
-    @media (max-width: 980px){ .shot-grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
-    @media (max-width: 560px){ .shot-grid{grid-template-columns:1fr} }
+    .shot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:18px}
+    @media (max-width:980px){.shot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:560px){.shot-grid{grid-template-columns:1fr}}
 
-    /* card layout */
-    figure.shot{
-      margin:0;
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      border-radius:18px;
-      overflow:hidden;
-      background: rgba(255,255,255,.35);
-      box-shadow: 0 10px 24px rgba(0,0,0,.08);
-      border: 1px solid rgba(0,0,0,.06);
-    }
+    figure.shot{margin:0;display:flex;flex-direction:column;gap:12px;border-radius:18px;overflow:hidden;background:rgba(255,255,255,.35);box-shadow:0 10px 24px rgba(0,0,0,.08);border:1px solid rgba(0,0,0,.06)}
+    .shot-open{display:block;width:100%;border:0;padding:0;margin:0;cursor:pointer;background:#efe8dc;aspect-ratio:4/3;overflow:hidden}
+    .shot-open img{width:100%!important;height:100%!important;display:block!important;object-fit:cover}
+    figure.shot figcaption{padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px}
+    figure.shot h3{margin:0;font-size:22px;line-height:1.05}
+    .play-btn{align-self:flex-start;border:1px solid rgba(0,0,0,.55);background:rgba(255,255,255,.65);border-radius:10px;padding:8px 10px;font-weight:700;cursor:pointer;min-height:40px;touch-action:manipulation}
 
-    /* the image button */
-    .shot-open{
-      display:block;
-      width:100%;
-      border:0;
-      padding:0;
-      margin:0;
-      cursor:pointer;
-      background:#efe8dc;
-      /* fixed visual area so image can't collapse to 0 height */
-      aspect-ratio: 4 / 3;
-      overflow:hidden;
-    }
-    .shot-open img{
-      width:100% !important;
-      height:100% !important;
-      display:block !important;
-      object-fit:cover;
-    }
-
-    /* caption area */
-    figure.shot figcaption{
-      padding: 14px 14px 16px;
-      display:flex;
-      flex-direction:column;
-      gap:10px;
-    }
-    figure.shot h3{
-      margin:0;
-      font-size: 22px;
-      line-height: 1.05;
-    }
-
-    /* play button */
-    .play-btn{
-      align-self:flex-start;
-      border:1px solid rgba(0,0,0,.55);
-      background: rgba(255,255,255,.65);
-      border-radius:10px;
-      padding:8px 10px;
-      font-weight:700;
-      cursor:pointer;
-      min-height:40px;
-      touch-action:manipulation;
-    }
-
-    /* =========================
-       MOBILE VIEWER
-       ========================= */
-    .dc-viewer{
-      position:fixed;inset:0;display:none;align-items:center;justify-content:center;
-      padding:18px;background:rgba(0,0,0,.62);z-index:9999;
-    }
+    .dc-viewer{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.62);z-index:9999}
     .dc-viewer[aria-hidden="false"]{display:flex}
-    .dc-viewer-card{
-      width:min(920px,100%);max-height:min(86vh,820px);
-      background:#fff;border-radius:18px;overflow:hidden;
-      box-shadow:0 12px 40px rgba(0,0,0,.25);
-      display:grid;grid-template-rows:auto 1fr auto;
-    }
-    .dc-viewer-head{
-      display:flex;align-items:center;justify-content:space-between;
-      padding:12px 14px;border-bottom:1px solid rgba(0,0,0,.08);gap:10px;
-    }
-    .dc-viewer-title{
-      font-size:16px;font-weight:800;margin:0;line-height:1.2;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-    }
-    .dc-viewer-close{
-      border:0;background:rgba(0,0,0,.06);border-radius:12px;
-      padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;
-      touch-action:manipulation;
-    }
-    .dc-viewer-body{
-      overflow:auto;background:#f6f6f6;display:grid;place-items:center;padding:10px;
-    }
-    .dc-viewer-body img{
-      width:100%;height:auto;max-height:68vh;object-fit:contain;
-      border-radius:12px;background:#fff;
-    }
-    .dc-viewer-controls{
-      display:flex;gap:10px;align-items:center;justify-content:space-between;
-      padding:12px 14px;border-top:1px solid rgba(0,0,0,.08);flex-wrap:wrap;
-    }
-    .dc-btn{
-      border:0;background:rgba(0,0,0,.07);border-radius:12px;
-      padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;
-      touch-action:manipulation;
-    }
+    .dc-viewer-card{width:min(920px,100%);max-height:min(86vh,820px);background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.25);display:grid;grid-template-rows:auto 1fr auto}
+    .dc-viewer-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid rgba(0,0,0,.08);gap:10px}
+    .dc-viewer-title{font-size:16px;font-weight:800;margin:0;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .dc-viewer-close{border:0;background:rgba(0,0,0,.06);border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;touch-action:manipulation}
+    .dc-viewer-body{overflow:auto;background:#f6f6f6;display:grid;place-items:center;padding:10px}
+    .dc-viewer-body img{width:100%;height:auto;max-height:68vh;object-fit:contain;border-radius:12px;background:#fff}
+    .dc-viewer-controls{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:12px 14px;border-top:1px solid rgba(0,0,0,.08);flex-wrap:wrap}
+    .dc-btn{border:0;background:rgba(0,0,0,.07);border-radius:12px;padding:10px 12px;cursor:pointer;font-weight:800;min-height:44px;touch-action:manipulation}
     .dc-btn.primary{background:rgba(0,0,0,.12)}
     .dc-viewer-hint{font-size:13px;opacity:.75;margin-left:auto}
-    @media (min-width: 981px){ .dc-viewer-hint{display:none} }
+    @media (min-width:981px){.dc-viewer-hint{display:none}}
   </style>
 </head>
 
 <body>
 <div id="top"></div>
 
-<!-- ================= NAV ================= -->
 <header class="site-header">
   <div class="nav-wrap">
     <a class="brand" href="#top">DeerCamp</a>
@@ -187,15 +86,10 @@
   </div>
 </header>
 
-<!-- ================= HERO ================= -->
 <section class="hero">
   <div class="hero-inner">
     <h1>Capture the moments that become legacy.</h1>
-
-    <p class="hero-sub">
-      A private memory engine built for camp life.
-    </p>
-
+    <p class="hero-sub">A private memory engine built for camp life.</p>
     <p class="hero-sub mobile-hero-copy">
       A living archive for camp life.<br>
       Moments, photos, and voice notes — kept private and preserved.<br>
@@ -212,7 +106,6 @@
   </div>
 </section>
 
-<!-- ================= HOW ================= -->
 <section id="how" class="section">
   <div class="wrap">
     <div class="section-head">
@@ -225,7 +118,6 @@
   </div>
 </section>
 
-<!-- ================= CAMP ================= -->
 <section id="camp" class="section">
   <div class="wrap">
     <div class="section-head">
@@ -238,7 +130,6 @@
   </div>
 </section>
 
-<!-- ================= ORIGIN ================= -->
 <section id="origin" class="section">
   <div class="wrap">
     <div class="section-head">
@@ -251,164 +142,154 @@
   </div>
 </section>
 
-<!-- ================= CAMP CARDS ================= -->
 <section id="campcards" class="section">
   <div class="wrap">
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
 
     <div class="section-head">
       <h2>CampCards</h2>
-      <p class="section-subtitle">
-        Twelve voice-first memories that show what DeerCamp is for.
-      </p>
+      <p class="section-subtitle">Twelve voice-first memories that show what DeerCamp is for.</p>
     </div>
 
     <div class="shot-grid" id="campcardsGrid">
-      <!-- NOTE: if any filename differs, tell me your exact 12 filenames and I'll patch immediately -->
+
+      <!-- NOTE:
+           Primary path tries: /campcards/...
+           Fallback path:     /deercamp/campcards/...
+      -->
 
       <figure class="shot has-audio" data-title="Ben’s First Buck"
-              data-img="/campcards/images/bens-first-buck.png"
-              data-audio="/campcards/audio/bens-first-buck.mp3">
+        data-img="/campcards/images/bens-first-buck.png"
+        data-img-fallback="/deercamp/campcards/images/bens-first-buck.png"
+        data-audio="/campcards/audio/bens-first-buck.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/bens-first-buck.mp3">
         <button class="shot-open" type="button" aria-label="View Ben’s First Buck">
           <img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck">
         </button>
-        <figcaption>
-          <h3>Ben’s First Buck</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Ben’s First Buck</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Brittney’s First Deer"
-              data-img="/campcards/images/brittneys-first-deer.png"
-              data-audio="/campcards/audio/brittneys-first-deer.mp3">
+        data-img="/campcards/images/brittneys-first-deer.png"
+        data-img-fallback="/deercamp/campcards/images/brittneys-first-deer.png"
+        data-audio="/campcards/audio/brittneys-first-deer.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/brittneys-first-deer.mp3">
         <button class="shot-open" type="button" aria-label="View Brittney’s First Deer">
           <img src="/campcards/images/brittneys-first-deer.png" alt="Brittney’s First Deer">
         </button>
-        <figcaption>
-          <h3>Brittney’s First Deer</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Brittney’s First Deer</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Camp Tracker"
-              data-img="/campcards/images/camp-tracker.png"
-              data-audio="/campcards/audio/camp-tracker.mp3">
+        data-img="/campcards/images/camp-tracker.png"
+        data-img-fallback="/deercamp/campcards/images/camp-tracker.png"
+        data-audio="/campcards/audio/camp-tracker.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/camp-tracker.mp3">
         <button class="shot-open" type="button" aria-label="View Camp Tracker">
           <img src="/campcards/images/camp-tracker.png" alt="Camp Tracker">
         </button>
-        <figcaption>
-          <h3>Camp Tracker</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Camp Tracker</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Campfire Camaraderie"
-              data-img="/campcards/images/campfire-camaraderie.png"
-              data-audio="/campcards/audio/campfire-camaraderie.mp3">
+        data-img="/campcards/images/campfire-camaraderie.png"
+        data-img-fallback="/deercamp/campcards/images/campfire-camaraderie.png"
+        data-audio="/campcards/audio/campfire-camaraderie.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/campfire-camaraderie.mp3">
         <button class="shot-open" type="button" aria-label="View Campfire Camaraderie">
           <img src="/campcards/images/campfire-camaraderie.png" alt="Campfire Camaraderie">
         </button>
-        <figcaption>
-          <h3>Campfire Camaraderie</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Campfire Camaraderie</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Fall Scouting"
-              data-img="/campcards/images/fall-scouting.png"
-              data-audio="/campcards/audio/fall-scouting.mp3">
+        data-img="/campcards/images/fall-scouting.png"
+        data-img-fallback="/deercamp/campcards/images/fall-scouting.png"
+        data-audio="/campcards/audio/fall-scouting.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/fall-scouting.mp3">
         <button class="shot-open" type="button" aria-label="View Fall Scouting">
           <img src="/campcards/images/fall-scouting.png" alt="Fall Scouting">
         </button>
-        <figcaption>
-          <h3>Fall Scouting</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Fall Scouting</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="First Coffee"
-              data-img="/campcards/images/first-coffee.png"
-              data-audio="/campcards/audio/first-coffee.mp3">
+        data-img="/campcards/images/first-coffee.png"
+        data-img-fallback="/deercamp/campcards/images/first-coffee.png"
+        data-audio="/campcards/audio/first-coffee.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/first-coffee.mp3">
         <button class="shot-open" type="button" aria-label="View First Coffee">
           <img src="/campcards/images/first-coffee.png" alt="First Coffee">
         </button>
-        <figcaption>
-          <h3>First Coffee</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>First Coffee</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="First Snow"
-              data-img="/campcards/images/first-snow.png"
-              data-audio="/campcards/audio/first-snow.mp3">
+        data-img="/campcards/images/first-snow.png"
+        data-img-fallback="/deercamp/campcards/images/first-snow.png"
+        data-audio="/campcards/audio/first-snow.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/first-snow.mp3">
         <button class="shot-open" type="button" aria-label="View First Snow">
           <img src="/campcards/images/first-snow.png" alt="First Snow">
         </button>
-        <figcaption>
-          <h3>First Snow</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>First Snow</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Grandma’s Kitchen"
-              data-img="/campcards/images/grandmas-kitchen.png"
-              data-audio="/campcards/audio/grandmas-kitchen.mp3">
+        data-img="/campcards/images/grandmas-kitchen.png"
+        data-img-fallback="/deercamp/campcards/images/grandmas-kitchen.png"
+        data-audio="/campcards/audio/grandmas-kitchen.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/grandmas-kitchen.mp3">
         <button class="shot-open" type="button" aria-label="View Grandma’s Kitchen">
           <img src="/campcards/images/grandmas-kitchen.png" alt="Grandma’s Kitchen">
         </button>
-        <figcaption>
-          <h3>Grandma’s Kitchen</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Grandma’s Kitchen</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Grandpa’s Biggest Buck"
-              data-img="/campcards/images/grandpas-biggest-buck.png"
-              data-audio="/campcards/audio/grandpas-biggest-buck.mp3">
+        data-img="/campcards/images/grandpas-biggest-buck.png"
+        data-img-fallback="/deercamp/campcards/images/grandpas-biggest-buck.png"
+        data-audio="/campcards/audio/grandpas-biggest-buck.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/grandpas-biggest-buck.mp3">
         <button class="shot-open" type="button" aria-label="View Grandpa’s Biggest Buck">
           <img src="/campcards/images/grandpas-biggest-buck.png" alt="Grandpa’s Biggest Buck">
         </button>
-        <figcaption>
-          <h3>Grandpa’s Biggest Buck</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
-      </figure>
-
-      <figure class="shot has-audio" data-title="Spring Scouting"
-              data-img="/campcards/images/spring-scouting.png"
-              data-audio="/campcards/audio/spring-scouting.mp3">
-        <button class="shot-open" type="button" aria-label="View Spring Scouting">
-          <img src="/campcards/images/spring-scouting.png" alt="Spring Scouting">
-        </button>
-        <figcaption>
-          <h3>Spring Scouting</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Grandpa’s Biggest Buck</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
       <figure class="shot has-audio" data-title="Dad Deer"
-              data-img="/campcards/images/dad-deer.png"
-              data-audio="/campcards/audio/dad-deer.mp3">
+        data-img="/campcards/images/dad-deer.png"
+        data-img-fallback="/deercamp/campcards/images/dad-deer.png"
+        data-audio="/campcards/audio/dad-deer.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/dad-deer.mp3">
         <button class="shot-open" type="button" aria-label="View Dad Deer">
           <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
         </button>
-        <figcaption>
-          <h3>Dad Deer</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Dad Deer</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
 
-      <figure class="shot has-audio" data-title="Opening Morning"
-              data-img="/campcards/images/opening-morning.png"
-              data-audio="/campcards/audio/opening-morning.mp3">
-        <button class="shot-open" type="button" aria-label="View Opening Morning">
-          <img src="/campcards/images/opening-morning.png" alt="Opening Morning">
+      <figure class="shot has-audio" data-title="Deer Den"
+        data-img="/campcards/images/deer-den.png"
+        data-img-fallback="/deercamp/campcards/images/deer-den.png"
+        data-audio="/campcards/audio/deer-den.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/deer-den.mp3">
+        <button class="shot-open" type="button" aria-label="View Deer Den">
+          <img src="/campcards/images/deer-den.png" alt="Deer Den">
         </button>
-        <figcaption>
-          <h3>Opening Morning</h3>
-          <button class="play-btn" type="button">▶ Play</button>
-        </figcaption>
+        <figcaption><h3>Deer Den</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
+
+      <figure class="shot has-audio" data-title="Comments"
+        data-img="/campcards/images/comments.png"
+        data-img-fallback="/deercamp/campcards/images/comments.png"
+        data-audio="/campcards/audio/comments.mp3"
+        data-audio-fallback="/deercamp/campcards/audio/comments.mp3">
+        <button class="shot-open" type="button" aria-label="View Comments">
+          <img src="/campcards/images/comments.png" alt="Comments">
+        </button>
+        <figcaption><h3>Comments</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
+      </figure>
+
     </div>
 
     <div class="cta-row" style="margin-top:22px;">
@@ -423,28 +304,21 @@
   </div>
 </section>
 
-<!-- ================= APP SCREENS ================= -->
 <section id="screens" class="section">
   <div class="wrap">
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
-
     <div class="section-head">
       <h2>App Screens</h2>
-      <p class="section-subtitle">
-        Clean. Simple. Built for camp life.
-      </p>
+      <p class="section-subtitle">Clean. Simple. Built for camp life.</p>
     </div>
-
     <div class="feature-card">
       <h3>Coming next</h3>
       <p>Add your real app screenshots here once you confirm the file paths.</p>
     </div>
-
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
   </div>
 </section>
 
-<!-- ================= PRIVACY ================= -->
 <section id="privacy" class="section">
   <div class="wrap">
     <div class="section-head">
@@ -457,14 +331,12 @@
   </div>
 </section>
 
-<!-- ================= FOOTER ================= -->
 <section class="final-cta">
   <div class="wrap">
     <a href="#top" class="back-top">Back to top ↑</a>
   </div>
 </section>
 
-<!-- ================= MOBILE VIEWER (CampCards) ================= -->
 <div class="dc-viewer" id="dcViewer" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="dc-viewer-card" role="document">
     <div class="dc-viewer-head">
@@ -484,35 +356,23 @@
 </div>
 
 <script>
-  // =========================
-  // NAV DRAWER (stabilized)
-  // =========================
+  // NAV drawer
   (function () {
     const toggle = document.getElementById('navToggle');
     const drawer = document.getElementById('navDrawer');
     if (!toggle || !drawer) return;
 
-    function openDrawer() {
-      toggle.setAttribute('aria-expanded', 'true');
-      drawer.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('drawer-open');
-    }
-    function closeDrawer() {
-      toggle.setAttribute('aria-expanded', 'false');
-      drawer.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('drawer-open');
-    }
-    function isOpen() { return toggle.getAttribute('aria-expanded') === 'true'; }
+    function openDrawer(){ toggle.setAttribute('aria-expanded','true'); drawer.setAttribute('aria-hidden','false'); }
+    function closeDrawer(){ toggle.setAttribute('aria-expanded','false'); drawer.setAttribute('aria-hidden','true'); }
+    function isOpen(){ return toggle.getAttribute('aria-expanded') === 'true'; }
 
-    toggle.addEventListener('click', () => { isOpen() ? closeDrawer() : openDrawer(); });
+    toggle.addEventListener('click', () => isOpen() ? closeDrawer() : openDrawer());
     drawer.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', closeDrawer));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeDrawer(); });
     drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
   })();
 
-  // =========================
-  // CAMP CARDS (images forced visible + TRUE pause)
-  // =========================
+  // CampCards: asset fallback + true pause
   (function () {
     const grid = document.getElementById('campcardsGrid');
     if (!grid) return;
@@ -523,11 +383,9 @@
     const audio = new Audio();
     audio.preload = 'none';
 
-    // Track which play button is "active"
     let activeBtn = null;
     let currentIndex = -1;
 
-    // Viewer elements
     const viewer = document.getElementById('dcViewer');
     const viewerTitle = document.getElementById('dcViewerTitle');
     const viewerImg = document.getElementById('dcViewerImg');
@@ -537,95 +395,127 @@
     const btnPlay = document.getElementById('dcPlay');
 
     const isMobile = () => window.matchMedia('(max-width: 980px)').matches;
-
-    // IMPORTANT: compare absolute URLs so we don't "reset to 0" every click
     const abs = (p) => new URL(p, window.location.href).href;
 
-    function setBtnState(btn, state) {
+    function setBtnState(btn, state){
       if (!btn) return;
       btn.textContent = state === 'pause' ? '⏸ Pause' : '▶ Play';
     }
 
-    function stopAudio() {
+    function applyImgFallback(card, imgEl){
+      const primary = card.getAttribute('data-img') || '';
+      const fallback = card.getAttribute('data-img-fallback') || '';
+      if (!imgEl) return;
+
+      // Start with primary
+      imgEl.src = primary;
+
+      imgEl.onerror = () => {
+        if (fallback && imgEl.src !== abs(fallback)) {
+          imgEl.src = fallback;
+        }
+      };
+    }
+
+    function loadAudioWithFallback(card){
+      const primary = card.getAttribute('data-audio') || '';
+      const fallback = card.getAttribute('data-audio-fallback') || '';
+      if (!primary) return '';
+
+      // set primary first
+      audio.src = abs(primary);
+
+      // if primary fails, swap to fallback
+      audio.onerror = () => {
+        if (fallback && audio.src !== abs(fallback)) {
+          audio.src = abs(fallback);
+          audio.currentTime = 0;
+          audio.play().catch(()=>{});
+        }
+      };
+
+      return audio.src;
+    }
+
+    function stopAudio(){
       audio.pause();
-      // do not reset currentTime unless switching tracks
-      if (activeBtn) setBtnState(activeBtn, 'play');
+      if (activeBtn) setBtnState(activeBtn,'play');
       activeBtn = null;
       if (btnPlay) btnPlay.textContent = '▶ Play';
     }
 
-    function togglePlayFor(card, btn) {
-      const audRel = card.getAttribute('data-audio') || '';
-      if (!audRel) return;
+    function togglePlayFor(card, btn){
+      // Load src (with fallback handler) if switching or empty
+      const primary = card.getAttribute('data-audio') || '';
+      if (!primary) return;
 
-      const nextSrc = abs(audRel);
-
-      // If switching tracks, stop and load new without treating it as "pause"
+      const nextSrc = abs(primary);
       const switching = audio.src && audio.src !== nextSrc;
 
       if (switching) {
         stopAudio();
-        audio.src = nextSrc;
+        loadAudioWithFallback(card);
         audio.currentTime = 0;
       } else if (!audio.src) {
-        audio.src = nextSrc;
+        loadAudioWithFallback(card);
       }
 
-      // Toggle play/pause WITHOUT resetting time
       if (audio.paused) {
         audio.play().then(() => {
-          if (activeBtn && activeBtn !== btn) setBtnState(activeBtn, 'play');
+          if (activeBtn && activeBtn !== btn) setBtnState(activeBtn,'play');
           activeBtn = btn;
-          setBtnState(btn, 'pause');
+          setBtnState(btn,'pause');
           if (btnPlay) btnPlay.textContent = '⏸ Pause';
-        }).catch(() => {});
+        }).catch(()=>{});
       } else {
         audio.pause();
-        setBtnState(btn, 'play');
+        setBtnState(btn,'play');
         if (btnPlay) btnPlay.textContent = '▶ Play';
       }
 
       audio.onended = () => stopAudio();
     }
 
-    function loadCard(index) {
+    function loadCard(index){
       const card = cards[index];
       if (!card) return;
       currentIndex = index;
 
       const title = card.getAttribute('data-title') || 'CampCard';
-      const img = card.getAttribute('data-img') || '';
-      viewerTitle.textContent = title;
-      viewerImg.src = img;
-      viewerImg.alt = title;
+      const imgPrimary = card.getAttribute('data-img') || '';
+      const imgFallback = card.getAttribute('data-img-fallback') || '';
 
-      // Load audio but do not autoplay
-      const aud = card.getAttribute('data-audio') || '';
-      audio.src = aud ? abs(aud) : '';
-      if (btnPlay) btnPlay.textContent = '▶ Play';
-      if (activeBtn) setBtnState(activeBtn, 'play');
-      activeBtn = null;
+      viewerTitle.textContent = title;
+      viewerImg.alt = title;
+      viewerImg.src = imgPrimary;
+      viewerImg.onerror = () => {
+        if (imgFallback && viewerImg.src !== abs(imgFallback)) viewerImg.src = imgFallback;
+      };
+
+      stopAudio();
+      loadAudioWithFallback(card);
       audio.currentTime = 0;
       audio.pause();
+      if (btnPlay) btnPlay.textContent = '▶ Play';
     }
 
-    function openViewer(index) {
+    function openViewer(index){
       loadCard(index);
-      viewer.setAttribute('aria-hidden', 'false');
+      viewer.setAttribute('aria-hidden','false');
       document.body.style.overflow = 'hidden';
     }
-    function closeViewer() {
-      viewer.setAttribute('aria-hidden', 'true');
+    function closeViewer(){
+      viewer.setAttribute('aria-hidden','true');
       document.body.style.overflow = '';
       stopAudio();
     }
-    function prev() { loadCard((currentIndex - 1 + cards.length) % cards.length); }
-    function next() { loadCard((currentIndex + 1) % cards.length); }
+    function prev(){ loadCard((currentIndex - 1 + cards.length) % cards.length); }
+    function next(){ loadCard((currentIndex + 1) % cards.length); }
 
-    function viewerPlayPause() {
+    function viewerPlayPause(){
       if (!audio.src) return;
       if (audio.paused) {
-        audio.play().then(() => { btnPlay.textContent = '⏸ Pause'; }).catch(() => {});
+        audio.play().then(()=>{ btnPlay.textContent = '⏸ Pause'; }).catch(()=>{});
       } else {
         audio.pause();
         btnPlay.textContent = '▶ Play';
@@ -633,19 +523,16 @@
       audio.onended = () => { btnPlay.textContent = '▶ Play'; };
     }
 
-    // Wire up each card
+    // Wire cards
     cards.forEach((card, index) => {
+      const imgEl = card.querySelector('img');
+      applyImgFallback(card, imgEl);
+
       const playBtn = card.querySelector('.play-btn');
       const openBtn = card.querySelector('.shot-open');
 
-      if (playBtn) {
-        playBtn.addEventListener('click', () => togglePlayFor(card, playBtn));
-      }
-
-      // Mobile-only viewer open (desktop stays stable, no expand)
-      if (openBtn) {
-        openBtn.addEventListener('click', () => { if (isMobile()) openViewer(index); });
-      }
+      if (playBtn) playBtn.addEventListener('click', () => togglePlayFor(card, playBtn));
+      if (openBtn) openBtn.addEventListener('click', () => { if (isMobile()) openViewer(index); });
     });
 
     // Viewer controls
@@ -654,18 +541,9 @@
     if (btnNext) btnNext.addEventListener('click', next);
     if (btnPlay) btnPlay.addEventListener('click', viewerPlayPause);
 
-    // Overlay click closes
     if (viewer) viewer.addEventListener('click', (e) => { if (e.target === viewer) closeViewer(); });
-
-    // Esc closes viewer
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && viewer.getAttribute('aria-hidden') === 'false') closeViewer();
-    });
-
-    // If viewport grows to desktop while viewer open, close to prevent weirdness
-    window.addEventListener('resize', () => {
-      if (!isMobile() && viewer.getAttribute('aria-hidden') === 'false') closeViewer();
-    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && viewer.getAttribute('aria-hidden') === 'false') closeViewer(); });
+    window.addEventListener('resize', () => { if (!isMobile() && viewer.getAttribute('aria-hidden') === 'false') closeViewer(); });
   })();
 </script>
 
