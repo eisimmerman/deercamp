@@ -26,7 +26,32 @@ document.addEventListener("DOMContentLoaded", () => {
       setDrawer(false);
     });
   }
+// --- CampCards asset path stabilization ---
+function normalizeCampcardPath(p) {
+  if (!p) return p;
+  // If already root-relative, keep it
+  if (p.startsWith("/campcards/")) return p;
 
+  // Strip any leading ./ or /
+  p = p.replace(/^(\.\/)+/, "").replace(/^\/+/, "");
+
+  // If it already contains campcards/, force root to /campcards/
+  if (p.startsWith("campcards/")) return "/" + p;
+
+  // If someone accidentally used deercamp/campcards/, fix it
+  p = p.replace(/^deercamp\/campcards\//, "campcards/");
+
+  // If it’s just images/... or audio/..., prefix it
+  if (p.startsWith("images/") || p.startsWith("audio/")) return "/campcards/" + p;
+
+  return "/campcards/" + p;
+}
+
+// normalize all campcard nodes
+document.querySelectorAll(".shot[data-audio], .shot-open[data-img]").forEach(el => {
+  if (el.dataset.audio) el.dataset.audio = normalizeCampcardPath(el.dataset.audio);
+  if (el.dataset.img) el.dataset.img = normalizeCampcardPath(el.dataset.img);
+});
   /* =========================================================
      CampCards Audio (ENABLED)
      - Only one audio plays at a time
