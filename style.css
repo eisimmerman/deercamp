@@ -1,5 +1,5 @@
 /* =========================================================
-   DeerCamp — style.css (Warm Play Store theme + interactions)
+   DeerCamp — style.css (Warm Play Store theme + no-expand cards)
    ========================================================= */
 
 /* ---------- Tokens ---------- */
@@ -15,8 +15,6 @@
   --accent2:#caa35f;
 
   --shadow: 0 16px 48px rgba(31,27,22,.16);
-  --shadow2: 0 24px 80px rgba(0,0,0,.45);
-
   --radius: 18px;
 
   --max: 1200px;
@@ -40,7 +38,7 @@ body{
   line-height: 1.6;
   color: var(--ink);
 
-  /* Warm parchment background site-wide (kills dark theme bleed) */
+  /* Warm parchment background site-wide */
   background:
     radial-gradient(1200px 700px at 20% 0%, rgba(202,163,95,.18), transparent 60%),
     radial-gradient(900px 650px at 85% 10%, rgba(231,192,122,.14), transparent 55%),
@@ -49,7 +47,6 @@ body{
 
 img{ max-width:100%; height:auto; display:block; }
 figure{ margin:0; }
-a{ color: inherit; }
 
 /* ---------- Layout ---------- */
 .wrap{
@@ -78,7 +75,7 @@ a{ color: inherit; }
 }
 
 /* =========================================================
-   NAV (removes dark bar + mobile alignment)
+   NAV (warm bar)
    ========================================================= */
 .site-header{
   position: sticky;
@@ -212,7 +209,7 @@ a{ color: inherit; }
   .nav-wrap{ justify-content: space-between; }
 }
 
-/* Mobile “jumbled” fix: make header a 3-column grid */
+/* Mobile header alignment */
 @media (max-width: 520px){
   .nav-wrap{
     display:grid;
@@ -226,7 +223,7 @@ a{ color: inherit; }
 }
 
 /* =========================================================
-   HERO (Play Store feature graphic + glass card on mobile)
+   HERO (feature graphic + glass card)
    ========================================================= */
 .hero{
   position: relative;
@@ -248,7 +245,6 @@ a{ color: inherit; }
   border-bottom: 1px solid rgba(31,27,22,.12);
 }
 
-/* Glass card keeps text readable and “un-jumbled” */
 .hero-inner{
   width: min(980px, calc(100% - 40px));
   margin: 0 auto;
@@ -260,7 +256,6 @@ a{ color: inherit; }
   backdrop-filter: blur(6px);
 }
 
-/* Use serif like brand */
 .hero h1{
   font-family: var(--font-serif);
   font-size: clamp(40px, 6vw, 74px);
@@ -282,15 +277,7 @@ a{ color: inherit; }
 }
 
 .hero-actions{ margin-top: 14px; }
-.hero-foot{
-  margin: 12px 0 0;
-  color: rgba(31,27,22,.62);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 900;
-}
 
-/* CTA button */
 .primary-button{
   display:inline-flex;
   align-items:center;
@@ -307,11 +294,17 @@ a{ color: inherit; }
 }
 .primary-button:hover{ filter: brightness(1.03); }
 
-/* Mobile hero refinement: avoid fighting the "DeerCamp" word in the image */
+.hero-foot{
+  margin: 12px 0 0;
+  color: rgba(31,27,22,.62);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 900;
+}
+
 @media (max-width: 720px){
   .hero{
     padding: 58px 0 44px;
-    /* move background a bit so the top "DeerCamp" in image isn't behind H1 */
     background-position: 50% 38%;
   }
 
@@ -337,41 +330,6 @@ a{ color: inherit; }
 /* =========================================================
    ORIGIN (Dad image: no crop)
    ========================================================= */
-.origin-grid{
-  display:grid;
-  grid-template-columns: 1fr 1.2fr;
-  gap: 22px;
-  align-items:start;
-  margin-top: 14px;
-}
-@media (max-width: 1040px){
-  .origin-grid{ grid-template-columns: 1fr; }
-}
-
-.origin-media{
-  background: rgba(255,255,255,.45);
-  border: 1px solid rgba(31,27,22,.12);
-  border-radius: var(--radius);
-  overflow:hidden;
-  box-shadow: 0 12px 30px rgba(31,27,22,.08);
-}
-.origin-media img{
-  width:100%;
-  max-height: 360px;
-  object-fit: cover;
-  display:block;
-  background: rgba(255,255,255,.35);
-}
-.origin-media figcaption{
-  padding: 10px 12px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: rgba(31,27,22,.70);
-  border-top: 1px solid rgba(31,27,22,.10);
-  background: rgba(251,244,232,.75);
-}
-
-/* ✅ Dad: contain */
 .origin-dad,
 .origin-copy img.origin-dad{
   width: 100% !important;
@@ -387,7 +345,7 @@ a{ color: inherit; }
 }
 
 /* =========================================================
-   CAMP CARDS + APP SCREENS GRID
+   CAMP CARDS + APP SCREENS GRID (NO EXPAND)
    ========================================================= */
 .shot-grid{
   display:grid;
@@ -412,7 +370,6 @@ a{ color: inherit; }
   transition: transform .18s ease, box-shadow .18s ease;
 }
 
-/* ✅ Restore hover “lift” */
 @media (hover:hover){
   .shot:hover{
     transform: translateY(-6px);
@@ -420,16 +377,17 @@ a{ color: inherit; }
   }
 }
 
+/* ✅ IMPORTANT: disable the full-card click overlay so there is NO “flash” */
 .shot-open{
-  position:absolute;
-  inset: 0;
-  z-index: 2;
-  border: none;
-  background: transparent;
-  cursor: pointer;
+  display: none !important;
 }
 
-/* no vertical cropping */
+/* also suppress any mobile tap highlight */
+.shot,
+.shot *{
+  -webkit-tap-highlight-color: transparent;
+}
+
 .shot img{
   width: 100%;
   height: 260px;
@@ -451,8 +409,34 @@ a{ color: inherit; }
   background: rgba(251,244,232,.95);
 }
 
+/* Audio button (inserted by JS if missing) */
+.audio-btn{
+  margin-top: 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap: 8px;
+
+  font-family: var(--font-sans);
+  font-weight: 1000;
+  font-size: 13px;
+
+  border-radius: 999px;
+  padding: 10px 14px;
+  border: 1px solid rgba(31,27,22,.16);
+  background: rgba(255,255,255,.70);
+  cursor:pointer;
+  box-shadow: 0 10px 22px rgba(31,27,22,.10);
+}
+.audio-btn:hover{ background: rgba(255,255,255,.86); }
+.audio-btn.is-playing{
+  background: rgba(31,27,22,.92);
+  color: #fff;
+  border-color: rgba(31,27,22,.26);
+}
+
 /* =========================================================
-   BACK TO TOP — do NOT float (fix jumbled overlay)
+   BACK TO TOP — never float / never overlay
    ========================================================= */
 .back-top{
   position: static !important;
@@ -472,87 +456,6 @@ a{ color: inherit; }
   box-shadow: 0 12px 30px rgba(31,27,22,.08);
 }
 .back-top:hover{ background: rgba(255,255,255,.72); color: rgba(31,27,22,.92); }
-
-/* =========================================================
-   LIGHTBOX (CampCards expand on click)
-   ========================================================= */
-.lightbox{
-  position: fixed;
-  inset: 0;
-  background: rgba(10,8,6,.72);
-  display:none;
-  align-items:center;
-  justify-content:center;
-  padding: 18px;
-  z-index: 2000;
-}
-.lightbox.open{ display:flex; }
-
-.lightbox-panel{
-  width: min(980px, 100%);
-  background: rgba(246,239,227,.98);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 18px;
-  box-shadow: 0 26px 80px rgba(0,0,0,.35);
-  overflow:hidden;
-}
-
-.lightbox-top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(31,27,22,.10);
-}
-.lightbox-title{
-  font-family: var(--font-sans);
-  font-weight: 1000;
-  color: rgba(31,27,22,.88);
-}
-.lightbox-x{
-  border:none;
-  background: transparent;
-  cursor:pointer;
-  font-size: 26px;
-  line-height: 1;
-  color: rgba(31,27,22,.65);
-}
-
-.lightbox-img{
-  width: 100%;
-  max-height: 70vh;
-  object-fit: contain;
-  background: rgba(255,255,255,.40);
-  display:block;
-}
-
-.lightbox-controls{
-  display:flex;
-  justify-content:flex-end;
-  gap: 10px;
-  padding: 12px 14px;
-  border-top: 1px solid rgba(31,27,22,.10);
-  background: rgba(251,244,232,.96);
-}
-
-.lb-close,
-.lb-audio{
-  font-family: var(--font-sans);
-  font-weight: 1000;
-  border-radius: 999px;
-  padding: 10px 14px;
-  border: 1px solid rgba(31,27,22,.16);
-  background: rgba(255,255,255,.70);
-  cursor:pointer;
-  box-shadow: 0 10px 22px rgba(31,27,22,.10);
-}
-.lb-audio{
-  background: rgba(31,27,22,.92);
-  color: #fff;
-  border-color: rgba(31,27,22,.26);
-}
-.lb-close:hover{ background: rgba(255,255,255,.86); }
-.lb-audio:hover{ transform: translateY(-1px); }
 
 /* =========================================================
    FINAL CTA
