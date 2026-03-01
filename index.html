@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=207" />
+  <link rel="stylesheet" href="/style.css?v=208" />
 
   <style>
-    /* ================= Origin: layout + captions ================= */
+    /* ================= Origin: correct sizing + captions ================= */
     .origin-grid { gap: 18px; }
 
     .origin-shot {
@@ -18,14 +18,15 @@
       background: rgba(255,255,255,0.55);
       box-shadow: 0 10px 22px rgba(0,0,0,0.10);
       padding: 12px;
+      cursor: pointer; /* clickable for modal */
     }
 
-    /* Default origin image treatment (keeps art fully visible) */
+    /* Keep full image visible (NO crop) */
     .origin-shot img {
       display: block;
       width: 100%;
-      height: 320px;
-      object-fit: contain;
+      height: 360px;
+      object-fit: contain;         /* IMPORTANT: no crop */
       object-position: center;
       background: rgba(245,238,227,0.95); /* fills “white space” */
       border-radius: 14px;
@@ -33,29 +34,68 @@
       box-sizing: border-box;
     }
 
-    /* LEFT ORIGIN: dad-deer should fill the container more */
-    .origin-shot.origin-fill img {
-      height: 360px;
-      object-fit: cover;     /* fills */
-      padding: 0;            /* remove inner padding so it fills */
-      background: transparent;
-      border-radius: 14px;
-    }
-
-    /* Caption overlay ON image (bottom-left pill) */
-    .origin-badge {
+    /* Small caption pill (dad-deer) */
+    .origin-pill {
       position: absolute;
-      left: 24px;            /* accounts for outer padding */
+      left: 24px;                  /* accounts for padding */
       bottom: 24px;
       background: rgba(0,0,0,0.70);
       color: #fff;
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       padding: 8px 12px;
       border-radius: 999px;
       letter-spacing: 0.2px;
       pointer-events: none;
       box-shadow: 0 10px 22px rgba(0,0,0,0.20);
+    }
+
+    /* Caption card (deer-den) like your example */
+    .origin-caption-card {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      background: rgba(0,0,0,0.58);
+      color: #fff;
+      border-radius: 18px;
+      padding: 16px 18px;
+      pointer-events: none;
+      box-shadow: 0 14px 28px rgba(0,0,0,0.25);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    .origin-caption-card .title {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+
+    .origin-caption-card .body {
+      margin: 0;
+      font-size: 16px;
+      opacity: 0.95;
+      line-height: 1.35;
+      font-weight: 500;
+    }
+
+    @media (max-width: 980px) {
+      .origin-shot img { height: 320px; }
+      .origin-pill { left: 20px; bottom: 20px; font-size: 13px; }
+      .origin-caption-card { left: 20px; right: 20px; bottom: 20px; }
+      .origin-caption-card .title { font-size: 20px; }
+      .origin-caption-card .body { font-size: 15px; }
+    }
+
+    @media (max-width: 560px) {
+      .origin-shot img { height: 300px; }
+      .origin-pill { left: 18px; bottom: 18px; font-size: 13px; }
+      .origin-caption-card { left: 18px; right: 18px; bottom: 18px; padding: 14px 16px; }
+      .origin-caption-card .title { font-size: 20px; }
+      .origin-caption-card .body { font-size: 15px; }
     }
 
     /* ================= CampCards: background fill + contain ================= */
@@ -78,17 +118,8 @@
       object-position: center;
     }
 
-    @media (max-width: 980px) {
-      .origin-shot img { height: 280px; }
-      .origin-shot.origin-fill img { height: 300px; }
-      .origin-badge { left: 20px; bottom: 20px; }
-    }
-    @media (max-width: 560px) {
-      .origin-shot img { height: 260px; }
-      .origin-shot.origin-fill img { height: 280px; }
-      .origin-badge { left: 18px; bottom: 18px; font-size: 13px; }
-      .campcard-media img { height: 220px; }
-    }
+    @media (max-width: 900px) { .campcard-media img { height: 240px; } }
+    @media (max-width: 560px) { .campcard-media img { height: 220px; } }
 
     /* ================= App Screens: clickable + 2x3 grid ================= */
     .screens-grid.screens-2x3 {
@@ -319,15 +350,21 @@
         </div>
 
         <div class="origin-grid" aria-label="Origin photos">
-          <!-- LEFT: dad-deer fills the container more -->
-          <figure class="origin-shot origin-fill" data-kind="screen" data-title="Dad Deer" data-img="/campcards/images/dad-deer.png">
-            <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
+          <!-- dad-deer: full image visible + caption pill -->
+          <figure class="origin-shot" data-kind="origin" data-title="Last DeerCamp 1977" data-img="/campcards/images/dad-deer.png">
+            <img src="/campcards/images/dad-deer.png" alt="Last DeerCamp 1977">
+            <span class="origin-pill">Last DeerCamp 1977</span>
           </figure>
 
-          <!-- RIGHT: deer-den caption is ON the image (no gray bar) -->
-          <figure class="origin-shot" data-kind="screen" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
+          <!-- deer-den: remove tap pill; add caption card like example -->
+          <figure class="origin-shot" data-kind="origin" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
-            <span class="origin-badge">Tap to view larger.</span>
+            <div class="origin-caption-card" aria-hidden="true">
+              <p class="title">Deer Den</p>
+              <p class="body">
+                the place we met to relive our past hunts. Now DeerCamp lets us take those hunts with us.
+              </p>
+            </div>
           </figure>
         </div>
 
@@ -484,9 +521,9 @@
             <figcaption class="screen-caption">Profile</figcaption>
           </figure>
 
-          <figure class="screen-shot" data-kind="screen" data-title="More" data-img="/campcards/images/memories-feed.png">
-            <img src="/campcards/images/memories-feed.png" alt="More">
-            <figcaption class="screen-caption">More</figcaption>
+          <figure class="screen-shot" data-kind="screen" data-title="Explore" data-img="/campcards/images/memories-feed.png">
+            <img src="/campcards/images/memories-feed.png" alt="Explore">
+            <figcaption class="screen-caption">Explore</figcaption>
           </figure>
         </div>
 
@@ -704,16 +741,8 @@
 
       clickables.forEach(el => {
         el.addEventListener('click', () => {
-          const title =
-            el.getAttribute('data-title') ||
-            el.querySelector('figcaption')?.textContent ||
-            'Preview';
-
-          const img =
-            el.getAttribute('data-img') ||
-            el.querySelector('img')?.getAttribute('src') ||
-            '';
-
+          const title = el.getAttribute('data-title') || 'Preview';
+          const img = el.getAttribute('data-img') || el.querySelector('img')?.getAttribute('src') || '';
           openModal({ title, img, audio: null });
         });
       });
