@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
-  <link rel="stylesheet" href="/style.css?v=91" />
+  <link rel="stylesheet" href="/style.css?v=92" />
 </head>
 
 <body>
@@ -112,6 +112,7 @@
     </div>
 
     <div class="shot-grid" id="campcardsGrid">
+      <!-- Kept -->
       <figure class="shot has-audio" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
         <button class="shot-open" type="button" aria-label="View Ben’s First Buck"><img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck"></button>
         <figcaption><h3>Ben’s First Buck</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
@@ -171,6 +172,17 @@
         <button class="shot-open" type="button" aria-label="View Opening Morning"><img src="/campcards/images/opening-morning.png" alt="Opening Morning"></button>
         <figcaption><h3>Opening Morning</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
       </figure>
+
+      <!-- Reinserted (replacing deer-dash-*) -->
+      <figure class="shot has-audio" data-title="First Coffee" data-img="/campcards/images/first-coffee.png" data-audio="/campcards/audio/first-coffee.mp3">
+        <button class="shot-open" type="button" aria-label="View First Coffee"><img src="/campcards/images/first-coffee.png" alt="First Coffee"></button>
+        <figcaption><h3>First Coffee</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
+      </figure>
+
+      <figure class="shot has-audio" data-title="Camp Tracker" data-img="/campcards/images/camp-tracker.png" data-audio="/campcards/audio/camp-tracker.mp3">
+        <button class="shot-open" type="button" aria-label="View Camp Tracker"><img src="/campcards/images/camp-tracker.png" alt="Camp Tracker"></button>
+        <figcaption><h3>Camp Tracker</h3><button class="play-btn" type="button">▶ Play</button></figcaption>
+      </figure>
     </div>
 
     <div class="cta-row" style="margin-top:16px;">
@@ -211,23 +223,35 @@
   </div>
 </section>
 
-<!-- 5) APP SCREENS (6, 2 rows x 3, smaller, full view) -->
+<!-- 5) APP SCREENS (click to enlarge) -->
 <section id="screens" class="section">
   <div class="wrap">
     <div class="section-head">
       <h2>App Screens</h2>
       <p class="section-subtitle">
-        Six quick snapshots of the app — simple, calm, and built for real camp life.
+        Six quick snapshots of the app — simple, calm, and built for real camp life. Click any screen to enlarge.
       </p>
     </div>
 
-    <div class="app-grid" aria-label="App screenshots">
-      <img src="/campcards/images/home.png" alt="App screen — home">
-      <img src="/campcards/images/memories-feed.png" alt="App screen — memories feed">
-      <img src="/campcards/images/memory-detail.png" alt="App screen — memory detail">
-      <img src="/campcards/images/add-memory.png" alt="App screen — add memory">
-      <img src="/campcards/images/comments.png" alt="App screen — comments">
-      <img src="/campcards/images/profile.png" alt="App screen — profile">
+    <div class="app-grid" id="appGrid" aria-label="App screenshots">
+      <button class="app-shot" type="button" data-full="/campcards/images/home.png" aria-label="Enlarge Home screen">
+        <img src="/campcards/images/home.png" alt="App screen — home">
+      </button>
+      <button class="app-shot" type="button" data-full="/campcards/images/memories-feed.png" aria-label="Enlarge Memories Feed screen">
+        <img src="/campcards/images/memories-feed.png" alt="App screen — memories feed">
+      </button>
+      <button class="app-shot" type="button" data-full="/campcards/images/memory-detail.png" aria-label="Enlarge Memory Detail screen">
+        <img src="/campcards/images/memory-detail.png" alt="App screen — memory detail">
+      </button>
+      <button class="app-shot" type="button" data-full="/campcards/images/add-memory.png" aria-label="Enlarge Add Memory screen">
+        <img src="/campcards/images/add-memory.png" alt="App screen — add memory">
+      </button>
+      <button class="app-shot" type="button" data-full="/campcards/images/comments.png" aria-label="Enlarge Comments screen">
+        <img src="/campcards/images/comments.png" alt="App screen — comments">
+      </button>
+      <button class="app-shot" type="button" data-full="/campcards/images/profile.png" aria-label="Enlarge Profile screen">
+        <img src="/campcards/images/profile.png" alt="App screen — profile">
+      </button>
     </div>
 
     <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
@@ -289,6 +313,14 @@
     <a href="#top" class="back-top" style="color:#fbf3e7; border-color:rgba(255,255,255,.25); margin-top:14px;">Back to top ↑</a>
   </div>
 </section>
+
+<!-- App Screen Lightbox -->
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="lightbox-panel" role="dialog" aria-modal="true" aria-label="Expanded image">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">✕</button>
+    <img id="lightboxImg" src="" alt="Expanded view">
+  </div>
+</div>
 
 <script>
   // NAV drawer
@@ -367,6 +399,46 @@
     cards.forEach((card) => {
       const playBtn = card.querySelector('.play-btn');
       if (playBtn) playBtn.addEventListener('click', () => togglePlay(card, playBtn));
+    });
+  })();
+
+  // App Screens lightbox (click to enlarge, close button, click outside, ESC)
+  (function () {
+    const grid = document.getElementById('appGrid');
+    const lb = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lightboxImg');
+    const lbClose = document.getElementById('lightboxClose');
+
+    if (!grid || !lb || !lbImg || !lbClose) return;
+
+    const open = (src) => {
+      lbImg.src = src;
+      lb.setAttribute('aria-hidden', 'false');
+      document.documentElement.style.overflow = 'hidden';
+      lbClose.focus();
+    };
+
+    const close = () => {
+      lb.setAttribute('aria-hidden', 'true');
+      lbImg.src = '';
+      document.documentElement.style.overflow = '';
+    };
+
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.app-shot');
+      if (!btn) return;
+      const src = btn.getAttribute('data-full');
+      if (src) open(src);
+    });
+
+    lbClose.addEventListener('click', close);
+
+    lb.addEventListener('click', (e) => {
+      if (e.target === lb) close();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lb.getAttribute('aria-hidden') === 'false') close();
     });
   })();
 </script>
