@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=206" />
+  <link rel="stylesheet" href="/style.css?v=207" />
 
   <style>
-    /* ================= Origin: caption + background fill ================= */
+    /* ================= Origin: layout + captions ================= */
     .origin-grid { gap: 18px; }
 
     .origin-shot {
+      position: relative;
       border-radius: 18px;
       overflow: hidden;
       background: rgba(255,255,255,0.55);
@@ -19,27 +20,46 @@
       padding: 12px;
     }
 
+    /* Default origin image treatment (keeps art fully visible) */
     .origin-shot img {
       display: block;
       width: 100%;
-      height: 260px;
+      height: 320px;
       object-fit: contain;
       object-position: center;
-      background: rgba(245,238,227,0.95); /* fills the “white space” */
+      background: rgba(245,238,227,0.95); /* fills “white space” */
       border-radius: 14px;
       padding: 10px;
       box-sizing: border-box;
     }
 
-    .origin-caption {
-      margin: 10px 2px 0;
+    /* LEFT ORIGIN: dad-deer should fill the container more */
+    .origin-shot.origin-fill img {
+      height: 360px;
+      object-fit: cover;     /* fills */
+      padding: 0;            /* remove inner padding so it fills */
+      background: transparent;
+      border-radius: 14px;
+    }
+
+    /* Caption overlay ON image (bottom-left pill) */
+    .origin-badge {
+      position: absolute;
+      left: 24px;            /* accounts for outer padding */
+      bottom: 24px;
+      background: rgba(0,0,0,0.70);
+      color: #fff;
       font-size: 14px;
-      opacity: 0.75;
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 999px;
+      letter-spacing: 0.2px;
+      pointer-events: none;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.20);
     }
 
     /* ================= CampCards: background fill + contain ================= */
     .campcards-grid { gap: 18px; }
-
     .campcard { cursor: pointer; }
 
     .campcard-media {
@@ -58,8 +78,17 @@
       object-position: center;
     }
 
-    @media (max-width: 900px) { .campcard-media img { height: 240px; } }
-    @media (max-width: 560px) { .campcard-media img { height: 220px; } }
+    @media (max-width: 980px) {
+      .origin-shot img { height: 280px; }
+      .origin-shot.origin-fill img { height: 300px; }
+      .origin-badge { left: 20px; bottom: 20px; }
+    }
+    @media (max-width: 560px) {
+      .origin-shot img { height: 260px; }
+      .origin-shot.origin-fill img { height: 280px; }
+      .origin-badge { left: 18px; bottom: 18px; font-size: 13px; }
+      .campcard-media img { height: 220px; }
+    }
 
     /* ================= App Screens: clickable + 2x3 grid ================= */
     .screens-grid.screens-2x3 {
@@ -99,12 +128,10 @@
     @media (max-width: 980px) {
       .screens-grid.screens-2x3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .screen-shot img { height: 240px; }
-      .origin-shot img { height: 240px; }
     }
     @media (max-width: 560px) {
       .screens-grid.screens-2x3 { grid-template-columns: 1fr; }
       .screen-shot img { height: 240px; }
-      .origin-shot img { height: 240px; }
     }
 
     /* ================= Lightbox modal ================= */
@@ -269,7 +296,6 @@
       </div>
     </section>
 
-    <!-- Hero blend styles (kept here so it always works) -->
     <style>
       .hero.hero-bleed { position: relative; padding: 0; overflow: hidden; }
       .hero-bleed-media { position: relative; width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
@@ -293,14 +319,15 @@
         </div>
 
         <div class="origin-grid" aria-label="Origin photos">
-          <figure class="origin-shot" data-kind="screen" data-title="Dad Deer" data-img="/campcards/images/dad-deer.png">
+          <!-- LEFT: dad-deer fills the container more -->
+          <figure class="origin-shot origin-fill" data-kind="screen" data-title="Dad Deer" data-img="/campcards/images/dad-deer.png">
             <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
           </figure>
 
-          <!-- Caption goes ONLY on deer-den.png (right side) -->
+          <!-- RIGHT: deer-den caption is ON the image (no gray bar) -->
           <figure class="origin-shot" data-kind="screen" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
-            <figcaption class="origin-caption">Tap to view larger.</figcaption>
+            <span class="origin-badge">Tap to view larger.</span>
           </figure>
         </div>
 
@@ -428,7 +455,7 @@
         <div class="section-head">
           <h2>App Screens</h2>
           <p class="section-subtitle">A simple flow designed for real camp moments.</p>
-          <p class="origin-caption">Tap a screen to view larger.</p>
+          <p style="margin-top:10px; opacity:.75;">Tap a screen to view larger.</p>
         </div>
 
         <div class="screens-grid screens-2x3" aria-label="App screens">
@@ -457,8 +484,8 @@
             <figcaption class="screen-caption">Profile</figcaption>
           </figure>
 
-          <figure class="screen-shot" data-kind="screen" data-title="Another Screen" data-img="/campcards/images/memories-feed.png">
-            <img src="/campcards/images/memories-feed.png" alt="Another screen">
+          <figure class="screen-shot" data-kind="screen" data-title="More" data-img="/campcards/images/memories-feed.png">
+            <img src="/campcards/images/memories-feed.png" alt="More">
             <figcaption class="screen-caption">More</figcaption>
           </figure>
         </div>
@@ -524,7 +551,6 @@
           <img id="dcModalImg" src="" alt="">
         </div>
 
-        <!-- Audio controls (hidden automatically for non-campcards) -->
         <div class="dc-modal-actions" id="dcModalActions">
           <button class="dc-modal-play primary-button" id="dcModalPlay" type="button">Play</button>
           <button class="dc-modal-play" id="dcModalStop" type="button">Stop</button>
@@ -533,7 +559,6 @@
     </div>
   </div>
 
-  <!-- ================= SCRIPTS ================= -->
   <script>
     // Footer year
     const yearEl = document.getElementById('year');
@@ -581,7 +606,7 @@
 
       buttons.forEach(btn => {
         btn.addEventListener('click', (e) => {
-          e.stopPropagation(); // do not open modal when clicking play
+          e.stopPropagation();
           const card = btn.closest('.campcard');
           const src = card ? card.getAttribute('data-audio') : null;
           if (!src) return;
@@ -618,7 +643,7 @@
       window.__dcStopInlineAudio = stopCurrent;
     })();
 
-    // Shared Lightbox Modal (CampCards + Origin photos + App Screens)
+    // Shared Lightbox Modal (CampCards + Origin + App Screens)
     (function () {
       const modal = document.getElementById('dcModal');
       const closeBtn = document.getElementById('dcModalClose');
@@ -629,7 +654,7 @@
       const actions = document.getElementById('dcModalActions');
 
       const campcards = Array.from(document.querySelectorAll('.campcard'));
-      const clickables = Array.from(document.querySelectorAll('.screen-shot, .origin-shot'));
+      const clickables = Array.from(document.querySelectorAll('.origin-shot, .screen-shot'));
 
       let modalAudio = null;
       let currentAudioSrc = null;
@@ -682,7 +707,6 @@
           const title =
             el.getAttribute('data-title') ||
             el.querySelector('figcaption')?.textContent ||
-            el.querySelector('h3')?.textContent ||
             'Preview';
 
           const img =
@@ -690,20 +714,13 @@
             el.querySelector('img')?.getAttribute('src') ||
             '';
 
-          // No audio for origin/app screens
           openModal({ title, img, audio: null });
         });
       });
 
       closeBtn.addEventListener('click', closeModal);
-
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
-      });
+      modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal(); });
 
       playBtn.addEventListener('click', () => {
         if (!currentAudioSrc) return;
