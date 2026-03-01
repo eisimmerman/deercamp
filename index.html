@@ -6,14 +6,29 @@
   <title>DeerCamp — Capture the moments that become legacy</title>
   <link rel="stylesheet" href="/style.css?v=123" />
 
-  <!-- ===============================
-       FIX: Prevent image cut-off (Origin + CampCards)
-       - Forces images to "contain" inside their frames
-       - Keeps center alignment
-  ================================== -->
+  <!-- =========================================================
+       FIX: Image cropping (Origin + CampCards)
+       - Origin: make the photo containers taller (so horns aren’t clipped)
+       - CampCards: ensure the thumbnail container has enough height and
+         the image is fit/contained inside it (no clipping)
+  ========================================================== -->
   <style>
-    /* ORIGIN: never crop */
-    .origin-shot img{
+    /* ---------- ORIGIN: give the frames a taller aspect ratio ---------- */
+    .origin-grid .origin-shot{
+      /* was effectively too short / wide; make taller so full content shows */
+      aspect-ratio: 4 / 3;
+      /* safety if CSS sets fixed height elsewhere */
+      height: auto !important;
+      min-height: 260px;
+      overflow: hidden;
+      border-radius: inherit;
+    }
+    @media (min-width: 900px){
+      .origin-grid .origin-shot{ min-height: 340px; }
+    }
+
+    /* never crop origin images */
+    .origin-grid .origin-shot img{
       width: 100%;
       height: 100%;
       object-fit: contain !important;
@@ -21,13 +36,17 @@
       display: block;
     }
 
-    /* CAMP CARDS: never crop thumbnails */
+    /* ---------- CAMP CARDS: make the image area tall enough ---------- */
     #campcardsGrid .shot-open{
+      /* ensure the “image window” isn’t too short */
+      aspect-ratio: 4 / 3;
       width: 100%;
-      height: 100%;
       display: block;
+      overflow: hidden;
+      border-radius: inherit;
     }
 
+    /* never crop campcard thumbnails */
     #campcardsGrid .shot-open img{
       width: 100%;
       height: 100%;
@@ -39,7 +58,6 @@
 
   <!-- Subtle “playing” glow animation (CampCards) -->
   <style>
-    /* Keep this small + safe: only affects CampCards */
     #campcardsGrid .shot.is-playing {
       position: relative;
       transform: translateZ(0);
@@ -68,7 +86,6 @@
       50%      { opacity: .55; transform: scale(1.02); }
     }
 
-    /* Reduce motion preference */
     @media (prefers-reduced-motion: reduce) {
       #campcardsGrid .shot.is-playing,
       #campcardsGrid .shot.is-playing::after {
@@ -470,10 +487,6 @@
   })();
 
   // CampCards audio (FIXED + glow state)
-  // - Uses the clicked card's data-audio every time
-  // - Fully resets audio src when switching files (prevents "same clip for all" bug)
-  // - Adds a cache-busting seed per page load (stops edge/browser from collapsing MP3 responses)
-  // - Applies .is-playing to the active card for subtle glow animation
   (function () {
     const grid = document.getElementById('campcardsGrid');
     if (!grid) return;
@@ -483,9 +496,6 @@
 
     const audio = new Audio();
     audio.preload = 'none';
-
-    // One seed per page load; keeps URLs stable enough for pause/resume,
-    // but changes on refresh to defeat stubborn caching.
     const bustSeed = Date.now();
 
     let activeBtn = null;
@@ -542,7 +552,6 @@
       // Switching to a different file: FULL reset first
       stopAll();
 
-      // Build a cache-busted URL that still points to the correct file.
       const url = abs(rel);
       const busted = url + (url.includes("?") ? "&" : "?") + "v=" + bustSeed;
 
@@ -565,7 +574,6 @@
     cards.forEach(card => {
       const btn = card.querySelector(".play-btn");
       if (!btn) return;
-
       btn.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
