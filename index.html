@@ -4,7 +4,192 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
-  <link rel="stylesheet" href="/style.css?v=203" />
+
+  <link rel="stylesheet" href="/style.css?v=206" />
+
+  <style>
+    /* ================= Origin: caption + background fill ================= */
+    .origin-grid { gap: 18px; }
+
+    .origin-shot {
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.55);
+      box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+      padding: 12px;
+    }
+
+    .origin-shot img {
+      display: block;
+      width: 100%;
+      height: 260px;
+      object-fit: contain;
+      object-position: center;
+      background: rgba(245,238,227,0.95); /* fills the “white space” */
+      border-radius: 14px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .origin-caption {
+      margin: 10px 2px 0;
+      font-size: 14px;
+      opacity: 0.75;
+    }
+
+    /* ================= CampCards: background fill + contain ================= */
+    .campcards-grid { gap: 18px; }
+
+    .campcard { cursor: pointer; }
+
+    .campcard-media {
+      background: rgba(245,238,227,0.95);
+      border-radius: 16px;
+      padding: 12px;
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+    }
+
+    .campcard-media img {
+      display: block;
+      width: 100%;
+      height: 280px;
+      object-fit: contain;
+      object-position: center;
+    }
+
+    @media (max-width: 900px) { .campcard-media img { height: 240px; } }
+    @media (max-width: 560px) { .campcard-media img { height: 220px; } }
+
+    /* ================= App Screens: clickable + 2x3 grid ================= */
+    .screens-grid.screens-2x3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .screen-shot {
+      cursor: pointer;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.55);
+      box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+      padding: 12px;
+      overflow: hidden;
+    }
+
+    .screen-shot img {
+      display: block;
+      width: 100%;
+      height: 260px;
+      object-fit: contain;
+      object-position: center;
+      background: rgba(245,238,227,0.95);
+      border-radius: 14px;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    .screen-caption {
+      margin: 10px 0 0;
+      font-size: 13px;
+      opacity: 0.75;
+    }
+
+    @media (max-width: 980px) {
+      .screens-grid.screens-2x3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .screen-shot img { height: 240px; }
+      .origin-shot img { height: 240px; }
+    }
+    @media (max-width: 560px) {
+      .screens-grid.screens-2x3 { grid-template-columns: 1fr; }
+      .screen-shot img { height: 240px; }
+      .origin-shot img { height: 240px; }
+    }
+
+    /* ================= Lightbox modal ================= */
+    .dc-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.70);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 18px;
+    }
+    .dc-modal.is-open { display: flex; }
+
+    .dc-modal-card {
+      width: min(980px, 96vw);
+      max-height: 92vh;
+      background: rgba(255,255,255,0.92);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 24px 70px rgba(0,0,0,0.35);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dc-modal-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      width: 44px;
+      height: 44px;
+      border-radius: 999px;
+      border: 0;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      z-index: 2;
+    }
+
+    .dc-modal-body {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .dc-modal-title {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .dc-modal-media {
+      background: rgba(245,238,227,0.95);
+      border-radius: 16px;
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .dc-modal-media img {
+      display: block;
+      width: 100%;
+      height: min(62vh, 520px);
+      object-fit: contain;
+      object-position: center;
+    }
+
+    .dc-modal-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .dc-modal-play {
+      border: 0;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+  </style>
 </head>
 
 <body>
@@ -61,19 +246,13 @@
 
   <main>
 
-    <!-- ================= HERO (FULL-WIDTH FEATURE GRAPHIC) ================= -->
+    <!-- ================= HERO ================= -->
     <section class="hero hero-bleed" id="hero" aria-label="DeerCamp Hero">
-      <!-- Full-bleed image -->
       <div class="hero-bleed-media" aria-hidden="true">
-        <img
-          src="/assets/deercamp-feature-graphic.png"
-          alt=""
-          loading="eager"
-        />
+        <img src="/assets/deercamp-feature-graphic.png" alt="" loading="eager" />
         <div class="hero-bleed-fade"></div>
       </div>
 
-      <!-- Content stays in the normal wrap width -->
       <div class="wrap hero-wrap hero-copy">
         <h1>Capture the moments that become legacy.</h1>
         <p class="hero-sub">A living archive for camp life.</p>
@@ -90,6 +269,17 @@
       </div>
     </section>
 
+    <!-- Hero blend styles (kept here so it always works) -->
+    <style>
+      .hero.hero-bleed { position: relative; padding: 0; overflow: hidden; }
+      .hero-bleed-media { position: relative; width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
+      .hero-bleed-media img { display:block; width:100%; height: min(56vh, 520px); object-fit: cover; object-position: center; }
+      .hero-bleed-fade { position:absolute; left:0; right:0; bottom:-1px; height:160px; pointer-events:none;
+        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%); }
+      .hero-copy { padding-top: 28px; padding-bottom: 22px; }
+      @media (max-width: 768px){ .hero-bleed-media img{ height: min(42vh, 360px);} .hero-bleed-fade{ height:120px;} }
+    </style>
+
     <!-- ================= ORIGIN ================= -->
     <section id="origin" class="section">
       <div class="wrap">
@@ -103,11 +293,14 @@
         </div>
 
         <div class="origin-grid" aria-label="Origin photos">
-          <figure class="origin-shot">
+          <figure class="origin-shot" data-kind="screen" data-title="Dad Deer" data-img="/campcards/images/dad-deer.png">
             <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
           </figure>
-          <figure class="origin-shot">
+
+          <!-- Caption goes ONLY on deer-den.png (right side) -->
+          <figure class="origin-shot" data-kind="screen" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
+            <figcaption class="origin-caption">Tap to view larger.</figcaption>
           </figure>
         </div>
 
@@ -122,67 +315,67 @@
 
         <div class="section-head">
           <h2>CampCards</h2>
-          <p class="section-subtitle">Tap Play to hear the story from camp.</p>
+          <p class="section-subtitle">Click a card to view it larger, and tap Play to hear the story.</p>
         </div>
 
         <div class="campcards-grid" aria-label="CampCards grid">
 
-          <article class="campcard" data-audio="/campcards/audio/bens-first-buck.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
             <div class="campcard-media"><img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck"></div>
             <div class="campcard-meta"><h3>Ben’s First Buck</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/brittneys-first-deer.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Brittney’s First Deer" data-img="/campcards/images/brittneys-first-deer.png" data-audio="/campcards/audio/brittneys-first-deer.mp3">
             <div class="campcard-media"><img src="/campcards/images/brittneys-first-deer.png" alt="Brittney’s First Deer"></div>
             <div class="campcard-meta"><h3>Brittney’s First Deer</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/camp-tracker.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Camp Tracker" data-img="/campcards/images/camp-tracker.png" data-audio="/campcards/audio/camp-tracker.mp3">
             <div class="campcard-media"><img src="/campcards/images/camp-tracker.png" alt="Camp Tracker"></div>
             <div class="campcard-meta"><h3>Camp Tracker</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/campfire-camaraderie.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Campfire Camaraderie" data-img="/campcards/images/campfire-camaraderie.png" data-audio="/campcards/audio/campfire-camaraderie.mp3">
             <div class="campcard-media"><img src="/campcards/images/campfire-camaraderie.png" alt="Campfire Camaraderie"></div>
             <div class="campcard-meta"><h3>Campfire Camaraderie</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/fall-scouting.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Fall Scouting" data-img="/campcards/images/fall-scouting.png" data-audio="/campcards/audio/fall-scouting.mp3">
             <div class="campcard-media"><img src="/campcards/images/fall-scouting.png" alt="Fall Scouting"></div>
             <div class="campcard-meta"><h3>Fall Scouting</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/first-coffee.mp3">
+          <article class="campcard" data-kind="campcard" data-title="First Coffee" data-img="/campcards/images/first-coffee.png" data-audio="/campcards/audio/first-coffee.mp3">
             <div class="campcard-media"><img src="/campcards/images/first-coffee.png" alt="First Coffee"></div>
             <div class="campcard-meta"><h3>First Coffee</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/first-snow.mp3">
+          <article class="campcard" data-kind="campcard" data-title="First Snow" data-img="/campcards/images/first-snow.png" data-audio="/campcards/audio/first-snow.mp3">
             <div class="campcard-media"><img src="/campcards/images/first-snow.png" alt="First Snow"></div>
             <div class="campcard-meta"><h3>First Snow</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/grandmas-kitchen.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Grandma’s Kitchen" data-img="/campcards/images/grandmas-kitchen.png" data-audio="/campcards/audio/grandmas-kitchen.mp3">
             <div class="campcard-media"><img src="/campcards/images/grandmas-kitchen.png" alt="Grandma’s Kitchen"></div>
             <div class="campcard-meta"><h3>Grandma’s Kitchen</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/grandpas-biggest-buck.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Grandpa’s Biggest Buck" data-img="/campcards/images/grandpas-biggest-buck.png" data-audio="/campcards/audio/grandpas-biggest-buck.mp3">
             <div class="campcard-media"><img src="/campcards/images/grandpas-biggest-buck.png" alt="Grandpa’s Biggest Buck"></div>
             <div class="campcard-meta"><h3>Grandpa’s Biggest Buck</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/opening-morning.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Opening Morning" data-img="/campcards/images/opening-morning.png" data-audio="/campcards/audio/opening-morning.mp3">
             <div class="campcard-media"><img src="/campcards/images/opening-morning.png" alt="Opening Morning"></div>
             <div class="campcard-meta"><h3>Opening Morning</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/packers-burgers.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Packers &amp; Burgers" data-img="/campcards/images/packers-burgers.png" data-audio="/campcards/audio/packers-burgers.mp3">
             <div class="campcard-media"><img src="/campcards/images/packers-burgers.png" alt="Packers &amp; Burgers"></div>
             <div class="campcard-meta"><h3>Packers &amp; Burgers</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
-          <article class="campcard" data-audio="/campcards/audio/spring-scouting.mp3">
+          <article class="campcard" data-kind="campcard" data-title="Spring Scouting" data-img="/campcards/images/spring-scouting.png" data-audio="/campcards/audio/spring-scouting.mp3">
             <div class="campcard-media"><img src="/campcards/images/spring-scouting.png" alt="Spring Scouting"></div>
             <div class="campcard-meta"><h3>Spring Scouting</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
@@ -197,7 +390,6 @@
     <section id="how" class="section">
       <div class="wrap">
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
-
         <div class="section-head">
           <h2>How it works</h2>
           <p class="section-subtitle">Fast capture in the moment. Private by design.</p>
@@ -217,16 +409,13 @@
     <section id="camp" class="section">
       <div class="wrap">
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
-
         <div class="section-head">
           <h2>What is a Camp?</h2>
           <p class="section-subtitle">A Camp is your private circle — the people and traditions you protect.</p>
         </div>
-
         <div class="callout">
           <p><strong>No feeds. No likes. No noise.</strong> Just the story.</p>
         </div>
-
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
       </div>
     </section>
@@ -239,16 +428,39 @@
         <div class="section-head">
           <h2>App Screens</h2>
           <p class="section-subtitle">A simple flow designed for real camp moments.</p>
+          <p class="origin-caption">Tap a screen to view larger.</p>
         </div>
 
-        <!-- 2 rows x 3 columns on desktop; full visible screens -->
         <div class="screens-grid screens-2x3" aria-label="App screens">
-          <figure class="screen-shot"><img src="/campcards/images/home.png" alt="Home screen"></figure>
-          <figure class="screen-shot"><img src="/campcards/images/memories-feed.png" alt="Memories feed"></figure>
-          <figure class="screen-shot"><img src="/campcards/images/memory-detail.png" alt="Memory detail"></figure>
-          <figure class="screen-shot"><img src="/campcards/images/comments.png" alt="Comments"></figure>
-          <figure class="screen-shot"><img src="/campcards/images/profile.png" alt="Profile"></figure>
-          <figure class="screen-shot"><img src="/campcards/images/deer-den.png" alt="Example screen"></figure>
+          <figure class="screen-shot" data-kind="screen" data-title="Home" data-img="/campcards/images/home.png">
+            <img src="/campcards/images/home.png" alt="Home screen">
+            <figcaption class="screen-caption">Home</figcaption>
+          </figure>
+
+          <figure class="screen-shot" data-kind="screen" data-title="Memories Feed" data-img="/campcards/images/memories-feed.png">
+            <img src="/campcards/images/memories-feed.png" alt="Memories feed">
+            <figcaption class="screen-caption">Memories Feed</figcaption>
+          </figure>
+
+          <figure class="screen-shot" data-kind="screen" data-title="Memory Detail" data-img="/campcards/images/memory-detail.png">
+            <img src="/campcards/images/memory-detail.png" alt="Memory detail">
+            <figcaption class="screen-caption">Memory Detail</figcaption>
+          </figure>
+
+          <figure class="screen-shot" data-kind="screen" data-title="Comments" data-img="/campcards/images/comments.png">
+            <img src="/campcards/images/comments.png" alt="Comments">
+            <figcaption class="screen-caption">Comments</figcaption>
+          </figure>
+
+          <figure class="screen-shot" data-kind="screen" data-title="Profile" data-img="/campcards/images/profile.png">
+            <img src="/campcards/images/profile.png" alt="Profile">
+            <figcaption class="screen-caption">Profile</figcaption>
+          </figure>
+
+          <figure class="screen-shot" data-kind="screen" data-title="Another Screen" data-img="/campcards/images/memories-feed.png">
+            <img src="/campcards/images/memories-feed.png" alt="Another screen">
+            <figcaption class="screen-caption">More</figcaption>
+          </figure>
         </div>
 
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
@@ -266,9 +478,26 @@
         </div>
 
         <div class="policies">
-          <div class="policy"><h3>Privacy</h3><p>DeerCamp is built to preserve camp memories without turning them into social media content.</p></div>
-          <div class="policy"><h3>Data</h3><p>Your content is yours. Keep it private, organized, and accessible when you want it.</p></div>
-          <div class="policy"><h3>Support</h3><p>Support is available via the app store listing.</p></div>
+          <div class="policy">
+            <h3>Privacy</h3>
+            <p>DeerCamp is built to preserve camp memories without turning them into social media content.</p>
+          </div>
+
+          <div class="policy">
+            <h3>Data Policy</h3>
+            <p>
+              DeerCamp stores your memories (text, photos, and audio) so you can access them across sessions.
+              We do not sell your content. Your memories are intended to stay private and under your control.
+            </p>
+          </div>
+
+          <div class="policy">
+            <h3>Published Privacy Policy</h3>
+            <p>
+              Read our published privacy policy here:
+              <a href="/policies.html" target="_blank" rel="noopener">Privacy Policy</a>
+            </p>
+          </div>
         </div>
 
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
@@ -283,6 +512,28 @@
     </div>
   </footer>
 
+  <!-- ================= LIGHTBOX MODAL ================= -->
+  <div class="dc-modal" id="dcModal" aria-hidden="true" role="dialog" aria-label="Preview">
+    <div class="dc-modal-card" role="document">
+      <button class="dc-modal-close" id="dcModalClose" type="button" aria-label="Close">✕</button>
+
+      <div class="dc-modal-body">
+        <h3 class="dc-modal-title" id="dcModalTitle"></h3>
+
+        <div class="dc-modal-media">
+          <img id="dcModalImg" src="" alt="">
+        </div>
+
+        <!-- Audio controls (hidden automatically for non-campcards) -->
+        <div class="dc-modal-actions" id="dcModalActions">
+          <button class="dc-modal-play primary-button" id="dcModalPlay" type="button">Play</button>
+          <button class="dc-modal-play" id="dcModalStop" type="button">Stop</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SCRIPTS ================= -->
   <script>
     // Footer year
     const yearEl = document.getElementById('year');
@@ -310,7 +561,7 @@
       drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
     })();
 
-    // CampCards audio (single-audio at a time)
+    // CampCards inline audio buttons (single-audio at a time)
     (function () {
       const buttons = Array.from(document.querySelectorAll('.campcard-audio-btn'));
       if (!buttons.length) return;
@@ -329,7 +580,8 @@
       };
 
       buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation(); // do not open modal when clicking play
           const card = btn.closest('.campcard');
           const src = card ? card.getAttribute('data-audio') : null;
           if (!src) return;
@@ -361,6 +613,124 @@
             btn.textContent = 'Play';
           });
         });
+      });
+
+      window.__dcStopInlineAudio = stopCurrent;
+    })();
+
+    // Shared Lightbox Modal (CampCards + Origin photos + App Screens)
+    (function () {
+      const modal = document.getElementById('dcModal');
+      const closeBtn = document.getElementById('dcModalClose');
+      const titleEl = document.getElementById('dcModalTitle');
+      const imgEl = document.getElementById('dcModalImg');
+      const playBtn = document.getElementById('dcModalPlay');
+      const stopBtn = document.getElementById('dcModalStop');
+      const actions = document.getElementById('dcModalActions');
+
+      const campcards = Array.from(document.querySelectorAll('.campcard'));
+      const clickables = Array.from(document.querySelectorAll('.screen-shot, .origin-shot'));
+
+      let modalAudio = null;
+      let currentAudioSrc = null;
+
+      const setAudioVisible = (visible) => {
+        actions.style.display = visible ? 'flex' : 'none';
+      };
+
+      const openModal = ({ title, img, audio }) => {
+        if (window.__dcStopInlineAudio) window.__dcStopInlineAudio();
+
+        titleEl.textContent = title || '';
+        imgEl.src = img || '';
+        imgEl.alt = title || 'Preview';
+
+        currentAudioSrc = audio || null;
+        setAudioVisible(!!currentAudioSrc);
+
+        if (modalAudio) {
+          modalAudio.pause();
+          modalAudio = null;
+        }
+        playBtn.textContent = 'Play';
+
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+      };
+
+      const closeModal = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        if (modalAudio) {
+          modalAudio.pause();
+          modalAudio = null;
+        }
+        playBtn.textContent = 'Play';
+      };
+
+      campcards.forEach(card => {
+        card.addEventListener('click', () => {
+          const title = card.getAttribute('data-title') || card.querySelector('h3')?.textContent || '';
+          const img = card.getAttribute('data-img') || card.querySelector('img')?.getAttribute('src') || '';
+          const audio = card.getAttribute('data-audio') || '';
+          openModal({ title, img, audio });
+        });
+      });
+
+      clickables.forEach(el => {
+        el.addEventListener('click', () => {
+          const title =
+            el.getAttribute('data-title') ||
+            el.querySelector('figcaption')?.textContent ||
+            el.querySelector('h3')?.textContent ||
+            'Preview';
+
+          const img =
+            el.getAttribute('data-img') ||
+            el.querySelector('img')?.getAttribute('src') ||
+            '';
+
+          // No audio for origin/app screens
+          openModal({ title, img, audio: null });
+        });
+      });
+
+      closeBtn.addEventListener('click', closeModal);
+
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+      });
+
+      playBtn.addEventListener('click', () => {
+        if (!currentAudioSrc) return;
+
+        if (!modalAudio) {
+          modalAudio = new Audio(currentAudioSrc);
+          modalAudio.addEventListener('ended', () => {
+            playBtn.textContent = 'Play';
+            modalAudio = null;
+          });
+        }
+
+        if (modalAudio.paused) {
+          modalAudio.play().catch(() => {});
+          playBtn.textContent = 'Pause';
+        } else {
+          modalAudio.pause();
+          playBtn.textContent = 'Play';
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        if (modalAudio) {
+          modalAudio.pause();
+          modalAudio.currentTime = 0;
+        }
+        playBtn.textContent = 'Play';
       });
     })();
   </script>
