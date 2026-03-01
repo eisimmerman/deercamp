@@ -5,22 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <!-- Your existing global CSS -->
-  <link rel="stylesheet" href="/style.css?v=carouselfix-1" />
+  <!-- Global CSS -->
+  <link rel="stylesheet" href="/style.css?v=carouselfix-2" />
 
   <style>
-    /* ================= Tighten spacing globally ================= */
+    /* ================= Layout tighten ================= */
     .section { padding-top: 40px !important; padding-bottom: 40px !important; }
     .section .wrap { padding-top: 0 !important; padding-bottom: 0 !important; }
     .section-head { margin-bottom: 14px !important; }
     .section-subtitle { margin-top: 10px !important; }
 
     @media (max-width: 768px){
-      .section { padding-top: 36px !important; padding-bottom: 36px !important; }
+      .section { padding-top: 34px !important; padding-bottom: 34px !important; }
       .section-head { margin-bottom: 12px !important; }
     }
 
-    /* Keep only one Back to top at end of each section; this styles it nicely */
+    /* back to top */
     .back-top {
       display:inline-flex;
       align-items:center;
@@ -31,7 +31,39 @@
       background: rgba(255,255,255,0.55);
       text-decoration:none;
       color:inherit;
-      margin-top:18px;
+      margin-top:14px;
+    }
+
+    /* ================= Mobile hamburger: 3 stacked lines + label below ================= */
+    .nav-toggle{
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(0,0,0,0.15);
+      background: rgba(255,255,255,0.55);
+    }
+    .nav-toggle > span{
+      display:block;
+      width:28px;
+      height:3px;
+      border-radius:3px;
+      background: rgba(0,0,0,0.70);
+      margin:0;
+    }
+    .nav-toggle .menu-label{
+      margin-top:2px;
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:0.02em;
+      opacity:.9;
+      background:none;
+      height:auto;
+      width:auto;
+      border-radius:0;
     }
 
     /* ================= Hero headline sizing (desktop: one line) ================= */
@@ -49,14 +81,32 @@
       }
     }
 
-    /* ================= HERO image framing (note: cannot remove baked-in art via CSS) ================= */
-    .hero-bleed-media img{ object-fit: cover; object-position: center; }
-    @media (max-width: 700px){
-      /* Crop down so built-in top text is less prominent */
-      .hero-bleed-media img{ object-position: 50% 78% !important; }
+    /* ================= HERO full-bleed ================= */
+    .hero.hero-bleed{ position:relative; padding:0; overflow:hidden; }
+    .hero-bleed-media{
+      position:relative;
+      width:100vw;
+      margin-left:calc(50% - 50vw);
+      margin-right:calc(50% - 50vw);
+    }
+    .hero-bleed-media img{
+      display:block;
+      width:100%;
+      height:min(54vh, 500px);
+      object-fit:cover;
+      object-position:center;
+    }
+    .hero-bleed-fade{
+      position:absolute; left:0; right:0; bottom:-1px; height:140px; pointer-events:none;
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%);
+    }
+    .hero-copy{ padding-top: 18px; padding-bottom: 10px; }
+    @media (max-width:768px){
+      .hero-bleed-media img{ height:min(42vh, 360px); }
+      .hero-bleed-fade{ height:110px; }
     }
 
-    /* ================= Origin cards ================= */
+    /* ================= Origin grid ================= */
     .origin-grid{
       display:grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -77,6 +127,7 @@
       cursor: pointer;
     }
 
+    /* Default: portrait-friendly */
     .origin-shot img{
       display:block;
       width:100%;
@@ -88,12 +139,11 @@
       padding:10px;
       box-sizing:border-box;
     }
-
     @media (max-width: 560px){
       .origin-shot img{ height:300px; }
     }
 
-    /* dad-deer: NO overlay pills/badges/captions */
+    /* dad-deer: prevent any accidental duplicate pills/captions */
     .origin-shot.origin-dad .origin-caption-card,
     .origin-shot.origin-dad figcaption,
     .origin-shot.origin-dad [class*="pill"],
@@ -103,45 +153,57 @@
       content:none !important;
     }
 
-    /* deer-den: mobile-safe bottom fade strip caption */
+    /* deer-den: reduce top whitespace by using cover + removing inner padding */
+    .origin-shot.origin-den{
+      padding: 10px;
+    }
+    .origin-shot.origin-den img{
+      height: 360px;
+      object-fit: cover;
+      object-position: center 22%;
+      padding: 0;
+      background: transparent;
+    }
+    @media (max-width: 560px){
+      .origin-shot.origin-den img{
+        height: 320px;
+        object-position: center 18%;
+      }
+    }
+
+    /* deer-den caption: narrow so faces stay clear on the right */
     .origin-caption-card{
       position:absolute;
       left:0;
       right:0;
       bottom:0;
-
-      width:100%;
-      max-width:none;
-
       background: linear-gradient(
         to top,
-        rgba(0,0,0,0.75) 0%,
-        rgba(0,0,0,0.6) 60%,
+        rgba(0,0,0,0.72) 0%,
+        rgba(0,0,0,0.52) 60%,
         rgba(0,0,0,0.0) 100%
       );
-
       color:#fff;
       border-radius:0 0 18px 18px;
-      padding:16px 18px 18px 18px;
+      padding:14px 16px 16px 16px;
       pointer-events:none;
     }
-
     .origin-caption-card .title{
       margin:0 0 6px;
       font-size:18px;
-      font-weight:800;
-      line-height:1.1;
+      font-weight:900;
+      line-height:1.05;
     }
     .origin-caption-card .body{
       margin:0;
-      font-size:14px;
-      line-height:1.3;
-      font-weight:600;
+      font-size:13px;
+      line-height:1.25;
+      font-weight:700;
       opacity:.95;
-      max-width: 44ch;
+      max-width: 38ch;
     }
 
-    /* ================= CampCards: desktop grid + mobile carousel ================= */
+    /* ================= CampCards (grid desktop, carousel mobile) ================= */
     .campcards-grid{
       display:grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -173,7 +235,6 @@
     @media (max-width: 900px){ .campcard-media img{ height:240px; } }
     @media (max-width: 560px){ .campcard-media img{ height:220px; } }
 
-    /* --- CampCard meta row (title + play pill) --- */
     .campcard-meta{
       display:flex;
       align-items:center;
@@ -191,12 +252,13 @@
       background: rgba(255,255,255,0.70);
       padding:10px 16px;
       border-radius:999px;
-      font-weight:800;
+      font-weight:900;
       cursor:pointer;
       min-width:92px;
+      min-height:44px;
     }
 
-    /* --- Mobile carousel controls --- */
+    /* Mobile carousel controls */
     .cc-controls{
       display:flex;
       align-items:center;
@@ -205,7 +267,7 @@
       margin: 12px 0 6px;
     }
     .cc-counter{
-      font-weight:800;
+      font-weight:900;
       opacity:.75;
       padding:10px 14px;
       border-radius:999px;
@@ -228,7 +290,6 @@
       min-width:56px;
     }
 
-    /* --- Mobile carousel mode --- */
     @media (max-width: 700px){
       .campcards-grid{
         display:flex !important;
@@ -253,7 +314,6 @@
       }
     }
 
-    /* Subtle “fade between cards” on button navigation */
     .campcards-grid.is-peeking .campcard.is-active{
       animation: ccPulse 260ms ease;
     }
@@ -262,7 +322,7 @@
       100%{ transform: scale(1); opacity: 1; }
     }
 
-    /* ================= App Screens: 2 rows x 3 (desktop), clickable like CampCards ================= */
+    /* ================= App Screens grid (2 rows x 3 on desktop) ================= */
     .screens-grid.screens-2x3{
       display:grid;
       grid-template-columns:repeat(3, minmax(0, 1fr));
@@ -299,7 +359,7 @@
       .screen-shot img{ height:240px; }
     }
 
-    /* ================= Modal (lightbox) ================= */
+    /* ================= Modal ================= */
     .dc-modal{
       position:fixed;
       inset:0;
@@ -378,19 +438,27 @@
       flex-wrap:wrap;
     }
 
-    .dc-modal-play{
+    .dc-pill{
       border:1px solid rgba(0,0,0,0.12);
       background: rgba(255,255,255,0.72);
       border-radius:12px;
       padding:10px 14px;
       cursor:pointer;
-      font-weight:800;
+      font-weight:900;
       min-height:44px;
     }
-    .dc-modal-play.primary-button{
+    .dc-pill.primary{
       border:0;
       background: rgba(0,0,0,0.80);
       color:#fff;
+    }
+    .dc-modal-navhint{
+      font-weight:900;
+      opacity:.7;
+      padding:10px 14px;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,0.10);
+      background: rgba(255,255,255,0.60);
     }
   </style>
 </head>
@@ -418,10 +486,7 @@
         Get the app
       </a>
 
-      <button class="nav-toggle" id="navToggle"
-              aria-expanded="false"
-              aria-controls="navDrawer"
-              aria-label="Open menu">
+      <button class="nav-toggle" id="navToggle" aria-expanded="false" aria-controls="navDrawer" aria-label="Open menu">
         <span></span><span></span><span></span>
         <span class="menu-label" aria-hidden="true">Menu</span>
       </button>
@@ -472,21 +537,6 @@
       </div>
     </section>
 
-    <style>
-      .hero.hero-bleed{ position:relative; padding:0; overflow:hidden; }
-      .hero-bleed-media{ position:relative; width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); }
-      .hero-bleed-media img{ display:block; width:100%; height:min(54vh, 500px); object-fit:cover; object-position:center; }
-      .hero-bleed-fade{
-        position:absolute; left:0; right:0; bottom:-1px; height:140px; pointer-events:none;
-        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%);
-      }
-      .hero-copy{ padding-top: 18px; padding-bottom: 10px; }
-      @media (max-width:768px){
-        .hero-bleed-media img{ height:min(42vh, 360px); }
-        .hero-bleed-fade{ height:110px; }
-      }
-    </style>
-
     <!-- ================= ORIGIN ================= -->
     <section id="origin" class="section">
       <div class="wrap">
@@ -502,7 +552,7 @@
             <img src="/campcards/images/dad-deer.png" alt="Last DeerCamp 1977">
           </figure>
 
-          <figure class="origin-shot" data-kind="origin" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
+          <figure class="origin-shot origin-den" data-kind="origin" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
             <div class="origin-caption-card" aria-hidden="true">
               <p class="title">Deer Den</p>
@@ -524,7 +574,6 @@
           <h2>CampCards</h2>
           <p class="section-subtitle">Swipe on mobile, or click/tap a card to view larger and play the story.</p>
 
-          <!-- Mobile carousel controls (also useful on desktop) -->
           <div class="cc-controls" aria-label="CampCards navigation">
             <div class="cc-counter" id="ccCounter">Card 1 of 12</div>
             <div class="cc-nav">
@@ -534,7 +583,6 @@
           </div>
         </div>
 
-        <!-- ONE list of 12 cards (carousel on mobile, grid on desktop) -->
         <div class="campcards-grid" id="campcardsTrack" aria-label="All CampCards">
 
           <article class="campcard" data-kind="campcard" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
@@ -646,7 +694,7 @@
           <p style="margin-top:10px; opacity:.75;">Tap a screen to view larger.</p>
         </div>
 
-        <div class="screens-grid screens-2x3" aria-label="App screens">
+        <div class="screens-grid screens-2x3" aria-label="App screens" id="screensGrid">
           <figure class="screen-shot" data-kind="screen" data-title="Home" data-img="/campcards/images/home.png">
             <img src="/campcards/images/home.png" alt="Home screen">
             <figcaption class="screen-caption">Home</figcaption>
@@ -732,14 +780,17 @@
           <img id="dcModalImg" src="" alt="">
         </div>
 
-        <div class="dc-modal-actions" id="dcModalActions">
-          <button class="dc-modal-play primary-button" id="dcModalPlay" type="button">Play</button>
-          <button class="dc-modal-play" id="dcModalStop" type="button">Stop</button>
+        <div class="dc-modal-actions">
+          <!-- Audio controls (CampCards only) -->
+          <button class="dc-pill primary" id="dcModalPlay" type="button">Play</button>
+          <button class="dc-pill" id="dcModalStop" type="button">Stop</button>
 
           <div style="flex:1"></div>
 
-          <button class="dc-modal-play" id="dcPrevCard" type="button">← Previous</button>
-          <button class="dc-modal-play primary-button" id="dcNextCard" type="button">Next →</button>
+          <!-- Always-available modal navigation for CampCards AND App Screens -->
+          <div class="dc-modal-navhint" id="dcModalCounter">Item 1</div>
+          <button class="dc-pill" id="dcPrevItem" type="button">← Previous</button>
+          <button class="dc-pill primary" id="dcNextItem" type="button">Next →</button>
         </div>
       </div>
     </div>
@@ -875,8 +926,6 @@
       };
 
       track.addEventListener('scroll', onScroll, { passive:true });
-
-      // Set initial active
       updateActive(0);
 
       const scrollToIndex = (i) => {
@@ -884,11 +933,9 @@
         const card = cards[clamped];
         if (!card) return;
 
-        // little "native" pulse on navigation
         track.classList.add('is-peeking');
         setTimeout(() => track.classList.remove('is-peeking'), 280);
 
-        // For mobile carousel, center the card
         if (isMobileCarousel()){
           const trackRect = track.getBoundingClientRect();
           const cardRect = card.getBoundingClientRect();
@@ -898,46 +945,49 @@
           const target = currentScrollLeft + (cardCenter - trackRect.width / 2);
 
           track.scrollTo({ left: target, behavior: 'smooth' });
+          updateActive(clamped);
         } else {
-          // Desktop: open modal instead when using arrows feels more natural
           card.click();
         }
-
-        updateActive(clamped);
       };
 
       nextBtn.addEventListener('click', () => scrollToIndex(activeIndex + 1));
       prevBtn.addEventListener('click', () => scrollToIndex(activeIndex - 1));
 
-      // keep counter accurate on resize
       window.addEventListener('resize', () => {
         updateActive(centerIndex());
       });
 
     })();
 
-    // Modal (lightbox) + Next/Prev inside modal + fade transitions
+    // Modal (lightbox) + next/prev for CampCards AND App Screens
     (function () {
       const modal = document.getElementById('dcModal');
       const closeBtn = document.getElementById('dcModalClose');
       const titleEl = document.getElementById('dcModalTitle');
       const imgEl = document.getElementById('dcModalImg');
+
       const playBtn = document.getElementById('dcModalPlay');
       const stopBtn = document.getElementById('dcModalStop');
-      const actions = document.getElementById('dcModalActions');
 
-      const nextBtn = document.getElementById('dcNextCard');
-      const prevBtn = document.getElementById('dcPrevCard');
+      const modalCounter = document.getElementById('dcModalCounter');
+      const nextBtn = document.getElementById('dcNextItem');
+      const prevBtn = document.getElementById('dcPrevItem');
 
       const campcards = Array.from(document.querySelectorAll('.campcard'));
-      const clickables = Array.from(document.querySelectorAll('.origin-shot, .screen-shot'));
+      const screens = Array.from(document.querySelectorAll('.screen-shot'));
+      const origins = Array.from(document.querySelectorAll('.origin-shot'));
 
       let modalAudio = null;
       let currentAudioSrc = null;
-      let currentCardIndex = 0;
-      let currentKind = 'campcard'; // campcard | origin | screen
 
-      const setAudioVisible = (visible) => { actions.style.display = visible ? 'flex' : 'none'; };
+      let currentGroup = 'origin'; // 'campcard' | 'screen' | 'origin'
+      let currentIndex = 0;
+
+      const setAudioEnabled = (enabled) => {
+        playBtn.style.display = enabled ? 'inline-flex' : 'none';
+        stopBtn.style.display = enabled ? 'inline-flex' : 'none';
+      };
 
       const fadeSwapImage = (src, alt) => {
         imgEl.classList.add('is-fading');
@@ -948,23 +998,41 @@
         }, 170);
       };
 
-      const openModal = ({ title, img, audio, kind, cardIndex }) => {
+      const groupList = () => {
+        if (currentGroup === 'campcard') return campcards;
+        if (currentGroup === 'screen') return screens;
+        return origins;
+      };
+
+      const updateCounter = () => {
+        const list = groupList();
+        const label = currentGroup === 'campcard' ? 'Card' : (currentGroup === 'screen' ? 'Screen' : 'Photo');
+        modalCounter.textContent = `${label} ${currentIndex + 1} of ${list.length}`;
+      };
+
+      const stopModalAudio = () => {
+        if (modalAudio) {
+          modalAudio.pause();
+          modalAudio.currentTime = 0;
+          modalAudio = null;
+        }
+        playBtn.textContent = 'Play';
+      };
+
+      const openModal = ({ title, img, audio, group, index }) => {
         if (window.__dcStopInlineAudio) window.__dcStopInlineAudio();
+
+        currentGroup = group;
+        currentIndex = index;
 
         titleEl.textContent = title || '';
         fadeSwapImage(img || '', title || 'Preview');
 
         currentAudioSrc = audio || null;
-        currentKind = kind || 'campcard';
-        currentCardIndex = Number.isFinite(cardIndex) ? cardIndex : currentCardIndex;
+        setAudioEnabled(!!currentAudioSrc);
+        stopModalAudio();
 
-        setAudioVisible(!!currentAudioSrc);
-
-        if (modalAudio) {
-          modalAudio.pause();
-          modalAudio = null;
-        }
-        playBtn.textContent = 'Play';
+        updateCounter();
 
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
@@ -973,30 +1041,26 @@
       const closeModal = () => {
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        if (modalAudio) {
-          modalAudio.pause();
-          modalAudio = null;
-        }
-        playBtn.textContent = 'Play';
+        stopModalAudio();
       };
 
-      // Clicking CampCards opens modal with audio enabled
+      const openFromEl = (el, group, index) => {
+        const title = el.getAttribute('data-title') || 'Preview';
+        const img = el.getAttribute('data-img') || el.querySelector('img')?.getAttribute('src') || '';
+        const audio = el.getAttribute('data-audio') || null;
+        openModal({ title, img, audio, group, index });
+      };
+
       campcards.forEach((card, index) => {
-        card.addEventListener('click', () => {
-          const title = card.getAttribute('data-title') || card.querySelector('h3')?.textContent || '';
-          const img = card.getAttribute('data-img') || card.querySelector('img')?.getAttribute('src') || '';
-          const audio = card.getAttribute('data-audio') || '';
-          openModal({ title, img, audio, kind:'campcard', cardIndex:index });
-        });
+        card.addEventListener('click', () => openFromEl(card, 'campcard', index));
       });
 
-      // Origin/screens open modal with no audio and no next/prev needed (but we keep buttons harmless)
-      clickables.forEach(el => {
-        el.addEventListener('click', () => {
-          const title = el.getAttribute('data-title') || 'Preview';
-          const img = el.getAttribute('data-img') || el.querySelector('img')?.getAttribute('src') || '';
-          openModal({ title, img, audio: null, kind:'other' });
-        });
+      screens.forEach((shot, index) => {
+        shot.addEventListener('click', () => openFromEl(shot, 'screen', index));
+      });
+
+      origins.forEach((shot, index) => {
+        shot.addEventListener('click', () => openFromEl(shot, 'origin', index));
       });
 
       closeBtn.addEventListener('click', closeModal);
@@ -1024,37 +1088,19 @@
       });
 
       stopBtn.addEventListener('click', () => {
-        if (modalAudio) {
-          modalAudio.pause();
-          modalAudio.currentTime = 0;
-        }
-        playBtn.textContent = 'Play';
+        stopModalAudio();
       });
 
-      const showCardInModal = (idx) => {
-        if (!campcards.length) return;
-        const wrapped = (idx + campcards.length) % campcards.length;
-        const card = campcards[wrapped];
-        if (!card) return;
-
-        const title = card.getAttribute('data-title') || '';
-        const img = card.getAttribute('data-img') || '';
-        const audio = card.getAttribute('data-audio') || '';
-
-        currentCardIndex = wrapped;
-        openModal({ title, img, audio, kind:'campcard', cardIndex:wrapped });
+      const showIndex = (idx) => {
+        const list = groupList();
+        const wrapped = (idx + list.length) % list.length;
+        const el = list[wrapped];
+        if (!el) return;
+        openFromEl(el, currentGroup, wrapped);
       };
 
-      nextBtn.addEventListener('click', () => {
-        if (currentKind !== 'campcard') return;
-        showCardInModal(currentCardIndex + 1);
-      });
-
-      prevBtn.addEventListener('click', () => {
-        if (currentKind !== 'campcard') return;
-        showCardInModal(currentCardIndex - 1);
-      });
-
+      nextBtn.addEventListener('click', () => showIndex(currentIndex + 1));
+      prevBtn.addEventListener('click', () => showIndex(currentIndex - 1));
     })();
   </script>
 
