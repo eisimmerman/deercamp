@@ -9,7 +9,8 @@
   <!-- =========================================================
        FIXES
        1) Origin + CampCards images: prevent cut-off (contain + taller frames)
-       2) CampCards: subtle “playing” glow animation
+       2) Deer Den: overlay caption restored (shows even if PNG isn’t captioned)
+       3) CampCards: play buttons clickable (z-index fix) + subtle glow
   ========================================================== -->
   <style>
     /* ---------- ORIGIN: make frames taller so nothing gets clipped ---------- */
@@ -19,6 +20,7 @@
       min-height: 260px;
       overflow: hidden;
       border-radius: inherit;
+      position: relative; /* needed for caption overlay */
     }
     @media (min-width: 900px){
       .origin-grid .origin-shot{ min-height: 340px; }
@@ -33,6 +35,43 @@
       display: block;
     }
 
+    /* ---------- ORIGIN: Deer Den caption overlay (restored) ---------- */
+    .origin-caption{
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(20, 16, 12, 0.58);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      line-height: 1.25;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+      z-index: 3;
+    }
+    .origin-caption strong{
+      display:block;
+      font-size: 1.05rem;
+      letter-spacing: .2px;
+      margin-bottom: 4px;
+    }
+    .origin-caption span{
+      display:block;
+      font-size: .96rem;
+      opacity: .95;
+    }
+    @media (max-width: 520px){
+      .origin-caption{
+        left: 10px; right: 10px; bottom: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+      }
+      .origin-caption strong{ font-size: 1rem; }
+      .origin-caption span{ font-size: .92rem; }
+    }
+
     /* ---------- CAMP CARDS: ensure image window is tall enough ---------- */
     #campcardsGrid .shot-open{
       aspect-ratio: 4 / 3;
@@ -40,6 +79,8 @@
       display: block;
       overflow: hidden;
       border-radius: inherit;
+      position: relative;
+      z-index: 1;
     }
     #campcardsGrid .shot-open img{
       width: 100%;
@@ -47,6 +88,18 @@
       object-fit: contain !important;
       object-position: center center;
       display: block;
+    }
+
+    /* ---------- CAMP CARDS: CRITICAL clickability fix ---------- */
+    /* If any layer overlaps, this ensures the caption + play button are on top */
+    #campcardsGrid .shot figcaption{
+      position: relative;
+      z-index: 3;
+    }
+    #campcardsGrid .shot .play-btn{
+      position: relative;
+      z-index: 4;
+      pointer-events: auto;
     }
 
     /* ---------- CAMP CARDS: subtle playing glow ---------- */
@@ -66,6 +119,7 @@
       filter: blur(10px);
       background: radial-gradient(closest-side, rgba(255, 220, 160, .55), rgba(255, 220, 160, 0));
       animation: dcGlowHalo 1.4s ease-in-out infinite;
+      z-index: 0;
     }
     @keyframes dcGlow {
       0%, 100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
@@ -168,9 +222,13 @@
         <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
       </figure>
 
-      <!-- deer-den.png now has the caption baked into the image -->
+      <!-- Deer Den with overlay caption (restored) -->
       <figure class="origin-shot origin-cover">
         <img src="/campcards/images/deer-den.png" alt="Deer Den">
+        <figcaption class="origin-caption">
+          <strong>Deer Den</strong>
+          <span>the place we met to relive our past hunts. Now DeerCamp lets us take those hunts with us.</span>
+        </figcaption>
       </figure>
     </div>
 
@@ -477,27 +535,22 @@
   })();
 
   /* =========================================================
-     CampCards Audio — Fully Stable Version
+     CampCards Audio — Click-Safe Version
+     - Uses event delegation on the grid
+     - Works even if elements overlap (as long as button is clickable)
      - Each card plays its own file
-     - Switching cards resets audio cleanly
-     - Pause / resume works
-     - Glow animation on active card
   ========================================================== */
   (function () {
-
     const grid = document.getElementById('campcardsGrid');
     if (!grid) return;
 
-    const cards = grid.querySelectorAll('.shot.has-audio');
-    if (!cards.length) return;
-
-    let audio = new Audio();
+    const audio = new Audio();
     audio.preload = "none";
 
     let activeCard = null;
     let activeBtn = null;
 
-    function resetAudio() {
+    function reset() {
       audio.pause();
       audio.currentTime = 0;
       audio.removeAttribute("src");
@@ -506,50 +559,46 @@
       if (activeBtn) activeBtn.textContent = "▶ Play";
       if (activeCard) activeCard.classList.remove("is-playing");
 
-      activeCard = null;
       activeBtn = null;
+      activeCard = null;
     }
 
-    cards.forEach(card => {
-
-      const btn = card.querySelector(".play-btn");
+    grid.addEventListener("click", (e) => {
+      const btn = e.target.closest(".play-btn");
       if (!btn) return;
 
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+      e.preventDefault();
+      e.stopPropagation();
 
-        const file = card.getAttribute("data-audio");
-        if (!file) return;
+      const card = btn.closest(".shot.has-audio");
+      if (!card) return;
 
-        const absoluteURL = new URL(file, window.location.href).href;
+      const file = card.getAttribute("data-audio");
+      if (!file) return;
 
-        // Toggle pause if clicking same card while playing
-        if (activeCard === card && !audio.paused) {
-          resetAudio();
-          return;
-        }
+      // Toggle off if same card is playing
+      if (activeCard === card && !audio.paused) {
+        reset();
+        return;
+      }
 
-        // Switching cards / starting fresh
-        resetAudio();
+      reset();
 
-        audio.src = absoluteURL;
-        audio.currentTime = 0;
+      const absoluteURL = new URL(file, window.location.href).href;
+      audio.src = absoluteURL;
+      audio.currentTime = 0;
 
-        audio.play().then(() => {
-          activeCard = card;
-          activeBtn = btn;
-          btn.textContent = "⏸ Pause";
-          card.classList.add("is-playing");
-        }).catch(() => {
-          resetAudio();
-        });
-
-        audio.onended = resetAudio;
+      audio.play().then(() => {
+        activeCard = card;
+        activeBtn = btn;
+        btn.textContent = "⏸ Pause";
+        card.classList.add("is-playing");
+      }).catch(() => {
+        reset();
       });
 
+      audio.onended = reset;
     });
-
   })();
 
   // App Screens lightbox
