@@ -7,21 +7,24 @@
   <link rel="stylesheet" href="/style.css?v=123" />
 
   <!-- =========================================================
-       ORIGIN CAPTION OVERLAY (Deer Den) + existing fixes
+       FIXES
+       1) Origin + CampCards images: prevent cut-off (contain + taller frames)
+       2) CampCards: subtle “playing” glow animation
   ========================================================== -->
   <style>
-    /* ---------- ORIGIN: taller frames + never crop ---------- */
+    /* ---------- ORIGIN: make frames taller so nothing gets clipped ---------- */
     .origin-grid .origin-shot{
       aspect-ratio: 4 / 3;
       height: auto !important;
       min-height: 260px;
       overflow: hidden;
       border-radius: inherit;
-      position: relative; /* needed for overlay */
     }
     @media (min-width: 900px){
       .origin-grid .origin-shot{ min-height: 340px; }
     }
+
+    /* Origin images: never crop */
     .origin-grid .origin-shot img{
       width: 100%;
       height: 100%;
@@ -30,43 +33,7 @@
       display: block;
     }
 
-    /* ---------- ORIGIN: Deer Den caption overlay ---------- */
-    .origin-caption{
-      position: absolute;
-      left: 14px;
-      right: 14px;
-      bottom: 14px;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(20, 16, 12, 0.58);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      color: #fff;
-      line-height: 1.25;
-      box-shadow: 0 10px 24px rgba(0,0,0,.18);
-    }
-    .origin-caption strong{
-      display:block;
-      font-size: 1.05rem;
-      letter-spacing: .2px;
-      margin-bottom: 4px;
-    }
-    .origin-caption span{
-      display:block;
-      font-size: .96rem;
-      opacity: .95;
-    }
-    @media (max-width: 520px){
-      .origin-caption{
-        left: 10px; right: 10px; bottom: 10px;
-        padding: 10px 12px;
-        border-radius: 12px;
-      }
-      .origin-caption strong{ font-size: 1rem; }
-      .origin-caption span{ font-size: .92rem; }
-    }
-
-    /* ---------- CAMP CARDS: prevent thumbnail crop ---------- */
+    /* ---------- CAMP CARDS: ensure image window is tall enough ---------- */
     #campcardsGrid .shot-open{
       aspect-ratio: 4 / 3;
       width: 100%;
@@ -81,17 +48,14 @@
       object-position: center center;
       display: block;
     }
-  </style>
 
-  <!-- Subtle “playing” glow animation (CampCards) -->
-  <style>
+    /* ---------- CAMP CARDS: subtle playing glow ---------- */
     #campcardsGrid .shot.is-playing {
       position: relative;
       transform: translateZ(0);
       animation: dcGlow 1.4s ease-in-out infinite;
       outline: none;
     }
-
     #campcardsGrid .shot.is-playing::after{
       content:"";
       position:absolute;
@@ -103,7 +67,6 @@
       background: radial-gradient(closest-side, rgba(255, 220, 160, .55), rgba(255, 220, 160, 0));
       animation: dcGlowHalo 1.4s ease-in-out infinite;
     }
-
     @keyframes dcGlow {
       0%, 100% { box-shadow: 0 0 0 rgba(0,0,0,0); }
       50%      { box-shadow: 0 10px 28px rgba(0, 0, 0, .18), 0 0 0 1px rgba(255, 220, 160, .22); }
@@ -112,7 +75,6 @@
       0%, 100% { opacity: .28; transform: scale(0.985); }
       50%      { opacity: .55; transform: scale(1.02); }
     }
-
     @media (prefers-reduced-motion: reduce) {
       #campcardsGrid .shot.is-playing,
       #campcardsGrid .shot.is-playing::after {
@@ -206,13 +168,9 @@
         <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
       </figure>
 
-      <!-- Deer Den with overlay caption -->
+      <!-- deer-den.png now has the caption baked into the image -->
       <figure class="origin-shot origin-cover">
         <img src="/campcards/images/deer-den.png" alt="Deer Den">
-        <figcaption class="origin-caption">
-          <strong>Deer Den</strong>
-          <span>The place we gathered to relive our past hunts. Now DeerCamp lets us take those hunts with us.</span>
-        </figcaption>
       </figure>
     </div>
 
@@ -518,71 +476,118 @@
     drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
   })();
 
-  // CampCards audio (FIXED + glow state)
+  /* =========================================================
+     CampCards Audio — Fully Stable Version
+     - Each card plays its own file
+     - Switching cards resets audio cleanly
+     - Pause / resume works
+     - Glow animation on active card
+  ========================================================== */
   (function () {
+
     const grid = document.getElementById('campcardsGrid');
     if (!grid) return;
 
-    const cards = Array.from(grid.querySelectorAll('figure.shot.has-audio'));
+    const cards = grid.querySelectorAll('.shot.has-audio');
     if (!cards.length) return;
 
-    const audio = new Audio();
-    audio.preload = 'none';
-    const bustSeed = Date.now();
+    let audio = new Audio();
+    audio.preload = "none";
 
-    let activeBtn = null;
     let activeCard = null;
-    let activeRel = "";
+    let activeBtn = null;
 
-    const abs = (rel) => new URL(rel, window.location.href).href;
-
-    function setBtn(btn, playing) {
-      if (!btn) return;
-      btn.textContent = playing ? "⏸ Pause" : "▶ Play";
-    }
-
-    function setCardPlaying(card, playing) {
-      if (!card) return;
-      card.classList.toggle("is-playing", !!playing);
-    }
-
-    function hardResetAudio() {
+    function resetAudio() {
       audio.pause();
       audio.currentTime = 0;
       audio.removeAttribute("src");
       audio.load();
-    }
 
-    function stopAll() {
-      hardResetAudio();
-      if (activeBtn) setBtn(activeBtn, false);
-      if (activeCard) setCardPlaying(activeCard, false);
-      activeBtn = null;
+      if (activeBtn) activeBtn.textContent = "▶ Play";
+      if (activeCard) activeCard.classList.remove("is-playing");
+
       activeCard = null;
-      activeRel = "";
+      activeBtn = null;
     }
 
-    function playCard(card, btn) {
-      const rel = card.getAttribute("data-audio");
-      if (!rel) return;
+    cards.forEach(card => {
 
-      // Toggle pause/resume for the same card
-      if (activeRel === rel && audio.src) {
-        if (!audio.paused) {
-          audio.pause();
-          setBtn(btn, false);
-          setCardPlaying(card, false);
-        } else {
-          audio.play().then(() => {
-            setBtn(btn, true);
-            setCardPlaying(card, true);
-          }).catch(() => {});
+      const btn = card.querySelector(".play-btn");
+      if (!btn) return;
+
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const file = card.getAttribute("data-audio");
+        if (!file) return;
+
+        const absoluteURL = new URL(file, window.location.href).href;
+
+        // Toggle pause if clicking same card while playing
+        if (activeCard === card && !audio.paused) {
+          resetAudio();
+          return;
         }
-        return;
-      }
 
-      // Switching to a different file: FULL reset first
-      stopAll();
+        // Switching cards / starting fresh
+        resetAudio();
 
-      const url = abs(rel);
-      const busted = url + (url.includes("?") ? "&"
+        audio.src = absoluteURL;
+        audio.currentTime = 0;
+
+        audio.play().then(() => {
+          activeCard = card;
+          activeBtn = btn;
+          btn.textContent = "⏸ Pause";
+          card.classList.add("is-playing");
+        }).catch(() => {
+          resetAudio();
+        });
+
+        audio.onended = resetAudio;
+      });
+
+    });
+
+  })();
+
+  // App Screens lightbox
+  (function () {
+    const grid = document.getElementById('appGrid');
+    const lb = document.getElementById('lightbox');
+    const lbImg = document.getElementById('lightboxImg');
+    const lbClose = document.getElementById('lightboxClose');
+
+    if (!grid || !lb || !lbImg || !lbClose) return;
+
+    const open = (src) => {
+      lbImg.src = src;
+      lb.setAttribute('aria-hidden', 'false');
+      document.documentElement.style.overflow = 'hidden';
+      lbClose.focus();
+    };
+
+    const close = () => {
+      lb.setAttribute('aria-hidden', 'true');
+      lbImg.src = '';
+      document.documentElement.style.overflow = '';
+    };
+
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.app-shot');
+      if (!btn) return;
+      const src = btn.getAttribute('data-full');
+      if (src) open(src);
+    });
+
+    lbClose.addEventListener('click', close);
+    lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lb.getAttribute('aria-hidden') === 'false') close();
+    });
+  })();
+</script>
+
+</body>
+</html>
