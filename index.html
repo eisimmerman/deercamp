@@ -5,26 +5,53 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=214" />
+  <link rel="stylesheet" href="/style.css?v=213" />
 
   <style>
-    /* ================= Hero headline fit ================= */
-    .hero-copy h1{
-      font-size: clamp(28px, 3.2vw, 52px);
-      line-height: 1.02;
-      letter-spacing: -0.02em;
-      margin: 0 0 12px;
-      white-space: nowrap;
+    /* ================= Global: tighten section spacing ================= */
+    .section { padding-top: 54px !important; padding-bottom: 54px !important; }
+    .section .wrap { padding-top: 0 !important; padding-bottom: 0 !important; }
+    .section-head { margin-bottom: 18px !important; }
+    .section-subtitle { margin-top: 10px !important; }
+    main > .section + .section { margin-top: 0 !important; }
+
+    @media (max-width: 768px){
+      .section { padding-top: 44px !important; padding-bottom: 44px !important; }
+      .section-head { margin-bottom: 16px !important; }
     }
+
+    /* ================= Hero: full headline visible on ONE line ================= */
+    .hero-copy h1{
+      font-size: clamp(28px, 3.2vw, 52px) !important;
+      line-height: 1.02 !important;
+      letter-spacing: -0.02em !important;
+      margin-bottom: 14px !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      text-overflow: unset !important;
+    }
+
     @media (max-width: 560px){
       .hero-copy h1{
-        white-space: normal;
-        font-size: clamp(30px, 8vw, 48px);
+        white-space: normal !important;
+        font-size: clamp(30px, 8vw, 48px) !important;
       }
     }
 
-    /* ================= Origin: correct sizing + captions ================= */
-    .origin-grid { gap: 14px; }
+    /* ================= HERO image framing: reduce visible embedded text/extra hoof on mobile ================= */
+    .hero-bleed-media img{
+      object-fit: cover;
+      object-position: center;
+    }
+    @media (max-width: 700px){
+      /* push crop down so the built-in "DeerCamp" text at top is mostly out of frame */
+      .hero-bleed-media img{
+        object-position: 50% 78% !important;
+      }
+    }
+
+    /* ================= Origin ================= */
+    .origin-grid { gap: 16px; }
 
     .origin-shot{
       position: relative;
@@ -39,7 +66,7 @@
     .origin-shot img{
       display:block;
       width:100%;
-      height:340px;
+      height:360px;
       object-fit:contain;
       object-position:center;
       background: rgba(245,238,227,0.95);
@@ -48,7 +75,7 @@
       box-sizing:border-box;
     }
 
-    /* HARD GUARANTEE: dad-deer gets NO overlay label of any kind */
+    /* dad-deer gets NO overlay label of any kind */
     .origin-shot.origin-dad .origin-pill,
     .origin-shot.origin-dad .origin-badge,
     .origin-shot.origin-dad .origin-caption-card,
@@ -62,13 +89,15 @@
       content:none !important;
     }
 
+    /* deer-den caption: smaller/narrower */
     .origin-caption-card{
       position:absolute;
-      left:18px;
-      bottom:18px;
-      width: 40%;
-      max-width: 420px;
-      min-width: 240px;
+      left:22px !important;
+      bottom:22px !important;
+      width: 40% !important;
+      max-width: 420px !important;
+      min-width: 220px;
+
       background: rgba(0,0,0,0.56);
       color:#fff;
       border-radius:16px;
@@ -83,7 +112,6 @@
       margin:0 0 6px;
       font-size:20px;
       font-weight:800;
-      letter-spacing:0.2px;
       line-height:1.1;
     }
 
@@ -97,7 +125,12 @@
 
     @media (max-width: 980px){
       .origin-shot img{ height:320px; }
-      .origin-caption-card{ width: 60%; max-width: 520px; }
+      .origin-caption-card{
+        left:18px !important;
+        bottom:18px !important;
+        width: 60% !important;
+        max-width: 520px !important;
+      }
       .origin-caption-card .title{ font-size:18px; }
       .origin-caption-card .body{ font-size:14px; }
     }
@@ -105,16 +138,18 @@
     @media (max-width: 560px){
       .origin-shot img{ height:300px; }
       .origin-caption-card{
-        width: calc(100% - 36px);
-        max-width: none;
+        left:18px !important;
+        bottom:18px !important;
+        width: calc(100% - 36px) !important;
+        max-width: none !important;
         padding:14px 16px;
       }
       .origin-caption-card .title{ font-size:20px; }
       .origin-caption-card .body{ font-size:15px; }
     }
 
-    /* ================= CampCards: contain inside media well ================= */
-    .campcards-grid { gap: 14px; }
+    /* ================= CampCards: background fill + contain ================= */
+    .campcards-grid { gap: 16px; }
     .campcard { cursor: pointer; }
 
     .campcard-media{
@@ -128,19 +163,62 @@
     .campcard-media img{
       display:block;
       width:100%;
-      height:250px;
+      height:280px;
       object-fit:contain;
       object-position:center;
     }
 
-    @media (max-width: 900px){ .campcard-media img{ height:235px; } }
+    @media (max-width: 900px){ .campcard-media img{ height:240px; } }
     @media (max-width: 560px){ .campcard-media img{ height:220px; } }
 
-    /* ================= App Screens: 2x3 grid ================= */
+    /* Mobile toggle controls */
+    .campcards-controls{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      margin: 14px 0 4px;
+    }
+    .campcards-controls .toggle-btn,
+    .campcards-controls .skip-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:10px;
+      border-radius:16px;
+      padding:14px 16px;
+      border:1px solid rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.65);
+      cursor:pointer;
+      font-weight:700;
+      font-size:16px;
+      line-height:1;
+      min-height:52px; /* big hands */
+    }
+    .campcards-controls .toggle-btn{
+      flex: 1 1 220px;
+    }
+    .campcards-controls .skip-btn{
+      flex: 1 1 200px;
+      text-decoration:none;
+      color:inherit;
+    }
+    .toggle-sub{
+      font-weight:600;
+      opacity:.75;
+      font-size:14px;
+      margin: 6px 0 0;
+    }
+
+    /* Hide set 7-12 by default */
+    #campcardsSet2 { display:none; }
+    #campcardsSet2.is-open { display:grid; }
+
+    /* ================= App Screens: clickable + 2x3 grid ================= */
     .screens-grid.screens-2x3{
       display:grid;
       grid-template-columns:repeat(3, minmax(0, 1fr));
-      gap:14px;
+      gap:16px;
       align-items:stretch;
     }
 
@@ -156,7 +234,7 @@
     .screen-shot img{
       display:block;
       width:100%;
-      height:230px;
+      height:260px;
       object-fit:contain;
       object-position:center;
       background: rgba(245,238,227,0.95);
@@ -166,14 +244,14 @@
     }
 
     .screen-caption{
-      margin:8px 0 0;
+      margin:10px 0 0;
       font-size:13px;
       opacity:.75;
     }
 
     @media (max-width: 980px){
       .screens-grid.screens-2x3{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
-      .screen-shot img{ height:225px; }
+      .screen-shot img{ height:240px; }
     }
     @media (max-width: 560px){
       .screens-grid.screens-2x3{ grid-template-columns:1fr; }
@@ -342,9 +420,26 @@
       </div>
     </section>
 
+    <style>
+      .hero.hero-bleed{ position:relative; padding:0; overflow:hidden; }
+      .hero-bleed-media{ position:relative; width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); }
+      .hero-bleed-media img{ display:block; width:100%; height:min(54vh, 500px); object-fit:cover; object-position:center; }
+      .hero-bleed-fade{
+        position:absolute; left:0; right:0; bottom:-1px; height:140px; pointer-events:none;
+        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%);
+      }
+      .hero-copy{ padding-top: 22px; padding-bottom: 16px; }
+      @media (max-width:768px){
+        .hero-bleed-media img{ height:min(42vh, 360px); }
+        .hero-bleed-fade{ height:110px; }
+      }
+    </style>
+
     <!-- ================= ORIGIN ================= -->
     <section id="origin" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
+
         <div class="section-head">
           <h2>Origin</h2>
           <p class="section-subtitle">
@@ -375,12 +470,26 @@
     <!-- ================= CAMP CARDS ================= -->
     <section id="campcards" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
+
         <div class="section-head">
           <h2>CampCards</h2>
           <p class="section-subtitle">Click a card to view it larger, and tap Play to hear the story.</p>
+
+          <div class="campcards-controls" aria-label="CampCards controls">
+            <button class="toggle-btn" id="campcardsToggle" type="button" aria-expanded="false" aria-controls="campcardsSet2">
+              Show CampCards 7–12
+            </button>
+            <a class="skip-btn" href="#how" aria-label="Skip to How it works">
+              Skip to How it works ↓
+            </a>
+          </div>
+          <p class="toggle-sub">Tip: You can view the first 6 now, then choose whether to see the rest.</p>
         </div>
 
-        <div class="campcards-grid" aria-label="CampCards grid">
+        <!-- Set 1: CampCards 1–6 -->
+        <div class="campcards-grid" id="campcardsSet1" aria-label="CampCards 1 to 6">
+
           <article class="campcard" data-kind="campcard" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
             <div class="campcard-media"><img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck"></div>
             <div class="campcard-meta"><h3>Ben’s First Buck</h3><button class="campcard-audio-btn" type="button">Play</button></div>
@@ -411,6 +520,11 @@
             <div class="campcard-meta"><h3>First Coffee</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
 
+        </div>
+
+        <!-- Set 2: CampCards 7–12 (hidden until toggled) -->
+        <div class="campcards-grid" id="campcardsSet2" aria-label="CampCards 7 to 12">
+
           <article class="campcard" data-kind="campcard" data-title="First Snow" data-img="/campcards/images/first-snow.png" data-audio="/campcards/audio/first-snow.mp3">
             <div class="campcard-media"><img src="/campcards/images/first-snow.png" alt="First Snow"></div>
             <div class="campcard-meta"><h3>First Snow</h3><button class="campcard-audio-btn" type="button">Play</button></div>
@@ -440,6 +554,7 @@
             <div class="campcard-media"><img src="/campcards/images/spring-scouting.png" alt="Spring Scouting"></div>
             <div class="campcard-meta"><h3>Spring Scouting</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
+
         </div>
 
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
@@ -449,6 +564,7 @@
     <!-- ================= HOW IT WORKS ================= -->
     <section id="how" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
         <div class="section-head">
           <h2>How it works</h2>
           <p class="section-subtitle">Fast capture in the moment. Private by design.</p>
@@ -467,6 +583,7 @@
     <!-- ================= WHAT IS A CAMP ================= -->
     <section id="camp" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
         <div class="section-head">
           <h2>What is a Camp?</h2>
           <p class="section-subtitle">A Camp is your private circle — the people and traditions you protect.</p>
@@ -481,10 +598,12 @@
     <!-- ================= APP SCREENS ================= -->
     <section id="screens" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
+
         <div class="section-head">
           <h2>App Screens</h2>
           <p class="section-subtitle">A simple flow designed for real camp moments.</p>
-          <p class="screens-note">Tap a screen to view larger.</p>
+          <p style="margin-top:10px; opacity:.75;">Tap a screen to view larger.</p>
         </div>
 
         <div class="screens-grid screens-2x3" aria-label="App screens">
@@ -526,6 +645,8 @@
     <!-- ================= POLICIES ================= -->
     <section id="policies" class="section">
       <div class="wrap">
+        <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
+
         <div class="section-head">
           <h2>Policies</h2>
           <p class="section-subtitle">Simple policies built around privacy.</p>
@@ -609,6 +730,34 @@
       drawer.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', closeDrawer));
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) closeDrawer(); });
       drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
+    })();
+
+    /* CampCards toggle: show/hide 7-12 */
+    (function(){
+      const btn = document.getElementById('campcardsToggle');
+      const set2 = document.getElementById('campcardsSet2');
+      if(!btn || !set2) return;
+
+      const update = (open) => {
+        if(open){
+          set2.classList.add('is-open');
+          btn.textContent = 'Hide CampCards 7–12';
+          btn.setAttribute('aria-expanded','true');
+          // gentle scroll to the newly revealed cards
+          set2.scrollIntoView({ behavior:'smooth', block:'start' });
+        }else{
+          set2.classList.remove('is-open');
+          btn.textContent = 'Show CampCards 7–12';
+          btn.setAttribute('aria-expanded','false');
+        }
+      };
+
+      btn.addEventListener('click', () => {
+        const open = !set2.classList.contains('is-open');
+        update(open);
+      });
+
+      update(false);
     })();
 
     (function () {
