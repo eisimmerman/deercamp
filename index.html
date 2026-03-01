@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=208" />
+  <link rel="stylesheet" href="/style.css?v=209" />
 
   <style>
     /* ================= Origin: correct sizing + captions ================= */
@@ -18,7 +18,7 @@
       background: rgba(255,255,255,0.55);
       box-shadow: 0 10px 22px rgba(0,0,0,0.10);
       padding: 12px;
-      cursor: pointer; /* clickable for modal */
+      cursor: pointer;
     }
 
     /* Keep full image visible (NO crop) */
@@ -26,36 +26,25 @@
       display: block;
       width: 100%;
       height: 360px;
-      object-fit: contain;         /* IMPORTANT: no crop */
+      object-fit: contain;
       object-position: center;
-      background: rgba(245,238,227,0.95); /* fills “white space” */
+      background: rgba(245,238,227,0.95);
       border-radius: 14px;
       padding: 10px;
       box-sizing: border-box;
     }
 
-    /* Small caption pill (dad-deer) */
-    .origin-pill {
-      position: absolute;
-      left: 24px;                  /* accounts for padding */
-      bottom: 24px;
-      background: rgba(0,0,0,0.70);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-      padding: 8px 12px;
-      border-radius: 999px;
-      letter-spacing: 0.2px;
-      pointer-events: none;
-      box-shadow: 0 10px 22px rgba(0,0,0,0.20);
-    }
-
-    /* Caption card (deer-den) like your example */
+    /* Caption card (deer-den) – sized so it won’t cover face on right */
     .origin-caption-card {
       position: absolute;
       left: 24px;
-      right: 24px;
       bottom: 24px;
+
+      /* key: keep it from stretching across the whole image */
+      width: min(520px, calc(100% - 48px));
+      max-width: 72%;
+      /* (on wide cards, this keeps the right side clear) */
+
       background: rgba(0,0,0,0.58);
       color: #fff;
       border-radius: 18px;
@@ -84,16 +73,25 @@
 
     @media (max-width: 980px) {
       .origin-shot img { height: 320px; }
-      .origin-pill { left: 20px; bottom: 20px; font-size: 13px; }
-      .origin-caption-card { left: 20px; right: 20px; bottom: 20px; }
+      .origin-caption-card {
+        left: 20px;
+        bottom: 20px;
+        width: min(520px, calc(100% - 40px));
+        max-width: 78%;
+      }
       .origin-caption-card .title { font-size: 20px; }
       .origin-caption-card .body { font-size: 15px; }
     }
 
     @media (max-width: 560px) {
       .origin-shot img { height: 300px; }
-      .origin-pill { left: 18px; bottom: 18px; font-size: 13px; }
-      .origin-caption-card { left: 18px; right: 18px; bottom: 18px; padding: 14px 16px; }
+      .origin-caption-card {
+        left: 18px;
+        bottom: 18px;
+        width: calc(100% - 36px);
+        max-width: 100%;
+        padding: 14px 16px;
+      }
       .origin-caption-card .title { font-size: 20px; }
       .origin-caption-card .body { font-size: 15px; }
     }
@@ -350,13 +348,12 @@
         </div>
 
         <div class="origin-grid" aria-label="Origin photos">
-          <!-- dad-deer: full image visible + caption pill -->
+          <!-- dad-deer: REMOVE overlay pill (keep the caption that exists inside the photo) -->
           <figure class="origin-shot" data-kind="origin" data-title="Last DeerCamp 1977" data-img="/campcards/images/dad-deer.png">
             <img src="/campcards/images/dad-deer.png" alt="Last DeerCamp 1977">
-            <span class="origin-pill">Last DeerCamp 1977</span>
           </figure>
 
-          <!-- deer-den: remove tap pill; add caption card like example -->
+          <!-- deer-den: caption card resized so it doesn’t cover the face on the right -->
           <figure class="origin-shot" data-kind="origin" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
             <div class="origin-caption-card" aria-hidden="true">
@@ -597,11 +594,9 @@
   </div>
 
   <script>
-    // Footer year
     const yearEl = document.getElementById('year');
     if (yearEl) yearEl.textContent = new Date().getFullYear();
 
-    // Mobile nav drawer
     (function () {
       const toggle = document.getElementById('navToggle');
       const drawer = document.getElementById('navDrawer');
@@ -623,7 +618,6 @@
       drawer.addEventListener('click', (e) => { if (e.target === drawer) closeDrawer(); });
     })();
 
-    // CampCards inline audio buttons (single-audio at a time)
     (function () {
       const buttons = Array.from(document.querySelectorAll('.campcard-audio-btn'));
       if (!buttons.length) return;
@@ -680,7 +674,6 @@
       window.__dcStopInlineAudio = stopCurrent;
     })();
 
-    // Shared Lightbox Modal (CampCards + Origin + App Screens)
     (function () {
       const modal = document.getElementById('dcModal');
       const closeBtn = document.getElementById('dcModalClose');
