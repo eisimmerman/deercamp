@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DeerCamp — Capture the moments that become legacy</title>
 
-  <link rel="stylesheet" href="/style.css?v=209" />
+  <link rel="stylesheet" href="/style.css?v=210" />
 
   <style>
     /* ================= Origin: correct sizing + captions ================= */
     .origin-grid { gap: 18px; }
 
-    .origin-shot {
+    .origin-shot{
       position: relative;
       border-radius: 18px;
       overflow: hidden;
@@ -22,228 +22,242 @@
     }
 
     /* Keep full image visible (NO crop) */
-    .origin-shot img {
-      display: block;
-      width: 100%;
-      height: 360px;
-      object-fit: contain;
-      object-position: center;
+    .origin-shot img{
+      display:block;
+      width:100%;
+      height:360px;
+      object-fit:contain;
+      object-position:center;
       background: rgba(245,238,227,0.95);
-      border-radius: 14px;
-      padding: 10px;
-      box-sizing: border-box;
+      border-radius:14px;
+      padding:10px;
+      box-sizing:border-box;
     }
 
-    /* Caption card (deer-den) – sized so it won’t cover face on right */
-    .origin-caption-card {
-      position: absolute;
-      left: 24px;
-      bottom: 24px;
+    /* --- HARD GUARANTEE: dad-deer gets NO overlay label of any kind --- */
+    .origin-shot.origin-dad .origin-pill,
+    .origin-shot.origin-dad .origin-badge,
+    .origin-shot.origin-dad .origin-caption-card,
+    .origin-shot.origin-dad .tap-pill,
+    .origin-shot.origin-dad .tap-to-enlarge,
+    .origin-shot.origin-dad [class*="pill"],
+    .origin-shot.origin-dad [class*="badge"],
+    .origin-shot.origin-dad [data-label],
+    .origin-shot.origin-dad figcaption{
+      display:none !important;
+      content:none !important;
+    }
 
-      /* key: keep it from stretching across the whole image */
-      width: min(520px, calc(100% - 48px));
-      max-width: 72%;
-      /* (on wide cards, this keeps the right side clear) */
+    /* Caption card (deer-den) – forced narrow so it doesn't cover faces */
+    .origin-caption-card{
+      position:absolute;
+      left:24px !important;
+      right:auto !important;
+      bottom:24px !important;
+
+      /* KEY: keep right side clear */
+      width: 52% !important;
+      max-width: 520px !important;
 
       background: rgba(0,0,0,0.58);
-      color: #fff;
-      border-radius: 18px;
-      padding: 16px 18px;
-      pointer-events: none;
-      box-shadow: 0 14px 28px rgba(0,0,0,0.25);
+      color:#fff;
+      border-radius:18px;
+      padding:16px 18px;
+      pointer-events:none;
+      box-shadow:0 14px 28px rgba(0,0,0,0.25);
       backdrop-filter: blur(6px);
       -webkit-backdrop-filter: blur(6px);
     }
 
-    .origin-caption-card .title {
-      margin: 0 0 6px;
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
-      line-height: 1.1;
+    .origin-caption-card .title{
+      margin:0 0 6px;
+      font-size:22px;
+      font-weight:800;
+      letter-spacing:0.2px;
+      line-height:1.1;
     }
 
-    .origin-caption-card .body {
-      margin: 0;
-      font-size: 16px;
-      opacity: 0.95;
-      line-height: 1.35;
-      font-weight: 500;
+    .origin-caption-card .body{
+      margin:0;
+      font-size:16px;
+      opacity:.95;
+      line-height:1.35;
+      font-weight:500;
     }
 
-    @media (max-width: 980px) {
-      .origin-shot img { height: 320px; }
-      .origin-caption-card {
-        left: 20px;
-        bottom: 20px;
-        width: min(520px, calc(100% - 40px));
-        max-width: 78%;
+    @media (max-width: 980px){
+      .origin-shot img{ height:320px; }
+      .origin-caption-card{
+        left:20px !important;
+        bottom:20px !important;
+        width: 62% !important;      /* slightly wider on tablet so it stays readable */
+        max-width: 560px !important;
       }
-      .origin-caption-card .title { font-size: 20px; }
-      .origin-caption-card .body { font-size: 15px; }
+      .origin-caption-card .title{ font-size:20px; }
+      .origin-caption-card .body{ font-size:15px; }
     }
 
-    @media (max-width: 560px) {
-      .origin-shot img { height: 300px; }
-      .origin-caption-card {
-        left: 18px;
-        bottom: 18px;
-        width: calc(100% - 36px);
-        max-width: 100%;
-        padding: 14px 16px;
+    @media (max-width: 560px){
+      .origin-shot img{ height:300px; }
+      .origin-caption-card{
+        left:18px !important;
+        bottom:18px !important;
+        width: calc(100% - 36px) !important;
+        max-width: none !important; /* full width on phone like your example */
+        padding:14px 16px;
       }
-      .origin-caption-card .title { font-size: 20px; }
-      .origin-caption-card .body { font-size: 15px; }
+      .origin-caption-card .title{ font-size:20px; }
+      .origin-caption-card .body{ font-size:15px; }
     }
 
     /* ================= CampCards: background fill + contain ================= */
     .campcards-grid { gap: 18px; }
     .campcard { cursor: pointer; }
 
-    .campcard-media {
+    .campcard-media{
       background: rgba(245,238,227,0.95);
-      border-radius: 16px;
-      padding: 12px;
-      overflow: hidden;
-      box-shadow: 0 10px 22px rgba(0,0,0,0.10);
+      border-radius:16px;
+      padding:12px;
+      overflow:hidden;
+      box-shadow:0 10px 22px rgba(0,0,0,0.10);
     }
 
-    .campcard-media img {
-      display: block;
-      width: 100%;
-      height: 280px;
-      object-fit: contain;
-      object-position: center;
+    .campcard-media img{
+      display:block;
+      width:100%;
+      height:280px;
+      object-fit:contain;
+      object-position:center;
     }
 
-    @media (max-width: 900px) { .campcard-media img { height: 240px; } }
-    @media (max-width: 560px) { .campcard-media img { height: 220px; } }
+    @media (max-width: 900px){ .campcard-media img{ height:240px; } }
+    @media (max-width: 560px){ .campcard-media img{ height:220px; } }
 
     /* ================= App Screens: clickable + 2x3 grid ================= */
-    .screens-grid.screens-2x3 {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 18px;
-      align-items: stretch;
+    .screens-grid.screens-2x3{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:18px;
+      align-items:stretch;
     }
 
-    .screen-shot {
-      cursor: pointer;
-      border-radius: 18px;
+    .screen-shot{
+      cursor:pointer;
+      border-radius:18px;
       background: rgba(255,255,255,0.55);
-      box-shadow: 0 10px 22px rgba(0,0,0,0.10);
-      padding: 12px;
-      overflow: hidden;
+      box-shadow:0 10px 22px rgba(0,0,0,0.10);
+      padding:12px;
+      overflow:hidden;
     }
 
-    .screen-shot img {
-      display: block;
-      width: 100%;
-      height: 260px;
-      object-fit: contain;
-      object-position: center;
+    .screen-shot img{
+      display:block;
+      width:100%;
+      height:260px;
+      object-fit:contain;
+      object-position:center;
       background: rgba(245,238,227,0.95);
-      border-radius: 14px;
-      padding: 10px;
-      box-sizing: border-box;
+      border-radius:14px;
+      padding:10px;
+      box-sizing:border-box;
     }
 
-    .screen-caption {
-      margin: 10px 0 0;
-      font-size: 13px;
-      opacity: 0.75;
+    .screen-caption{
+      margin:10px 0 0;
+      font-size:13px;
+      opacity:.75;
     }
 
-    @media (max-width: 980px) {
-      .screens-grid.screens-2x3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .screen-shot img { height: 240px; }
+    @media (max-width: 980px){
+      .screens-grid.screens-2x3{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .screen-shot img{ height:240px; }
     }
-    @media (max-width: 560px) {
-      .screens-grid.screens-2x3 { grid-template-columns: 1fr; }
-      .screen-shot img { height: 240px; }
+    @media (max-width: 560px){
+      .screens-grid.screens-2x3{ grid-template-columns:1fr; }
+      .screen-shot img{ height:240px; }
     }
 
     /* ================= Lightbox modal ================= */
-    .dc-modal {
-      position: fixed;
-      inset: 0;
+    .dc-modal{
+      position:fixed;
+      inset:0;
       background: rgba(0,0,0,0.70);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 9999;
-      padding: 18px;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:9999;
+      padding:18px;
     }
-    .dc-modal.is-open { display: flex; }
+    .dc-modal.is-open{ display:flex; }
 
-    .dc-modal-card {
-      width: min(980px, 96vw);
-      max-height: 92vh;
+    .dc-modal-card{
+      width:min(980px, 96vw);
+      max-height:92vh;
       background: rgba(255,255,255,0.92);
-      border-radius: 18px;
-      overflow: hidden;
-      box-shadow: 0 24px 70px rgba(0,0,0,0.35);
-      position: relative;
-      display: flex;
-      flex-direction: column;
+      border-radius:18px;
+      overflow:hidden;
+      box-shadow:0 24px 70px rgba(0,0,0,0.35);
+      position:relative;
+      display:flex;
+      flex-direction:column;
     }
 
-    .dc-modal-close {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 44px;
-      height: 44px;
-      border-radius: 999px;
-      border: 0;
+    .dc-modal-close{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      border:0;
       background: rgba(0,0,0,0.75);
-      color: #fff;
-      font-size: 22px;
-      line-height: 1;
-      cursor: pointer;
-      z-index: 2;
+      color:#fff;
+      font-size:22px;
+      line-height:1;
+      cursor:pointer;
+      z-index:2;
     }
 
-    .dc-modal-body {
-      padding: 16px;
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
+    .dc-modal-body{
+      padding:16px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
     }
 
-    .dc-modal-title {
-      margin: 0;
-      font-size: 20px;
+    .dc-modal-title{
+      margin:0;
+      font-size:20px;
     }
 
-    .dc-modal-media {
+    .dc-modal-media{
       background: rgba(245,238,227,0.95);
-      border-radius: 16px;
-      padding: 14px;
-      overflow: hidden;
+      border-radius:16px;
+      padding:14px;
+      overflow:hidden;
     }
 
-    .dc-modal-media img {
-      display: block;
-      width: 100%;
-      height: min(62vh, 520px);
-      object-fit: contain;
-      object-position: center;
+    .dc-modal-media img{
+      display:block;
+      width:100%;
+      height:min(62vh, 520px);
+      object-fit:contain;
+      object-position:center;
     }
 
-    .dc-modal-actions {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      justify-content: flex-start;
-      flex-wrap: wrap;
+    .dc-modal-actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-start;
+      flex-wrap:wrap;
     }
 
-    .dc-modal-play {
-      border: 0;
-      border-radius: 12px;
-      padding: 10px 14px;
-      cursor: pointer;
+    .dc-modal-play{
+      border:0;
+      border-radius:12px;
+      padding:10px 14px;
+      cursor:pointer;
     }
   </style>
 </head>
@@ -326,13 +340,18 @@
     </section>
 
     <style>
-      .hero.hero-bleed { position: relative; padding: 0; overflow: hidden; }
-      .hero-bleed-media { position: relative; width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); }
-      .hero-bleed-media img { display:block; width:100%; height: min(56vh, 520px); object-fit: cover; object-position: center; }
-      .hero-bleed-fade { position:absolute; left:0; right:0; bottom:-1px; height:160px; pointer-events:none;
-        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%); }
-      .hero-copy { padding-top: 28px; padding-bottom: 22px; }
-      @media (max-width: 768px){ .hero-bleed-media img{ height: min(42vh, 360px);} .hero-bleed-fade{ height:120px;} }
+      .hero.hero-bleed{ position:relative; padding:0; overflow:hidden; }
+      .hero-bleed-media{ position:relative; width:100vw; margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw); }
+      .hero-bleed-media img{ display:block; width:100%; height:min(56vh, 520px); object-fit:cover; object-position:center; }
+      .hero-bleed-fade{
+        position:absolute; left:0; right:0; bottom:-1px; height:160px; pointer-events:none;
+        background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%);
+      }
+      .hero-copy{ padding-top:28px; padding-bottom:22px; }
+      @media (max-width:768px){
+        .hero-bleed-media img{ height:min(42vh, 360px); }
+        .hero-bleed-fade{ height:120px; }
+      }
     </style>
 
     <!-- ================= ORIGIN ================= -->
@@ -348,12 +367,12 @@
         </div>
 
         <div class="origin-grid" aria-label="Origin photos">
-          <!-- dad-deer: REMOVE overlay pill (keep the caption that exists inside the photo) -->
-          <figure class="origin-shot" data-kind="origin" data-title="Last DeerCamp 1977" data-img="/campcards/images/dad-deer.png">
+          <!-- dad-deer: NO overlay caption. (Any leftovers are forced hidden by .origin-dad rules.) -->
+          <figure class="origin-shot origin-dad" data-kind="origin" data-title="Last DeerCamp 1977" data-img="/campcards/images/dad-deer.png">
             <img src="/campcards/images/dad-deer.png" alt="Last DeerCamp 1977">
           </figure>
 
-          <!-- deer-den: caption card resized so it doesn’t cover the face on the right -->
+          <!-- deer-den: caption card narrowed to avoid faces -->
           <figure class="origin-shot" data-kind="origin" data-title="Deer Den" data-img="/campcards/images/deer-den.png">
             <img src="/campcards/images/deer-den.png" alt="Deer Den">
             <div class="origin-caption-card" aria-hidden="true">
@@ -380,7 +399,6 @@
         </div>
 
         <div class="campcards-grid" aria-label="CampCards grid">
-
           <article class="campcard" data-kind="campcard" data-title="Ben’s First Buck" data-img="/campcards/images/bens-first-buck.png" data-audio="/campcards/audio/bens-first-buck.mp3">
             <div class="campcard-media"><img src="/campcards/images/bens-first-buck.png" alt="Ben’s First Buck"></div>
             <div class="campcard-meta"><h3>Ben’s First Buck</h3><button class="campcard-audio-btn" type="button">Play</button></div>
@@ -440,7 +458,6 @@
             <div class="campcard-media"><img src="/campcards/images/spring-scouting.png" alt="Spring Scouting"></div>
             <div class="campcard-meta"><h3>Spring Scouting</h3><button class="campcard-audio-btn" type="button">Play</button></div>
           </article>
-
         </div>
 
         <a class="back-top" href="#top" aria-label="Back to top">Back to top ↑</a>
