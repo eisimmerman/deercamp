@@ -7,27 +7,21 @@
   <link rel="stylesheet" href="/style.css?v=123" />
 
   <!-- =========================================================
-       FIX: Image cropping (Origin + CampCards)
-       - Origin: make the photo containers taller (so horns aren’t clipped)
-       - CampCards: ensure the thumbnail container has enough height and
-         the image is fit/contained inside it (no clipping)
+       ORIGIN CAPTION OVERLAY (Deer Den) + existing fixes
   ========================================================== -->
   <style>
-    /* ---------- ORIGIN: give the frames a taller aspect ratio ---------- */
+    /* ---------- ORIGIN: taller frames + never crop ---------- */
     .origin-grid .origin-shot{
-      /* was effectively too short / wide; make taller so full content shows */
       aspect-ratio: 4 / 3;
-      /* safety if CSS sets fixed height elsewhere */
       height: auto !important;
       min-height: 260px;
       overflow: hidden;
       border-radius: inherit;
+      position: relative; /* needed for overlay */
     }
     @media (min-width: 900px){
       .origin-grid .origin-shot{ min-height: 340px; }
     }
-
-    /* never crop origin images */
     .origin-grid .origin-shot img{
       width: 100%;
       height: 100%;
@@ -36,17 +30,50 @@
       display: block;
     }
 
-    /* ---------- CAMP CARDS: make the image area tall enough ---------- */
+    /* ---------- ORIGIN: Deer Den caption overlay ---------- */
+    .origin-caption{
+      position: absolute;
+      left: 14px;
+      right: 14px;
+      bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(20, 16, 12, 0.58);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      line-height: 1.25;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+    }
+    .origin-caption strong{
+      display:block;
+      font-size: 1.05rem;
+      letter-spacing: .2px;
+      margin-bottom: 4px;
+    }
+    .origin-caption span{
+      display:block;
+      font-size: .96rem;
+      opacity: .95;
+    }
+    @media (max-width: 520px){
+      .origin-caption{
+        left: 10px; right: 10px; bottom: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+      }
+      .origin-caption strong{ font-size: 1rem; }
+      .origin-caption span{ font-size: .92rem; }
+    }
+
+    /* ---------- CAMP CARDS: prevent thumbnail crop ---------- */
     #campcardsGrid .shot-open{
-      /* ensure the “image window” isn’t too short */
       aspect-ratio: 4 / 3;
       width: 100%;
       display: block;
       overflow: hidden;
       border-radius: inherit;
     }
-
-    /* never crop campcard thumbnails */
     #campcardsGrid .shot-open img{
       width: 100%;
       height: 100%;
@@ -179,8 +206,13 @@
         <img src="/campcards/images/dad-deer.png" alt="Dad Deer">
       </figure>
 
+      <!-- Deer Den with overlay caption -->
       <figure class="origin-shot origin-cover">
         <img src="/campcards/images/deer-den.png" alt="Deer Den">
+        <figcaption class="origin-caption">
+          <strong>Deer Den</strong>
+          <span>The place we gathered to relive our past hunts. Now DeerCamp lets us take those hunts with us.</span>
+        </figcaption>
       </figure>
     </div>
 
@@ -553,71 +585,4 @@
       stopAll();
 
       const url = abs(rel);
-      const busted = url + (url.includes("?") ? "&" : "?") + "v=" + bustSeed;
-
-      audio.src = busted;
-      audio.currentTime = 0;
-
-      audio.play().then(() => {
-        activeRel = rel;
-        activeBtn = btn;
-        activeCard = card;
-        setBtn(btn, true);
-        setCardPlaying(card, true);
-      }).catch(() => {
-        stopAll();
-      });
-
-      audio.onended = () => stopAll();
-    }
-
-    cards.forEach(card => {
-      const btn = card.querySelector(".play-btn");
-      if (!btn) return;
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        playCard(card, btn);
-      });
-    });
-  })();
-
-  // App Screens lightbox
-  (function () {
-    const grid = document.getElementById('appGrid');
-    const lb = document.getElementById('lightbox');
-    const lbImg = document.getElementById('lightboxImg');
-    const lbClose = document.getElementById('lightboxClose');
-
-    if (!grid || !lb || !lbImg || !lbClose) return;
-
-    const open = (src) => {
-      lbImg.src = src;
-      lb.setAttribute('aria-hidden', 'false');
-      document.documentElement.style.overflow = 'hidden';
-      lbClose.focus();
-    };
-
-    const close = () => {
-      lb.setAttribute('aria-hidden', 'true');
-      lbImg.src = '';
-      document.documentElement.style.overflow = '';
-    };
-
-    grid.addEventListener('click', (e) => {
-      const btn = e.target.closest('.app-shot');
-      if (!btn) return;
-      const src = btn.getAttribute('data-full');
-      if (src) open(src);
-    });
-
-    lbClose.addEventListener('click', close);
-    lb.addEventListener('click', (e) => { if (e.target === lb) close(); });
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && lb.getAttribute('aria-hidden') === 'false') close();
-    });
-  })();
-</script>
-
-</body>
-</html>
+      const busted = url + (url.includes("?") ? "&"
