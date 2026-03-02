@@ -6,7 +6,7 @@
   <title>DeerCamp — Capture the moments that become legacy</title>
 
   <!-- Global CSS -->
-  <link rel="stylesheet" href="/style.css?v=carouselfix-2" />
+  <link rel="stylesheet" href="/style.css?v=carouselfix-3" />
 
   <style>
     /* ================= Layout tighten ================= */
@@ -89,21 +89,34 @@
       margin-left:calc(50% - 50vw);
       margin-right:calc(50% - 50vw);
     }
+
+    /* ✅ FIX: Desktop shows FULL hero (no cropping) */
     .hero-bleed-media img{
       display:block;
       width:100%;
-      height:min(54vh, 500px);
-      object-fit:cover;
-      object-position:center 30%;
-      /* Keep hoof fully visible (show more bottom) */
+      height:min(54vh, 520px);
+
+      /* Desktop: show entire hoof + cabin/campfire */
+      object-fit: contain;
+      object-position: center center;
+
+      /* Fill letterbox with page bg */
+      background: var(--page-bg, #f3e7d6);
     }
+
     .hero-bleed-fade{
       position:absolute; left:0; right:0; bottom:-1px; height:140px; pointer-events:none;
-      background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3ede2) 85%);
+      background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, var(--page-bg, #f3e7d6) 85%);
     }
     .hero-copy{ padding-top: 18px; padding-bottom: 10px; }
+
+    /* ✅ FIX: Mobile can crop slightly but keep hoof+cabin */
     @media (max-width:768px){
-      .hero-bleed-media img{ height:min(42vh, 360px); }
+      .hero-bleed-media img{
+        height:min(42vh, 360px);
+        object-fit: cover;
+        object-position: center 38%;
+      }
       .hero-bleed-fade{ height:110px; }
     }
 
@@ -118,8 +131,16 @@
         filter: none !important;
         mix-blend-mode: normal !important;
       }
-      /* Remove the bottom fade on mobile so the hero stays crisp */
+      /* Keep mobile hero crisp */
       .hero-bleed-fade{ display:none !important; }
+
+      /* ✅ Remove the “DeerCamp / DeerCamp” mobile badge row if present */
+      .app-badge, .site-badge, .brand-badge,
+      .pwa-badge, .install-badge, .hero-badge,
+      .site-card, .app-card, .meta-card,
+      .site-identity, .page-identity{
+        display:none !important;
+      }
     }
 
     /* ================= Origin grid ================= */
@@ -394,7 +415,7 @@
       background: rgba(255,255,255,0.92);
       border-radius:18px;
       overflow:hidden;
-      box-shadow:0 24px 70px rgba(0,0,0,0.35);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.35);
       position:relative;
       display:flex;
       flex-direction:column;
@@ -797,13 +818,11 @@
         </div>
 
         <div class="dc-modal-actions">
-          <!-- Audio controls (CampCards only) -->
           <button class="dc-pill primary" id="dcModalPlay" type="button">Play</button>
           <button class="dc-pill" id="dcModalStop" type="button">Stop</button>
 
           <div style="flex:1"></div>
 
-          <!-- Always-available modal navigation for CampCards AND App Screens -->
           <div class="dc-modal-navhint" id="dcModalCounter">Item 1</div>
           <button class="dc-pill" id="dcPrevItem" type="button">← Previous</button>
           <button class="dc-pill primary" id="dcNextItem" type="button">Next →</button>
