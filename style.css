@@ -1,6 +1,6 @@
-/* style.css */
 :root{
   --bg: #f3e7d6;
+  --page-bg: var(--bg);
   --text: rgba(31,27,22,.92);
   --muted: rgba(31,27,22,.72);
   --line: rgba(31,27,22,.10);
@@ -8,367 +8,420 @@
   --max: 1200px;
   --pad: clamp(16px, 4vw, 28px);
 
-  --radius: 18px;
-  --shadow-soft: 0 18px 40px rgba(20, 14, 10, .14);
-  --shadow-card: 0 10px 22px rgba(20, 14, 10, .10);
+  /* TIGHTER spacing system (fixes “too much space between sections”) */
+  --section-y: clamp(10px, 1.6vw, 18px);
+  --section-y-tight: clamp(10px, 1.8vw, 18px);
 
   --font-serif: ui-serif, Georgia, "Times New Roman", serif;
   --font-sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
+html{ scroll-behavior:smooth; }
 body{
   margin:0;
-  background: var(--bg);
   color: var(--text);
+  background:
+    radial-gradient(1200px 700px at 20% 0%, rgba(202,163,95,.18), transparent 60%),
+    radial-gradient(900px 520px at 90% 20%, rgba(31,27,22,.08), transparent 58%),
+    linear-gradient(180deg, rgba(239,227,212,.55), rgba(243,231,214,1));
   font-family: var(--font-sans);
-  line-height:1.4;
+  line-height: 1.55;
 }
+img{ max-width:100%; height:auto; display:block; }
+a{ color: inherit; }
 
-a{ color: inherit; text-decoration: none; }
-a:hover{ text-decoration: underline; }
+/* Kill default margins that create “mystery gaps” */
+h1,h2,h3,p{ margin:0; }
+p{ margin-top: 0; margin-bottom: 10px; }
+.section-head p:last-child{ margin-bottom: 0; }
 
-.wrap{
-  max-width: var(--max);
-  margin: 0 auto;
-  padding: 0 var(--pad);
-}
+/* =========================================================
+   Layout / Spacing
+========================================================= */
+.wrap{ max-width: var(--max); margin: 0 auto; padding: 0 var(--pad); position: relative; }
 
 .section{
-  padding: clamp(44px, 6vw, 84px) 0;
-  border-top: 1px solid var(--line);
+  padding: var(--section-y) 0;
+  margin: 0;
 }
-
-/* tighten spacing between hero and CampCards */
-.section-tight-top{
-  padding-top: clamp(20px, 3vw, 34px);
-  border-top: none;
+#screens.section{
+  padding-bottom: var(--section-y-tight);
 }
 
 .section-head{
-  display:flex;
-  align-items:flex-end;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 4px;
+  position: relative;
+  z-index: 2;
 }
-
 .section-head h2{
-  margin:0;
   font-family: var(--font-serif);
-  letter-spacing: .2px;
+  font-size: clamp(30px, 3.6vw, 50px);
+  margin: 0 0 6px;
+  letter-spacing: -0.02em;
 }
-
 .section-subtitle{
-  margin: 6px 0 0 0;
+  max-width: 72ch;
   color: var(--muted);
-  max-width: 62ch;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: break-word;
+  word-break: normal;
+  position: relative;
+  z-index: 2;
 }
 
-.cta-row{
-  display:flex;
-  gap: 10px;
-  flex-wrap: wrap;
+/* =========================================================
+   Header / Nav
+========================================================= */
+.site-header{
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: rgba(239,227,212,.86);
+  border-bottom: 1px solid rgba(31,27,22,.08);
+  backdrop-filter: blur(10px);
 }
+.nav-wrap{
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 12px var(--pad);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 14px;
+}
+.brand{
+  font-family: var(--font-serif);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  text-decoration:none;
+  font-size: 26px;
+}
+.site-nav{
+  display:flex;
+  gap: 16px;
+  align-items:center;
+}
+.site-nav a{
+  text-decoration:none;
+  opacity:.9;
+  font-weight: 650;
+  font-size: 14px;
+  padding: 8px 8px;
+  border-radius: 10px;
+}
+.site-nav a:hover{ background: rgba(31,27,22,.06); }
+
+.nav-cta{
+  text-decoration:none;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(31,27,22,.9);
+  color: rgba(255,255,255,.96);
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 10px 28px rgba(0,0,0,.14);
+}
+.nav-cta:hover{ filter: brightness(1.05); }
+
+.nav-toggle{
+  display:none;
+  border: 1px solid rgba(31,27,22,.12);
+  background: rgba(255,255,255,.45);
+  border-radius: 14px;
+  padding: 12px 14px;
+  cursor:pointer;
+  align-items:center;
+  gap: 10px;
+}
+.nav-toggle span{
+  display:block;
+  width: 18px;
+  height: 2px;
+  background: rgba(31,27,22,.85);
+  border-radius: 999px;
+  margin: 2px 0;
+}
+.menu-label{
+  font-weight: 750;
+  font-size: 13px;
+  opacity:.9;
+}
+
+.nav-drawer{
+  display:none;
+  border-top: 1px solid rgba(31,27,22,.08);
+  background: rgba(239,227,212,.95);
+}
+.nav-drawer-inner{
+  padding: 14px var(--pad);
+  max-width: var(--max);
+  margin: 0 auto;
+}
+.nav-drawer-links{
+  display:flex;
+  flex-direction:column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.nav-drawer-links a{
+  text-decoration:none;
+  font-weight: 750;
+  padding: 10px 10px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.35);
+  border: 1px solid rgba(31,27,22,.06);
+}
+.drawer-cta{
+  display:inline-block;
+  text-decoration:none;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: rgba(31,27,22,.9);
+  color: rgba(255,255,255,.96);
+  font-weight: 850;
+}
+@media (max-width: 860px){
+  .site-nav{ display:none; }
+  .nav-cta{ display:none; }
+  .nav-toggle{ display:inline-flex; }
+  .nav-drawer[aria-hidden="false"]{ display:block; }
+}
+
+/* =========================================================
+   HERO (Desktop shows full image; mobile crops tastefully)
+========================================================= */
+.hero.hero-bleed{
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+}
+
+.hero-bleed-media{
+  position: relative;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+}
+
+/* ✅ FIX: Desktop full hero visible */
+.hero-bleed-media img{
+  display:block;
+  width:100%;
+  height:min(54vh, 520px);
+
+  object-fit: contain;              /* NO CROP on desktop */
+  object-position: center center;
+  background: var(--page-bg, #f3e7d6);
+}
+
+.hero-bleed-fade{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-1px;
+  height: 110px;
+  pointer-events:none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0%,
+    rgba(243,231,214,0.85) 80%,
+    #f3e7d6 100%
+  );
+}
+
+/* ✅ Mobile: crop slightly but keep hoof + cabin visible; remove fade */
+@media (max-width: 768px){
+  .hero-bleed-media img{
+    height:min(42vh, 360px);
+    object-fit: cover;
+    object-position: center 38%;
+    background: var(--page-bg, #f3e7d6);
+  }
+  .hero-bleed-fade{ display:none; }
+
+  /* ✅ Remove any mobile badge row (“DeerCamp / DeerCamp”) if present */
+  .app-badge, .site-badge, .brand-badge,
+  .pwa-badge, .install-badge, .hero-badge,
+  .site-card, .app-card, .meta-card,
+  .site-identity, .page-identity{
+    display:none !important;
+  }
+}
+
+.hero-copy{
+  padding-top: 14px;
+  padding-bottom: 2px;
+}
+
+.hero-sub{
+  margin: 0 0 8px;
+  max-width: 74ch;
+  color: var(--muted);
+  font-size: 16.5px;
+}
+.hero-emphasis{ font-weight: 800; }
 
 .primary-button{
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  padding: 12px 16px;
-  border-radius: 999px;
-  background: rgba(31,27,22,.92);
-  color: #fff;
-  font-weight: 650;
-  letter-spacing: .2px;
-  box-shadow: 0 10px 20px rgba(20,14,10,.12);
-}
-.primary-button:hover{ text-decoration:none; filter: brightness(1.02); }
-
-.muted{ color: var(--muted); }
-.small{ font-size: .92rem; }
-
-/* ================= TOP BAR ================= */
-.topbar{
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: rgba(243,231,214,.86);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
-}
-
-.topbar-inner{
-  min-height: 62px;
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap: 14px;
-  padding-top: 10px;
-  padding-bottom: 10px;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
   gap: 10px;
-  font-weight: 800;
-  letter-spacing: .2px;
-}
-.brand-mark{
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  display:grid;
-  place-items:center;
-  background: rgba(31,27,22,.10);
-  font-size: 12px;
-}
-.brand-name{
-  font-family: var(--font-serif);
-  font-size: 18px;
-}
-
-.nav{
-  display:flex;
-  gap: 14px;
-  color: var(--muted);
-}
-.nav a{ padding: 8px 10px; border-radius: 12px; }
-.nav a:hover{ background: rgba(31,27,22,.06); text-decoration:none; }
-
-.topbar-cta{ white-space: nowrap; }
-
-/* ================= HERO (EDGE-TO-EDGE) ================= */
-.hero{
-  padding: 14px 0 0 0;
-  border-bottom: 1px solid var(--line);
-}
-
-/* full-bleed container */
-.hero-bleed{
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-
-  /* soft shadow (around the hero image block) */
-  box-shadow: var(--shadow-soft);
-}
-
-/* crisp scaling, no crop */
-.hero-image{
-  width: 100%;
-  height: auto;
-  display: block;
-}
-
-/* subtle fade-to-page blend at the bottom */
-.hero-bleed::after{
-  content:"";
-  position:absolute;
-  left:0; right:0; bottom:0;
-  height: clamp(60px, 10vw, 140px);
-  background: linear-gradient(to bottom,
-    rgba(243,231,214,0) 0%,
-    rgba(243,231,214,.55) 40%,
-    rgba(243,231,214,1) 100%
-  );
-  pointer-events:none;
-}
-
-/* CTA overlay (desktop/tablet) */
-.hero-overlay{
-  position:absolute;
-  left: 0;
-  right: 0;
-  bottom: clamp(18px, 4vw, 34px);
-  padding: 0 var(--pad);
-  pointer-events: none; /* allow clicks only on buttons */
-}
-
-.hero-cta{
-  max-width: var(--max);
-  margin: 0 auto;
-  display:flex;
-  gap: 10px;
-  justify-content: flex-start;
-  pointer-events: auto;
-}
-
-.hero-btn{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  padding: 12px 16px;
-  border-radius: 999px;
-  background: rgba(31,27,22,.92);
-  color: #fff;
-  font-weight: 650;
-  letter-spacing: .2px;
-  box-shadow: 0 12px 24px rgba(20,14,10,.16);
   text-decoration:none;
+  padding: 12px 18px;
+  border-radius: 16px;
+  background: rgba(31,27,22,.92);
+  color: rgba(255,255,255,.96);
+  font-weight: 900;
+  box-shadow: 0 14px 32px rgba(0,0,0,.18);
 }
-.hero-btn:hover{ text-decoration:none; filter: brightness(1.03); }
+.primary-button:hover{ filter: brightness(1.06); }
 
-.hero-btn.ghost{
-  background: rgba(243,231,214,.82);
-  color: rgba(31,27,22,.92);
-  border: 1px solid rgba(31,27,22,.14);
-  box-shadow: 0 10px 22px rgba(20,14,10,.10);
-}
+.cta-row{ display:flex; gap: 12px; flex-wrap: wrap; }
 
-/* Mobile-only text overlay */
-.hero-mobile-copy{
-  position:absolute;
-  left: 0;
-  right: 0;
-  top: clamp(14px, 4vw, 24px);
-  padding: 0 var(--pad);
-  display:none;
-}
-
-.hero-mobile-copy h1{
-  margin: 0 0 6px 0;
-  font-family: var(--font-serif);
-  font-size: clamp(22px, 6vw, 30px);
-  color: rgba(255,255,255,.94);
-  text-shadow: 0 10px 22px rgba(0,0,0,.35);
-}
-
-.hero-mobile-copy p{
-  margin:0;
-  max-width: 34ch;
-  color: rgba(255,255,255,.86);
-  text-shadow: 0 10px 22px rgba(0,0,0,.35);
-  font-weight: 550;
-}
-
-/* tighten space below hero into CampCards */
-.hero + .section{
-  padding-top: clamp(20px, 3vw, 34px);
-  border-top: none;
-}
-
-/* Responsive behavior */
-@media (max-width: 900px){
-  .nav{ display:none; }
-}
-
-@media (max-width: 640px){
-  .hero{ padding-top: 10px; }
-  .hero-overlay{ display:none; }         /* hide desktop CTA overlay */
-  .hero-mobile-copy{ display:block; }   /* show mobile-only overlay */
-}
-
-/* ================= CAMP CARDS ================= */
-.card-grid{
+/* =========================================================
+   Origin grid base
+========================================================= */
+.origin-grid{
   display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 10px;
+}
+@media (max-width: 860px){
+  .origin-grid{ grid-template-columns: 1fr; }
+}
+
+/* Back to top (tight) */
+.back-top{
+  display:inline-block;
+  margin-top: 4px;
+  text-decoration:none;
+  font-weight: 750;
+  font-size: 13.5px;
+  opacity:.85;
+  padding: 7px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(31,27,22,.10);
+}
+.back-top:hover{ background: rgba(31,27,22,.06); }
+
+/* =========================================================
+   CampCards grid base
+========================================================= */
+.campcards-grid{
+  display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px;
-  margin-top: 14px;
+  gap: 16px;
+  align-items: start;
+  margin-top: 10px;
+}
+@media (max-width: 1024px){
+  .campcards-grid{ grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px){
+  .campcards-grid{ grid-template-columns: 1fr; }
 }
 
 .campcard{
-  background: rgba(255,255,255,.48);
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255,255,255,0.55);
   border: 1px solid rgba(31,27,22,.10);
-  border-radius: var(--radius);
-  overflow:hidden;
-  box-shadow: var(--shadow-card);
-}
-
-.campcard img{
-  width:100%;
-  height: 180px;
-  object-fit: cover;
-  display:block;
+  display: flex;
+  flex-direction: column;
 }
 
 .campcard-meta{
-  padding: 12px 12px 14px;
+  padding: 12px 14px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
 }
 
 .campcard-meta h3{
-  margin: 0 0 6px 0;
   font-family: var(--font-serif);
   font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
-.campcard-meta p{
-  margin: 0 0 10px 0;
-  color: var(--muted);
-  font-size: 14px;
+.campcard-audio-btn{
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(31,27,22,.18);
+  background: rgba(255,255,255,.75);
+  cursor: pointer;
+  font-weight: 750;
 }
+.campcard-audio-btn:hover{ background: rgba(255,255,255,.9); }
 
-.campcard audio{
-  width: 100%;
-}
-
-@media (max-width: 980px){
-  .card-grid{ grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 720px){
-  .card-grid{ grid-template-columns: repeat(2, 1fr); }
-  .campcard img{ height: 170px; }
-}
-@media (max-width: 420px){
-  .card-grid{ grid-template-columns: 1fr; }
-  .campcard img{ height: 190px; }
-}
-
-/* ================= APP SCREENS ================= */
-.shot-grid{
-  display:grid;
-  grid-template-columns: repeat(3, 1fr);
+/* =========================================================
+   How it works / Camp / Policies — compact structure
+========================================================= */
+.steps{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
-
-.shot{
-  width: 100%;
-  height: 260px;
-  object-fit: contain;
-  background: rgba(255,255,255,.40);
+@media (max-width: 900px){
+  .steps{ grid-template-columns: 1fr; }
+}
+.step{
+  background: rgba(255,255,255,0.45);
   border: 1px solid rgba(31,27,22,.10);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow-card);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
 }
+.step h3{
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.step p{ color: var(--muted); margin: 0; }
 
-@media (max-width: 980px){
-  .shot-grid{ grid-template-columns: repeat(2, 1fr); }
-  .shot{ height: 240px; }
+.callout{
+  margin-top: 10px;
+  background: rgba(255,255,255,0.45);
+  border: 1px solid rgba(31,27,22,.10);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
 }
-@media (max-width: 520px){
-  .shot-grid{ grid-template-columns: 1fr; }
-  .shot{ height: 240px; }
-}
+.callout p{ margin: 0; }
 
-/* ================= BACK TO TOP ================= */
-.back-top{
-  display:inline-block;
-  margin-top: 18px;
-  color: rgba(31,27,22,.75);
-  font-weight: 650;
-}
-
-/* ================= FOOTER ================= */
-.footer{
-  padding: 36px 0 44px;
-  border-top: 1px solid var(--line);
-}
-
-.footer-inner{
-  display:flex;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-}
-
-.footer-links{
-  display:flex;
+.policies{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  color: var(--muted);
+  margin-top: 10px;
 }
-.footer-links a{ padding: 6px 8px; border-radius: 10px; }
-.footer-links a:hover{ background: rgba(31,27,22,.06); text-decoration:none; }
+@media (max-width: 980px){
+  .policies{ grid-template-columns: 1fr; }
+}
+.policy{
+  background: rgba(255,255,255,0.45);
+  border: 1px solid rgba(31,27,22,.10);
+  border-radius: 16px;
+  padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.08);
+}
+.policy h3{
+  font-family: var(--font-serif);
+  letter-spacing: -0.01em;
+  margin-bottom: 6px;
+}
+.policy p{ color: var(--muted); margin: 0; }
+
+/* =========================================================
+   Footer
+========================================================= */
+.site-footer{
+  padding: 16px 0 22px;
+  border-top: 1px solid rgba(31,27,22,.10);
+}
+.site-footer p{ margin: 0; opacity: .75; }
