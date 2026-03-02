@@ -190,7 +190,7 @@ p{ margin-top: 0; margin-bottom: 10px; }
 }
 
 /* =========================================================
-   HERO (ONE source of truth — fixes hoof cropping)
+   HERO (Desktop shows full image; mobile crops tastefully)
 ========================================================= */
 .hero.hero-bleed{
   position: relative;
@@ -205,14 +205,15 @@ p{ margin-top: 0; margin-bottom: 10px; }
   margin-right: calc(50% - 50vw);
 }
 
+/* ✅ FIX: Desktop full hero visible */
 .hero-bleed-media img{
   display:block;
   width:100%;
-  height:min(54vh, 500px);
-  object-fit: cover;
+  height:min(54vh, 520px);
 
-  /* UPDATED: keep hoof/track area from getting cropped */
-  object-position: center 30%;
+  object-fit: contain;              /* NO CROP on desktop */
+  object-position: center center;
+  background: var(--page-bg, #f3e7d6);
 }
 
 .hero-bleed-fade{
@@ -228,6 +229,25 @@ p{ margin-top: 0; margin-bottom: 10px; }
     rgba(243,231,214,0.85) 80%,
     #f3e7d6 100%
   );
+}
+
+/* ✅ Mobile: crop slightly but keep hoof + cabin visible; remove fade */
+@media (max-width: 768px){
+  .hero-bleed-media img{
+    height:min(42vh, 360px);
+    object-fit: cover;
+    object-position: center 38%;
+    background: var(--page-bg, #f3e7d6);
+  }
+  .hero-bleed-fade{ display:none; }
+
+  /* ✅ Remove any mobile badge row (“DeerCamp / DeerCamp”) if present */
+  .app-badge, .site-badge, .brand-badge,
+  .pwa-badge, .install-badge, .hero-badge,
+  .site-card, .app-card, .meta-card,
+  .site-identity, .page-identity{
+    display:none !important;
+  }
 }
 
 .hero-copy{
@@ -259,20 +279,6 @@ p{ margin-top: 0; margin-bottom: 10px; }
 .primary-button:hover{ filter: brightness(1.06); }
 
 .cta-row{ display:flex; gap: 12px; flex-wrap: wrap; }
-
-/* Mobile hero cleanup (remove any watermark/label overlays and keep hero crisp) */
-@media (max-width: 768px){
-  .hero::before, .hero::after,
-  .hero-bleed-media::before, .hero-bleed-media::after{
-    content: none !important;
-    background: none !important;
-    background-image: none !important;
-    opacity: 1 !important;
-    filter: none !important;
-    mix-blend-mode: normal !important;
-  }
-  .hero-bleed-fade{ display:none !important; }
-}
 
 /* =========================================================
    Origin grid base
@@ -410,12 +416,6 @@ p{ margin-top: 0; margin-bottom: 10px; }
   margin-bottom: 6px;
 }
 .policy p{ color: var(--muted); margin: 0; }
-
-/* App screens helper text */
-.screens-note{
-  margin-top: 6px;
-  opacity: .75;
-}
 
 /* =========================================================
    Footer
