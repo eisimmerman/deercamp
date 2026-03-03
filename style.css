@@ -497,7 +497,7 @@ p{ margin-top: 0; margin-bottom: 10px; }
 
 /* ===============================
    MOBILE HEADER ERGONOMICS FIX
-   When brand/nav/cta are hidden on mobile, keep the Menu button LEFT (thumb-safe)
+   Keep Menu button LEFT (thumb-safe) when brand/nav/cta are hidden on mobile
 ================================ */
 @media (max-width: 860px){
   .nav-wrap{
@@ -510,57 +510,76 @@ p{ margin-top: 0; margin-bottom: 10px; }
 }
 
 /* ===============================
-   FIELD MODAL NAV FIX v3 (FORCE + COMPAT)
-   Ensures Previous / Counter / Next are visible and on one row.
-   Works whether the container is .dc-modal-nav (new) or .dc-modal-actions (older).
+   CAMP CARD MODAL CONTROLS FIX (STICKY ACTION BAR)
+   Your current index.html uses a .dc-modal-actions row that can be pushed off-screen on mobile.
+   Make the action bar sticky so Prev/Next are ALWAYS visible.
 ================================ */
 
-/* Force buttons visible no matter what */
-#dcModal #dcPrevItem,
-#dcModal #dcNextItem{
-  display: inline-flex !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+/* Ensure the card can lay out header/body/actions reliably */
+#dcModal .dc-modal-card{
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 92vh !important;
 }
 
-/* New container (preferred) */
-#dcModal .dc-modal-nav{
-  display: grid !important;
-  grid-template-columns: 1fr auto 1fr !important;
-  align-items: center !important;
-  gap: 8px !important;
-  width: 100% !important;
+/* Let the body scroll if needed, but keep controls accessible */
+#dcModal .dc-modal-body{
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
 }
-#dcModal .dc-modal-nav .dc-pill{
-  width: 100% !important;
+
+/* Sticky action bar at bottom */
+#dcModal .dc-modal-actions{
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 5 !important;
+  padding: 12px 12px !important;
+  margin: 0 !important;
+
+  background: rgba(255,255,255,0.92) !important;
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(31,27,22,.10) !important;
+
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;  /* Prev | Counter | Next */
+  gap: 10px !important;
+  align-items: center !important;
+}
+
+/* Make sure the three elements map to the grid nicely */
+#dcModal #dcPrevItem{
+  justify-self: start !important;
+  display: inline-flex !important;
+}
+#dcModal .dc-modal-navhint,
+#dcModal #dcModalCounter{
+  justify-self: center !important;
+  white-space: nowrap !important;
+}
+#dcModal #dcNextItem{
+  justify-self: end !important;
+  display: inline-flex !important;
+}
+
+/* Buttons must be allowed to shrink on narrow screens */
+#dcModal .dc-modal-actions .dc-pill{
   min-width: 0 !important;
+  width: 100% !important;
   padding: 10px 12px !important;
   white-space: nowrap !important;
 }
-#dcModal .dc-modal-counter{
-  justify-self: center !important;
-  white-space: nowrap !important;
-  padding: 0 2px !important;
-  opacity: .75 !important;
-  font-weight: 900 !important;
-  font-size: 13px !important;
-}
-#dcModal .dc-modal-nav #dcPrevItem{ justify-self: start !important; }
-#dcModal .dc-modal-nav #dcNextItem{ justify-self: end !important; }
 
-/* Legacy container fallback: if your modal still uses .dc-modal-actions */
-#dcModal .dc-modal-actions{
-  display: grid !important;
-  grid-template-columns: 1fr auto 1fr !important;
-  align-items: center !important;
-  gap: 8px !important;
-  width: 100% !important;
+/* Reduce image height so the action bar doesn't get pushed away */
+#dcModal .dc-modal-media img,
+#dcModal .dc-modal-media > img{
+  height: min(40vh, 360px) !important;
 }
-#dcModal .dc-modal-actions #dcPrevItem{ justify-self: start !important; }
-#dcModal .dc-modal-actions #dcNextItem{ justify-self: end !important; }
-#dcModal .dc-modal-actions .dc-modal-navhint{
-  justify-self: center !important;
-  white-space: nowrap !important;
-  padding: 0 2px !important;
+
+/* Close button: keep reachable but don't cover content */
+#dcModal #dcModalClose{
+  position: sticky !important;
+  top: 10px !important;
+  right: 10px !important;
 }
 
