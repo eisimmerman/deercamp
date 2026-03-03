@@ -496,11 +496,34 @@ p{ margin-top: 0; margin-bottom: 10px; }
 
 
 /* ===============================
-   FIELD MODAL NAV FIX v2 (GRID, FORCE)
-   Ensures Next button is always visible (prevents wrap + prevents off-screen clipping)
-   Uses higher-specificity selectors to override inline/earlier rules.
+   MOBILE HEADER ERGONOMICS FIX
+   When brand/nav/cta are hidden on mobile, keep the Menu button LEFT (thumb-safe)
+================================ */
+@media (max-width: 860px){
+  .nav-wrap{
+    justify-content: flex-start !important;
+    gap: 12px !important;
+  }
+  .nav-toggle{
+    margin-left: 0 !important;
+  }
+}
+
+/* ===============================
+   FIELD MODAL NAV FIX v3 (FORCE + COMPAT)
+   Ensures Previous / Counter / Next are visible and on one row.
+   Works whether the container is .dc-modal-nav (new) or .dc-modal-actions (older).
 ================================ */
 
+/* Force buttons visible no matter what */
+#dcModal #dcPrevItem,
+#dcModal #dcNextItem{
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* New container (preferred) */
 #dcModal .dc-modal-nav{
   display: grid !important;
   grid-template-columns: 1fr auto 1fr !important;
@@ -508,27 +531,36 @@ p{ margin-top: 0; margin-bottom: 10px; }
   gap: 8px !important;
   width: 100% !important;
 }
-
 #dcModal .dc-modal-nav .dc-pill{
   width: 100% !important;
   min-width: 0 !important;
   padding: 10px 12px !important;
   white-space: nowrap !important;
 }
-
 #dcModal .dc-modal-counter{
   justify-self: center !important;
-  font-size: 13px !important;
   white-space: nowrap !important;
   padding: 0 2px !important;
   opacity: .75 !important;
+  font-weight: 900 !important;
+  font-size: 13px !important;
 }
+#dcModal .dc-modal-nav #dcPrevItem{ justify-self: start !important; }
+#dcModal .dc-modal-nav #dcNextItem{ justify-self: end !important; }
 
-#dcModal #dcPrevItem{
-  justify-self: start !important;
+/* Legacy container fallback: if your modal still uses .dc-modal-actions */
+#dcModal .dc-modal-actions{
+  display: grid !important;
+  grid-template-columns: 1fr auto 1fr !important;
+  align-items: center !important;
+  gap: 8px !important;
+  width: 100% !important;
 }
-
-#dcModal #dcNextItem{
-  justify-self: end !important;
+#dcModal .dc-modal-actions #dcPrevItem{ justify-self: start !important; }
+#dcModal .dc-modal-actions #dcNextItem{ justify-self: end !important; }
+#dcModal .dc-modal-actions .dc-modal-navhint{
+  justify-self: center !important;
+  white-space: nowrap !important;
+  padding: 0 2px !important;
 }
 
