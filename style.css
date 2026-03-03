@@ -542,8 +542,8 @@ p{ margin-top: 0; margin-bottom: 10px; }
   border-top: 1px solid rgba(31,27,22,.10) !important;
 
   /* Two-row grid:
-     Row 1: Play | (blank) | Stop
-     Row 2: Prev | Counter | Next
+     Row 1: Play | (spacer) | Stop
+     Row 2: Prev | Next | Counter  (Prev/Next kept adjacent on LEFT for left-thumb reach)
   */
   display: grid !important;
   grid-template-columns: auto 1fr auto !important;
@@ -591,10 +591,6 @@ p{ margin-top: 0; margin-bottom: 10px; }
 }
 
 
-/* Place items into the two-row sticky grid (works with legacy modal that keeps all controls in one .dc-modal-actions) */
-#dcModal .dc-modal-actions > div[style*="flex:1"]{
-  display:none !important; /* remove spacer that can force wrapping */
-}
 
 #dcModal #dcModalPlay{
   grid-row: 1 !important;
@@ -636,6 +632,78 @@ p{ margin-top: 0; margin-bottom: 10px; }
   padding: 8px 10px !important;
   min-height: 44px !important;
   font-size: 14px !important;
+}
+
+/* Make Play/Stop slightly tighter too (still glove-friendly) */
+#dcModal #dcModalPlay,
+#dcModal #dcModalStop{
+  padding: 10px 12px !important;
+  min-height: 44px !important;
+}
+
+/* On very narrow phones, reduce counter font a touch */
+@media (max-width: 380px){
+  #dcModal .dc-modal-navhint,
+  #dcModal #dcModalCounter{
+    font-size: 12px !important;
+  }
+}
+
+
+/* Place items into the two-row sticky grid (LEFT-THUMB REACH)
+   Row 2 keeps Prev + Next adjacent on the LEFT, with Counter on the RIGHT.
+*/
+#dcModal .dc-modal-actions > div[style*="flex:1"]{
+  display:none !important; /* remove spacer that can force wrapping */
+}
+
+#dcModal #dcModalPlay{
+  grid-row: 1 !important;
+  grid-column: 1 !important;
+  justify-self: start !important;
+}
+
+#dcModal #dcModalStop{
+  grid-row: 1 !important;
+  grid-column: 3 !important;
+  justify-self: end !important;
+}
+
+/* Nav row: Prev + Next together on the left */
+#dcModal #dcPrevItem{
+  grid-row: 2 !important;
+  grid-column: 1 !important;
+  justify-self: start !important;
+}
+
+#dcModal #dcNextItem{
+  grid-row: 2 !important;
+  grid-column: 2 !important;
+  justify-self: start !important; /* keep near Prev */
+}
+
+/* Counter on the right */
+#dcModal .dc-modal-navhint,
+#dcModal #dcModalCounter{
+  grid-row: 2 !important;
+  grid-column: 3 !important;
+  justify-self: end !important;
+  white-space: nowrap !important;
+  padding: 0 2px !important;
+}
+
+/* Make Prev/Next pills compact but glove-safe */
+#dcModal #dcPrevItem,
+#dcModal #dcNextItem{
+  padding: 8px 10px !important;
+  min-height: 44px !important;
+  font-size: 14px !important;
+  width: auto !important;        /* don't stretch across */
+}
+
+/* Give Next a little extra left margin so it doesn't feel glued to Prev */
+#dcModal #dcNextItem{
+  margin-left: 8px !important;
 }
 
 /* Make Play/Stop slightly tighter too (still glove-friendly) */
