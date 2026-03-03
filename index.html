@@ -446,7 +446,7 @@
       .screen-shot img{ height:240px; }
     }
 
-    /* ================= Modal (FIELD-FIRST LAYOUT) ================= */
+    /* ================= Modal ================= */
     .dc-modal{
       position:fixed;
       inset:0;
@@ -471,29 +471,32 @@
       flex-direction:column;
     }
 
-    /* Field layout: title + close + primary actions above media */
+    .dc-modal-close{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      border:0;
+      background: rgba(0,0,0,0.75);
+      color:#fff;
+      font-size:22px;
+      line-height:1;
+      cursor:pointer;
+      z-index:2;
+    }
+
     .dc-modal-body{
-      padding:20px;
-      display:flex;
-      flex-direction:column;
-      gap:18px;
+      padding:16px;
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
     }
 
     .dc-modal-title{
       margin:0;
       font-size:20px;
-    }
-
-    .dc-modal-top-actions{
-      display:flex;
-      justify-content:center;
-    }
-
-    .dc-modal-audio{
-      display:flex;
-      justify-content:center;
-      gap:14px;
-      flex-wrap:wrap;
     }
 
     .dc-modal-media{
@@ -514,45 +517,84 @@
     }
     .dc-modal-media img.is-fading{ opacity:0; }
 
-    .dc-modal-nav{
+    .dc-modal-actions{
       display:flex;
+      gap:10px;
       align-items:center;
-      justify-content:space-between;
-      gap:12px;
+      justify-content:flex-start;
       flex-wrap:wrap;
-    }
-
-    .dc-modal-counter{
-      font-weight:900;
-      opacity:.7;
     }
 
     .dc-pill{
       border:1px solid rgba(0,0,0,0.12);
       background: rgba(255,255,255,0.72);
-      border-radius:14px;
-      padding:12px 18px;
+      border-radius:12px;
+      padding:10px 14px;
       cursor:pointer;
       font-weight:900;
-      min-height:48px;
-      transition: transform 120ms cubic-bezier(0.2,0,0.2,1),
-                  background-color 120ms cubic-bezier(0.2,0,0.2,1);
+      min-height:44px;
     }
-    .dc-pill:active{
-      transform: scale(0.96);
-    }
-
-    .dc-pill.subtle{
-      border:1px solid rgba(0,0,0,0.12);
-      background: rgba(255,255,255,0.70);
-      color:inherit;
-    }
-
     .dc-pill.primary{
       border:0;
-      background: rgba(0,0,0,0.82);
+      background: rgba(0,0,0,0.80);
       color:#fff;
     }
+    .dc-modal-navhint{
+      font-weight:900;
+      opacity:.7;
+      padding:10px 14px;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,0.10);
+      background: rgba(255,255,255,0.60);
+    }
+
+    /* ================= Modal Controls (Top 2-row) ================= */
+    #dcModal .dc-modal-card{
+      display:flex;
+      flex-direction:column;
+      max-height:92vh;
+      overflow:hidden;
+    }
+
+    #dcModal .dc-modal-controls{
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 14px 14px 12px;
+      background: rgba(255,255,255,0.94);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:center;
+    }
+
+    #dcModal .dc-modal-row{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:16px;
+      flex-wrap:wrap;
+      width:100%;
+    }
+
+    /* Make modal body scroll (controls stay reachable) */
+    #dcModal .dc-modal-body{
+      flex:1 1 auto;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    #dcModal .dc-modal-counter{
+      text-align:center;
+      margin-top: 14px;
+      font-weight: 900;
+      opacity: .75;
+      padding: 10px 14px;
+    }
+
+
   </style>
 </head>
 
@@ -861,39 +903,38 @@
     </div>
   </footer>
 
-  <!-- ================= LIGHTBOX MODAL (FIELD LAYOUT) ================= -->
+  <!-- ================= LIGHTBOX MODAL ================= -->
   <div class="dc-modal" id="dcModal" aria-hidden="true" role="dialog" aria-label="Preview">
     <div class="dc-modal-card" role="document">
 
-      <div class="dc-modal-body">
-
-        <h3 class="dc-modal-title" id="dcModalTitle"></h3>
-
-        <!-- Close (subtle pill, centered under title) -->
-        <div class="dc-modal-top-actions">
-          <button class="dc-pill subtle" id="dcModalClose" type="button">Close</button>
-        </div>
-
-        <!-- Primary audio action (thumb-safe mid zone) -->
-        <div class="dc-modal-audio">
+      <div class="dc-modal-controls" aria-label="Preview controls">
+        <!-- ROW 1: Play | Close | Stop -->
+        <div class="dc-modal-row">
           <button class="dc-pill primary" id="dcModalPlay" type="button">Play</button>
-          <button class="dc-pill subtle" id="dcModalStop" type="button">Stop</button>
+          <button class="dc-pill" id="dcModalClose" type="button" aria-label="Close">Close</button>
+          <button class="dc-pill" id="dcModalStop" type="button">Stop</button>
         </div>
+
+        <!-- ROW 2: Previous | Next -->
+        <div class="dc-modal-row">
+          <button class="dc-pill" id="dcPrevItem" type="button">← Previous</button>
+          <button class="dc-pill primary" id="dcNextItem" type="button">Next →</button>
+        </div>
+      </div>
+
+      <div class="dc-modal-body">
+        <h3 class="dc-modal-title" id="dcModalTitle"></h3>
 
         <div class="dc-modal-media">
           <img id="dcModalImg" src="" alt="">
         </div>
 
-        <!-- Secondary navigation -->
-        <div class="dc-modal-nav">
-          <button class="dc-pill subtle" id="dcPrevItem" type="button">← Previous</button>
-          <div class="dc-modal-counter" id="dcModalCounter">Item 1</div>
-          <button class="dc-pill primary" id="dcNextItem" type="button">Next →</button>
-        </div>
-
+        <div class="dc-modal-counter" id="dcModalCounter">Item 1</div>
       </div>
+
     </div>
   </div>
+
 
   <script>
     // footer year
