@@ -594,6 +594,33 @@
       padding: 10px 14px;
     }
 
+    /* ================= Screen modal navigation (overlay on screenshot) ================= */
+    #dcModal .dc-modal-media{ position: relative; }
+
+    #dcModal .dc-screen-nav{
+      position:absolute;
+      top:10px;
+      left:10px;
+      right:10px;
+      display:none;
+      justify-content:space-between;
+      gap:10px;
+      pointer-events:none;
+    }
+    #dcModal .dc-screen-nav .dc-pill{
+      pointer-events:auto;
+      background: rgba(255,255,255,0.92);
+      border: 1px solid rgba(0,0,0,0.12);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+    }
+
+    /* When viewing App Screens: show overlay nav, hide the top nav row */
+    #dcModal .mode-screen .dc-screen-nav{ display:flex; }
+    #dcModal .mode-screen .dc-modal-row-nav{ display:none; }
+    #dcModal .mode-screen #dcModalPlay,
+    #dcModal .mode-screen #dcModalStop{ display:none !important; }
+
+
 
   </style>
 </head>
@@ -909,14 +936,14 @@
 
       <div class="dc-modal-controls" aria-label="Preview controls">
         <!-- ROW 1: Play | Close | Stop -->
-        <div class="dc-modal-row">
+        <div class="dc-modal-row dc-modal-row-top">
           <button class="dc-pill primary" id="dcModalPlay" type="button">Play</button>
           <button class="dc-pill" id="dcModalClose" type="button" aria-label="Close">Close</button>
           <button class="dc-pill" id="dcModalStop" type="button">Stop</button>
         </div>
 
         <!-- ROW 2: Previous | Next -->
-        <div class="dc-modal-row">
+        <div class="dc-modal-row dc-modal-row-nav">
           <button class="dc-pill" id="dcPrevItem" type="button">← Previous</button>
           <button class="dc-pill primary" id="dcNextItem" type="button">Next →</button>
         </div>
@@ -926,7 +953,12 @@
         <h3 class="dc-modal-title" id="dcModalTitle"></h3>
 
         <div class="dc-modal-media">
-          <img id="dcModalImg" src="" alt="">
+          <div class="dc-screen-nav" id="dcScreenNav" aria-label="Screen navigation">
+          <button class="dc-pill" id="dcScreenPrev" type="button">← Previous</button>
+          <button class="dc-pill primary" id="dcScreenNext" type="button">Next →</button>
+        </div>
+
+        <img id="dcModalImg\" src="" alt="">
         </div>
 
         <div class="dc-modal-counter" id="dcModalCounter">Item 1</div>
@@ -1114,6 +1146,11 @@
       const nextBtn = document.getElementById('dcNextItem');
       const prevBtn = document.getElementById('dcPrevItem');
 
+      const modalCard = modal ? modal.querySelector('.dc-modal-card') : null;
+      const screenNav = document.getElementById('dcScreenNav');
+      const screenPrev = document.getElementById('dcScreenPrev');
+      const screenNext = document.getElementById('dcScreenNext');
+
       const campcards = Array.from(document.querySelectorAll('.campcard'));
       const screens = Array.from(document.querySelectorAll('.screen-shot'));
       const origins = Array.from(document.querySelectorAll('.origin-shot'));
@@ -1164,6 +1201,8 @@
 
         currentGroup = group;
         currentIndex = index;
+
+        if (modalCard) modalCard.classList.toggle('mode-screen', group === 'screen');
 
         titleEl.textContent = title || '';
         fadeSwapImage(img || '', title || 'Preview');
@@ -1241,6 +1280,10 @@
 
       nextBtn.addEventListener('click', () => showIndex(currentIndex + 1));
       prevBtn.addEventListener('click', () => showIndex(currentIndex - 1));
+
+      // Overlay nav (App Screens)
+      if (screenPrev) screenPrev.addEventListener('click', () => showIndex(currentIndex - 1));
+      if (screenNext) screenNext.addEventListener('click', () => showIndex(currentIndex + 1));
     })();
   </script>
 
