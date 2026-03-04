@@ -417,7 +417,7 @@
       align-items:stretch;
     }
     .screen-shot{
-      cursor:pointer; /* ✅ clicking expands into modal */
+      cursor:pointer;
       border-radius:18px;
       background: rgba(255,255,255,0.55);
       box-shadow:0 10px 22px rgba(0,0,0,0.10);
@@ -471,6 +471,22 @@
       flex-direction:column;
     }
 
+    .dc-modal-close{
+      position:absolute;
+      top:10px;
+      right:10px;
+      width:44px;
+      height:44px;
+      border-radius:999px;
+      border:0;
+      background: rgba(0,0,0,0.75);
+      color:#fff;
+      font-size:22px;
+      line-height:1;
+      cursor:pointer;
+      z-index:2;
+    }
+
     .dc-modal-body{
       padding:16px;
       display:grid;
@@ -488,7 +504,6 @@
       border-radius:16px;
       padding:14px;
       overflow:hidden;
-      position: relative; /* needed for overlay nav */
     }
 
     .dc-modal-media img{
@@ -501,6 +516,14 @@
       transition: opacity 180ms ease;
     }
     .dc-modal-media img.is-fading{ opacity:0; }
+
+    .dc-modal-actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      justify-content:flex-start;
+      flex-wrap:wrap;
+    }
 
     .dc-pill{
       border:1px solid rgba(0,0,0,0.12);
@@ -516,8 +539,23 @@
       background: rgba(0,0,0,0.80);
       color:#fff;
     }
+    .dc-modal-navhint{
+      font-weight:900;
+      opacity:.7;
+      padding:10px 14px;
+      border-radius:12px;
+      border:1px solid rgba(0,0,0,0.10);
+      background: rgba(255,255,255,0.60);
+    }
 
     /* ================= Modal Controls (Top 2-row) ================= */
+    #dcModal .dc-modal-card{
+      display:flex;
+      flex-direction:column;
+      max-height:92vh;
+      overflow:hidden;
+    }
+
     #dcModal .dc-modal-controls{
       position: sticky;
       top: 0;
@@ -557,6 +595,8 @@
     }
 
     /* ================= Screen modal navigation (overlay on screenshot) ================= */
+    #dcModal .dc-modal-media{ position: relative; }
+
     #dcModal .dc-screen-nav{
       position:absolute;
       top:10px;
@@ -566,7 +606,6 @@
       justify-content:space-between;
       gap:10px;
       pointer-events:none;
-      z-index: 3;
     }
     #dcModal .dc-screen-nav .dc-pill{
       pointer-events:auto;
@@ -575,11 +614,30 @@
       box-shadow: 0 8px 18px rgba(0,0,0,0.12);
     }
 
-    /* When viewing App Screens: show overlay nav, hide the top nav row, hide audio */
+#dcModal .dc-screen-nav .dc-pill.primary{
+      background: rgba(0,0,0,0.80);
+      color:#fff;
+      border:0;
+    }
+
+    /* When viewing App Screens: show overlay nav, hide the top nav row */
     #dcModal .mode-screen .dc-screen-nav{ display:flex; }
     #dcModal .mode-screen .dc-modal-row-nav{ display:none; }
     #dcModal .mode-screen #dcModalPlay,
     #dcModal .mode-screen #dcModalStop{ display:none !important; }
+
+    /* Make expanded App Screens feel meaningfully larger */
+    #dcModal .mode-screen .dc-modal-card{
+      width: min(1100px, 98vw);
+    }
+    #dcModal .mode-screen .dc-modal-media{
+      padding: 10px;
+    }
+    #dcModal .mode-screen .dc-modal-media img{
+      height: min(74vh, 720px);
+    }
+
+
   </style>
 </head>
 
@@ -911,13 +969,12 @@
         <h3 class="dc-modal-title" id="dcModalTitle"></h3>
 
         <div class="dc-modal-media">
-          <!-- App Screens overlay navigation (only shown in Screen mode) -->
           <div class="dc-screen-nav" id="dcScreenNav" aria-label="Screen navigation">
-            <button class="dc-pill" id="dcScreenPrev" type="button">← Previous</button>
-            <button class="dc-pill primary" id="dcScreenNext" type="button">Next →</button>
-          </div>
+          <button class="dc-pill" id="dcScreenPrev" type="button">← Previous</button>
+          <button class="dc-pill primary" id="dcScreenNext" type="button">Next →</button>
+        </div>
 
-          <img id="dcModalImg" src="" alt="">
+        <img id="dcModalImg\" src="" alt="">
         </div>
 
         <div class="dc-modal-counter" id="dcModalCounter">Item 1</div>
@@ -925,6 +982,7 @@
 
     </div>
   </div>
+
 
   <script>
     // footer year
@@ -1105,6 +1163,7 @@
       const prevBtn = document.getElementById('dcPrevItem');
 
       const modalCard = modal ? modal.querySelector('.dc-modal-card') : null;
+      const screenNav = document.getElementById('dcScreenNav');
       const screenPrev = document.getElementById('dcScreenPrev');
       const screenNext = document.getElementById('dcScreenNext');
 
@@ -1172,13 +1231,11 @@
 
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
       };
 
       const closeModal = () => {
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
         stopModalAudio();
       };
 
@@ -1240,7 +1297,7 @@
       nextBtn.addEventListener('click', () => showIndex(currentIndex + 1));
       prevBtn.addEventListener('click', () => showIndex(currentIndex - 1));
 
-      // Overlay nav (App Screens) — only visible in .mode-screen
+      // Overlay nav (App Screens)
       if (screenPrev) screenPrev.addEventListener('click', () => showIndex(currentIndex - 1));
       if (screenNext) screenNext.addEventListener('click', () => showIndex(currentIndex + 1));
     })();
