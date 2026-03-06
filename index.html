@@ -2,24 +2,15 @@
 <html lang="en">
 
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>DeerCamp</title>
-
 <link rel="stylesheet" href="style.css">
-
 </head>
-
-
 
 <body>
 
-
-
 <header class="site-header">
-
 <div class="wrap header-inner">
 
 <div class="logo">
@@ -27,12 +18,10 @@ DeerCamp
 </div>
 
 <nav class="main-nav">
-
 <a href="#origin">Origin</a>
 <a href="#campcards">CampCards</a>
 <a href="#capture">Capture the Moment</a>
-<a href="#policies">Policies</a>
-
+<a href="#policy">Data Policy</a>
 </nav>
 
 <a class="app-btn" href="#">
@@ -40,17 +29,13 @@ Get the app
 </a>
 
 </div>
-
 </header>
-
 
 
 <!-- HERO -->
 
 <section class="hero">
-
 <img src="assets/deercamp-feature-graphic.png" alt="DeerCamp">
-
 </section>
 
 
@@ -62,25 +47,25 @@ Get the app
 <div class="wrap story-grid">
 
 <div class="story-image">
-
 <img src="assets/winter-scope-deer.png" alt="Buck in the Pines">
-
 </div>
 
 
 <div class="story-text">
 
-<h2>Buck in the Pines</h2>
+<h2>Real Deer Hunting Story</h2>
+
+<h3>Buck in the Pines</h3>
 
 <button id="story-audio-btn" class="audio-btn">
-▶ Hear the Story
+▶ Hear the Hunt
 </button>
 
-<p>I tracked a deer to a pine knob.</p>
+<p>Tracked a deer to pine knob.</p>
 
-<p>Then I caught the rack of a buck moving in the trees.</p>
+<p>Saw a deer rack move in the trees.</p>
 
-<p>One shot to the throat.</p>
+<p>One shot to the throat and</p>
 
 <p><strong>Down he went.</strong></p>
 
@@ -108,22 +93,21 @@ Get the app
 Where DeerCamp came from.
 </p>
 
-
 <div class="origin-grid">
 
-<img src="campcards/images/dad-deer.png" alt="Dad Deer">
+<figure>
+<img src="campcards/images/dad-deer.png">
+<figcaption>
+Dad Deer — the buck that started it all.
+</figcaption>
+</figure>
+
 
 <figure>
-
-<img src="campcards/images/deer-den.png" alt="Deer Den">
-
+<img src="campcards/images/deer-den.png">
 <figcaption>
-
-Deer Den — the place we went to relive past hunts.  
-If you stood in front of a deer rack on the wall it “spoke” the hunt to you.
-
+Deer Den — where we went to relive past hunts.
 </figcaption>
-
 </figure>
 
 </div>
@@ -222,13 +206,9 @@ Capture the memories that become legacy.
 <div class="capture-grid">
 
 
-<!-- RECORD -->
-
 <div class="capture-card">
 
-<div class="capture-title">
-Record
-</div>
+<div class="capture-title">Record</div>
 
 <img src="assets/record-memory-pine-knob-buck.png">
 
@@ -240,13 +220,9 @@ Add Title, text note, photo or voice note, then Save.
 
 
 
-<!-- FEED -->
-
 <div class="capture-card">
 
-<div class="capture-title">
-Feed
-</div>
+<div class="capture-title">Feed</div>
 
 <img src="assets/pine-knob-buck-feed.png">
 
@@ -258,13 +234,9 @@ After Save note will post ASAP in Feed.
 
 
 
-<!-- MEMORY DETAILS -->
-
 <div class="capture-card">
 
-<div class="capture-title">
-Memory Details
-</div>
+<div class="capture-title">Memory Details</div>
 
 <img src="assets/pine-knob-buck-memory-details.png">
 
@@ -274,7 +246,6 @@ Tap note in Feed to open memory details.
 
 </div>
 
-
 </div>
 
 </div>
@@ -283,17 +254,21 @@ Tap note in Feed to open memory details.
 
 
 
-<!-- POLICIES -->
+<!-- DATA POLICY -->
 
-<section id="policies" class="section">
+<section id="policy" class="section">
 
 <div class="wrap">
 
-<h2>Policies</h2>
+<h2>Data Policy</h2>
 
 <p>
-DeerCamp is built for private camps and family hunting traditions.  
-Your memories remain yours.
+DeerCamp is built for private camps and family hunting traditions.
+Your memories remain yours and are never shared publicly.
+</p>
+
+<p>
+<a href="data-policy.html">View Full Data Policy</a>
 </p>
 
 </div>
@@ -304,8 +279,7 @@ Your memories remain yours.
 
 <script>
 
-
-/* STORY AUDIO */
+/* Story Audio */
 
 const storyBtn = document.getElementById("story-audio-btn");
 const storyAudio = document.getElementById("story-audio");
@@ -313,23 +287,58 @@ const storyAudio = document.getElementById("story-audio");
 storyBtn.onclick = () => {
 
 if (storyAudio.paused){
-
 storyAudio.play();
 storyBtn.innerText="⏸ Pause Story";
-
-}else{
-
+}
+else{
 storyAudio.pause();
-storyBtn.innerText="▶ Hear the Story";
-
+storyBtn.innerText="▶ Hear the Hunt";
 }
 
 };
 
+
+/* CampCard Audio */
+
+let currentAudio = null;
+
+document.querySelectorAll(".campcard").forEach(card => {
+
+const audioSrc = card.dataset.audio;
+
+const pill = document.createElement("div");
+pill.className = "audio-pill";
+pill.innerText = "▶ Play";
+
+card.appendChild(pill);
+
+let audio = new Audio(audioSrc);
+
+pill.onclick = (e) => {
+
+e.stopPropagation();
+
+if(currentAudio && currentAudio !== audio){
+currentAudio.pause();
+document.querySelectorAll(".audio-pill").forEach(p=>p.innerText="▶ Play");
+}
+
+if(audio.paused){
+audio.play();
+pill.innerText="⏸ Pause";
+currentAudio = audio;
+}
+else{
+audio.pause();
+pill.innerText="▶ Play";
+}
+
+};
+
+});
+
 </script>
 
 
-
 </body>
-
 </html>
