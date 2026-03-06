@@ -13,6 +13,7 @@
 </head>
 
 
+
 <body>
 
 
@@ -26,14 +27,16 @@ DeerCamp
 </div>
 
 <nav class="main-nav">
+
 <a href="#origin">Origin</a>
 <a href="#campcards">CampCards</a>
 <a href="#capture">Capture the Moment</a>
 <a href="#policies">Policies</a>
+
 </nav>
 
 <a class="app-btn" href="#">
-Get the App
+Get the app
 </a>
 
 </div>
@@ -58,9 +61,10 @@ Get the App
 
 <div class="wrap story-grid">
 
-
 <div class="story-image">
-<img src="assets/pine-knob-buck-feed.png" alt="Buck in the Pines">
+
+<img src="assets/winter-scope-deer.png" alt="Buck in the Pines">
+
 </div>
 
 
@@ -81,11 +85,12 @@ Get the App
 <p><strong>Down he went.</strong></p>
 
 <audio id="story-audio">
+
 <source src="assets/pine-knob-buck-down.mp3" type="audio/mpeg">
+
 </audio>
 
 </div>
-
 
 </div>
 
@@ -105,18 +110,20 @@ Get the App
 Where DeerCamp came from.
 </p>
 
+
 <div class="origin-grid">
 
 <img src="campcards/images/dad-deer.png" alt="Dad Deer">
-
 
 <figure>
 
 <img src="campcards/images/deer-den.png" alt="Deer Den">
 
 <figcaption>
-Deer Den — the place we went to relive past hunts.
+
+Deer Den — the place we went to relive past hunts.  
 If you stood in front of a deer rack on the wall it “spoke” the hunt to you.
+
 </figcaption>
 
 </figure>
@@ -217,20 +224,39 @@ Capture the memories that become legacy.
 
 <div class="capture-grid">
 
+
 <div class="capture-card">
+
 <img src="assets/record-memory-pine-knob-buck.png">
-<div class="capture-label">Record</div>
+
+<div class="capture-label">
+Record
 </div>
 
+</div>
+
+
 <div class="capture-card">
+
 <img src="assets/pine-knob-buck-feed.png">
-<div class="capture-label">Feed</div>
+
+<div class="capture-label">
+Feed
 </div>
 
-<div class="capture-card">
-<img src="assets/pine-knob-buck-memory-details.png">
-<div class="capture-label">Memory Details</div>
 </div>
+
+
+<div class="capture-card">
+
+<img src="assets/pine-knob-buck-memory-details.png">
+
+<div class="capture-label">
+Memory Details
+</div>
+
+</div>
+
 
 </div>
 
@@ -249,7 +275,7 @@ Capture the memories that become legacy.
 <h2>Policies</h2>
 
 <p>
-DeerCamp is built for private camps and family hunting traditions.
+DeerCamp is built for private camps and family hunting traditions.  
 Your memories remain yours.
 </p>
 
@@ -259,25 +285,52 @@ Your memories remain yours.
 
 
 
+<!-- CAMPCARD VIEWER -->
+
+<div id="campcard-viewer">
+
+<div class="viewer-inner">
+
+<button class="viewer-close">✕</button>
+
+<img id="viewer-image">
+
+<div class="viewer-controls">
+
+<button id="viewer-prev">◀</button>
+
+<button id="viewer-play">▶ Play</button>
+
+<button id="viewer-next">▶</button>
+
+</div>
+
+</div>
+
+</div>
+
+
+
 <script>
 
 
-/* Story Audio */
+
+/* STORY AUDIO */
 
 const storyBtn = document.getElementById("story-audio-btn");
 const storyAudio = document.getElementById("story-audio");
 
 storyBtn.onclick = () => {
 
-if (storyAudio.paused) {
+if (storyAudio.paused){
 
 storyAudio.play();
-storyBtn.innerHTML = "⏸ Pause Story";
+storyBtn.innerText="⏸ Pause Story";
 
-} else {
+}else{
 
 storyAudio.pause();
-storyBtn.innerHTML = "▶ Hear the Story";
+storyBtn.innerText="▶ Hear the Story";
 
 }
 
@@ -285,25 +338,94 @@ storyBtn.innerHTML = "▶ Hear the Story";
 
 
 
-/* CampCard Audio */
+/* CAMPCARD VIEWER */
 
+const cards = document.querySelectorAll(".campcard");
+
+const viewer = document.getElementById("campcard-viewer");
+const viewerImg = document.getElementById("viewer-image");
+
+const btnClose = document.querySelector(".viewer-close");
+const btnNext = document.getElementById("viewer-next");
+const btnPrev = document.getElementById("viewer-prev");
+const btnPlay = document.getElementById("viewer-play");
+
+let currentIndex = 0;
 let currentAudio = null;
 
-document.querySelectorAll(".campcard").forEach(card => {
 
-card.onclick = () => {
+function openViewer(index){
 
-const src = card.dataset.audio;
+currentIndex=index;
 
-if (currentAudio) currentAudio.pause();
+const card = cards[index];
 
-currentAudio = new Audio(src);
+viewerImg.src = card.querySelector("img").src;
 
-currentAudio.play();
+viewer.style.display="flex";
+
+if(currentAudio) currentAudio.pause();
+
+currentAudio = new Audio(card.dataset.audio);
+
+btnPlay.innerText="▶ Play";
+
+}
+
+
+cards.forEach((card,index)=>{
+
+card.onclick=()=>openViewer(index);
+
+});
+
+
+btnClose.onclick=()=>{
+
+viewer.style.display="none";
+
+if(currentAudio) currentAudio.pause();
 
 };
 
-});
+
+btnNext.onclick=()=>{
+
+currentIndex++;
+
+if(currentIndex>=cards.length) currentIndex=0;
+
+openViewer(currentIndex);
+
+};
+
+
+btnPrev.onclick=()=>{
+
+currentIndex--;
+
+if(currentIndex<0) currentIndex=cards.length-1;
+
+openViewer(currentIndex);
+
+};
+
+
+btnPlay.onclick=()=>{
+
+if(currentAudio.paused){
+
+currentAudio.play();
+btnPlay.innerText="⏸ Pause";
+
+}else{
+
+currentAudio.pause();
+btnPlay.innerText="▶ Play";
+
+}
+
+};
 
 
 </script>
