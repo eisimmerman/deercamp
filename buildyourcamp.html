@@ -1,1 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Build Your Camp</title>
+
+<style>
+
+body{
+font-family:system-ui,-apple-system,Segoe UI,Roboto;
+background:#121212;
+color:#ffffff;
+display:flex;
+justify-content:center;
+padding:40px;
+}
+
+.container{
+max-width:700px;
+width:100%;
+}
+
+h1{
+text-align:center;
+margin-bottom:30px;
+}
+
+label{
+display:block;
+margin-top:20px;
+font-weight:600;
+}
+
+input,textarea,select{
+width:100%;
+padding:10px;
+margin-top:8px;
+border-radius:6px;
+border:none;
+font-size:16px;
+}
+
+button{
+margin-top:30px;
+padding:14px;
+width:100%;
+font-size:18px;
+border:none;
+border-radius:8px;
+background:#2c8a4b;
+color:white;
+cursor:pointer;
+}
+
+button:hover{
+background:#37a05a;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+<h1>Build Your Camp in 5 Minutes</h1>
+
+<form id="campForm">
+
+<label>Camp Name</label>
+<input id="campName" required>
+
+<label>Camp Location</label>
+<input id="location" placeholder="Northern Michigan">
+
+<label>Year Established</label>
+<input id="established">
+
+<label>Camp Members (comma separated)</label>
+<input id="members" placeholder="Eric S, Ben K, Mike D">
+
+<label>Camp Banner</label>
+<select id="hero">
+<option value="pines.jpg">Northern Pines</option>
+<option value="cabin.jpg">Cabin Firelight</option>
+<option value="snow.jpg">Snow Hunt</option>
+<option value="classic.jpg">DeerCamp Classic</option>
+</select>
+
+<label>Camp Tradition</label>
+<input id="traditionName" placeholder="Opening Night Venison Chili">
+
+<label>Tradition Description</label>
+<textarea id="traditionDescription"></textarea>
+
+<button type="submit">Create My Camp</button>
+
+</form>
+
+</div>
+
+
+<script>
+
+document.getElementById("campForm").addEventListener("submit",function(e){
+
+e.preventDefault();
+
+const campName=document.getElementById("campName").value;
+const location=document.getElementById("location").value;
+const established=document.getElementById("established").value;
+const hero=document.getElementById("hero").value;
+
+const members=document.getElementById("members").value
+.split(",")
+.map(m=>m.trim());
+
+const traditionName=document.getElementById("traditionName").value;
+const traditionDescription=document.getElementById("traditionDescription").value;
+
+const campSlug=campName
+.toLowerCase()
+.replaceAll(" ","-");
+
+const campData={
+
+campName:campName,
+location:location,
+established:established,
+hero:hero,
+
+members:members,
+
+traditions:{
+name:traditionName,
+description:traditionDescription
+}
+
+};
+
+const json=JSON.stringify(campData,null,2);
+
+const blob=new Blob([json],{type:"application/json"});
+const url=URL.createObjectURL(blob);
+
+const a=document.createElement("a");
+a.href=url;
+a.download=campSlug+".json";
+a.click();
+
+});
+
+</script>
+
+
+</body>
+</html>
