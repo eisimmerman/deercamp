@@ -1,82 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>DeerCamp</title>
+
+<style>
+
+body{
+margin:0;
+background:#e6dccd;
+font-family:system-ui,-apple-system,Segoe UI,Roboto;
+}
+
+.wrap{
+max-width:900px;
+margin:auto;
+padding:40px 20px;
+}
+
+/* card frame */
+
+.card{
+
+background:white;
+border-radius:22px;
+box-shadow:0 12px 30px rgba(0,0,0,.2);
+overflow:hidden;
+
+}
+
+/* hero */
+
+.hero{
+
+width:100%;
+height:280px;
+object-fit:cover;
+
+}
+
+/* camp info */
+
+.header{
+
+padding:28px;
+text-align:center;
+
+}
+
+.name{
+
+font-size:36px;
+font-weight:700;
+
+}
+
+.meta{
+
+opacity:.7;
+margin-top:6px;
+
+}
+
+.members{
+
+margin-top:12px;
+font-size:16px;
+opacity:.8;
+
+}
+
+/* traditions */
+
+.section{
+
+padding:30px 40px;
+
+}
+
+.section h2{
+
+margin-top:0;
+
+}
+
+.section ul{
+
+margin-top:12px;
+line-height:1.7;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="wrap">
+
+<div class="card">
+
+<img id="heroImage" class="hero">
+
+<div class="header">
+
+<div id="campName" class="name"></div>
+
+<div id="campMeta" class="meta"></div>
+
+<div id="campMembers" class="members"></div>
+
+</div>
+
+<div class="section">
+
+<h2>Camp Traditions</h2>
+
+<ul id="traditionsList"></ul>
+
+</div>
+
+</div>
+
+</div>
+
 <script>
 
 const params = new URLSearchParams(window.location.search);
 
 function renderCamp(data){
 
-document.getElementById("campName").innerText = data.name || "";
+document.getElementById("campName").innerText = data.name;
 
 document.getElementById("campMeta").innerText =
-(data.location || "") +
-(data.established ? " • Est. " + data.established : "");
+data.location + " • Est. " + data.established;
 
-if(data.members){
 document.getElementById("campMembers").innerText =
 data.members.join(" • ");
-}
 
 document.getElementById("heroImage").src =
-"/assets/heroes/" + data.hero;
-
-/* traditions */
-
-if(data.traditions && data.traditions.length){
-
-document.getElementById("traditionsPanel").style.display="block";
+"assets/heroes/" + data.hero;
 
 const list = document.getElementById("traditionsList");
 
 list.innerHTML="";
 
-data.traditions.forEach(item =>{
+data.traditions.forEach(t =>{
 
 const li = document.createElement("li");
-li.textContent = item;
+li.textContent = t;
 list.appendChild(li);
 
 });
 
 }
 
-/* members panel */
-
-if(data.members && data.members.length){
-
-document.getElementById("membersPanel").style.display="block";
-
-const list = document.getElementById("membersList");
-
-list.innerHTML="";
-
-data.members.forEach(member =>{
-
-const li = document.createElement("li");
-li.textContent = member;
-list.appendChild(li);
-
-});
-
-}
-
-}
-
-/* PREVIEW MODE */
+/* preview */
 
 if(params.get("preview")){
 
-const previewData = JSON.parse(localStorage.getItem("previewCamp"));
+const data = JSON.parse(localStorage.getItem("previewCamp"));
 
-renderCamp(previewData);
+renderCamp(data);
 
 }
 
-/* NORMAL MODE */
+/* normal camp */
 
 else{
 
-const campSlug = params.get("camp");
+const slug = params.get("camp");
 
-fetch("/camps/" + campSlug + ".json")
+fetch("camps/" + slug + ".json")
 
 .then(res => res.json())
 
@@ -85,3 +185,6 @@ fetch("/camps/" + campSlug + ".json")
 }
 
 </script>
+
+</body>
+</html>
