@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>DeerCamp</title>
+
+<style>
+
+body{
+margin:0;
+font-family:system-ui,-apple-system,Segoe UI,Roboto;
+background:#cfc3af;
+}
+
+/* page width */
+
+.page{
+max-width:1000px;
+margin:auto;
+padding:40px 20px;
+}
+
+/* wood header */
+
+.camp-banner{
+background:#6f4c2f;
+color:white;
+padding:20px;
+border-radius:14px 14px 0 0;
+text-align:center;
+box-shadow:0 6px 16px rgba(0,0,0,.3);
+}
+
+.camp-title{
+font-size:36px;
+font-weight:700;
+letter-spacing:.5px;
+text-shadow:0 2px 4px rgba(0,0,0,.6);
+}
+
+.camp-meta{
+margin-top:6px;
+font-size:15px;
+opacity:.95;
+}
+
+.camp-members{
+margin-top:10px;
+font-size:15px;
+}
+
+/* hero */
+
+.hero img{
+width:100%;
+height:380px;
+object-fit:cover;
+display:block;
+}
+
+/* parchment panel */
+
+.panel{
+
+background-image:
+linear-gradient(rgba(255,255,255,.85),rgba(255,255,255,.85)),
+url("assets/textures/parchment.jpg");
+
+background-size:cover;
+
+padding:42px;
+
+border-radius:0 0 20px 20px;
+
+border:1px solid rgba(120,90,60,.25);
+
+box-shadow:
+0 12px 25px rgba(0,0,0,.25),
+inset 0 2px 6px rgba(0,0,0,.15);
+
+}
+
+/* navigation */
+
+.camp-nav{
+display:flex;
+justify-content:center;
+gap:25px;
+margin-bottom:30px;
+font-weight:600;
+}
+
+.camp-nav a{
+cursor:pointer;
+color:#7b5734;
+}
+
+/* typography */
+
+.panel h2{
+font-family:Georgia,serif;
+color:#3d2a18;
+margin-top:0;
+}
+
+.panel li{
+font-size:16px;
+color:#2e2115;
+line-height:1.9;
+}
+
+/* publish button */
+
+.publish{
+text-align:center;
+margin-top:30px;
+}
+
+button{
+padding:14px 20px;
+border:none;
+border-radius:8px;
+background:#7b5734;
+color:white;
+font-size:16px;
+cursor:pointer;
+}
+
+/* footer */
+
+.footer{
+margin-top:40px;
+background:#3a2a1b;
+color:#e6dccf;
+padding:20px;
+text-align:center;
+font-size:14px;
+border-radius:0 0 18px 18px;
+}
+
+.tagline{
+opacity:.85;
+font-size:13px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="page">
+
+<div class="camp-banner">
+
+<div id="campName" class="camp-title"></div>
+
+<div id="campMeta" class="camp-meta"></div>
+
+<div id="campMembers" class="camp-members"></div>
+
+</div>
+
+<div class="hero">
+
+<img id="heroImage">
+
+</div>
+
+<div class="panel">
+
+<div class="camp-nav">
+
+<a id="navHome">Home</a>
+<a id="navMembers">Members</a>
+<a id="navTraditions">Traditions</a>
+<a id="navMemories">Memories</a>
+<a id="navMap">Camp Map</a>
+
+</div>
+
+<h2>Camp Traditions</h2>
+
+<ul id="traditions"></ul>
+
+<div id="publishSection" class="publish"></div>
+
+</div>
+
+<div class="footer">
+
+<strong>DeerCamp</strong><br>
+<span class="tagline">Preserve the Memories of Camp</span>
+
+</div>
+
+</div>
+
+<script>
+
+function renderCamp(data){
+
+document.getElementById("heroImage").src =
+"assets/heroes/" + data.hero
+
+document.getElementById("campName").innerText =
+data.name
+
+document.getElementById("campMeta").innerText =
+data.location + " • Est. " + data.established
+
+document.getElementById("campMembers").innerText =
+data.members.join(" • ")
+
+const list = document.getElementById("traditions")
+
+data.traditions.forEach(t => {
+
+const li = document.createElement("li")
+li.innerText = t
+list.appendChild(li)
+
+})
+
+}
+
+const params = new URLSearchParams(window.location.search)
+const slug = params.get("camp")
+
+if(slug === "preview"){
+
+const data =
+JSON.parse(localStorage.getItem("generatedCamp"))
+
+renderCamp(data)
+
+createPublishButton(data)
+
+}else{
+
+fetch("camps/" + slug + ".json")
+.then(r => r.json())
+.then(data=>{
+renderCamp(data)
+setupNav(slug)
+})
+
+}
+
+function createPublishButton(camp){
+
+const btn = document.createElement("button")
+
+btn.innerText="Publish My DeerCamp"
+
+btn.onclick=function(){
+
+const json = JSON.stringify(camp,null,2)
+
+const url =
+"https://github.com/eisimmerman/deercamp/new/main/camps?filename=" +
+camp.slug + ".json&value=" + encodeURIComponent(json)
+
+window.open(url,"_blank")
+
+}
+
+document.getElementById("publishSection").appendChild(btn)
+
+}
+
+function setupNav(slug){
+
+document.getElementById("navHome").onclick =
+()=> window.location="camp.html?camp="+slug
+
+document.getElementById("navMembers").onclick =
+()=> window.location="members.html?camp="+slug
+
+document.getElementById("navTraditions").onclick =
+()=> window.location="traditions.html?camp="+slug
+
+document.getElementById("navMemories").onclick =
+()=> window.location="memories.html?camp="+slug
+
+document.getElementById("navMap").onclick =
+()=> window.location="map.html?camp="+slug
+
+}
+
+</script>
+
+</body>
+</html>
