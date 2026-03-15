@@ -8,63 +8,72 @@
 
 <title>DeerCamp</title>
 
-<link rel="stylesheet" href="style.css">
-
 <style>
 
 body{
+margin:0;
 font-family:system-ui,-apple-system,Segoe UI,Roboto;
 background:#e6dccd;
-margin:0;
+color:#2e2a25;
 }
 
 .wrap{
 max-width:1000px;
 margin:auto;
-padding:40px 20px;
+padding:30px 20px;
 }
 
-.camp-hero{
-width:100%;
-height:420px;
-object-fit:cover;
-border-radius:16px;
-}
+/* CAMP SIGN */
 
-.camp-header{
+.camp-sign{
+background:#7a5636;
+color:white;
+padding:22px;
+border-radius:10px;
 text-align:center;
-margin-top:30px;
+box-shadow:0 6px 16px rgba(0,0,0,.25);
 }
 
 .camp-name{
-font-size:42px;
+font-size:40px;
 font-weight:700;
 }
 
-.camp-location{
-opacity:.8;
+.camp-meta{
 margin-top:6px;
+opacity:.9;
 }
 
-.camp-members{
-margin-top:10px;
-font-size:16px;
-opacity:.75;
+/* HERO */
+
+.camp-hero{
+margin-top:18px;
+width:100%;
+height:420px;
+object-fit:cover;
+border-radius:14px;
 }
 
-.section{
-margin-top:60px;
+/* CONTENT PANEL */
+
+.panel{
+background:#f5efe4;
+padding:35px;
+margin-top:35px;
+border-radius:16px;
+box-shadow:0 8px 20px rgba(0,0,0,.12);
 }
 
-.section h2{
-font-size:32px;
-margin-bottom:16px;
+.panel h2{
+margin-top:0;
+font-size:28px;
 }
 
-.traditions-list{
-padding-left:20px;
+/* LISTS */
+
+ul{
+line-height:1.7;
 font-size:18px;
-line-height:1.6;
 }
 
 </style>
@@ -75,28 +84,47 @@ line-height:1.6;
 
 <div class="wrap">
 
-<img id="heroImage" class="camp-hero" src="" alt="DeerCamp Hero">
+<!-- CAMP SIGN -->
 
-<div class="camp-header">
+<div class="camp-sign">
 
 <div id="campName" class="camp-name"></div>
 
-<div id="campLocation" class="camp-location"></div>
+<div id="campMeta" class="camp-meta"></div>
 
-<div id="campMembers" class="camp-members"></div>
+<div id="campMembers"></div>
 
 </div>
 
 
-<div class="section">
+<!-- HERO IMAGE -->
+
+<img id="heroImage" class="camp-hero">
+
+
+<!-- TRADITIONS -->
+
+<div id="traditionsPanel" class="panel" style="display:none">
 
 <h2>Camp Traditions</h2>
 
-<ul id="traditionsList" class="traditions-list"></ul>
+<ul id="traditionsList"></ul>
+
+</div>
+
+
+<!-- MEMBERS -->
+
+<div id="membersPanel" class="panel" style="display:none">
+
+<h2>Camp Members</h2>
+
+<ul id="membersList"></ul>
 
 </div>
 
 </div>
+
 
 
 <script>
@@ -104,34 +132,62 @@ line-height:1.6;
 const params = new URLSearchParams(window.location.search);
 const campSlug = params.get("camp");
 
-fetch("/camps/" + campSlug + ".json")
+fetch("camps/" + campSlug + ".json")
 .then(res => res.json())
 .then(data => {
 
-document.getElementById("campName").innerText =
-data.name || "";
+/* SIGN */
 
-document.getElementById("campLocation").innerText =
-(data.location || "") + (data.established ? " • Est. " + data.established : "");
+document.getElementById("campName").innerText = data.name || "";
 
+document.getElementById("campMeta").innerText =
+(data.location || "") +
+(data.established ? " • Est. " + data.established : "");
+
+if(data.members){
 document.getElementById("campMembers").innerText =
-data.members ? data.members.join(" • ") : "";
+data.members.join(" • ");
+}
+
+
+/* HERO */
 
 document.getElementById("heroImage").src =
-"/assets/heroes/" + data.hero;
+"assets/heroes/" + data.hero;
 
 
-// build traditions list
+/* TRADITIONS */
 
-const traditionsList = document.getElementById("traditionsList");
+if(data.traditions && data.traditions.length){
 
-if(data.traditions){
+document.getElementById("traditionsPanel").style.display="block";
 
-data.traditions.forEach(tradition => {
+const list = document.getElementById("traditionsList");
+
+data.traditions.forEach(item =>{
 
 const li = document.createElement("li");
-li.textContent = tradition;
-traditionsList.appendChild(li);
+li.textContent = item;
+list.appendChild(li);
+
+});
+
+}
+
+
+/* MEMBERS PANEL */
+
+if(data.members && data.members.length){
+
+document.getElementById("membersPanel").style.display="block";
+
+const list = document.getElementById("membersList");
+
+data.members.forEach(member =>{
+
+const li = document.createElement("li");
+li.textContent = member;
+list.appendChild(li);
 
 });
 
