@@ -41,7 +41,7 @@ margin-top:18px;
 font-weight:600;
 }
 
-input, textarea{
+input, textarea, select{
 width:100%;
 padding:10px;
 margin-top:6px;
@@ -97,8 +97,15 @@ text-align:center;
 <label>Established Year</label>
 <input id="campEstablished">
 
-<label>Hero Image File Name</label>
-<input id="campHero" placeholder="example: cabin.jpg">
+<label>Choose a Camp Style</label>
+
+<select id="campHero">
+
+<option value="classic.jpg">Classic Camp</option>
+<option value="pines.jpg">Pine Forest Camp</option>
+<option value="cabin.jpg">Cabin Camp</option>
+
+</select>
 
 <label>Members (comma separated)</label>
 <input id="campMembers" placeholder="Tom, Rick, Dave">
@@ -111,7 +118,7 @@ text-align:center;
 </form>
 
 <div class="note">
-This will download your camp JSON file.
+Your DeerCamp will appear instantly.
 </div>
 
 </div>
@@ -139,12 +146,7 @@ const traditions = document.getElementById("campTraditions")
 .map(t => t.trim())
 .filter(Boolean);
 
-const slug = name
-.toLowerCase()
-.replace(/[^a-z0-9]+/g,"-")
-.replace(/(^-|-$)/g,"");
-
-const json = {
+const campData = {
 
 name:name,
 location:location,
@@ -155,17 +157,9 @@ traditions:traditions
 
 };
 
-const blob = new Blob(
-[JSON.stringify(json,null,2)],
-{type:"application/json"}
-);
+localStorage.setItem("previewCamp", JSON.stringify(campData));
 
-const link = document.createElement("a");
-
-link.href = URL.createObjectURL(blob);
-link.download = slug + ".json";
-
-link.click();
+window.location = "/camp.html?preview=true";
 
 });
 
