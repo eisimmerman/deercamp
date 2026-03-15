@@ -2,25 +2,25 @@
 <html lang="en">
 
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Build Your Camp</title>
+<title>Build Your DeerCamp</title>
 
 <style>
 
 body{
+margin:0;
 font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:#121212;
-color:#ffffff;
-display:flex;
-justify-content:center;
-padding:40px;
+background:#e6dccd;
+color:#2e2a25;
 }
 
-.container{
-max-width:700px;
-width:100%;
+.wrap{
+max-width:800px;
+margin:auto;
+padding:40px 20px;
 }
 
 h1{
@@ -28,135 +28,148 @@ text-align:center;
 margin-bottom:30px;
 }
 
+form{
+background:#f5efe4;
+padding:30px;
+border-radius:14px;
+box-shadow:0 6px 18px rgba(0,0,0,.15);
+}
+
 label{
 display:block;
-margin-top:20px;
+margin-top:18px;
 font-weight:600;
 }
 
-input,textarea,select{
+input, textarea{
 width:100%;
 padding:10px;
-margin-top:8px;
+margin-top:6px;
 border-radius:6px;
-border:none;
-font-size:16px;
+border:1px solid #ccc;
+font-size:15px;
+}
+
+textarea{
+min-height:80px;
 }
 
 button{
-margin-top:30px;
-padding:14px;
-width:100%;
-font-size:18px;
+margin-top:24px;
+padding:12px 20px;
+background:#7a5636;
+color:white;
 border:none;
 border-radius:8px;
-background:#2c8a4b;
-color:white;
+font-size:16px;
 cursor:pointer;
 }
 
 button:hover{
-background:#37a05a;
+background:#5f4228;
+}
+
+.note{
+margin-top:20px;
+font-size:14px;
+opacity:.7;
+text-align:center;
 }
 
 </style>
 
 </head>
 
-
 <body>
 
-<div class="container">
+<div class="wrap">
 
-<h1>Build Your Camp in 5 Minutes</h1>
+<h1>Build Your DeerCamp</h1>
 
 <form id="campForm">
 
 <label>Camp Name</label>
 <input id="campName" required>
 
-<label>Camp Location</label>
-<input id="location" placeholder="Northern Michigan">
+<label>Location</label>
+<input id="campLocation">
 
-<label>Year Established</label>
-<input id="established">
+<label>Established Year</label>
+<input id="campEstablished">
 
-<label>Camp Members (comma separated)</label>
-<input id="members" placeholder="Eric S, Ben K, Mike D">
+<label>Hero Image File Name</label>
+<input id="campHero" placeholder="example: cabin.jpg">
 
-<label>Camp Banner</label>
-<select id="hero">
-<option value="pines.jpg">Northern Pines</option>
-<option value="cabin.jpg">Cabin Firelight</option>
-<option value="snow.jpg">Snow Hunt</option>
-<option value="classic.jpg">DeerCamp Classic</option>
-</select>
+<label>Members (comma separated)</label>
+<input id="campMembers" placeholder="Tom, Rick, Dave">
 
-<label>Camp Tradition</label>
-<input id="traditionName" placeholder="Opening Night Venison Chili">
+<label>Traditions (one per line)</label>
+<textarea id="campTraditions"></textarea>
 
-<label>Tradition Description</label>
-<textarea id="traditionDescription"></textarea>
-
-<button type="submit">Create My Camp</button>
+<button type="submit">Generate My DeerCamp</button>
 
 </form>
 
+<div class="note">
+This will download your camp JSON file.
 </div>
 
+</div>
 
 <script>
 
-document.getElementById("campForm").addEventListener("submit",function(e){
+document.getElementById("campForm").addEventListener("submit", function(e){
 
 e.preventDefault();
 
-const campName=document.getElementById("campName").value;
-const location=document.getElementById("location").value;
-const established=document.getElementById("established").value;
-const hero=document.getElementById("hero").value;
+const name = document.getElementById("campName").value;
+const location = document.getElementById("campLocation").value;
+const established = document.getElementById("campEstablished").value;
+const hero = document.getElementById("campHero").value;
 
-const members=document.getElementById("members").value
+const members = document.getElementById("campMembers")
+.value
 .split(",")
-.map(m=>m.trim());
+.map(m => m.trim())
+.filter(Boolean);
 
-const traditionName=document.getElementById("traditionName").value;
-const traditionDescription=document.getElementById("traditionDescription").value;
+const traditions = document.getElementById("campTraditions")
+.value
+.split("\n")
+.map(t => t.trim())
+.filter(Boolean);
 
-const campSlug=campName
+const slug = name
 .toLowerCase()
-.replaceAll(" ","-");
+.replace(/[^a-z0-9]+/g,"-")
+.replace(/(^-|-$)/g,"");
 
-const campData={
+const json = {
 
-campName:campName,
+name:name,
 location:location,
 established:established,
 hero:hero,
-
 members:members,
-
-traditions:{
-name:traditionName,
-description:traditionDescription
-}
+traditions:traditions
 
 };
 
-const json=JSON.stringify(campData,null,2);
+const blob = new Blob(
+[JSON.stringify(json,null,2)],
+{type:"application/json"}
+);
 
-const blob=new Blob([json],{type:"application/json"});
-const url=URL.createObjectURL(blob);
+const link = document.createElement("a");
 
-const a=document.createElement("a");
-a.href=url;
-a.download=campSlug+".json";
-a.click();
+link.href = URL.createObjectURL(blob);
+link.download = slug + ".json";
+
+link.click();
 
 });
 
 </script>
-
 
 </body>
 </html>
