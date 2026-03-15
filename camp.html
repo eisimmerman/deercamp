@@ -6,99 +6,130 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>DeerCamp</title>
+<title>Build Your DeerCamp</title>
 
 <style>
 
 body{
 margin:0;
-background:#e6dccd;
 font-family:system-ui,-apple-system,Segoe UI,Roboto;
+background:#e6dccd;
 }
 
-/* overall page width */
-
-.wrap{
-max-width:900px;
+.container{
+max-width:1200px;
 margin:auto;
 padding:40px 20px;
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:40px;
 }
 
-/* entire camp frame */
+/* form */
 
-.frame{
+form{
+background:#f5efe4;
+padding:30px;
+border-radius:14px;
+box-shadow:0 6px 18px rgba(0,0,0,.15);
+}
+
+label{
+display:block;
+margin-top:18px;
+font-weight:600;
+}
+
+input, textarea, select{
+width:100%;
+padding:10px;
+margin-top:6px;
+border-radius:6px;
+border:1px solid #ccc;
+font-size:15px;
+}
+
+textarea{
+min-height:80px;
+}
+
+button{
+margin-top:24px;
+padding:14px;
+background:#7a5636;
+color:white;
+border:none;
+border-radius:8px;
+font-size:16px;
+cursor:pointer;
+width:100%;
+}
+
+/* preview frame */
+
+.preview{
+
 background:#f3ecdf;
 border-radius:28px;
 box-shadow:0 20px 40px rgba(0,0,0,.25);
 overflow:hidden;
+
 }
 
-/* wood banner */
+/* banner */
 
 .banner{
+
 background:#7b5a38;
 color:white;
 text-align:center;
-padding:18px 20px;
+padding:16px;
+
 }
 
 .banner h1{
+
 margin:0;
-font-size:32px;
+font-size:28px;
+
 }
 
 .banner .meta{
-margin-top:6px;
-opacity:.9;
+
 font-size:14px;
+opacity:.9;
+
 }
-
-/* hero image */
-
-.hero{
-width:100%;
-height:340px;
-object-fit:cover;
-}
-
-/* parchment content */
-
-.content{
-padding:40px;
-}
-
-/* members line */
 
 .members{
-margin-top:10px;
-font-size:16px;
-opacity:.8;
-text-align:center;
-}
 
-/* section */
-
-.section{
-margin-top:40px;
-}
-
-.section h2{
-margin-top:0;
-}
-
-/* traditions list */
-
-.section ul{
-line-height:1.7;
-}
-
-/* footer forest */
-
-.footer{
-text-align:center;
-padding:20px;
 font-size:14px;
-opacity:.6;
+margin-top:6px;
+
+}
+
+/* hero */
+
+.hero{
+
+width:100%;
+height:240px;
+object-fit:cover;
+
+}
+
+/* traditions */
+
+.content{
+
+padding:24px;
+
+}
+
+.content h2{
+
+margin-top:0;
+
 }
 
 </style>
@@ -107,37 +138,66 @@ opacity:.6;
 
 <body>
 
-<div class="wrap">
+<div class="container">
 
-<div class="frame">
+<!-- BUILDER FORM -->
+
+<form id="campForm">
+
+<h2>Build Your DeerCamp</h2>
+
+<label>Camp Name</label>
+<input id="campName">
+
+<label>Location</label>
+<input id="campLocation">
+
+<label>Established Year</label>
+<input id="campEstablished">
+
+<label>Camp Style</label>
+
+<select id="campHero">
+
+<option value="classic.jpg">Classic Deer Camp</option>
+<option value="pines.jpg">Pine Forest Camp</option>
+<option value="cabin.jpg">Cabin Camp</option>
+
+</select>
+
+<label>Members (comma separated)</label>
+<input id="campMembers">
+
+<label>Traditions (one per line)</label>
+<textarea id="campTraditions"></textarea>
+
+<button type="submit">Generate My DeerCamp</button>
+
+</form>
+
+<!-- LIVE PREVIEW -->
+
+<div class="preview">
 
 <div class="banner">
 
-<h1 id="campName"></h1>
+<h1 id="previewName">Your Camp Name</h1>
 
-<div id="campMeta" class="meta"></div>
+<div id="previewMeta" class="meta">
+Location • Est.
+</div>
 
-<div id="campMembers" class="members"></div>
+<div id="previewMembers" class="members"></div>
 
 </div>
 
-<img id="heroImage" class="hero">
+<img id="previewHero" class="hero" src="assets/heroes/classic.jpg">
 
 <div class="content">
 
-<div class="section">
-
 <h2>Camp Traditions</h2>
 
-<ul id="traditionsList"></ul>
-
-</div>
-
-</div>
-
-<div class="footer">
-
-DeerCamp • Preserve the memories of camp
+<ul id="previewTraditions"></ul>
 
 </div>
 
@@ -147,58 +207,96 @@ DeerCamp • Preserve the memories of camp
 
 <script>
 
-const params = new URLSearchParams(window.location.search);
+const nameInput = document.getElementById("campName");
+const locationInput = document.getElementById("campLocation");
+const yearInput = document.getElementById("campEstablished");
+const heroInput = document.getElementById("campHero");
+const membersInput = document.getElementById("campMembers");
+const traditionsInput = document.getElementById("campTraditions");
 
-function renderCamp(data){
+/* preview elements */
 
-document.getElementById("campName").innerText = data.name;
+const previewName = document.getElementById("previewName");
+const previewMeta = document.getElementById("previewMeta");
+const previewMembers = document.getElementById("previewMembers");
+const previewHero = document.getElementById("previewHero");
+const previewTraditions = document.getElementById("previewTraditions");
 
-document.getElementById("campMeta").innerText =
-data.location + " • Est. " + data.established;
+/* update preview */
 
-document.getElementById("campMembers").innerText =
-data.members.join(" • ");
+function updatePreview(){
 
-document.getElementById("heroImage").src =
-"assets/heroes/" + data.hero;
+previewName.innerText = nameInput.value || "Your Camp Name";
 
-const list = document.getElementById("traditionsList");
+previewMeta.innerText =
+(locationInput.value || "Location") +
+" • Est. " +
+(yearInput.value || "Year");
 
-list.innerHTML="";
+previewMembers.innerText = membersInput.value
+.split(",")
+.map(m=>m.trim())
+.filter(Boolean)
+.join(" • ");
 
-data.traditions.forEach(t =>{
+previewHero.src = "assets/heroes/" + heroInput.value;
+
+/* traditions */
+
+previewTraditions.innerHTML="";
+
+traditionsInput.value
+.split("\n")
+.map(t=>t.trim())
+.filter(Boolean)
+.forEach(t=>{
 
 const li = document.createElement("li");
 li.textContent = t;
-list.appendChild(li);
+previewTraditions.appendChild(li);
 
 });
 
 }
 
-/* preview mode */
+/* watch inputs */
 
-if(params.get("preview")){
+[
+nameInput,
+locationInput,
+yearInput,
+heroInput,
+membersInput,
+traditionsInput
 
-const data = JSON.parse(localStorage.getItem("previewCamp"));
+].forEach(input => {
 
-renderCamp(data);
+input.addEventListener("input",updatePreview);
 
-}
+});
 
-/* normal camp */
+/* generate camp */
 
-else{
+document.getElementById("campForm").addEventListener("submit",function(e){
 
-const slug = params.get("camp");
+e.preventDefault();
 
-fetch("camps/" + slug + ".json")
+const campData = {
 
-.then(res => res.json())
+name:nameInput.value,
+location:locationInput.value,
+established:yearInput.value,
+hero:heroInput.value,
+members:membersInput.value.split(",").map(m=>m.trim()),
+traditions:traditionsInput.value.split("\n").map(t=>t.trim())
 
-.then(data => renderCamp(data));
+};
 
-}
+localStorage.setItem("previewCamp",JSON.stringify(campData));
+
+window.location="camp.html?preview=true";
+
+});
 
 </script>
 
