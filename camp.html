@@ -29,39 +29,50 @@ padding:30px 20px;
 background:#7a5636;
 color:white;
 padding:22px;
-border-radius:10px;
+border-radius:12px;
 text-align:center;
-box-shadow:0 6px 16px rgba(0,0,0,.25);
+box-shadow:0 6px 18px rgba(0,0,0,.25);
 }
 
 .camp-name{
-font-size:40px;
+font-size:38px;
 font-weight:700;
 }
 
 .camp-meta{
 margin-top:6px;
 opacity:.9;
+font-size:16px;
+}
+
+.camp-members{
+margin-top:8px;
+opacity:.85;
 }
 
 /* HERO */
 
+.hero-wrap{
+margin-top:20px;
+border-radius:16px;
+overflow:hidden;
+}
+
 .camp-hero{
-margin-top:18px;
 width:100%;
-height:420px;
+height:460px;
 object-fit:cover;
-border-radius:14px;
+display:block;
 }
 
 /* CONTENT PANEL */
 
 .panel{
 background:#f5efe4;
-padding:35px;
-margin-top:35px;
+padding:34px;
+margin-top:34px;
 border-radius:16px;
-box-shadow:0 8px 20px rgba(0,0,0,.12);
+box-shadow:0 8px 22px rgba(0,0,0,.12);
 }
 
 .panel h2{
@@ -69,10 +80,32 @@ margin-top:0;
 font-size:28px;
 }
 
-/* LISTS */
+.panel ul{
+line-height:1.8;
+font-size:18px;
+}
 
-ul{
-line-height:1.7;
+/* STORIES */
+
+.story{
+margin-bottom:22px;
+}
+
+.story h3{
+margin-bottom:6px;
+}
+
+/* MAP */
+
+.map-box{
+margin-top:20px;
+height:350px;
+background:#ddd;
+border-radius:12px;
+display:flex;
+align-items:center;
+justify-content:center;
+color:#555;
 font-size:18px;
 }
 
@@ -92,14 +125,18 @@ font-size:18px;
 
 <div id="campMeta" class="camp-meta"></div>
 
-<div id="campMembers"></div>
+<div id="campMembers" class="camp-members"></div>
 
 </div>
 
 
-<!-- HERO IMAGE -->
+<!-- HERO -->
+
+<div class="hero-wrap">
 
 <img id="heroImage" class="camp-hero">
+
+</div>
 
 
 <!-- TRADITIONS -->
@@ -123,6 +160,31 @@ font-size:18px;
 
 </div>
 
+
+<!-- STORIES -->
+
+<div id="storiesPanel" class="panel" style="display:none">
+
+<h2>Camp Stories</h2>
+
+<div id="storiesContainer"></div>
+
+</div>
+
+
+<!-- MAP -->
+
+<div id="mapPanel" class="panel" style="display:none">
+
+<h2>Camp Map</h2>
+
+<div class="map-box" id="mapBox">
+Camp Map Coming Soon
+</div>
+
+</div>
+
+
 </div>
 
 
@@ -132,8 +194,10 @@ font-size:18px;
 const params = new URLSearchParams(window.location.search);
 const campSlug = params.get("camp");
 
-fetch("camps/" + campSlug + ".json")
+fetch("/camps/" + campSlug + ".json")
+
 .then(res => res.json())
+
 .then(data => {
 
 /* SIGN */
@@ -149,11 +213,10 @@ document.getElementById("campMembers").innerText =
 data.members.join(" • ");
 }
 
-
 /* HERO */
 
 document.getElementById("heroImage").src =
-"assets/heroes/" + data.hero;
+"/assets/heroes/" + data.hero;
 
 
 /* TRADITIONS */
@@ -190,6 +253,40 @@ li.textContent = member;
 list.appendChild(li);
 
 });
+
+}
+
+
+/* STORIES */
+
+if(data.stories && data.stories.length){
+
+document.getElementById("storiesPanel").style.display="block";
+
+const container = document.getElementById("storiesContainer");
+
+data.stories.forEach(story =>{
+
+const block = document.createElement("div");
+block.className="story";
+
+block.innerHTML = `
+<h3>${story.title}</h3>
+<p>${story.text}</p>
+`;
+
+container.appendChild(block);
+
+});
+
+}
+
+
+/* MAP */
+
+if(data.map){
+
+document.getElementById("mapPanel").style.display="block";
 
 }
 
