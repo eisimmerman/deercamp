@@ -1,1 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>DeerCamp Camps</title>
+
+<link rel="stylesheet" href="style.css">
+
+<style>
+
+body{
+font-family:system-ui,-apple-system,Segoe UI,Roboto;
+background:#121212;
+color:white;
+padding:40px;
+}
+
+.wrap{
+max-width:1100px;
+margin:auto;
+}
+
+h1{
+text-align:center;
+margin-bottom:40px;
+}
+
+.camps-grid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+gap:24px;
+}
+
+.camp-card{
+background:#1f1f1f;
+border-radius:10px;
+overflow:hidden;
+cursor:pointer;
+transition:transform .2s;
+}
+
+.camp-card:hover{
+transform:scale(1.03);
+}
+
+.camp-card img{
+width:100%;
+height:160px;
+object-fit:cover;
+}
+
+.camp-info{
+padding:16px;
+}
+
+.camp-name{
+font-size:20px;
+font-weight:600;
+}
+
+.camp-location{
+opacity:.7;
+font-size:14px;
+margin-top:6px;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<div class="wrap">
+
+<h1>DeerCamp Camps</h1>
+
+<div class="camps-grid" id="campsGrid"></div>
+
+</div>
+
+
+<script>
+
+const camps=[
+"cedar-ridge-camp",
+"pine-hollow-camp",
+"red-oak-camp"
+];
+
+const grid=document.getElementById("campsGrid");
+
+camps.forEach(slug=>{
+
+fetch("/camps/"+slug+".json")
+
+.then(res=>res.json())
+
+.then(data=>{
+
+const card=document.createElement("div");
+
+card.className="camp-card";
+
+card.onclick=()=>{
+
+window.location="/camp.html?camp="+slug;
+
+};
+
+card.innerHTML=`
+
+<img src="/assets/heroes/${data.hero}">
+
+<div class="camp-info">
+
+<div class="camp-name">${data.campName}</div>
+
+<div class="camp-location">
+${data.location} • Est. ${data.established}
+</div>
+
+</div>
+
+`;
+
+grid.appendChild(card);
+
+});
+
+});
+
+</script>
+
+</body>
+</html>
