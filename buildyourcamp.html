@@ -126,11 +126,11 @@ Your DeerCamp will appear instantly.
 
 <script>
 
-document.getElementById("campForm").addEventListener("submit", async function(e){
+document.getElementById("campForm").addEventListener("submit", function(e){
 
 e.preventDefault();
 
-/* collect form values */
+/* collect form data */
 
 const name = document.getElementById("campName").value;
 const location = document.getElementById("campLocation").value;
@@ -149,34 +149,27 @@ const traditions = document.getElementById("campTraditions")
 .map(t => t.trim())
 .filter(Boolean);
 
-/* send to API */
+/* build preview object */
 
-const response = await fetch("/api/createCamp",{
+const campData = {
 
-method:"POST",
+name:name,
+location:location,
+established:established,
+hero:hero,
+members:members,
+traditions:traditions
 
-headers:{
-"Content-Type":"application/json"
-},
+};
 
-body:JSON.stringify({
-name,
-location,
-established,
-hero,
-members,
-traditions
-})
+/* store in browser */
 
-});
+localStorage.setItem("previewCamp", JSON.stringify(campData));
 
-/* get slug */
+/* open preview camp page */
 
-const result = await response.json();
-
-/* open the new camp */
-
-window.location = "/camp.html?camp=" + result.slug;
+window.location =
+"/deercamp/camp.html?preview=true";
 
 });
 
