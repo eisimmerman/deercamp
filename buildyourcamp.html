@@ -103,15 +103,9 @@ background:#5e4229;
 Generate My DeerCamp
 </button>
 
-<button id="publishBtn" style="display:none;" onclick="publishCamp()">
-Publish My DeerCamp
-</button>
-
 </div>
 
 <script>
-
-let generatedCamp = null;
 
 function generateCamp(){
 
@@ -121,17 +115,23 @@ const established = document.getElementById("established").value
 const hero = document.getElementById("style").value
 
 const members =
-document.getElementById("members").value.split(",").map(x=>x.trim())
+document.getElementById("members").value
+.split(",")
+.map(x=>x.trim())
+.filter(Boolean)
 
 const traditions =
-document.getElementById("traditions").value.split("\n").map(x=>x.trim())
+document.getElementById("traditions").value
+.split("\n")
+.map(x=>x.trim())
+.filter(Boolean)
 
 const slug =
 name.toLowerCase()
 .replace(/&/g,"")
 .replace(/\s+/g,"-")
 
-generatedCamp = {
+const camp = {
 slug,
 name,
 location,
@@ -141,25 +141,9 @@ members,
 traditions
 }
 
-localStorage.setItem("generatedCamp", JSON.stringify(generatedCamp))
+localStorage.setItem("generatedCamp", JSON.stringify(camp))
 
-document.getElementById("publishBtn").style.display="block"
-
-window.location = "camp.html?camp=preview"
-
-}
-
-function publishCamp(){
-
-const camp = generatedCamp
-
-const json = JSON.stringify(camp,null,2)
-
-const url =
-"https://github.com/eisimmerman/deercamp/new/main/camps?filename=" +
-camp.slug + ".json&value=" + encodeURIComponent(json)
-
-window.open(url,"_blank")
+window.location="camp.html?camp=preview"
 
 }
 
