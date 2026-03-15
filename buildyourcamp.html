@@ -55,14 +55,15 @@ min-height:80px;
 }
 
 button{
-margin-top:24px;
-padding:12px 20px;
+margin-top:26px;
+padding:14px 22px;
 background:#7a5636;
 color:white;
 border:none;
 border-radius:8px;
 font-size:16px;
 cursor:pointer;
+width:100%;
 }
 
 button:hover{
@@ -97,20 +98,20 @@ text-align:center;
 <label>Established Year</label>
 <input id="campEstablished">
 
-<label>Choose a Camp Style</label>
+<label>Choose Your Camp Style</label>
 
 <select id="campHero">
 
-<option value="classic.jpg">Classic Camp</option>
+<option value="classic.jpg">Classic Deer Camp</option>
 <option value="pines.jpg">Pine Forest Camp</option>
 <option value="cabin.jpg">Cabin Camp</option>
 
 </select>
 
-<label>Members (comma separated)</label>
+<label>Camp Members (comma separated)</label>
 <input id="campMembers" placeholder="Tom, Rick, Dave">
 
-<label>Traditions (one per line)</label>
+<label>Camp Traditions (one per line)</label>
 <textarea id="campTraditions"></textarea>
 
 <button type="submit">Generate My DeerCamp</button>
@@ -125,9 +126,11 @@ Your DeerCamp will appear instantly.
 
 <script>
 
-document.getElementById("campForm").addEventListener("submit", function(e){
+document.getElementById("campForm").addEventListener("submit", async function(e){
 
 e.preventDefault();
+
+/* collect form values */
 
 const name = document.getElementById("campName").value;
 const location = document.getElementById("campLocation").value;
@@ -146,20 +149,34 @@ const traditions = document.getElementById("campTraditions")
 .map(t => t.trim())
 .filter(Boolean);
 
-const campData = {
+/* send to API */
 
-name:name,
-location:location,
-established:established,
-hero:hero,
-members:members,
-traditions:traditions
+const response = await fetch("/api/createCamp",{
 
-};
+method:"POST",
 
-localStorage.setItem("previewCamp", JSON.stringify(campData));
+headers:{
+"Content-Type":"application/json"
+},
 
-window.location = "/camp.html?preview=true";
+body:JSON.stringify({
+name,
+location,
+established,
+hero,
+members,
+traditions
+})
+
+});
+
+/* get slug */
+
+const result = await response.json();
+
+/* open the new camp */
+
+window.location = "/camp.html?camp=" + result.slug;
 
 });
 
