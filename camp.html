@@ -1,206 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>DeerCamp</title>
-
-<style>
-
-body{
-margin:0;
-font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:#e6dccd;
-color:#2e2a25;
-}
-
-.wrap{
-max-width:1000px;
-margin:auto;
-padding:30px 20px;
-}
-
-/* CAMP SIGN */
-
-.camp-sign{
-background:#7a5636;
-color:white;
-padding:22px;
-border-radius:12px;
-text-align:center;
-box-shadow:0 6px 18px rgba(0,0,0,.25);
-}
-
-.camp-name{
-font-size:38px;
-font-weight:700;
-}
-
-.camp-meta{
-margin-top:6px;
-opacity:.9;
-font-size:16px;
-}
-
-.camp-members{
-margin-top:8px;
-opacity:.85;
-}
-
-/* HERO */
-
-.hero-wrap{
-margin-top:20px;
-border-radius:16px;
-overflow:hidden;
-}
-
-.camp-hero{
-width:100%;
-height:460px;
-object-fit:cover;
-display:block;
-}
-
-/* CONTENT PANEL */
-
-.panel{
-background:#f5efe4;
-padding:34px;
-margin-top:34px;
-border-radius:16px;
-box-shadow:0 8px 22px rgba(0,0,0,.12);
-}
-
-.panel h2{
-margin-top:0;
-font-size:28px;
-}
-
-.panel ul{
-line-height:1.8;
-font-size:18px;
-}
-
-/* STORIES */
-
-.story{
-margin-bottom:22px;
-}
-
-.story h3{
-margin-bottom:6px;
-}
-
-/* MAP */
-
-.map-box{
-margin-top:20px;
-height:350px;
-background:#ddd;
-border-radius:12px;
-display:flex;
-align-items:center;
-justify-content:center;
-color:#555;
-font-size:18px;
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="wrap">
-
-<!-- CAMP SIGN -->
-
-<div class="camp-sign">
-
-<div id="campName" class="camp-name"></div>
-
-<div id="campMeta" class="camp-meta"></div>
-
-<div id="campMembers" class="camp-members"></div>
-
-</div>
-
-
-<!-- HERO -->
-
-<div class="hero-wrap">
-
-<img id="heroImage" class="camp-hero">
-
-</div>
-
-
-<!-- TRADITIONS -->
-
-<div id="traditionsPanel" class="panel" style="display:none">
-
-<h2>Camp Traditions</h2>
-
-<ul id="traditionsList"></ul>
-
-</div>
-
-
-<!-- MEMBERS -->
-
-<div id="membersPanel" class="panel" style="display:none">
-
-<h2>Camp Members</h2>
-
-<ul id="membersList"></ul>
-
-</div>
-
-
-<!-- STORIES -->
-
-<div id="storiesPanel" class="panel" style="display:none">
-
-<h2>Camp Stories</h2>
-
-<div id="storiesContainer"></div>
-
-</div>
-
-
-<!-- MAP -->
-
-<div id="mapPanel" class="panel" style="display:none">
-
-<h2>Camp Map</h2>
-
-<div class="map-box" id="mapBox">
-Camp Map Coming Soon
-</div>
-
-</div>
-
-
-</div>
-
-
-
 <script>
 
 const params = new URLSearchParams(window.location.search);
-const campSlug = params.get("camp");
 
-fetch("/camps/" + campSlug + ".json")
-
-.then(res => res.json())
-
-.then(data => {
-
-/* SIGN */
+function renderCamp(data){
 
 document.getElementById("campName").innerText = data.name || "";
 
@@ -213,19 +15,18 @@ document.getElementById("campMembers").innerText =
 data.members.join(" • ");
 }
 
-/* HERO */
-
 document.getElementById("heroImage").src =
 "/assets/heroes/" + data.hero;
 
-
-/* TRADITIONS */
+/* traditions */
 
 if(data.traditions && data.traditions.length){
 
 document.getElementById("traditionsPanel").style.display="block";
 
 const list = document.getElementById("traditionsList");
+
+list.innerHTML="";
 
 data.traditions.forEach(item =>{
 
@@ -237,14 +38,15 @@ list.appendChild(li);
 
 }
 
-
-/* MEMBERS PANEL */
+/* members panel */
 
 if(data.members && data.members.length){
 
 document.getElementById("membersPanel").style.display="block";
 
 const list = document.getElementById("membersList");
+
+list.innerHTML="";
 
 data.members.forEach(member =>{
 
@@ -256,43 +58,30 @@ list.appendChild(li);
 
 }
 
+}
 
-/* STORIES */
+/* PREVIEW MODE */
 
-if(data.stories && data.stories.length){
+if(params.get("preview")){
 
-document.getElementById("storiesPanel").style.display="block";
+const previewData = JSON.parse(localStorage.getItem("previewCamp"));
 
-const container = document.getElementById("storiesContainer");
-
-data.stories.forEach(story =>{
-
-const block = document.createElement("div");
-block.className="story";
-
-block.innerHTML = `
-<h3>${story.title}</h3>
-<p>${story.text}</p>
-`;
-
-container.appendChild(block);
-
-});
+renderCamp(previewData);
 
 }
 
+/* NORMAL MODE */
 
-/* MAP */
+else{
 
-if(data.map){
+const campSlug = params.get("camp");
 
-document.getElementById("mapPanel").style.display="block";
+fetch("/camps/" + campSlug + ".json")
+
+.then(res => res.json())
+
+.then(data => renderCamp(data));
 
 }
-
-});
 
 </script>
-
-</body>
-</html>
