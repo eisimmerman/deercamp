@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
 
 <meta charset="UTF-8">
@@ -11,16 +10,20 @@
 <style>
 
 body{
-margin:0;
 font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:#e6dccd;
-color:#2e2a25;
+background:#d2c6b2;
+display:flex;
+justify-content:center;
+padding:40px;
 }
 
-.wrap{
-max-width:800px;
-margin:auto;
-padding:40px 20px;
+.container{
+max-width:650px;
+width:100%;
+background:white;
+padding:30px;
+border-radius:16px;
+box-shadow:0 8px 20px rgba(0,0,0,.15);
 }
 
 h1{
@@ -28,53 +31,39 @@ text-align:center;
 margin-bottom:30px;
 }
 
-form{
-background:#f5efe4;
-padding:30px;
-border-radius:14px;
-box-shadow:0 6px 18px rgba(0,0,0,.15);
-}
-
 label{
 display:block;
-margin-top:18px;
+margin-top:15px;
 font-weight:600;
 }
 
-input, textarea, select{
+input,select,textarea{
 width:100%;
 padding:10px;
-margin-top:6px;
+margin-top:5px;
 border-radius:6px;
 border:1px solid #ccc;
 font-size:15px;
 }
 
 textarea{
-min-height:80px;
+height:90px;
 }
 
 button{
-margin-top:26px;
-padding:14px 22px;
-background:#7a5636;
-color:white;
+width:100%;
+margin-top:20px;
+padding:14px;
 border:none;
 border-radius:8px;
+background:#7b5734;
+color:white;
 font-size:16px;
 cursor:pointer;
-width:100%;
 }
 
 button:hover{
-background:#5f4228;
-}
-
-.note{
-margin-top:20px;
-font-size:14px;
-opacity:.7;
-text-align:center;
+background:#5e4229;
 }
 
 </style>
@@ -83,84 +72,96 @@ text-align:center;
 
 <body>
 
-<div class="wrap">
+<div class="container">
 
 <h1>Build Your DeerCamp</h1>
 
-<form id="campForm">
-
 <label>Camp Name</label>
-<input id="campName" required>
+<input id="campName">
 
 <label>Location</label>
-<input id="campLocation">
+<input id="location">
 
 <label>Established Year</label>
-<input id="campEstablished">
+<input id="established">
 
 <label>Choose Your Camp Style</label>
-
-<select id="campHero">
-
+<select id="style">
 <option value="classic.jpg">Classic Deer Camp</option>
-<option value="pines.jpg">Pine Forest Camp</option>
+<option value="pines.jpg">Pine Woods Camp</option>
 <option value="cabin.jpg">Cabin Camp</option>
-
+<option value="snow.jpg">Snow Camp</option>
 </select>
 
 <label>Camp Members (comma separated)</label>
-<input id="campMembers">
+<input id="members">
 
 <label>Camp Traditions (one per line)</label>
-<textarea id="campTraditions"></textarea>
+<textarea id="traditions"></textarea>
 
-<button type="submit">Generate My DeerCamp</button>
+<button onclick="generateCamp()">
+Generate My DeerCamp
+</button>
 
-</form>
-
-<div class="note">
-Your DeerCamp will appear instantly.
-</div>
+<button id="publishBtn" style="display:none;" onclick="publishCamp()">
+Publish My DeerCamp
+</button>
 
 </div>
 
 <script>
 
-document.getElementById("campForm").addEventListener("submit", function(e){
+let generatedCamp = null;
 
-e.preventDefault();
+function generateCamp(){
 
-const name = document.getElementById("campName").value;
-const location = document.getElementById("campLocation").value;
-const established = document.getElementById("campEstablished").value;
-const hero = document.getElementById("campHero").value;
+const name = document.getElementById("campName").value
+const location = document.getElementById("location").value
+const established = document.getElementById("established").value
+const hero = document.getElementById("style").value
 
-const members = document.getElementById("campMembers")
-.value
-.split(",")
-.map(m => m.trim())
-.filter(Boolean);
+const members =
+document.getElementById("members").value.split(",").map(x=>x.trim())
 
-const traditions = document.getElementById("campTraditions")
-.value
-.split("\n")
-.map(t => t.trim())
-.filter(Boolean);
+const traditions =
+document.getElementById("traditions").value.split("\n").map(x=>x.trim())
 
-const campData = {
+const slug =
+name.toLowerCase()
+.replace(/&/g,"")
+.replace(/\s+/g,"-")
+
+generatedCamp = {
+slug,
 name,
 location,
 established,
 hero,
 members,
 traditions
-};
+}
 
-localStorage.setItem("previewCamp", JSON.stringify(campData));
+localStorage.setItem("generatedCamp", JSON.stringify(generatedCamp))
 
-window.location = "camp.html?preview=true";
+document.getElementById("publishBtn").style.display="block"
 
-});
+window.location = "camp.html?camp=preview"
+
+}
+
+function publishCamp(){
+
+const camp = generatedCamp
+
+const json = JSON.stringify(camp,null,2)
+
+const url =
+"https://github.com/eisimmerman/deercamp/new/main/camps?filename=" +
+camp.slug + ".json&value=" + encodeURIComponent(json)
+
+window.open(url,"_blank")
+
+}
 
 </script>
 
