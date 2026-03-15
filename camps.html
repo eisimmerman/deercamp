@@ -28,7 +28,7 @@ text-align:center;
 margin-bottom:40px;
 }
 
-/* CAMP GRID */
+/* GRID */
 
 .camp-grid{
 display:grid;
@@ -36,9 +36,10 @@ grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
 gap:24px;
 }
 
-/* CAMP CARD */
+/* CARD */
 
 .camp-card{
+position:relative;
 background:white;
 border-radius:14px;
 overflow:hidden;
@@ -52,11 +53,59 @@ transform:translateY(-6px);
 box-shadow:0 10px 22px rgba(0,0,0,.2);
 }
 
-.camp-card img{
-width:100%;
+.camp-image{
+position:relative;
 height:170px;
+overflow:hidden;
+}
+
+.camp-image img{
+width:100%;
+height:100%;
 object-fit:cover;
 display:block;
+}
+
+/* IMAGE OVERLAY */
+
+.image-overlay{
+position:absolute;
+top:0;
+left:0;
+right:0;
+bottom:0;
+background:linear-gradient(to bottom, rgba(0,0,0,.1), rgba(0,0,0,.5));
+}
+
+/* ESTABLISHED BADGE */
+
+.est-badge{
+position:absolute;
+top:12px;
+left:12px;
+background:rgba(0,0,0,.7);
+color:white;
+padding:4px 10px;
+font-size:12px;
+border-radius:6px;
+}
+
+/* VIEW BUTTON */
+
+.view-btn{
+position:absolute;
+bottom:12px;
+right:12px;
+background:white;
+padding:6px 12px;
+font-size:13px;
+border-radius:6px;
+opacity:0;
+transition:opacity .2s;
+}
+
+.camp-card:hover .view-btn{
+opacity:1;
 }
 
 /* INFO */
@@ -111,11 +160,27 @@ window.location = "/camp.html?camp=" + camp.slug;
 };
 
 card.innerHTML = `
+
+<div class="camp-image">
+
 <img src="/assets/heroes/${camp.hero}" alt="${camp.name}">
-<div class="camp-info">
-<div class="camp-name">${camp.name}</div>
-<div class="camp-location">${camp.location || ""}</div>
+
+<div class="image-overlay"></div>
+
+${camp.established ? `<div class="est-badge">Est. ${camp.established}</div>` : ""}
+
+<div class="view-btn">View Camp</div>
+
 </div>
+
+<div class="camp-info">
+
+<div class="camp-name">${camp.name}</div>
+
+<div class="camp-location">${camp.location || ""}</div>
+
+</div>
+
 `;
 
 grid.appendChild(card);
