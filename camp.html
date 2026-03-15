@@ -61,6 +61,12 @@ font-size:32px;
 margin-bottom:16px;
 }
 
+.traditions-list{
+padding-left:20px;
+font-size:18px;
+line-height:1.6;
+}
+
 </style>
 
 </head>
@@ -86,9 +92,7 @@ margin-bottom:16px;
 
 <h2>Camp Traditions</h2>
 
-<h3 id="traditionName"></h3>
-
-<p id="traditionDescription"></p>
+<ul id="traditionsList" class="traditions-list"></ul>
 
 </div>
 
@@ -98,31 +102,40 @@ margin-bottom:16px;
 <script>
 
 const params = new URLSearchParams(window.location.search);
-
 const campSlug = params.get("camp");
 
 fetch("/camps/" + campSlug + ".json")
-
 .then(res => res.json())
-
 .then(data => {
 
-document.getElementById("campName").innerText = data.campName;
+document.getElementById("campName").innerText =
+data.name || "";
 
 document.getElementById("campLocation").innerText =
-data.location + " • Est. " + data.established;
+(data.location || "") + (data.established ? " • Est. " + data.established : "");
 
 document.getElementById("campMembers").innerText =
-data.members.join(" • ");
+data.members ? data.members.join(" • ") : "";
 
 document.getElementById("heroImage").src =
 "/assets/heroes/" + data.hero;
 
-document.getElementById("traditionName").innerText =
-data.traditions.name;
 
-document.getElementById("traditionDescription").innerText =
-data.traditions.description;
+// build traditions list
+
+const traditionsList = document.getElementById("traditionsList");
+
+if(data.traditions){
+
+data.traditions.forEach(tradition => {
+
+const li = document.createElement("li");
+li.textContent = tradition;
+traditionsList.appendChild(li);
+
+});
+
+}
 
 });
 
