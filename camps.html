@@ -16,9 +16,12 @@ background:#cfc3af;
 padding:40px;
 }
 
+/* header */
+
 h1{
 text-align:center;
 margin-bottom:40px;
+font-family:Georgia,serif;
 }
 
 /* grid */
@@ -31,32 +34,27 @@ max-width:1100px;
 margin:auto;
 }
 
-/* camp card */
+/* card */
 
 .card{
-
-background:#f4efe5;
 border-radius:16px;
 overflow:hidden;
-
-box-shadow:0 8px 20px rgba(0,0,0,.2);
-
+box-shadow:0 10px 25px rgba(0,0,0,.25);
 cursor:pointer;
-
 transition:transform .25s ease, box-shadow .25s ease;
-
+background:#000;
 }
 
 .card:hover{
-transform:translateY(-6px);
-box-shadow:0 16px 30px rgba(0,0,0,.3);
+transform:translateY(-8px) scale(1.02);
+box-shadow:0 20px 40px rgba(0,0,0,.35);
 }
 
-/* hero image */
+/* hero */
 
 .card-hero{
 position:relative;
-height:200px;
+height:220px;
 overflow:hidden;
 }
 
@@ -64,58 +62,72 @@ overflow:hidden;
 width:100%;
 height:100%;
 object-fit:cover;
+display:block;
+}
+
+/* image gradient */
+
+.card-hero::after{
+content:"";
+position:absolute;
+bottom:0;
+left:0;
+right:0;
+height:50%;
+background:linear-gradient(transparent,rgba(0,0,0,.65));
+}
+
+/* camp name overlay */
+
+.card-name{
+position:absolute;
+bottom:16px;
+left:18px;
+color:white;
+font-family:Georgia,serif;
+font-size:24px;
+z-index:2;
+text-shadow:0 2px 6px rgba(0,0,0,.6);
 }
 
 /* established badge */
 
 .est{
-
 position:absolute;
 top:12px;
 left:12px;
-
-background:rgba(0,0,0,.7);
+background:rgba(0,0,0,.75);
 color:white;
-
 padding:6px 10px;
-
 border-radius:6px;
-
 font-size:13px;
-
+z-index:2;
 }
 
-/* parchment label */
+/* parchment bottom */
 
 .card-body{
-
 background-image:
 linear-gradient(rgba(255,255,255,.85),rgba(255,255,255,.85)),
 url("assets/textures/parchment.jpg");
-
 background-size:cover;
-
-padding:20px;
-
+padding:16px 20px;
 }
 
-.card-title{
-
-font-family:Georgia,serif;
-
-font-size:22px;
-
-margin-bottom:6px;
-
-color:#3d2a18;
-
-}
+/* location */
 
 .card-location{
-
 color:#5a4632;
-
 font-size:15px;
+}
+
+/* mobile */
+
+@media(max-width:700px){
+
+body{
+padding:20px;
+}
 
 }
 
@@ -149,19 +161,20 @@ card.innerHTML = `
 
 <div class="card-hero">
 
-<img src="assets/heroes/${camp.hero}">
+<img src="assets/heroes/${camp.hero}" 
+onerror="this.src='assets/heroes/classic.jpg'">
 
 <div class="est">
 Est. ${camp.established}
 </div>
 
+<div class="card-name">
+${camp.name}
+</div>
+
 </div>
 
 <div class="card-body">
-
-<div class="card-title">
-${camp.name}
-</div>
 
 <div class="card-location">
 ${camp.location}
@@ -173,7 +186,8 @@ ${camp.location}
 
 card.onclick = () => {
 
-window.location = "camp.html?camp=" + camp.slug
+window.location.href =
+"camp.html?camp=" + encodeURIComponent(camp.slug)
 
 }
 
