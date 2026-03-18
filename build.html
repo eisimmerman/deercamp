@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Start MyCamp</title>
+
+<style>
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#121212;
+  color:white;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  height:100vh;
+}
+
+.container{
+  width:90%;
+  max-width:400px;
+  text-align:center;
+}
+
+.upload-box{
+  border:2px dashed #888;
+  padding:40px 20px;
+  margin-bottom:20px;
+  cursor:pointer;
+}
+
+.upload-box:hover{
+  border-color:white;
+}
+
+input{
+  width:100%;
+  padding:10px;
+  margin:8px 0;
+  border:none;
+  border-radius:4px;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  background:#3a7d44;
+  color:white;
+  border:none;
+  margin-top:10px;
+  cursor:pointer;
+}
+
+button:hover{
+  background:#2f6436;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+  <h2>Start with MyCamp Photo</h2>
+
+  <div class="upload-box" id="uploadBox">
+    Upload Your Camp Photo
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" hidden>
+
+  <input type="text" id="campName" placeholder="Camp Name">
+  <input type="text" id="campLocation" placeholder="Location">
+  <input type="number" id="campYear" placeholder="Established">
+
+  <button id="buildBtn">Build My Camp</button>
+
+</div>
+
+<script>
+
+let uploadedImage = null;
+
+const uploadBox = document.getElementById("uploadBox");
+const fileInput = document.getElementById("fileInput");
+
+uploadBox.onclick = () => fileInput.click();
+
+fileInput.onchange = function(){
+  const file = this.files[0];
+  if(!file) return;
+
+  const reader = new FileReader();
+
+  reader.onload = function(e){
+    uploadedImage = e.target.result;
+    uploadBox.innerText = "Photo Selected ✓";
+  };
+
+  reader.readAsDataURL(file);
+};
+
+document.getElementById("buildBtn").onclick = function(){
+
+  const campData = {
+    name: document.getElementById("campName").value || "My Camp",
+    location: document.getElementById("campLocation").value || "Somewhere",
+    established: document.getElementById("campYear").value || "2024",
+    hero: uploadedImage
+  };
+
+  const slug = campData.name.toLowerCase().replace(/\s+/g, '-');
+
+  localStorage.setItem("camp-" + slug, JSON.stringify(campData));
+
+  window.location.href = "camp.html?camp=" + slug;
+
+};
+
+</script>
+
+</body>
+</html>

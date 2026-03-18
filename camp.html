@@ -2,275 +2,241 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DeerCamp</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
 </head>
+
 <body>
 
-  <header class="camp-header">
-    <div class="header-inner">
-      <div class="header-left">
-        <div class="deer-icon" aria-hidden="true"></div>
-      </div>
+<header class="camp-header">
+  <div class="header-inner">
 
-      <div class="header-center">
-        <h1 id="campName">DeerCamp</h1>
-        <p id="campLocation">Location • Est. Year</p>
-        <div id="campMembers" class="members"></div>
-      </div>
-
-      <div class="header-right">
-        <button id="menuToggle" class="menu-button" type="button">☰ Menu</button>
-      </div>
+    <div class="header-left">
+      <img src="assets/branding/deer-track.png" class="deer-icon"/>
     </div>
 
-    <nav id="sectionMenu" class="section-menu hidden">
-      <a href="#CampMap">CampMap</a>
-      <a href="#CampMemories">CampMemories</a>
-    </nav>
-  </header>
+    <div class="header-center">
+      <div class="camp-title" id="campName">Camp Name</div>
+      <div class="camp-meta" id="campLocation"></div>
+      <div id="campMembers" class="camp-members"></div>
+    </div>
 
-  <section class="hero-wrap">
-    <img id="heroImage" class="hero-image" alt="Camp Hero" />
-  </section>
+    <div class="header-right">
+      <button id="menuToggle" class="menu-btn">☰ Menu</button>
+    </div>
 
-  <div class="best-stand" id="bestStandBox">
-    🏆 Best Stand: No data yet
   </div>
 
-  <main class="content">
-    <section id="CampMap" class="content-card">
-      <h2>CampMap</h2>
-      <div class="map-container" id="mapContainer">
-        <img id="campMap" class="camp-map-image" alt="Camp Map" />
-      </div>
-    </section>
+  <nav id="menu" class="menu hidden">
+    <a href="#CampMap">CampMap</a>
+    <a href="#CampMemories">CampMemories</a>
+  </nav>
+</header>
 
-    <section id="CampMemories" class="content-card">
-      <h2>CampMemories</h2>
-      <ul id="memoriesList" class="memories-list"></ul>
-    </section>
-  </main>
+<!-- HERO -->
+<div class="hero" id="heroImage">
 
-  <div id="mapModal" class="modal">
-    <div class="modal-content">
-      <button class="close" type="button" aria-label="Close">×</button>
+  <!-- 🔥 SHARE BUTTON -->
+  <button id="shareBtn" class="menu-btn" style="position:absolute; top:10px; right:10px;">
+    Share
+  </button>
 
-      <h3 id="modalTitle"></h3>
-      <p id="modalNotes"></p>
+  <!-- HIDDEN FILE INPUT -->
+  <input type="file" id="heroUpload" accept="image/*" hidden>
 
-      <hr>
+</div>
 
-      <h4>Log Sighting</h4>
-      <input id="deerCount" type="number" placeholder="Number of deer">
-      <input id="notesInput" type="text" placeholder="Notes">
-      <button id="saveBtn" type="button">Save</button>
+<!-- BEST STAND -->
+<div class="best-stand" id="bestStandBox">
+  🏆 Best Stand: No data yet
+</div>
 
-      <hr>
+<div class="content">
 
-      <h4>Stand Stats</h4>
-      <p id="totalDeer"></p>
-      <p id="totalLogs"></p>
-      <p id="avgDeer"></p>
-
-      <hr>
-
-      <h4>History</h4>
-      <ul id="historyList"></ul>
+  <div id="CampMap" class="section">
+    <h2>CampMap</h2>
+    <div class="map-container">
+      <img id="campMapImage" class="camp-map"/>
+      <div id="mapPins"></div>
     </div>
   </div>
 
-  <footer class="footer">
-    <img
-      src="assets/branding/deercamp-footer.png"
-      alt="DeerCamp Footer"
-      class="footer-image"
-    >
-  </footer>
+  <div id="CampMemories" class="section">
+    <h2>CampMemories</h2>
+    <ul id="memoriesList"></ul>
+  </div>
 
-  <script>
-    const params = new URLSearchParams(window.location.search);
-    const campSlug = params.get("camp") || "red-oak-camp";
+</div>
 
-    let currentStandId = null;
-    let allStands = [];
+<!-- FOOTER -->
+<div class="footer">
+  <img src="assets/branding/deercamp-footer.png"/>
+</div>
 
-    const menuToggle = document.getElementById("menuToggle");
-    const sectionMenu = document.getElementById("sectionMenu");
-    const modal = document.getElementById("mapModal");
-    const closeBtn = document.querySelector(".close");
+<script>
 
-    menuToggle.addEventListener("click", () => {
-      sectionMenu.classList.toggle("hidden");
-    });
+async function loadCamp(){
 
-    closeBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-    });
+  const params = new URLSearchParams(window.location.search);
+  const slug = params.get("camp") || "red-oak-camp";
 
-    window.addEventListener("click", (event) => {
-      if (event.target === modal) {
-        modal.style.display = "none";
+  // 🔥 CHECK LOCAL STORAGE FIRST
+  if(localStorage.getItem("camp-" + slug)){
+    const data = JSON.parse(localStorage.getItem("camp-" + slug));
+    renderCamp(data, slug);
+    return;
+  }
+
+  // FALLBACK TO JSON
+  const res = await fetch("data/" + slug + ".json");
+  const data = await res.json();
+
+  renderCamp(data, slug);
+}
+
+function renderCamp(data, slug){
+
+  // TITLE
+  document.getElementById("campName").innerText = data.name;
+  document.getElementById("campLocation").innerText =
+    data.location + " • Est. " + data.established;
+
+  // MEMBERS
+  const members = document.getElementById("campMembers");
+  members.innerHTML = "";
+  data.members?.forEach(m => {
+    const span = document.createElement("span");
+    span.className = "member-pill";
+    span.innerText = m;
+    members.appendChild(span);
+  });
+
+  // HERO
+  const heroEl = document.getElementById("heroImage");
+
+  if(data.hero && data.hero.startsWith("data:")){
+    heroEl.style.backgroundImage = "url('" + data.hero + "')";
+  }else{
+    let heroFile = data.hero || "red-oak.jpg";
+    heroEl.style.backgroundImage = "url('assets/heroes/" + heroFile + "')";
+  }
+
+  heroEl.style.backgroundSize = "cover";
+  heroEl.style.backgroundPosition = "center";
+  heroEl.style.backgroundRepeat = "no-repeat";
+
+  // MAP
+  if(data.map){
+    document.getElementById("campMapImage").src = data.map;
+  }
+
+  renderPins(data);
+  updateBestStand(data);
+
+  // MEMORIES
+  const list = document.getElementById("memoriesList");
+  list.innerHTML = "";
+  data.memories?.forEach(m => {
+    const li = document.createElement("li");
+    li.innerText = m;
+    list.appendChild(li);
+  });
+
+  setupHeroUpload(slug);
+}
+
+function renderPins(data){
+  const container = document.getElementById("mapPins");
+  container.innerHTML = "";
+
+  if(!data.stands) return;
+
+  data.stands.forEach(stand => {
+    const pin = document.createElement("div");
+    pin.className = "map-pin";
+
+    pin.style.left = stand.x + "%";
+    pin.style.top = stand.y + "%";
+
+    container.appendChild(pin);
+  });
+}
+
+function updateBestStand(data){
+
+  if(!data.stands) return;
+
+  function score(s){
+    let score = 0;
+    let notes = (s.notes || "").toLowerCase();
+
+    if(notes.includes("morning")) score += 3;
+    if(notes.includes("evening")) score += 3;
+    if(notes.includes("water")) score += 2;
+    if(notes.includes("movement")) score += 2;
+    if(notes.includes("rut")) score += 3;
+
+    return score;
+  }
+
+  let best = data.stands[0];
+  let bestScore = score(best);
+
+  data.stands.forEach(s=>{
+    let sScore = score(s);
+    if(sScore > bestScore){
+      best = s;
+      bestScore = sScore;
+    }
+  });
+
+  document.getElementById("bestStandBox").innerText =
+    "🏆 Best Stand: " + best.name;
+}
+
+// HERO UPLOAD
+function setupHeroUpload(slug){
+
+  const hero = document.getElementById("heroImage");
+  const input = document.getElementById("heroUpload");
+
+  hero.onclick = () => input.click();
+
+  input.onchange = function(){
+    const file = this.files[0];
+    if(!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e){
+      hero.style.backgroundImage = "url('" + e.target.result + "')";
+
+      if(slug){
+        let data = JSON.parse(localStorage.getItem("camp-" + slug));
+        data.hero = e.target.result;
+        localStorage.setItem("camp-" + slug, JSON.stringify(data));
       }
-    });
+    };
 
-    fetch(`data/${campSlug}.json`)
-      .then((res) => {
-        if (!res.ok) throw new Error("Camp data not found.");
-        return res.json();
-      })
-      .then((data) => {
-        document.getElementById("campName").textContent = data.name || "DeerCamp";
-        document.getElementById("campLocation").textContent =
-          `${data.location || ""} • Est. ${data.established || ""}`;
+    reader.readAsDataURL(file);
+  };
+}
 
-        document.getElementById("heroImage").src = `assets/heroes/${data.hero || "classic.jpg"}`;
-        document.getElementById("campMap").src = data.map || "";
+// SHARE
+document.getElementById("shareBtn").onclick = function(){
+  navigator.clipboard.writeText(window.location.href);
+  alert("Link copied!");
+};
 
-        const membersEl = document.getElementById("campMembers");
-        membersEl.innerHTML = "";
-        if (Array.isArray(data.members)) {
-          data.members.forEach((member) => {
-            const span = document.createElement("span");
-            span.textContent = member;
-            membersEl.appendChild(span);
-          });
-        }
+// MENU
+document.getElementById("menuToggle").onclick = () => {
+  document.getElementById("menu").classList.toggle("hidden");
+};
 
-        const memoriesList = document.getElementById("memoriesList");
-        memoriesList.innerHTML = "";
-        if (Array.isArray(data.memories)) {
-          data.memories.forEach((memory) => {
-            const li = document.createElement("li");
-            li.textContent = memory;
-            memoriesList.appendChild(li);
-          });
-        }
+loadCamp();
 
-        const mapContainer = document.getElementById("mapContainer");
-        allStands = Array.isArray(data.stands) ? data.stands : [];
-
-        allStands.forEach((stand) => {
-          const pin = document.createElement("button");
-          pin.className = "map-pin";
-          pin.type = "button";
-          pin.style.top = stand.top;
-          pin.style.left = stand.left;
-          pin.dataset.id = stand.id;
-          pin.dataset.name = stand.name;
-          pin.dataset.notes = stand.notes;
-          pin.title = stand.name;
-          pin.setAttribute("aria-label", stand.name);
-          mapContainer.appendChild(pin);
-        });
-
-        setupPins();
-        calculateBestStand();
-      })
-      .catch((error) => {
-        console.error(error);
-        document.getElementById("campName").textContent = "Camp not found";
-      });
-
-    function setupPins() {
-      const pins = document.querySelectorAll(".map-pin");
-
-      pins.forEach((pin) => {
-        pin.addEventListener("click", () => {
-          currentStandId = pin.dataset.id;
-          document.getElementById("modalTitle").textContent = pin.dataset.name;
-          document.getElementById("modalNotes").textContent = pin.dataset.notes;
-          loadHistory();
-          loadStats();
-          modal.style.display = "flex";
-        });
-      });
-    }
-
-    document.getElementById("saveBtn").addEventListener("click", () => {
-      if (!currentStandId) return;
-
-      const count = Number(document.getElementById("deerCount").value || 0);
-      const notes = document.getElementById("notesInput").value;
-
-      const entry = {
-        date: new Date().toLocaleString(),
-        count,
-        notes
-      };
-
-      const key = "stand_" + currentStandId;
-      const existing = JSON.parse(localStorage.getItem(key)) || [];
-      existing.push(entry);
-      localStorage.setItem(key, JSON.stringify(existing));
-
-      document.getElementById("deerCount").value = "";
-      document.getElementById("notesInput").value = "";
-
-      loadHistory();
-      loadStats();
-      calculateBestStand();
-    });
-
-    function loadHistory() {
-      const list = document.getElementById("historyList");
-      list.innerHTML = "";
-
-      const key = "stand_" + currentStandId;
-      const data = JSON.parse(localStorage.getItem(key)) || [];
-
-      data.slice().reverse().forEach((item) => {
-        const li = document.createElement("li");
-        li.textContent = `${item.date} - ${item.count} deer (${item.notes || "No notes"})`;
-        list.appendChild(li);
-      });
-    }
-
-    function loadStats() {
-      const key = "stand_" + currentStandId;
-      const data = JSON.parse(localStorage.getItem(key)) || [];
-
-      let total = 0;
-      data.forEach((entry) => {
-        total += Number(entry.count || 0);
-      });
-
-      const logs = data.length;
-      const avg = logs ? (total / logs).toFixed(1) : 0;
-
-      document.getElementById("totalDeer").textContent = "Total Deer Seen: " + total;
-      document.getElementById("totalLogs").textContent = "Total Logs: " + logs;
-      document.getElementById("avgDeer").textContent = "Avg per Sit: " + avg;
-    }
-
-    function calculateBestStand() {
-      let best = null;
-      let bestScore = 0;
-
-      allStands.forEach((stand) => {
-        const key = "stand_" + stand.id;
-        const data = JSON.parse(localStorage.getItem(key)) || [];
-        if (data.length === 0) return;
-
-        let total = 0;
-        data.forEach((entry) => {
-          total += Number(entry.count || 0);
-        });
-
-        const avg = total / data.length;
-        if (avg > bestScore) {
-          bestScore = avg;
-          best = stand;
-        }
-      });
-
-      const box = document.getElementById("bestStandBox");
-      box.textContent = best
-        ? `🏆 Best Stand Today: ${best.name} (${bestScore.toFixed(1)} avg)`
-        : "🏆 Best Stand: No data yet";
-    }
-  </script>
+</script>
 
 </body>
 </html>
