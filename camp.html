@@ -1,269 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>DeerCamp</title>
-
-<link rel="stylesheet" href="style.css">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
-
 <body>
 
-<header class="camp-header">
+  <header class="camp-header">
+    <div class="header-bar">
 
-  <div class="header-bar">
+      <div class="header-left">
+        <img src="assets/branding/deer-track.png" alt="DeerCamp" class="deer-icon" />
+      </div>
 
-    <div class="header-left">
-      <img src="assets/branding/deer-track.png" class="deer-icon">
+      <div class="header-center">
+        <h1 id="campName">DeerCamp</h1>
+        <p id="campLocation">Location • Est. Year</p>
+        <div id="campMembers" class="members"></div>
+      </div>
+
+      <div class="header-right">
+        <button id="menuToggle" class="menu-button" type="button">☰ Menu</button>
+      </div>
+
     </div>
 
-    <div class="header-center">
-      <h1 id="campName"></h1>
-      <p id="campLocation"></p>
-      <div id="campMembers" class="members"></div>
-    </div>
+    <nav id="sectionMenu" class="section-menu hidden">
+      <a href="#campMapSection">Camp Map</a>
+      <a href="#campMemoriesSection">Camp Memories</a>
+    </nav>
+  </header>
 
-    <div class="header-right">
-      <img id="heroImage">
-    </div>
-
-  </div>
-
-</header>
-
-<!-- 🔥 BEST STAND DISPLAY -->
-
-<div class="best-stand" id="bestStandBox">
-  🏆 Best Stand: Calculating...
-</div>
-
-<main class="content">
-
-  <section>
-    <h2>Camp Map</h2>
-
-    <div class="map-container" id="mapContainer">
-      <img id="campMap">
-    </div>
-
+  <section class="hero-wrap">
+    <img id="heroImage" class="hero-image" alt="Camp Hero" />
   </section>
 
-</main>
-
-<!-- MODAL -->
-
-<div id="mapModal" class="modal">
-  <div class="modal-content">
-
-    <span class="close">&times;</span>
-
-    <h3 id="modalTitle"></h3>
-    <p id="modalNotes"></p>
-
-    <hr>
-
-    <h4>Log Sighting</h4>
-
-    <input id="deerCount" type="number" placeholder="Number of deer">
-    <input id="notesInput" type="text" placeholder="Notes">
-
-    <button id="saveBtn">Save</button>
-
-    <hr>
-
-    <h4>Stand Stats</h4>
-    <p id="totalDeer"></p>
-    <p id="totalLogs"></p>
-    <p id="avgDeer"></p>
-
-    <hr>
-
-    <h4>History</h4>
-    <ul id="historyList"></ul>
-
+  <div class="best-stand" id="bestStandBox">
+    🏆 Best Stand: No data yet
   </div>
-</div>
 
-<footer class="footer">
-  <img src="assets/branding/deercamp-footer.png" class="footer-image">
-</footer>
+  <main class="content">
 
-<script>
+    <section id="campMapSection" class="content-card">
+      <h2>Camp Map</h2>
 
-const params = new URLSearchParams(window.location.search);
-const campSlug = params.get("camp");
+      <div class="map-container" id="mapContainer">
+        <img id="campMap" class="camp-map-image" alt="Camp Map" />
+      </div>
+    </section>
 
-let currentStandId = null;
-let allStands = [];
+    <section id="campMemoriesSection" class="content-card">
+      <h2>Camp Memories</h2>
+      <ul id="memoriesList" class="memories-list"></ul>
+    </section>
 
-fetch(`data/${campSlug}.json`)
-  .then(res => res.json())
-  .then(data => {
+  </main>
 
-    document.getElementById("campName").textContent = data.name;
-    document.getElementById("campLocation").textContent =
-      `${data.location} • Est. ${data.established}`;
+  <div id="mapModal" class="modal">
+    <div class="modal-content">
+      <button class="close" type="button" aria-label="Close">×</button>
 
-    document.getElementById("heroImage").src =
-      "assets/heroes/" + data.hero;
+      <h3 id="modalTitle"></h3>
+      <p id="modalNotes"></p>
 
-    document.getElementById("campMap").src =
-      data.map;
+      <hr />
 
-    const mapContainer = document.getElementById("mapContainer");
+      <h4>Log Sighting</h4>
 
-    allStands = data.stands;
+      <input id="deerCount" type="number" placeholder="Number of deer" />
+      <input id="notesInput" type="text" placeholder="Notes" />
 
-    data.stands.forEach(stand => {
+      <button id="saveBtn" type="button">Save</button>
 
-      const pin = document.createElement("div");
-      pin.className = "map-pin";
+      <hr />
 
-      pin.style.top = stand.top;
-      pin.style.left = stand.left;
+      <h4>Stand Stats</h4>
+      <p id="totalDeer"></p>
+      <p id="totalLogs"></p>
+      <p id="avgDeer"></p>
 
-      pin.dataset.id = stand.id;
-      pin.dataset.name = stand.name;
-      pin.dataset.notes = stand.notes;
+      <hr />
 
-      mapContainer.appendChild(pin);
+      <h4>History</h4>
+      <ul id="historyList"></ul>
+    </div>
+  </div>
 
+  <footer class="footer">
+    <img
+      src="assets/branding/deercamp-footer.png"
+      alt="DeerCamp Footer"
+      class="footer-image"
+    />
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const campSlug = params.get("camp") || "red-oak-camp";
+
+    let currentStandId = null;
+    let allStands = [];
+
+    const menuToggle = document.getElementById("menuToggle");
+    const sectionMenu = document.getElementById("sectionMenu");
+    const modal = document.getElementById("mapModal");
+    const closeBtn = document.querySelector(".close");
+
+    menuToggle.addEventListener("click", () => {
+      sectionMenu.classList.toggle("hidden");
     });
 
-    setupPins();
-    calculateBestStand();
+    closeBtn.addEventListener("click", () => {
+      modal.style.display = "none";
+    });
 
-  });
+    window.addEventListener("click", (event) => {
+      if (event.target === modal) {
+        modal.style.display = "none";
+      }
+    });
 
-function setupPins() {
+    fetch(`data/${campSlug}.json`)
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error("Camp data not found.");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        document.getElementById("campName").textContent = data.name || "DeerCamp";
+        document.getElementById("campLocation").textContent =
+          `${data.location || ""} • Est. ${data.established || ""}`;
 
-  const pins = document.querySelectorAll(".map-pin");
-  const modal = document.getElementById("mapModal");
+        document.getElementById("heroImage").src = `assets/heroes/${data.hero || "classic.jpg"}`;
+        document.getElementById("campMap").src = data.map || "";
 
-  pins.forEach(pin => {
-    pin.addEventListener("click", () => {
+        const membersEl = document.getElementById("campMembers");
+        membersEl.innerHTML = "";
+        if (Array.isArray(data.members)) {
+          data.members.forEach((member) => {
+            const span = document.createElement("span");
+            span.textContent = member;
+            membersEl.appendChild(span);
+          });
+        }
 
-      currentStandId = pin.dataset.id;
+        const memoriesList = document.getElementById("memoriesList");
+        memoriesList.innerHTML = "";
+        if (Array.isArray(data.memories)) {
+          data.memories.forEach((memory) => {
+            const li = document.createElement("li");
+            li.textContent = memory;
+            memoriesList.appendChild(li);
+          });
+        }
 
-      document.getElementById("modalTitle").textContent = pin.dataset.name;
-      document.getElementById("modalNotes").textContent = pin.dataset.notes;
+        const mapContainer = document.getElementById("mapContainer");
+        allStands = Array.isArray(data.stands) ? data.stands : [];
+
+        allStands.forEach((stand) => {
+          const pin = document.createElement("button");
+          pin.className = "map-pin";
+          pin.type = "button";
+
+          pin.style.top = stand.top;
+          pin.style.left = stand.left;
+
+          pin.dataset.id = stand.id;
+          pin.dataset.name = stand.name;
+          pin.dataset.notes = stand.notes;
+
+          pin.title = stand.name;
+          pin.setAttribute("aria-label", stand.name);
+
+          mapContainer.appendChild(pin);
+        });
+
+        setupPins();
+        calculateBestStand();
+      })
+      .catch((error) => {
+        console.error(error);
+        document.getElementById("campName").textContent = "Camp not found";
+      });
+
+    function setupPins() {
+      const pins = document.querySelectorAll(".map-pin");
+
+      pins.forEach((pin) => {
+        pin.addEventListener("click", () => {
+          currentStandId = pin.dataset.id;
+
+          document.getElementById("modalTitle").textContent = pin.dataset.name;
+          document.getElementById("modalNotes").textContent = pin.dataset.notes;
+
+          loadHistory();
+          loadStats();
+
+          modal.style.display = "flex";
+        });
+      });
+    }
+
+    document.getElementById("saveBtn").addEventListener("click", () => {
+      if (!currentStandId) return;
+
+      const count = Number(document.getElementById("deerCount").value || 0);
+      const notes = document.getElementById("notesInput").value;
+
+      const entry = {
+        date: new Date().toLocaleString(),
+        count,
+        notes
+      };
+
+      const key = "stand_" + currentStandId;
+      const existing = JSON.parse(localStorage.getItem(key)) || [];
+      existing.push(entry);
+
+      localStorage.setItem(key, JSON.stringify(existing));
+
+      document.getElementById("deerCount").value = "";
+      document.getElementById("notesInput").value = "";
 
       loadHistory();
       loadStats();
-
-      modal.style.display = "flex";
+      calculateBestStand();
     });
-  });
 
-  document.querySelector(".close").onclick = () =>
-    modal.style.display = "none";
-}
+    function loadHistory() {
+      const list = document.getElementById("historyList");
+      list.innerHTML = "";
 
-/* SAVE */
+      const key = "stand_" + currentStandId;
+      const data = JSON.parse(localStorage.getItem(key)) || [];
 
-document.getElementById("saveBtn").onclick = () => {
-
-  const count = Number(document.getElementById("deerCount").value || 0);
-  const notes = document.getElementById("notesInput").value;
-
-  const entry = {
-    date: new Date().toLocaleString(),
-    count,
-    notes
-  };
-
-  const key = "stand_" + currentStandId;
-
-  const existing = JSON.parse(localStorage.getItem(key)) || [];
-  existing.push(entry);
-
-  localStorage.setItem(key, JSON.stringify(existing));
-
-  loadHistory();
-  loadStats();
-  calculateBestStand();
-};
-
-/* HISTORY */
-
-function loadHistory() {
-
-  const list = document.getElementById("historyList");
-  list.innerHTML = "";
-
-  const key = "stand_" + currentStandId;
-  const data = JSON.parse(localStorage.getItem(key)) || [];
-
-  data.forEach(item => {
-    const li = document.createElement("li");
-    li.textContent = `${item.date} - ${item.count} deer (${item.notes})`;
-    list.appendChild(li);
-  });
-
-}
-
-/* STATS */
-
-function loadStats() {
-
-  const key = "stand_" + currentStandId;
-  const data = JSON.parse(localStorage.getItem(key)) || [];
-
-  let total = 0;
-
-  data.forEach(entry => total += entry.count);
-
-  const logs = data.length;
-  const avg = logs ? (total / logs).toFixed(1) : 0;
-
-  document.getElementById("totalDeer").textContent = "Total Deer Seen: " + total;
-  document.getElementById("totalLogs").textContent = "Total Logs: " + logs;
-  document.getElementById("avgDeer").textContent = "Avg per Sit: " + avg;
-
-}
-
-/* 🔥 BEST STAND ENGINE */
-
-function calculateBestStand() {
-
-  let best = null;
-  let bestScore = 0;
-
-  allStands.forEach(stand => {
-
-    const key = "stand_" + stand.id;
-    const data = JSON.parse(localStorage.getItem(key)) || [];
-
-    if (data.length === 0) return;
-
-    let total = 0;
-    data.forEach(entry => total += entry.count);
-
-    const avg = total / data.length;
-
-    if (avg > bestScore) {
-      bestScore = avg;
-      best = stand;
+      data.slice().reverse().forEach((item) => {
+        const li = document.createElement("li");
+        li.textContent = `${item.date} - ${item.count} deer (${item.notes || "No notes"})`;
+        list.appendChild(li);
+      });
     }
 
-  });
+    function loadStats() {
+      const key = "stand_" + currentStandId;
+      const data = JSON.parse(localStorage.getItem(key)) || [];
 
-  const box = document.getElementById("bestStandBox");
+      let total = 0;
+      data.forEach((entry) => {
+        total += Number(entry.count || 0);
+      });
 
-  if (best) {
-    box.textContent =
-      `🏆 Best Stand Today: ${best.name} (${bestScore.toFixed(1)} avg)`;
-  } else {
-    box.textContent = "🏆 Best Stand: No data yet";
-  }
+      const logs = data.length;
+      const avg = logs ? (total / logs).toFixed(1) : 0;
 
-}
+      document.getElementById("totalDeer").textContent = "Total Deer Seen: " + total;
+      document.getElementById("totalLogs").textContent = "Total Logs: " + logs;
+      document.getElementById("avgDeer").textContent = "Avg per Sit: " + avg;
+    }
 
-</script>
+    function calculateBestStand() {
+      let best = null;
+      let bestScore = 0;
+
+      allStands.forEach((stand) => {
+        const key = "stand_" + stand.id;
+        const data = JSON.parse(localStorage.getItem(key)) || [];
+
+        if (data.length === 0) return;
+
+        let total = 0;
+        data.forEach((entry) => {
+          total += Number(entry.count || 0);
+        });
+
+        const avg = total / data.length;
+
+        if (avg > bestScore) {
+          bestScore = avg;
+          best = stand;
+        }
+      });
+
+      const box = document.getElementById("bestStandBox");
+
+      if (best) {
+        box.textContent = `🏆 Best Stand Today: ${best.name} (${bestScore.toFixed(1)} avg)`;
+      } else {
+        box.textContent = "🏆 Best Stand: No data yet";
+      }
+    }
+  </script>
 
 </body>
 </html>
