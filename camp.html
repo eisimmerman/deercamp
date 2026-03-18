@@ -9,16 +9,18 @@
 
 <body>
 
+<!-- ================= HEADER ================= -->
+
 <header class="camp-header">
   <div class="header-inner">
 
     <div class="header-left">
-      <img src="assets/branding/deer-track.png" class="deer-icon"/>
+      <img src="assets/images/deer-track.png" class="deer-icon">
     </div>
 
     <div class="header-center">
-      <div class="camp-title" id="campName">Camp Name</div>
-      <div class="camp-meta" id="campLocation"></div>
+      <div id="campName" class="camp-title"></div>
+      <div id="campMeta" class="camp-meta"></div>
       <div id="campMembers" class="camp-members"></div>
     </div>
 
@@ -28,213 +30,131 @@
 
   </div>
 
-  <nav id="menu" class="menu hidden">
-    <a href="#CampMap">CampMap</a>
-    <a href="#CampMemories">CampMemories</a>
-  </nav>
+  <!-- DROPDOWN MENU -->
+  <nav id="menu" class="menu hidden"></nav>
 </header>
 
-<!-- HERO -->
-<div class="hero" id="heroImage">
+<!-- ================= HERO ================= -->
 
-  <!-- 🔥 SHARE BUTTON -->
-  <button id="shareBtn" class="menu-btn" style="position:absolute; top:10px; right:10px;">
-    Share
-  </button>
+<section class="hero">
+  <img id="heroImage">
+</section>
 
-  <!-- HIDDEN FILE INPUT -->
-  <input type="file" id="heroUpload" accept="image/*" hidden>
+<!-- ================= MAIN CONTENT ================= -->
 
-</div>
+<main class="page">
+  <div id="sections"></div>
+</main>
 
-<!-- BEST STAND -->
-<div class="best-stand" id="bestStandBox">
-  🏆 Best Stand: No data yet
-</div>
+<!-- ================= FOOTER ================= -->
 
-<div class="content">
-
-  <div id="CampMap" class="section">
-    <h2>CampMap</h2>
-    <div class="map-container">
-      <img id="campMapImage" class="camp-map"/>
-      <div id="mapPins"></div>
-    </div>
+<footer class="camp-footer">
+  <div class="footer-inner">
+    <div class="footer-logo">DeerCamp</div>
+    <div class="footer-tag">Built for the Tradition</div>
   </div>
+</footer>
 
-  <div id="CampMemories" class="section">
-    <h2>CampMemories</h2>
-    <ul id="memoriesList"></ul>
-  </div>
-
-</div>
-
-<!-- FOOTER -->
-<div class="footer">
-  <img src="assets/branding/deercamp-footer.png"/>
-</div>
+<!-- ================= SCRIPT ================= -->
 
 <script>
 
-async function loadCamp(){
+// ===== GET CAMP FROM URL =====
 
-  const params = new URLSearchParams(window.location.search);
-  const slug = params.get("camp") || "red-oak-camp";
+const params = new URLSearchParams(window.location.search);
+const campSlug = params.get("camp") || "red-oak-camp";
 
-  // 🔥 CHECK LOCAL STORAGE FIRST
-  if(localStorage.getItem("camp-" + slug)){
-    const data = JSON.parse(localStorage.getItem("camp-" + slug));
-    renderCamp(data, slug);
-    return;
-  }
+// ===== LOAD CAMP DATA =====
 
-  // FALLBACK TO JSON
-  const res = await fetch("data/" + slug + ".json");
-  const data = await res.json();
+fetch("camps/" + campSlug + ".json")
+  .then(res => res.json())
+  .then(data => {
 
-  renderCamp(data, slug);
-}
+    // HEADER CONTENT
 
-function renderCamp(data, slug){
+    document.getElementById("campName").textContent = data.name;
 
-  // TITLE
-  document.getElementById("campName").innerText = data.name;
-  document.getElementById("campLocation").innerText =
-    data.location + " • Est. " + data.established;
+    document.getElementById("campMeta").textContent =
+      data.location + " • Est. " + data.established;
 
-  // MEMBERS
-  const members = document.getElementById("campMembers");
-  members.innerHTML = "";
-  data.members?.forEach(m => {
-    const span = document.createElement("span");
-    span.className = "member-pill";
-    span.innerText = m;
-    members.appendChild(span);
-  });
+    document.getElementById("campMembers").textContent =
+      (data.members || []).join(" • ");
 
-  // HERO
-  const heroEl = document.getElementById("heroImage");
+    // HERO IMAGE
 
-  if(data.hero && data.hero.startsWith("data:")){
-    heroEl.style.backgroundImage = "url('" + data.hero + "')";
-  }else{
-    let heroFile = data.hero || "red-oak.jpg";
-    heroEl.style.backgroundImage = "url('assets/heroes/" + heroFile + "')";
-  }
+    document.getElementById("heroImage").src =
+      "assets/heroes/" + data.hero;
 
-  heroEl.style.backgroundSize = "cover";
-  heroEl.style.backgroundPosition = "center";
-  heroEl.style.backgroundRepeat = "no-repeat";
+    // MENU + SECTIONS
 
-  // MAP
-  if(data.map){
-    document.getElementById("campMapImage").src = data.map;
-  }
+    const menu = document.getElementById("menu");
+    const sections = document.getElementById("sections");
 
-  renderPins(data);
-  updateBestStand(data);
+    function addSection(title, contentHTML, id) {
 
-  // MEMORIES
-  const list = document.getElementById("memoriesList");
-  list.innerHTML = "";
-  data.memories?.forEach(m => {
-    const li = document.createElement("li");
-    li.innerText = m;
-    list.appendChild(li);
-  });
+      // MENU LINK
+      const link = document.createElement("a");
+      link.textContent = title;
+      link.href = "#" + id;
+      menu.appendChild(link);
 
-  setupHeroUpload(slug);
-}
-
-function renderPins(data){
-  const container = document.getElementById("mapPins");
-  container.innerHTML = "";
-
-  if(!data.stands) return;
-
-  data.stands.forEach(stand => {
-    const pin = document.createElement("div");
-    pin.className = "map-pin";
-
-    pin.style.left = stand.x + "%";
-    pin.style.top = stand.y + "%";
-
-    container.appendChild(pin);
-  });
-}
-
-function updateBestStand(data){
-
-  if(!data.stands) return;
-
-  function score(s){
-    let score = 0;
-    let notes = (s.notes || "").toLowerCase();
-
-    if(notes.includes("morning")) score += 3;
-    if(notes.includes("evening")) score += 3;
-    if(notes.includes("water")) score += 2;
-    if(notes.includes("movement")) score += 2;
-    if(notes.includes("rut")) score += 3;
-
-    return score;
-  }
-
-  let best = data.stands[0];
-  let bestScore = score(best);
-
-  data.stands.forEach(s=>{
-    let sScore = score(s);
-    if(sScore > bestScore){
-      best = s;
-      bestScore = sScore;
+      // SECTION BLOCK
+      const section = document.createElement("section");
+      section.id = id;
+      section.innerHTML = `<h2>${title}</h2>${contentHTML}`;
+      sections.appendChild(section);
     }
+
+    // MEMBERS
+
+    if (data.members) {
+      addSection(
+        "Camp Members",
+        `<p>${data.members.join(" • ")}</p>`,
+        "members"
+      );
+    }
+
+    // MAP
+
+    if (data.map) {
+      addSection(
+        "Camp Map",
+        `<img src="${data.map}" class="camp-map">`,
+        "map"
+      );
+    }
+
+    // MEMORIES
+
+    if (data.memories) {
+      addSection(
+        "Camp Memories",
+        `<ul>${data.memories.map(m => `<li>${m}</li>`).join("")}</ul>`,
+        "memories"
+      );
+    }
+
+    // TRADITIONS
+
+    if (data.traditions) {
+      addSection(
+        "Camp Traditions",
+        `<ul>${data.traditions.map(t => `<li>${t}</li>`).join("")}</ul>`,
+        "traditions"
+      );
+    }
+
   });
 
-  document.getElementById("bestStandBox").innerText =
-    "🏆 Best Stand: " + best.name;
-}
+// ===== MENU TOGGLE =====
 
-// HERO UPLOAD
-function setupHeroUpload(slug){
+const menuToggle = document.getElementById("menuToggle");
+const menu = document.getElementById("menu");
 
-  const hero = document.getElementById("heroImage");
-  const input = document.getElementById("heroUpload");
-
-  hero.onclick = () => input.click();
-
-  input.onchange = function(){
-    const file = this.files[0];
-    if(!file) return;
-
-    const reader = new FileReader();
-
-    reader.onload = function(e){
-      hero.style.backgroundImage = "url('" + e.target.result + "')";
-
-      if(slug){
-        let data = JSON.parse(localStorage.getItem("camp-" + slug));
-        data.hero = e.target.result;
-        localStorage.setItem("camp-" + slug, JSON.stringify(data));
-      }
-    };
-
-    reader.readAsDataURL(file);
-  };
-}
-
-// SHARE
-document.getElementById("shareBtn").onclick = function(){
-  navigator.clipboard.writeText(window.location.href);
-  alert("Link copied!");
-};
-
-// MENU
-document.getElementById("menuToggle").onclick = () => {
-  document.getElementById("menu").classList.toggle("hidden");
-};
-
-loadCamp();
+menuToggle.addEventListener("click", () => {
+  menu.classList.toggle("hidden");
+});
 
 </script>
 
