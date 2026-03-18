@@ -9,8 +9,7 @@
 <body>
 
   <header class="camp-header">
-    <div class="header-bar">
-
+    <div class="header-shell">
       <div class="header-left">
         <img src="assets/branding/deer-track.png" alt="DeerCamp" class="deer-icon" />
       </div>
@@ -24,12 +23,11 @@
       <div class="header-right">
         <button id="menuToggle" class="menu-button" type="button">☰ Menu</button>
       </div>
-
     </div>
 
     <nav id="sectionMenu" class="section-menu hidden">
-      <a href="#campMapSection">Camp Map</a>
-      <a href="#campMemoriesSection">Camp Memories</a>
+      <a href="#CampMap">CampMap</a>
+      <a href="#CampMemories">CampMemories</a>
     </nav>
   </header>
 
@@ -42,20 +40,18 @@
   </div>
 
   <main class="content">
-
-    <section id="campMapSection" class="content-card">
-      <h2>Camp Map</h2>
+    <section id="CampMap" class="content-card">
+      <h2>CampMap</h2>
 
       <div class="map-container" id="mapContainer">
         <img id="campMap" class="camp-map-image" alt="Camp Map" />
       </div>
     </section>
 
-    <section id="campMemoriesSection" class="content-card">
-      <h2>Camp Memories</h2>
+    <section id="CampMemories" class="content-card">
+      <h2>CampMemories</h2>
       <ul id="memoriesList" class="memories-list"></ul>
     </section>
-
   </main>
 
   <div id="mapModal" class="modal">
@@ -68,10 +64,8 @@
       <hr />
 
       <h4>Log Sighting</h4>
-
       <input id="deerCount" type="number" placeholder="Number of deer" />
       <input id="notesInput" type="text" placeholder="Notes" />
-
       <button id="saveBtn" type="button">Save</button>
 
       <hr />
@@ -124,9 +118,7 @@
 
     fetch(`data/${campSlug}.json`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error("Camp data not found.");
-        }
+        if (!res.ok) throw new Error("Camp data not found.");
         return res.json();
       })
       .then((data) => {
@@ -164,17 +156,13 @@
           const pin = document.createElement("button");
           pin.className = "map-pin";
           pin.type = "button";
-
           pin.style.top = stand.top;
           pin.style.left = stand.left;
-
           pin.dataset.id = stand.id;
           pin.dataset.name = stand.name;
           pin.dataset.notes = stand.notes;
-
           pin.title = stand.name;
           pin.setAttribute("aria-label", stand.name);
-
           mapContainer.appendChild(pin);
         });
 
@@ -192,13 +180,10 @@
       pins.forEach((pin) => {
         pin.addEventListener("click", () => {
           currentStandId = pin.dataset.id;
-
           document.getElementById("modalTitle").textContent = pin.dataset.name;
           document.getElementById("modalNotes").textContent = pin.dataset.notes;
-
           loadHistory();
           loadStats();
-
           modal.style.display = "flex";
         });
       });
@@ -219,7 +204,6 @@
       const key = "stand_" + currentStandId;
       const existing = JSON.parse(localStorage.getItem(key)) || [];
       existing.push(entry);
-
       localStorage.setItem(key, JSON.stringify(existing));
 
       document.getElementById("deerCount").value = "";
@@ -268,7 +252,6 @@
       allStands.forEach((stand) => {
         const key = "stand_" + stand.id;
         const data = JSON.parse(localStorage.getItem(key)) || [];
-
         if (data.length === 0) return;
 
         let total = 0;
@@ -277,7 +260,6 @@
         });
 
         const avg = total / data.length;
-
         if (avg > bestScore) {
           bestScore = avg;
           best = stand;
@@ -285,12 +267,9 @@
       });
 
       const box = document.getElementById("bestStandBox");
-
-      if (best) {
-        box.textContent = `🏆 Best Stand Today: ${best.name} (${bestScore.toFixed(1)} avg)`;
-      } else {
-        box.textContent = "🏆 Best Stand: No data yet";
-      }
+      box.textContent = best
+        ? `🏆 Best Stand Today: ${best.name} (${bestScore.toFixed(1)} avg)`
+        : "🏆 Best Stand: No data yet";
     }
   </script>
 
