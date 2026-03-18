@@ -5,197 +5,141 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>DeerCamp Directory</title>
-
-<style>
-
-body{
-margin:0;
-font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:#cfc3af;
-padding:40px;
-}
-
-/* header */
-
-h1{
-text-align:center;
-margin-bottom:40px;
-font-family:Georgia,serif;
-}
-
-/* grid */
-
-.directory{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
-gap:30px;
-max-width:1100px;
-margin:auto;
-}
-
-/* card */
-
-.card{
-border-radius:16px;
-overflow:hidden;
-box-shadow:0 10px 25px rgba(0,0,0,.25);
-cursor:pointer;
-transition:transform .25s ease, box-shadow .25s ease;
-background:#000;
-}
-
-.card:hover{
-transform:translateY(-8px) scale(1.02);
-box-shadow:0 20px 40px rgba(0,0,0,.35);
-}
-
-/* hero */
-
-.card-hero{
-position:relative;
-height:220px;
-overflow:hidden;
-}
-
-.card-hero img{
-width:100%;
-height:100%;
-object-fit:cover;
-display:block;
-}
-
-/* image gradient */
-
-.card-hero::after{
-content:"";
-position:absolute;
-bottom:0;
-left:0;
-right:0;
-height:50%;
-background:linear-gradient(transparent,rgba(0,0,0,.65));
-}
-
-/* camp name overlay */
-
-.card-name{
-position:absolute;
-bottom:16px;
-left:18px;
-color:white;
-font-family:Georgia,serif;
-font-size:24px;
-z-index:2;
-text-shadow:0 2px 6px rgba(0,0,0,.6);
-}
-
-/* established badge */
-
-.est{
-position:absolute;
-top:12px;
-left:12px;
-background:rgba(0,0,0,.75);
-color:white;
-padding:6px 10px;
-border-radius:6px;
-font-size:13px;
-z-index:2;
-}
-
-/* parchment bottom */
-
-.card-body{
-background-image:
-linear-gradient(rgba(255,255,255,.85),rgba(255,255,255,.85)),
-url("assets/textures/parchment.jpg");
-background-size:cover;
-padding:16px 20px;
-}
-
-/* location */
-
-.card-location{
-color:#5a4632;
-font-size:15px;
-}
-
-/* mobile */
-
-@media(max-width:700px){
-
-body{
-padding:20px;
-}
-
-}
-
-</style>
+<title>DeerCamp</title>
+<link rel="stylesheet" href="style.css">
 
 </head>
 
 <body>
 
-<h1>DeerCamp Directory</h1>
+<!-- HEADER -->
 
-<div id="directory" class="directory"></div>
+<header class="camp-header">
+
+  <div class="header-inner">
+
+    <img src="assets/textures/hoof.png" class="hoof">
+
+    <div class="camp-title-block">
+      <h1>Red Oak Camp</h1>
+      <p>Northern Wisconsin • Est. 1972</p>
+
+      <div class="header-members">
+        <span>Ben</span>
+        <span>Dave</span>
+        <span>Rick</span>
+        <span>Tyler</span>
+      </div>
+    </div>
+
+    <div class="menu" onclick="toggleMenu()">☰ Menu</div>
+
+  </div>
+
+  <div id="dropdown" class="dropdown">
+    <div onclick="scrollToSection('map')">Camp Map</div>
+    <div onclick="scrollToSection('memories')">Memories</div>
+  </div>
+
+</header>
+
+<!-- HERO -->
+
+<section class="hero">
+  <img src="assets/heroes/red-oak.jpg">
+</section>
+
+<!-- CONTENT -->
+
+<main class="content">
+
+  <!-- MAP -->
+  <section id="map">
+
+    <h2>Camp Map</h2>
+
+    <div class="map-container">
+
+      <!-- MAP IMAGE -->
+      <img src="assets/maps/red-oak-map.jpg" class="map-image">
+
+      <!-- 🔥 DEBUG PINS (WILL BE VISIBLE NO MATTER WHAT) -->
+      <div class="map-pin pin-north" onclick="openModal('north')">📍</div>
+      <div class="map-pin pin-east" onclick="openModal('east')">🦌</div>
+
+    </div>
+
+  </section>
+
+  <!-- MEMORIES -->
+  <section id="memories">
+    <h2>Camp Memories</h2>
+    <ul>
+      <li>Snowstorm hunt of 1998 — three bucks before noon.</li>
+      <li>Ben’s first buck at sunrise from North Ridge.</li>
+      <li>Rick’s legendary miss at 10 yards.</li>
+    </ul>
+  </section>
+
+</main>
+
+<!-- MODAL -->
+
+<div id="mapModal" class="map-modal">
+
+  <div class="map-modal-content">
+
+    <span class="close-btn" onclick="closeModal()">✕</span>
+
+    <h2 id="modalTitle"></h2>
+    <p id="modalDescription"></p>
+
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+
+<footer class="footer">
+  <img src="assets/branding/deercamp-footer.png" class="footer-img">
+</footer>
+
+<!-- JS -->
 
 <script>
 
-fetch("camps/index.json")
-
-.then(res => res.json())
-
-.then(camps => {
-
-const container = document.getElementById("directory")
-
-camps.forEach(camp => {
-
-const card = document.createElement("div")
-
-card.className = "card"
-
-card.innerHTML = `
-
-<div class="card-hero">
-
-<img src="assets/heroes/${camp.hero}" 
-onerror="this.src='assets/heroes/classic.jpg'">
-
-<div class="est">
-Est. ${camp.established}
-</div>
-
-<div class="card-name">
-${camp.name}
-</div>
-
-</div>
-
-<div class="card-body">
-
-<div class="card-location">
-${camp.location}
-</div>
-
-</div>
-
-`
-
-card.onclick = () => {
-
-window.location.href =
-"camp.html?camp=" + encodeURIComponent(camp.slug)
-
+function toggleMenu(){
+  const menu = document.getElementById("dropdown");
+  menu.style.display = menu.style.display === "block" ? "none" : "block";
 }
 
-container.appendChild(card)
+function scrollToSection(id){
+  document.getElementById(id).scrollIntoView({ behavior: "smooth" });
+  document.getElementById("dropdown").style.display = "none";
+}
 
-})
+function openModal(type){
 
-})
+  const modal = document.getElementById("mapModal");
+  const title = document.getElementById("modalTitle");
+  const desc = document.getElementById("modalDescription");
+
+  if(type === "north"){
+    title.innerText = "North Ridge Stand";
+    desc.innerText = "Best morning movement along ridge.";
+  }
+
+  if(type === "east"){
+    title.innerText = "East Ladder Stand";
+    desc.innerText = "Strong evening funnel activity.";
+  }
+
+  modal.style.display = "block";
+}
+
+function closeModal(){
+  document.getElementById("mapModal").style.display = "none";
+}
 
 </script>
 
