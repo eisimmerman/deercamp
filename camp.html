@@ -49,7 +49,6 @@
 
 <footer class="camp-footer">
   <div class="footer-inner">
-    <!-- Removed duplicate DeerCamp text -->
     <div class="footer-tag">Built for the Tradition</div>
   </div>
 </footer>
@@ -69,13 +68,14 @@ fetch("camps/" + campSlug + ".json")
   .then(res => res.json())
   .then(data => {
 
+    // HEADER
+
     document.getElementById("campName").textContent = data.name;
 
     document.getElementById("campMeta").textContent =
       data.location + " • Est. " + data.established;
 
-    document.getElementById("campMembers").textContent =
-      (data.members || []).join(" • ");
+    // HERO
 
     document.getElementById("heroImage").src =
       "assets/heroes/" + data.hero;
@@ -83,50 +83,43 @@ fetch("camps/" + campSlug + ".json")
     const menu = document.getElementById("menu");
     const sections = document.getElementById("sections");
 
-    function addSection(title, contentHTML, id) {
+    // ===== SECTION ENGINE =====
 
+    data.sections.forEach((sectionData, index) => {
+
+      const id = "section-" + index;
+
+      // MENU LINK
       const link = document.createElement("a");
-      link.textContent = title;
+      link.textContent = sectionData.title;
       link.href = "#" + id;
       menu.appendChild(link);
 
+      // BUILD CONTENT
+      let content = "";
+
+      if (sectionData.type === "members") {
+        content = `<p>${sectionData.data.join(" • ")}</p>`;
+        document.getElementById("campMembers").textContent =
+          sectionData.data.join(" • ");
+      }
+
+      if (sectionData.type === "list") {
+        content = `<ul>${sectionData.data.map(item => `<li>${item}</li>`).join("")}</ul>`;
+      }
+
+      if (sectionData.type === "map") {
+        content = `<img src="${sectionData.src}" class="camp-map">`;
+      }
+
+      // CREATE SECTION
       const section = document.createElement("section");
       section.id = id;
-      section.innerHTML = `<h2>${title}</h2>${contentHTML}`;
+      section.innerHTML = `<h2>${sectionData.title}</h2>${content}`;
+
       sections.appendChild(section);
-    }
 
-    if (data.members) {
-      addSection(
-        "Camp Members",
-        `<p>${data.members.join(" • ")}</p>`,
-        "members"
-      );
-    }
-
-    if (data.map) {
-      addSection(
-        "Camp Map",
-        `<img src="${data.map}" class="camp-map">`,
-        "map"
-      );
-    }
-
-    if (data.memories) {
-      addSection(
-        "Camp Memories",
-        `<ul>${data.memories.map(m => `<li>${m}</li>`).join("")}</ul>`,
-        "memories"
-      );
-    }
-
-    if (data.traditions) {
-      addSection(
-        "Camp Traditions",
-        `<ul>${data.traditions.map(t => `<li>${t}</li>`).join("")}</ul>`,
-        "traditions"
-      );
-    }
+    });
 
   });
 
