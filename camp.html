@@ -1,24 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DeerCamp</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camp</title>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
+<!-- HEADER (LOCKED) -->
 <header class="camp-header">
   <div class="header-inner">
 
     <div class="header-left">
-      <img src="assets/images/deer-track.png" class="deer-icon"/>
+      <img src="assets/images/deer-track.png" class="deer-icon">
     </div>
 
     <div class="header-center">
-      <div class="camp-title" id="campName">Camp Name</div>
-      <div class="camp-meta" id="campLocation"></div>
+      <div id="campName" class="camp-title"></div>
+      <div id="campLocation" class="camp-meta"></div>
       <div id="campMembers" class="camp-members"></div>
     </div>
 
@@ -29,54 +30,67 @@
   </div>
 </header>
 
+<!-- HERO (CONTROLLED SIZE) -->
 <section class="hero">
-  <img id="heroImage" src="assets/heroes/classic.jpg">
+  <img id="heroImage">
 </section>
 
-<section class="content">
-  <h2>Camp Traditions</h2>
-  <ul id="traditions"></ul>
+<!-- CONTENT (PARchment FEEL) -->
+<div class="content">
 
-  <h2>Camp Memories</h2>
-  <ul id="memories"></ul>
-</section>
+  <div class="section">
+    <h2>CampTraditions</h2>
+    <ul id="traditionsList"></ul>
+  </div>
 
+  <div class="section">
+    <h2>CampMemories</h2>
+    <ul id="memoriesList"></ul>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
 <footer class="footer">
   <img src="assets/branding/deercamp-footer.png" class="footer-logo">
   <p>Built for the Tradition</p>
 </footer>
 
 <script>
+const data = JSON.parse(localStorage.getItem("campData"));
 
-// 🔥 LOAD DATA
-let data = localStorage.getItem("deerCampData");
+// HEADER DATA
+document.getElementById("campName").innerText = data.name;
+document.getElementById("campLocation").innerText =
+  data.location + " • Est. " + data.established;
 
-if (data) {
-  data = JSON.parse(data);
-  renderCamp(data);
-} else {
-  console.log("No local camp data found.");
-}
+// HERO
+document.getElementById("heroImage").src =
+  "assets/heroes/" + data.hero;
 
-// 🔥 RENDER FUNCTION
-function renderCamp(data) {
+// MEMBERS INLINE (ON PLANK)
+const membersDiv = document.getElementById("campMembers");
+data.members.forEach(m => {
+  const span = document.createElement("span");
+  span.innerText = m.trim();
+  membersDiv.appendChild(span);
+});
 
-  document.getElementById("campName").textContent = data.name || "Camp Name";
-  document.getElementById("campLocation").textContent = data.location || "";
+// TRADITIONS
+const traditionsList = document.getElementById("traditionsList");
+data.traditions.forEach(t => {
+  const li = document.createElement("li");
+  li.innerText = t.trim();
+  traditionsList.appendChild(li);
+});
 
-  document.getElementById("heroImage").src =
-    "assets/heroes/" + (data.hero || "classic.jpg");
-
-  document.getElementById("campMembers").innerHTML =
-    (data.members || []).map(m => `<span>${m}</span>`).join("");
-
-  document.getElementById("traditions").innerHTML =
-    (data.traditions || []).map(t => `<li>${t}</li>`).join("");
-
-  document.getElementById("memories").innerHTML =
-    (data.memories || []).map(m => `<li>${m}</li>`).join("");
-}
-
+// MEMORIES
+const memoriesList = document.getElementById("memoriesList");
+data.memories.forEach(m => {
+  const li = document.createElement("li");
+  li.innerText = m.trim();
+  memoriesList.appendChild(li);
+});
 </script>
 
 </body>
