@@ -1,124 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Start MyCamp</title>
-
-<style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#121212;
-  color:white;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-
-.container{
-  width:90%;
-  max-width:400px;
-  text-align:center;
-}
-
-.upload-box{
-  border:2px dashed #888;
-  padding:40px 20px;
-  margin-bottom:20px;
-  cursor:pointer;
-}
-
-.upload-box:hover{
-  border-color:white;
-}
-
-input{
-  width:100%;
-  padding:10px;
-  margin:8px 0;
-  border:none;
-  border-radius:4px;
-}
-
-button{
-  width:100%;
-  padding:12px;
-  background:#3a7d44;
-  color:white;
-  border:none;
-  margin-top:10px;
-  cursor:pointer;
-}
-
-button:hover{
-  background:#2f6436;
-}
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Build Your Camp</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<div class="container">
+<header class="home-header">
+  <h1>Build Your Camp</h1>
+  <p>Create your digital deer camp</p>
+</header>
 
-  <h2>Start with MyCamp Photo</h2>
+<section class="features">
 
-  <div class="upload-box" id="uploadBox">
-    Upload Your Camp Photo
-  </div>
+  <h2 class="features-title">Create Your Camp</h2>
+  <p class="features-sub">Fill this out and build instantly</p>
 
-  <input type="file" id="fileInput" accept="image/*" hidden>
+  <form id="campForm">
 
-  <input type="text" id="campName" placeholder="Camp Name">
-  <input type="text" id="campLocation" placeholder="Location">
-  <input type="number" id="campYear" placeholder="Established">
+    <label>Camp Name</label>
+    <input type="text" id="name" required>
 
-  <button id="buildBtn">Build My Camp</button>
+    <label>Location</label>
+    <input type="text" id="location">
 
-</div>
+    <label>Established Year</label>
+    <input type="number" id="established">
+
+    <label>Hero Image Filename</label>
+    <input type="text" id="hero" placeholder="e.g. red-oak.jpg">
+
+    <label>Members (comma separated)</label>
+    <input type="text" id="members" placeholder="Ben, Dave, Tyler">
+
+    <label>Traditions (comma separated)</label>
+    <input type="text" id="traditions">
+
+    <label>Memories (comma separated)</label>
+    <input type="text" id="memories">
+
+    <button type="button" class="cta" onclick="generateCamp()">Build My Camp</button>
+
+  </form>
+
+</section>
+
+<footer class="footer">
+  <img src="assets/branding/deercamp-footer.png" class="footer-logo">
+  <p>Built for the Tradition</p>
+</footer>
 
 <script>
+function generateCamp() {
 
-let uploadedImage = null;
-
-const uploadBox = document.getElementById("uploadBox");
-const fileInput = document.getElementById("fileInput");
-
-uploadBox.onclick = () => fileInput.click();
-
-fileInput.onchange = function(){
-  const file = this.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-
-  reader.onload = function(e){
-    uploadedImage = e.target.result;
-    uploadBox.innerText = "Photo Selected ✓";
+  const data = {
+    name: document.getElementById("name").value,
+    location: document.getElementById("location").value,
+    established: document.getElementById("established").value,
+    hero: document.getElementById("hero").value,
+    members: document.getElementById("members").value.split(",").map(x => x.trim()),
+    traditions: document.getElementById("traditions").value.split(",").map(x => x.trim()),
+    memories: document.getElementById("memories").value.split(",").map(x => x.trim())
   };
 
-  reader.readAsDataURL(file);
-};
+  // 🔥 Save to browser
+  localStorage.setItem("deerCampData", JSON.stringify(data));
 
-document.getElementById("buildBtn").onclick = function(){
-
-  const campData = {
-    name: document.getElementById("campName").value || "My Camp",
-    location: document.getElementById("campLocation").value || "Somewhere",
-    established: document.getElementById("campYear").value || "2024",
-    hero: uploadedImage
-  };
-
-  const slug = campData.name.toLowerCase().replace(/\s+/g, '-');
-
-  localStorage.setItem("camp-" + slug, JSON.stringify(campData));
-
-  window.location.href = "camp.html?camp=" + slug;
-
-};
-
+  // 🔥 Redirect
+  window.location.href = "camp.html";
+}
 </script>
 
 </body>

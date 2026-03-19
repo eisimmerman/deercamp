@@ -1,133 +1,81 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DeerCamp</title>
-  <link rel="stylesheet" href="style.css"/>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
-<!-- ================= HEADER ================= -->
 
 <header class="camp-header">
   <div class="header-inner">
 
     <div class="header-left">
-      <img src="assets/images/deer-track.png" class="deer-icon">
+      <img src="assets/images/deer-track.png" class="deer-icon"/>
     </div>
 
     <div class="header-center">
-      <div id="campName" class="camp-title"></div>
-      <div id="campMeta" class="camp-meta"></div>
+      <div class="camp-title" id="campName">Camp Name</div>
+      <div class="camp-meta" id="campLocation"></div>
       <div id="campMembers" class="camp-members"></div>
     </div>
 
     <div class="header-right">
-      <button id="menuToggle" class="menu-btn">☰ Menu</button>
+      <button class="menu-btn">☰ Menu</button>
     </div>
 
   </div>
-
-  <nav id="menu" class="menu hidden"></nav>
 </header>
 
-<!-- ================= HERO ================= -->
-
 <section class="hero">
-  <img id="heroImage">
+  <img id="heroImage" src="assets/heroes/classic.jpg">
 </section>
 
-<!-- ================= MAIN CONTENT ================= -->
+<section class="content">
+  <h2>Camp Traditions</h2>
+  <ul id="traditions"></ul>
 
-<main class="page">
-  <div id="sections"></div>
-</main>
+  <h2>Camp Memories</h2>
+  <ul id="memories"></ul>
+</section>
 
-<!-- ================= FOOTER ================= -->
-
-<footer class="camp-footer">
-  <div class="footer-inner">
-    <div class="footer-tag">Built for the Tradition</div>
-  </div>
+<footer class="footer">
+  <img src="assets/branding/deercamp-footer.png" class="footer-logo">
+  <p>Built for the Tradition</p>
 </footer>
-
-<!-- ================= SCRIPT ================= -->
 
 <script>
 
-// ===== GET CAMP FROM URL =====
+// 🔥 LOAD DATA
+let data = localStorage.getItem("deerCampData");
 
-const params = new URLSearchParams(window.location.search);
-const campSlug = params.get("camp") || "red-oak-camp";
+if (data) {
+  data = JSON.parse(data);
+  renderCamp(data);
+} else {
+  console.log("No local camp data found.");
+}
 
-// ===== LOAD CAMP DATA =====
+// 🔥 RENDER FUNCTION
+function renderCamp(data) {
 
-fetch("camps/" + campSlug + ".json")
-  .then(res => res.json())
-  .then(data => {
+  document.getElementById("campName").textContent = data.name || "Camp Name";
+  document.getElementById("campLocation").textContent = data.location || "";
 
-    // HEADER
+  document.getElementById("heroImage").src =
+    "assets/heroes/" + (data.hero || "classic.jpg");
 
-    document.getElementById("campName").textContent = data.name;
+  document.getElementById("campMembers").innerHTML =
+    (data.members || []).map(m => `<span>${m}</span>`).join("");
 
-    document.getElementById("campMeta").textContent =
-      data.location + " • Est. " + data.established;
+  document.getElementById("traditions").innerHTML =
+    (data.traditions || []).map(t => `<li>${t}</li>`).join("");
 
-    // HERO
-
-    document.getElementById("heroImage").src =
-      "assets/heroes/" + data.hero;
-
-    const menu = document.getElementById("menu");
-    const sections = document.getElementById("sections");
-
-    // ===== SECTION ENGINE =====
-
-    data.sections.forEach((sectionData, index) => {
-
-      const id = "section-" + index;
-
-      // MENU LINK
-      const link = document.createElement("a");
-      link.textContent = sectionData.title;
-      link.href = "#" + id;
-      menu.appendChild(link);
-
-      // BUILD CONTENT
-      let content = "";
-
-      if (sectionData.type === "members") {
-        content = `<p>${sectionData.data.join(" • ")}</p>`;
-        document.getElementById("campMembers").textContent =
-          sectionData.data.join(" • ");
-      }
-
-      if (sectionData.type === "list") {
-        content = `<ul>${sectionData.data.map(item => `<li>${item}</li>`).join("")}</ul>`;
-      }
-
-      if (sectionData.type === "map") {
-        content = `<img src="${sectionData.src}" class="camp-map">`;
-      }
-
-      // CREATE SECTION
-      const section = document.createElement("section");
-      section.id = id;
-      section.innerHTML = `<h2>${sectionData.title}</h2>${content}`;
-
-      sections.appendChild(section);
-
-    });
-
-  });
-
-// ===== MENU TOGGLE =====
-
-document.getElementById("menuToggle").addEventListener("click", () => {
-  document.getElementById("menu").classList.toggle("hidden");
-});
+  document.getElementById("memories").innerHTML =
+    (data.memories || []).map(m => `<li>${m}</li>`).join("");
+}
 
 </script>
 
