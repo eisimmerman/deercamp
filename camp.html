@@ -3,93 +3,1611 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Camp</title>
+<title>DeerCamp</title>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="camp-features.css">
+
+<style>
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  body {
+    background: #d8cfbf;
+  }
+
+  body.modal-open {
+    overflow: hidden;
+  }
+
+  .camp-header {
+    position: sticky !important;
+    top: 0;
+    z-index: 1000;
+    width: 100%;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  }
+
+  .header-inner {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .header-left,
+  .header-right {
+    flex: 0 0 auto;
+  }
+
+  .header-center {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .camp-title {
+    text-align: center;
+  }
+
+  .camp-meta {
+    text-align: center;
+  }
+
+  .camp-members {
+    display: flex !important;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    min-height: 40px;
+    width: 100%;
+  }
+
+  .camp-member-link {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 7px 14px;
+    min-height: 36px;
+    border: 1px solid rgba(95, 64, 33, 0.18);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.74);
+    color: #4b3116 !important;
+    font-size: 0.98rem;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 1 !important;
+    visibility: visible !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+
+  .camp-member-link:hover {
+    background: rgba(255, 248, 237, 0.95);
+  }
+
+  .menu {
+    display: none;
+    position: absolute !important;
+    top: calc(100% - 6px);
+    right: 18px;
+    min-width: 220px;
+    padding: 10px;
+    border-radius: 16px;
+    background: rgba(255, 250, 244, 0.96);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    z-index: 1001;
+  }
+
+  .menu.open {
+    display: block;
+  }
+
+  .menu a {
+    display: block;
+    padding: 10px 12px;
+    border-radius: 10px;
+    color: #4a321b;
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  .menu a:hover {
+    background: rgba(124, 79, 35, 0.08);
+  }
+
+  header + .hero,
+  .camp-header + .hero {
+    margin-top: 0 !important;
+  }
+
+  .hero,
+  #heroImage {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: clamp(220px, 24vw, 300px) !important;
+    min-height: clamp(220px, 24vw, 300px) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: transparent !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    background-size: cover !important;
+    overflow: hidden;
+    isolation: isolate;
+  }
+
+  .hero::after,
+  #heroImage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.04) 0%,
+      rgba(0, 0, 0, 0.02) 58%,
+      rgba(216, 207, 191, 0.15) 100%
+    );
+  }
+
+  .page {
+    position: relative !important;
+    z-index: 1;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    margin: 0 !important;
+    padding: 24px clamp(16px, 3vw, 34px) 44px !important;
+    top: 0 !important;
+    left: 0 !important;
+    transform: none !important;
+    background: transparent !important;
+  }
+
+  .content-section {
+    position: relative;
+    z-index: 1;
+    scroll-margin-top: calc(var(--camp-header-height, 150px) + 18px);
+  }
+
+  .content-section:first-child {
+    margin-top: 0 !important;
+  }
+
+  .content-section + .content-section {
+    margin-top: 22px !important;
+  }
+
+  .campcards-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 22px;
+    align-items: start;
+  }
+
+  .campcard {
+    overflow: hidden;
+    border-radius: 24px;
+    background: rgba(255, 248, 237, 0.76);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+  }
+
+  .campcard img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    object-position: top center;
+    background: #efe5d3;
+  }
+
+  .members-inline-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .member-inline-card {
+    padding: 12px 20px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(245, 234, 213, 0.96);
+    cursor: pointer;
+    font-size: 1rem;
+  }
+
+  .recipes-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    max-width: 860px;
+  }
+
+  .recipe-compact-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid rgba(98, 72, 44, 0.18);
+    border-radius: 16px;
+    background: rgba(251, 245, 233, 0.78);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .recipe-compact-copy {
+    min-width: 0;
+  }
+
+  .recipe-compact-title {
+    margin: 0 0 4px;
+    font-size: 1.05rem;
+    line-height: 1.2;
+  }
+
+  .recipe-compact-meta,
+  .recipe-compact-description {
+    margin: 0;
+  }
+
+  .recipe-compact-meta {
+    font-size: 0.92rem;
+    opacity: 0.8;
+  }
+
+  .recipe-compact-description {
+    margin-top: 6px;
+    font-size: 0.94rem;
+    line-height: 1.36;
+    opacity: 0.92;
+  }
+
+  .recipe-compact-cta {
+    white-space: nowrap;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #5b3d1e;
+  }
+
+  .recipe-modal-backdrop,
+  .member-modal-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(30, 24, 18, 0.55);
+    z-index: 1290;
+  }
+
+  .recipe-modal-backdrop.open,
+  .member-modal-backdrop.open {
+    display: block;
+  }
+
+  .recipe-modal {
+    display: none;
+    position: fixed !important;
+    inset: 0;
+    z-index: 1300;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .recipe-modal.open {
+    display: flex !important;
+  }
+
+  .recipe-modal-shell {
+    width: min(760px, 94vw);
+    max-height: 88vh;
+    overflow: auto;
+    background: #f6efe3;
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    padding: 22px 22px 18px;
+  }
+
+  .recipe-modal-content {
+    padding: 0 !important;
+  }
+
+  .recipe-modal-header {
+    padding-right: 44px;
+  }
+
+  .recipe-modal-subtitle {
+    margin: 0 0 4px;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.68;
+  }
+
+  .recipe-modal-title {
+    margin: 0 0 8px;
+    font-size: 1.55rem;
+    line-height: 1.14;
+  }
+
+  .recipe-modal-description {
+    margin: 0;
+    line-height: 1.42;
+    opacity: 0.9;
+  }
+
+  .recipe-modal-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 16px 0 18px;
+  }
+
+  .recipe-stat {
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(125, 92, 50, 0.08);
+  }
+
+  .recipe-stat-label {
+    display: block;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.7;
+    margin-bottom: 4px;
+  }
+
+  .recipe-stat-value {
+    font-weight: 700;
+  }
+
+  .recipe-modal-columns,
+  .recipe-modal-columns-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 0;
+  }
+
+  .recipe-modal-columns-bottom {
+    margin-top: 16px;
+  }
+
+  .recipe-modal-block {
+    padding: 14px 14px 12px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.46);
+  }
+
+  .recipe-modal-block h4 {
+    margin: 0 0 10px;
+    font-size: 1rem;
+  }
+
+  .recipe-modal-list {
+    margin: 0;
+    padding-left: 18px;
+    line-height: 1.42;
+  }
+
+  .recipe-modal-list li + li {
+    margin-top: 6px;
+  }
+
+  .recipe-modal-close,
+  .member-modal-close {
+    position: sticky;
+    top: 0;
+    float: right;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.08);
+    font-size: 1.5rem;
+    cursor: pointer;
+  }
+
+  .member-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1310;
+    padding: 20px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .member-modal.open {
+    display: flex !important;
+  }
+
+  .member-modal-card {
+    width: min(560px, 92vw);
+    background: #f7f0e4;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+    padding: 22px;
+  }
+
+  .calendar-shell {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.9fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .calendar-main,
+  .calendar-events-panel {
+    background: rgba(252, 246, 236, 0.72);
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .calendar-header h3 {
+    margin: 0;
+    text-align: center;
+    font-size: 1.2rem;
+  }
+
+  .calendar-header button {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(109, 77, 42, 0.12);
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .calendar-weekday {
+    text-align: center;
+    font-size: 0.78rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.66;
+    padding-bottom: 4px;
+  }
+
+  .calendar-day {
+    min-height: 78px;
+    padding: 8px 8px 6px;
+    border: 1px solid rgba(97, 70, 38, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.62);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .calendar-day:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+  }
+
+  .calendar-day.is-empty {
+    background: rgba(255, 255, 255, 0.2);
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .calendar-day.is-selected {
+    border-color: rgba(114, 70, 30, 0.55);
+    box-shadow: inset 0 0 0 2px rgba(114, 70, 30, 0.18);
+  }
+
+  .calendar-day.has-event .calendar-day-number {
+    color: #5a3518;
+  }
+
+  .calendar-day-number {
+    font-size: 0.96rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .calendar-day-dots {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 10px;
+    margin-top: 10px;
+  }
+
+  .calendar-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: #7a4723;
+    display: inline-block;
+  }
+
+  .calendar-more {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #6b4624;
+    margin-left: 2px;
+  }
+
+  .calendar-events-panel h4 {
+    margin: 0 0 12px;
+    font-size: 1.06rem;
+  }
+
+  .calendar-event-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .calendar-event-item {
+    padding: 12px 13px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.74);
+    border: 1px solid rgba(97, 70, 38, 0.1);
+  }
+
+  .calendar-event-title {
+    margin: 0 0 4px;
+    font-weight: 800;
+  }
+
+  .calendar-event-desc {
+    margin: 0;
+    line-height: 1.38;
+    opacity: 0.88;
+  }
+
+  .calendar-empty-note {
+    margin: 0;
+    opacity: 0.76;
+  }
+
+  .cinematic-footer {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    line-height: 0;
+    overflow: hidden;
+  }
+
+  .cinematic-footer .footer-logo {
+    display: block;
+    width: 100% !important;
+    max-width: none !important;
+    height: auto !important;
+    margin: 0 !important;
+  }
+
+  @media (max-width: 900px) {
+    .calendar-shell {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 720px) {
+    .hero,
+    #heroImage {
+      height: 220px !important;
+      min-height: 220px !important;
+    }
+
+    .header-inner {
+      gap: 10px;
+    }
+
+    .camp-title {
+      font-size: 1.7rem !important;
+    }
+
+    .camp-meta {
+      font-size: 0.98rem !important;
+    }
+
+    .camp-member-link {
+      padding: 6px 11px;
+      font-size: 0.88rem;
+    }
+
+    .recipe-compact-item {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    .recipe-modal-stats,
+    .recipe-modal-columns,
+    .recipe-modal-columns-bottom {
+      grid-template-columns: 1fr;
+    }
+
+    .calendar-day {
+      min-height: 64px;
+    }
+  }
+</style>
 </head>
 
 <body>
 
-<!-- HEADER (LOCKED) -->
 <header class="camp-header">
   <div class="header-inner">
 
     <div class="header-left">
-      <img src="assets/images/deer-track.png" class="deer-icon">
+      <img src="assets/branding/deer-track.png" class="deer-icon" alt="DeerCamp icon">
     </div>
 
     <div class="header-center">
-      <div id="campName" class="camp-title"></div>
-      <div id="campLocation" class="camp-meta"></div>
-      <div id="campMembers" class="camp-members"></div>
+      <div class="camp-title" id="campName"></div>
+      <div class="camp-meta" id="campLocation"></div>
+      <div class="camp-members" id="campMembers"></div>
     </div>
 
     <div class="header-right">
-      <button class="menu-btn">☰ Menu</button>
+      <button id="menuToggle" class="menu-btn" type="button" aria-expanded="false">☰ Menu</button>
     </div>
 
   </div>
+
+  <nav id="menu" class="menu"></nav>
 </header>
 
-<!-- HERO (CONTROLLED SIZE) -->
-<section class="hero">
-  <img id="heroImage">
-</section>
+<section class="hero" id="heroImage"></section>
 
-<!-- CONTENT (PARchment FEEL) -->
-<div class="content">
+<div class="page" id="content"></div>
 
-  <div class="section">
-    <h2>CampTraditions</h2>
-    <ul id="traditionsList"></ul>
-  </div>
-
-  <div class="section">
-    <h2>CampMemories</h2>
-    <ul id="memoriesList"></ul>
-  </div>
-
-</div>
-
-<!-- FOOTER -->
-<footer class="footer">
-  <img src="assets/branding/deercamp-footer.png" class="footer-logo">
-  <p>Built for the Tradition</p>
+<footer class="cinematic-footer">
+  <img src="assets/branding/deercamp-footer.png" class="footer-logo" alt="DeerCamp footer">
 </footer>
 
+<div id="memoryModal" class="memory-modal" onclick="closeMemoryCard()">
+  <div class="memory-modal-inner" onclick="event.stopPropagation()">
+    <img id="memoryModalImg" alt="Camp memory image">
+    <audio id="memoryAudio" controls></audio>
+  </div>
+</div>
+
+<div id="storyMode" class="story-mode">
+  <div class="story-inner">
+    <img id="storyImage" alt="Camp story image">
+    <audio id="storyAudio" autoplay></audio>
+
+    <div class="story-controls">
+      <button type="button" onclick="prevStory()">◀</button>
+      <button type="button" onclick="nextStory()">▶</button>
+      <button type="button" onclick="closeStory()">✕</button>
+    </div>
+  </div>
+</div>
+
+<div id="recipeModalBackdrop" class="recipe-modal-backdrop"></div>
+<div id="recipeModal" class="recipe-modal" aria-hidden="true">
+  <div class="recipe-modal-shell">
+    <div class="recipe-modal-content">
+      <button id="closeRecipeModal" class="recipe-modal-close" type="button" aria-label="Close recipe">×</button>
+
+      <div class="recipe-modal-header">
+        <p id="recipeModalSubtitle" class="recipe-modal-subtitle">Camp Recipe</p>
+        <h3 id="recipeModalTitle" class="recipe-modal-title">Recipe Title</h3>
+        <p id="recipeModalDescription" class="recipe-modal-description">Recipe description goes here.</p>
+      </div>
+
+      <div class="recipe-modal-stats">
+        <div class="recipe-stat">
+          <span class="recipe-stat-label">Time</span>
+          <span id="recipeModalTime" class="recipe-stat-value">—</span>
+        </div>
+
+        <div class="recipe-stat">
+          <span class="recipe-stat-label">Serves</span>
+          <span id="recipeModalServes" class="recipe-stat-value">—</span>
+        </div>
+
+        <div class="recipe-stat">
+          <span class="recipe-stat-label">Difficulty</span>
+          <span id="recipeModalDifficulty" class="recipe-stat-value">—</span>
+        </div>
+      </div>
+
+      <div class="recipe-modal-columns">
+        <div class="recipe-modal-block">
+          <h4>Ingredients</h4>
+          <ul id="recipeModalIngredients" class="recipe-modal-list"></ul>
+        </div>
+
+        <div class="recipe-modal-block">
+          <h4>Method</h4>
+          <ol id="recipeModalSteps" class="recipe-modal-list recipe-modal-list-numbered"></ol>
+        </div>
+      </div>
+
+      <div class="recipe-modal-columns recipe-modal-columns-bottom">
+        <div class="recipe-modal-block">
+          <h4>Serve It Right</h4>
+          <ul id="recipeModalServing" class="recipe-modal-list"></ul>
+        </div>
+
+        <div class="recipe-modal-block">
+          <h4>Camp Tips</h4>
+          <ul id="recipeModalTips" class="recipe-modal-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="memberModalBackdrop" class="member-modal-backdrop"></div>
+<div id="memberModal" class="member-modal" aria-hidden="true">
+  <div class="member-modal-card">
+    <button id="closeMemberModal" class="member-modal-close" type="button" aria-label="Close member profile">×</button>
+    <h3 id="memberModalName">Camp Member</h3>
+    <div class="member-modal-lines">
+      <p><strong>Role:</strong> <span id="memberModalRole">Camp Member</span></p>
+      <p><strong>Year Joined:</strong> <span id="memberModalYearJoined">—</span></p>
+      <p><strong>Favorite Stand:</strong> <span id="memberModalStand">—</span></p>
+      <p><strong>Note:</strong> <span id="memberModalNote">Add member details later.</span></p>
+    </div>
+  </div>
+</div>
+
 <script>
-const data = JSON.parse(localStorage.getItem("campData"));
+const data = JSON.parse(localStorage.getItem("campData")) || {};
 
-// HEADER DATA
-document.getElementById("campName").innerText = data.name;
-document.getElementById("campLocation").innerText =
-  data.location + " • Est. " + data.established;
+function toTitleCase(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
 
-// HERO
-document.getElementById("heroImage").src =
-  "assets/heroes/" + data.hero;
+function syncCampLayout() {
+  const header = document.querySelector(".camp-header");
+  const headerHeight = header ? header.offsetHeight : 0;
+  document.documentElement.style.setProperty("--camp-header-height", `${headerHeight}px`);
+}
 
-// MEMBERS INLINE (ON PLANK)
-const membersDiv = document.getElementById("campMembers");
-data.members.forEach(m => {
-  const span = document.createElement("span");
-  span.innerText = m.trim();
-  membersDiv.appendChild(span);
+window.addEventListener("load", syncCampLayout);
+window.addEventListener("resize", syncCampLayout);
+
+const city = (data.city || "").trim();
+const state = (data.state || "").trim();
+const zip = (data.zip || "").trim();
+const legacyLocation = (data.location || "").trim();
+
+const cleanCity = city ? toTitleCase(city) : "";
+const cleanState = state ? toTitleCase(state) : "";
+
+let formattedLocation = "";
+
+if (cleanCity && cleanState && zip) {
+  formattedLocation = `${cleanCity}, ${cleanState} ${zip}`;
+} else if (cleanCity && cleanState) {
+  formattedLocation = `${cleanCity}, ${cleanState}`;
+} else if (cleanCity) {
+  formattedLocation = cleanCity;
+} else if (legacyLocation) {
+  formattedLocation = legacyLocation;
+}
+
+document.getElementById("campName").textContent = data.name || "DeerCamp";
+document.getElementById("campLocation").textContent =
+  formattedLocation + (data.established ? " • Est. " + data.established : "");
+
+const memberProfiles = Array.isArray(data.memberProfiles) && data.memberProfiles.length
+  ? data.memberProfiles
+  : (data.members || []).map(name => ({
+      name: String(name).trim(),
+      role: "Camp Member",
+      yearJoined: "—",
+      favoriteStand: "—",
+      note: "Add member details later."
+    }));
+
+const memberModal = document.getElementById("memberModal");
+const memberModalBackdrop = document.getElementById("memberModalBackdrop");
+
+function openMemberModal(member) {
+  document.getElementById("memberModalName").textContent = member.name || "Camp Member";
+  document.getElementById("memberModalRole").textContent = member.role || "Camp Member";
+  document.getElementById("memberModalYearJoined").textContent = member.yearJoined || "—";
+  document.getElementById("memberModalStand").textContent = member.favoriteStand || "—";
+  document.getElementById("memberModalNote").textContent = member.note || "Add member details later.";
+
+  memberModal.classList.add("open");
+  memberModalBackdrop.classList.add("open");
+  document.body.classList.add("modal-open");
+}
+
+function closeMemberModal() {
+  memberModal.classList.remove("open");
+  memberModalBackdrop.classList.remove("open");
+  document.body.classList.remove("modal-open");
+}
+
+document.getElementById("closeMemberModal").addEventListener("click", closeMemberModal);
+memberModalBackdrop.addEventListener("click", closeMemberModal);
+
+function buildHeaderMembers() {
+  const membersWrap = document.getElementById("campMembers");
+  membersWrap.innerHTML = "";
+
+  memberProfiles.forEach((member, index) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "camp-member-link";
+    btn.textContent = member.name || `Member ${index + 1}`;
+    btn.addEventListener("click", () => openMemberModal(member));
+    membersWrap.appendChild(btn);
+  });
+}
+
+buildHeaderMembers();
+
+let heroPath = data.hero || "";
+
+if (!heroPath) {
+  heroPath = "assets/heroes/MN-deer-camp.jpg";
+}
+
+if (
+  !heroPath.startsWith("data:") &&
+  !heroPath.startsWith("assets/") &&
+  !heroPath.startsWith("http")
+) {
+  heroPath = "assets/heroes/" + heroPath;
+}
+
+document.getElementById("heroImage").style.backgroundImage = `url('${heroPath}')`;
+
+const stories = [
+  {
+    img: "campcards/images/brittneys-first-deer.png",
+    audio: "campcards/audio/brittneys-first-deer.mp3"
+  },
+  {
+    img: "campcards/images/grandpas-biggest-buck.png",
+    audio: "campcards/audio/grandpas-biggest-buck.mp3"
+  },
+  {
+    img: "campcards/images/camp-tracker.png",
+    audio: "campcards/audio/camp-tracker.mp3"
+  }
+];
+
+let currentStory = 0;
+let isStoryActive = false;
+
+const rawSections = [
+  { key: "campcards", title: "CampCards", hasContent: true },
+  { key: "members", title: "CampMembers", hasContent: memberProfiles.length > 0 },
+  { key: "recipes", title: "CampRecipes", hasContent: true },
+  { key: "calendar", title: "CampCalendar", hasContent: true },
+  { key: "traditions", title: "CampTraditions", hasContent: Array.isArray(data.traditions) && data.traditions.length > 0 },
+  { key: "memories", title: "CampMemories", hasContent: true },
+  { key: "map", title: "CampMap", placeholder: "Coming soon", hasContent: false },
+  { key: "feed", title: "CampFeed", placeholder: "Updated by hunters in the field with DeerCamp app<br><br>Coming soon", hasContent: false }
+];
+
+const sections = [
+  ...rawSections.filter(section => section.hasContent),
+  ...rawSections.filter(section => !section.hasContent)
+];
+
+const content = document.getElementById("content");
+const menu = document.getElementById("menu");
+const menuToggle = document.getElementById("menuToggle");
+
+sections.forEach(section => {
+  const container = document.createElement("div");
+  container.className = "content-section";
+  container.id = section.key;
+
+  if (section.key === "campcards") {
+    container.innerHTML = `
+      <h2>CampCards</h2>
+      <p class="placeholder">Your camp’s best moments will appear here</p>
+    `;
+
+    const grid = document.createElement("div");
+    grid.className = "campcards-grid";
+
+    const cards = [
+      "campcards/images/packers-burgers.png",
+      "campcards/images/first-coffee.png",
+      "campcards/images/campfire-camaraderie.png",
+      "campcards/images/fall-scouting.png"
+    ];
+
+    cards.forEach(src => {
+      const card = document.createElement("div");
+      card.className = "campcard";
+
+      const img = document.createElement("img");
+      img.src = src;
+      img.alt = "Camp card";
+      img.addEventListener("click", () => {
+        document.getElementById("memoryModal").style.display = "flex";
+        document.getElementById("memoryModalImg").src = src;
+      });
+
+      card.appendChild(img);
+      grid.appendChild(card);
+    });
+
+    container.appendChild(grid);
+  }
+
+  else if (section.key === "members") {
+    container.innerHTML = `
+      <h2>CampMembers</h2>
+      <p class="section-helper">Tap a member name for details.</p>
+      <div class="members-inline-grid" id="membersInlineGrid"></div>
+    `;
+    const memberGrid = container.querySelector("#membersInlineGrid");
+
+    memberProfiles.forEach((member, index) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "member-inline-card";
+      btn.id = `member-${index}`;
+      btn.textContent = member.name || `Member ${index + 1}`;
+      btn.addEventListener("click", () => openMemberModal(member));
+      memberGrid.appendChild(btn);
+    });
+  }
+
+  else if (section.key === "recipes") {
+    container.innerHTML = `
+      <h2>CampRecipes</h2>
+      <div id="recipesGrid" class="recipes-grid"></div>
+    `;
+  }
+
+  else if (section.key === "calendar") {
+    container.innerHTML = `
+      <h2>CampCalendar</h2>
+      <div class="calendar-shell">
+        <div class="calendar-main">
+          <div class="calendar-header">
+            <button id="calendarPrev" type="button" aria-label="Previous month">◀</button>
+            <h3 id="calendarMonthLabel">Month</h3>
+            <button id="calendarNext" type="button" aria-label="Next month">▶</button>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+
+        <div class="calendar-events-panel">
+          <h4>Events</h4>
+          <div id="calendarEventList" class="calendar-event-list">
+            <p class="calendar-empty-note">Select a day to view events.</p>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  else if (section.key === "traditions") {
+    container.innerHTML = `<h2>CampTraditions</h2>`;
+    (data.traditions || []).forEach(item => {
+      const el = document.createElement("div");
+      el.className = "list-item";
+      el.textContent = item;
+      container.appendChild(el);
+    });
+  }
+
+  else if (section.key === "memories") {
+    container.innerHTML = `<h2>CampMemories — Wall of Fame — Annual 3 Winners</h2>`;
+    const grid = document.createElement("div");
+    grid.className = "memories-grid";
+
+    stories.forEach((story, index) => {
+      const card = document.createElement("div");
+      card.className = "memory-card";
+      card.style.backgroundImage = `url('${story.img}')`;
+      card.addEventListener("click", () => openStory(index));
+      grid.appendChild(card);
+    });
+
+    container.appendChild(grid);
+  }
+
+  else {
+    container.innerHTML = `<h2>${section.title}</h2>`;
+    if (section.placeholder) {
+      container.innerHTML += `<p class="placeholder">${section.placeholder}</p>`;
+    }
+  }
+
+  content.appendChild(container);
+
+  const link = document.createElement("a");
+  link.href = `#${section.key}`;
+  link.textContent = section.title;
+  link.addEventListener("click", () => {
+    menu.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", "false");
+  });
+  menu.appendChild(link);
 });
 
-// TRADITIONS
-const traditionsList = document.getElementById("traditionsList");
-data.traditions.forEach(t => {
-  const li = document.createElement("li");
-  li.innerText = t.trim();
-  traditionsList.appendChild(li);
+menuToggle.addEventListener("click", () => {
+  const isOpen = menu.classList.toggle("open");
+  menuToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
 });
 
-// MEMORIES
-const memoriesList = document.getElementById("memoriesList");
-data.memories.forEach(m => {
-  const li = document.createElement("li");
-  li.innerText = m.trim();
-  memoriesList.appendChild(li);
+document.addEventListener("click", event => {
+  if (!menu.contains(event.target) && !menuToggle.contains(event.target)) {
+    menu.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", "false");
+  }
+});
+
+function openStory(index) {
+  currentStory = index;
+  isStoryActive = true;
+  document.getElementById("storyMode").style.display = "flex";
+  loadStory();
+}
+
+function loadStory() {
+  const story = stories[currentStory];
+  const img = document.getElementById("storyImage");
+  const audio = document.getElementById("storyAudio");
+
+  audio.pause();
+  audio.currentTime = 0;
+
+  img.style.opacity = 0;
+  setTimeout(() => {
+    img.src = story.img;
+    img.style.opacity = 1;
+  }, 150);
+
+  audio.src = story.audio;
+  audio.play().catch(() => {});
+
+  audio.onended = () => {
+    if (isStoryActive) nextStory();
+  };
+}
+
+function nextStory() {
+  currentStory++;
+  if (currentStory >= stories.length) return closeStory();
+  loadStory();
+}
+
+function prevStory() {
+  currentStory = (currentStory - 1 + stories.length) % stories.length;
+  loadStory();
+}
+
+function closeStory() {
+  isStoryActive = false;
+  document.getElementById("storyMode").style.display = "none";
+
+  const audio = document.getElementById("storyAudio");
+  audio.pause();
+  audio.currentTime = 0;
+}
+
+function closeMemoryCard() {
+  document.getElementById("memoryModal").style.display = "none";
+}
+
+function campArray(value, fallback = []) {
+  return Array.isArray(value)
+    ? value.map(item => String(item).trim()).filter(Boolean)
+    : fallback;
+}
+
+function normalizeCampRecipe(recipe = {}, index = 0) {
+  return {
+    subtitle: recipe.subtitle || "Camp Recipe",
+    title: recipe.title || `Camp Recipe ${index + 1}`,
+    description: recipe.description || "Built for the camp table.",
+    time: recipe.time || "—",
+    serves: recipe.serves || "—",
+    difficulty: recipe.difficulty || "—",
+    ingredients: campArray(recipe.ingredients, ["Add ingredients later."]),
+    steps: campArray(recipe.steps, ["Add method steps later."]),
+    serving: campArray(recipe.serving, ["Serve hot and enjoy around camp."]),
+    tips: campArray(recipe.tips, ["Make it your own."])
+  };
+}
+
+const defaultCampRecipes = [
+  {
+    subtitle: "Camp Favorite",
+    title: "Venison Chili",
+    description: "A cold-weather classic built for camp supper.",
+    time: "1 hr 15 min",
+    serves: "6",
+    difficulty: "Easy",
+    ingredients: [
+      "2 lbs ground venison",
+      "1 onion, diced",
+      "2 cans kidney beans",
+      "2 cans diced tomatoes",
+      "Chili seasoning",
+      "Salt and pepper"
+    ],
+    steps: [
+      "Brown the venison and onion in a heavy pot.",
+      "Add tomatoes, beans, and seasoning.",
+      "Simmer low for 45 minutes.",
+      "Serve hot."
+    ],
+    serving: [
+      "Top with cheese.",
+      "Serve with crackers or cornbread."
+    ],
+    tips: [
+      "Better the next day.",
+      "Add jalapeño for extra heat."
+    ]
+  },
+  {
+    subtitle: "Camp Breakfast",
+    title: "Opening Morning Skillet",
+    description: "Quick, hearty, and easy before heading to the stand.",
+    time: "30 min",
+    serves: "4",
+    difficulty: "Easy",
+    ingredients: [
+      "Breakfast sausage",
+      "Potatoes",
+      "Eggs",
+      "Cheddar cheese",
+      "Butter",
+      "Salt and pepper"
+    ],
+    steps: [
+      "Cook sausage until browned.",
+      "Add potatoes and cook until crisp.",
+      "Crack eggs over top and cover.",
+      "Finish with cheese and serve."
+    ],
+    serving: [
+      "Serve with strong coffee.",
+      "Hot sauce optional."
+    ],
+    tips: [
+      "Cast iron works best.",
+      "Use leftover potatoes."
+    ]
+  },
+  {
+    subtitle: "Camp Dessert",
+    title: "Dutch Oven Apple Crisp",
+    description: "Simple dessert that fits the fire-and-family mood.",
+    time: "50 min",
+    serves: "8",
+    difficulty: "Medium",
+    ingredients: [
+      "6 apples, sliced",
+      "Brown sugar",
+      "Oats",
+      "Flour",
+      "Butter",
+      "Cinnamon"
+    ],
+    steps: [
+      "Layer apples in dutch oven.",
+      "Mix topping and spread over apples.",
+      "Bake until bubbling and golden.",
+      "Cool slightly and serve warm."
+    ],
+    serving: [
+      "Serve warm by the fire.",
+      "Ice cream if available."
+    ],
+    tips: [
+      "Tart apples hold up best.",
+      "Rotate heat for even cooking."
+    ]
+  }
+];
+
+function getCampRecipes() {
+  if (Array.isArray(data.recipes) && data.recipes.length) {
+    return data.recipes.map((recipe, index) => normalizeCampRecipe(recipe, index));
+  }
+
+  return defaultCampRecipes.map((recipe, index) => normalizeCampRecipe(recipe, index));
+}
+
+function openCampRecipeModal(recipe) {
+  const modal = document.getElementById("recipeModal");
+  const backdrop = document.getElementById("recipeModalBackdrop");
+
+  document.getElementById("recipeModalSubtitle").textContent = recipe.subtitle;
+  document.getElementById("recipeModalTitle").textContent = recipe.title;
+  document.getElementById("recipeModalDescription").textContent = recipe.description;
+  document.getElementById("recipeModalTime").textContent = recipe.time;
+  document.getElementById("recipeModalServes").textContent = recipe.serves;
+  document.getElementById("recipeModalDifficulty").textContent = recipe.difficulty;
+
+  const ingredients = document.getElementById("recipeModalIngredients");
+  const steps = document.getElementById("recipeModalSteps");
+  const serving = document.getElementById("recipeModalServing");
+  const tips = document.getElementById("recipeModalTips");
+
+  ingredients.innerHTML = "";
+  steps.innerHTML = "";
+  serving.innerHTML = "";
+  tips.innerHTML = "";
+
+  recipe.ingredients.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    ingredients.appendChild(li);
+  });
+
+  recipe.steps.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    steps.appendChild(li);
+  });
+
+  recipe.serving.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    serving.appendChild(li);
+  });
+
+  recipe.tips.forEach(item => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    tips.appendChild(li);
+  });
+
+  modal.setAttribute("aria-hidden", "false");
+  modal.classList.add("open");
+  backdrop.classList.add("open");
+  document.body.classList.add("modal-open");
+}
+
+function closeCampRecipeModal() {
+  const modal = document.getElementById("recipeModal");
+  const backdrop = document.getElementById("recipeModalBackdrop");
+
+  modal.setAttribute("aria-hidden", "true");
+  modal.classList.remove("open");
+  backdrop.classList.remove("open");
+  document.body.classList.remove("modal-open");
+}
+
+document.getElementById("closeRecipeModal").addEventListener("click", closeCampRecipeModal);
+document.getElementById("recipeModalBackdrop").addEventListener("click", closeCampRecipeModal);
+
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    closeCampRecipeModal();
+    closeMemberModal();
+    closeStory();
+    menu.classList.remove("open");
+    menuToggle.setAttribute("aria-expanded", "false");
+  }
+});
+
+function renderCompactRecipes() {
+  const grid = document.getElementById("recipesGrid");
+  if (!grid) return;
+
+  const recipes = getCampRecipes();
+  grid.innerHTML = "";
+
+  recipes.forEach(recipe => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "recipe-compact-item";
+
+    const copy = document.createElement("div");
+    copy.className = "recipe-compact-copy";
+
+    const title = document.createElement("h3");
+    title.className = "recipe-compact-title";
+    title.textContent = recipe.title;
+
+    const meta = document.createElement("p");
+    meta.className = "recipe-compact-meta";
+    meta.textContent = `${recipe.time} • Serves ${recipe.serves} • ${recipe.difficulty}`;
+
+    const description = document.createElement("p");
+    description.className = "recipe-compact-description";
+    description.textContent = recipe.description;
+
+    const cta = document.createElement("div");
+    cta.className = "recipe-compact-cta";
+    cta.textContent = "View Recipe";
+
+    copy.appendChild(title);
+    copy.appendChild(meta);
+    copy.appendChild(description);
+
+    button.appendChild(copy);
+    button.appendChild(cta);
+    button.addEventListener("click", () => openCampRecipeModal(recipe));
+
+    grid.appendChild(button);
+  });
+}
+
+function normalizeDateKey(value) {
+  if (!value) return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+
+  const y = parsed.getFullYear();
+  const m = String(parsed.getMonth() + 1).padStart(2, "0");
+  const d = String(parsed.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function pad2(num) {
+  return String(num).padStart(2, "0");
+}
+
+function toDateKey(year, monthIndex, day) {
+  return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+}
+
+function normalizeCalendarEvents(source) {
+  if (!Array.isArray(source)) return [];
+
+  return source
+    .map((item, index) => {
+      if (typeof item === "string") {
+        const dateKey = normalizeDateKey(item);
+        return dateKey ? { date: dateKey, title: `Camp Event ${index + 1}`, description: "" } : null;
+      }
+
+      if (!item || typeof item !== "object") return null;
+
+      const dateKey = normalizeDateKey(item.date || item.day || item.when);
+      if (!dateKey) return null;
+
+      return {
+        date: dateKey,
+        title: item.title || item.name || "Camp Event",
+        description: item.description || item.note || item.details || ""
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildFallbackEvents() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  return [
+    {
+      date: toDateKey(y, m, 6),
+      title: "Scout Night",
+      description: "Quick evening planning session and stand review."
+    },
+    {
+      date: toDateKey(y, m, 14),
+      title: "Camp Supper",
+      description: "Shared dinner at camp after the afternoon hunt."
+    },
+    {
+      date: toDateKey(y, m, 22),
+      title: "Work Weekend",
+      description: "Cabin cleanup, trail check, and camera swap."
+    }
+  ];
+}
+
+const normalizedCalendarEvents = normalizeCalendarEvents(
+  data.calendarEvents || data.events || data.campEvents || []
+);
+
+const calendarEvents = normalizedCalendarEvents.length
+  ? normalizedCalendarEvents
+  : buildFallbackEvents();
+
+const eventsByDate = calendarEvents.reduce((acc, event) => {
+  if (!acc[event.date]) acc[event.date] = [];
+  acc[event.date].push(event);
+  return acc;
+}, {});
+
+let calendarCursor = new Date();
+calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
+
+let selectedDateKey = "";
+
+function renderCalendarEventList(dateKey) {
+  const eventList = document.getElementById("calendarEventList");
+  if (!eventList) return;
+
+  const events = eventsByDate[dateKey] || [];
+  eventList.innerHTML = "";
+
+  if (!events.length) {
+    const empty = document.createElement("p");
+    empty.className = "calendar-empty-note";
+    empty.textContent = "No events on this day.";
+    eventList.appendChild(empty);
+    return;
+  }
+
+  events.forEach(event => {
+    const card = document.createElement("div");
+    card.className = "calendar-event-item";
+
+    const title = document.createElement("p");
+    title.className = "calendar-event-title";
+    title.textContent = event.title;
+
+    const desc = document.createElement("p");
+    desc.className = "calendar-event-desc";
+    desc.textContent = event.description || "No additional details yet.";
+
+    card.appendChild(title);
+    card.appendChild(desc);
+    eventList.appendChild(card);
+  });
+}
+
+function renderCalendar() {
+  const grid = document.getElementById("calendarGrid");
+  const label = document.getElementById("calendarMonthLabel");
+  if (!grid || !label) return;
+
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+
+  label.textContent = calendarCursor.toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric"
+  });
+
+  grid.innerHTML = "";
+
+  const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  weekdayNames.forEach(name => {
+    const weekday = document.createElement("div");
+    weekday.className = "calendar-weekday";
+    weekday.textContent = name;
+    grid.appendChild(weekday);
+  });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  for (let i = 0; i < firstDay; i++) {
+    const filler = document.createElement("div");
+    filler.className = "calendar-day is-empty";
+    grid.appendChild(filler);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = toDateKey(year, month, day);
+    const dayEvents = eventsByDate[dateKey] || [];
+
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = "calendar-day";
+    if (dayEvents.length) cell.classList.add("has-event");
+    if (selectedDateKey === dateKey) cell.classList.add("is-selected");
+
+    const num = document.createElement("div");
+    num.className = "calendar-day-number";
+    num.textContent = day;
+
+    const dots = document.createElement("div");
+    dots.className = "calendar-day-dots";
+
+    dayEvents.slice(0, 3).forEach(() => {
+      const dot = document.createElement("span");
+      dot.className = "calendar-dot";
+      dots.appendChild(dot);
+    });
+
+    if (dayEvents.length > 3) {
+      const more = document.createElement("span");
+      more.className = "calendar-more";
+      more.textContent = `+${dayEvents.length - 3}`;
+      dots.appendChild(more);
+    }
+
+    cell.appendChild(num);
+    cell.appendChild(dots);
+
+    cell.addEventListener("click", () => {
+      selectedDateKey = dateKey;
+      renderCalendar();
+      renderCalendarEventList(dateKey);
+    });
+
+    grid.appendChild(cell);
+  }
+}
+
+function initCalendar() {
+  const prev = document.getElementById("calendarPrev");
+  const next = document.getElementById("calendarNext");
+
+  if (!prev || !next) return;
+
+  prev.addEventListener("click", () => {
+    calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
+    renderCalendar();
+  });
+
+  next.addEventListener("click", () => {
+    calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
+    renderCalendar();
+  });
+
+  const todayKey = normalizeDateKey(new Date());
+  const todayEvents = eventsByDate[todayKey] || [];
+
+  if (todayEvents.length) {
+    selectedDateKey = todayKey;
+    calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    renderCalendar();
+    renderCalendarEventList(todayKey);
+  } else {
+    const firstEventKey = Object.keys(eventsByDate).sort()[0] || "";
+    selectedDateKey = firstEventKey;
+    if (firstEventKey) {
+      const parts = firstEventKey.split("-").map(Number);
+      calendarCursor = new Date(parts[0], parts[1] - 1, 1);
+    }
+    renderCalendar();
+    if (firstEventKey) {
+      renderCalendarEventList(firstEventKey);
+    } else {
+      renderCalendarEventList("");
+    }
+  }
+}
+
+window.addEventListener("load", () => {
+  syncCampLayout();
+  renderCompactRecipes();
+  initCalendar();
 });
 </script>
 

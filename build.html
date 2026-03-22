@@ -1,84 +1,194 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Build Your Camp</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Your Camp</title>
+<link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<div class="form-container">
+<div class="build-container">
 
   <h1>Create Your Camp</h1>
-  <p>Fill this out and build instantly</p>
+  <p class="subtitle">Build your Deer Camp in minutes — no setup required</p>
 
   <form id="campForm">
 
-    <!-- CAMP NAME -->
-    <label>Camp Name</label>
-    <input type="text" id="name" placeholder="Camp Name" required>
+    <div class="form-section">
+      <h2>Camp Info</h2>
 
-    <!-- LOCATION -->
-    <label>Location</label>
-    <input type="text" id="location" placeholder="City, State" required>
+      <div class="form-row">
+        <label>Camp Name</label>
+        <input id="campName" placeholder="Camp Name">
+      </div>
 
-    <!-- YEAR -->
-    <label>Established Year</label>
-    <input type="number" id="year" placeholder="e.g. 1984" min="1800" max="2099">
+      <div class="form-row">
+        <label>City</label>
+        <input id="campCity" placeholder="City">
+      </div>
 
-    <!-- HERO SELECT -->
-    <label>Select Hero Image</label>
-    <select id="heroSelect">
-      <option value="classic.jpg">Classic Camp</option>
-      <option value="pines.jpg">Pine Woods</option>
-      <option value="snow.jpg">Snow Camp</option>
-      <option value="cabin.jpg">Cabin Camp</option>
-    </select>
+      <div class="form-row">
+        <label>State</label>
+        <input id="campState" placeholder="State">
+      </div>
 
-    <!-- UPLOAD OPTION -->
-    <label>Or Upload Your Own Camp Image</label>
-    <input type="file" id="heroUpload" accept="image/*">
+      <div class="form-row">
+        <label>Zip Code</label>
+        <input id="campZip" placeholder="Zip Code">
+      </div>
 
-    <!-- MEMBERS -->
-    <label>CampMembers (comma separated)</label>
-    <input type="text" id="members" placeholder="Ben, Dave, Tyler">
+      <div class="form-row">
+        <label>Established</label>
+        <input id="campYear" placeholder="e.g. 1984">
+      </div>
+    </div>
 
-    <!-- TRADITIONS -->
-    <label>CampTraditions (comma separated)</label>
-    <input type="text" id="traditions" placeholder="Opening night chili, First buck cigar">
+    <div class="form-section">
+      <h2>Camp Image</h2>
 
-    <!-- MEMORIES -->
-    <label>CampMemories (comma separated)</label>
-    <input type="text" id="memories" placeholder="First buck, Big storm hunt">
+      <div class="form-row">
+        <label>Select Image</label>
+        <select id="campImageSelect">
+          <option value="classic.jpg">Classic Camp</option>
+          <option value="woods.jpg">Woods Camp</option>
+        </select>
+      </div>
 
-    <!-- SUBMIT -->
-    <button type="submit" class="cta">Build My Camp</button>
+      <div class="form-row">
+        <label>Upload Image</label>
+        <input type="file" id="campImageUpload" accept="image/*">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>People & Traditions</h2>
+
+      <div class="form-row">
+        <label>Members</label>
+        <input id="campMembers" placeholder="Ben, Dave, Tyler">
+      </div>
+
+      <div class="form-row">
+        <label>Traditions</label>
+        <input id="campTraditions" placeholder="Opening night chili, First buck cigar">
+      </div>
+
+      <div class="form-row">
+        <label>Deer Drives</label>
+        <input id="campDeerDrives" placeholder="North Ridge Push, Creek Line">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Memories & Recipes</h2>
+
+      <div class="form-row">
+        <label>Memories</label>
+        <input id="campMemories" placeholder="First buck, Big storm hunt">
+      </div>
+
+      <div class="form-row">
+        <label>Recipes</label>
+        <input id="campRecipes" placeholder="Venison chili, Backstrap">
+      </div>
+    </div>
+
+    <button type="submit" class="build-btn">Build My Camp</button>
 
   </form>
 
 </div>
 
+<script src="build.js"></script>
 <script>
-document.getElementById("campForm").addEventListener("submit", function(e) {
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read uploaded image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById("campForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
-  const data = {
-    name: document.getElementById("name").value,
-    location: document.getElementById("location").value,
-    established: document.getElementById("year").value,
-    hero: document.getElementById("heroSelect").value,
-    members: document.getElementById("members").value.split(","),
-    traditions: document.getElementById("traditions").value.split(","),
-    memories: document.getElementById("memories").value.split(",")
+  const name = document.getElementById("campName").value.trim();
+  const city = document.getElementById("campCity").value.trim();
+  const state = document.getElementById("campState").value.trim();
+  const zip = document.getElementById("campZip").value.trim();
+  const year = document.getElementById("campYear").value.trim();
+
+  const members = document.getElementById("campMembers").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const memberProfiles = members.map(name => ({
+    name,
+    role: "Camp Member",
+    yearJoined: "—",
+    favoriteStand: "—",
+    note: "Add member details later."
+  }));
+
+  const traditions = document.getElementById("campTraditions").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const deerDrives = document.getElementById("campDeerDrives").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const memories = document.getElementById("campMemories").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const recipes = document.getElementById("campRecipes").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const selectImage = document.getElementById("campImageSelect").value;
+  const uploadInput = document.getElementById("campImageUpload");
+
+  let hero = selectImage;
+
+  if (uploadInput.files.length > 0) {
+    try {
+      hero = await readFileAsDataURL(uploadInput.files[0]);
+    } catch (error) {
+      alert("Uploaded image could not be processed. Using selected image instead.");
+      hero = selectImage;
+    }
+  }
+
+  const location = [city, state].filter(Boolean).join(", ");
+
+  const campData = {
+    name,
+    city,
+    state,
+    zip,
+    location,
+    established: year,
+    hero,
+    members,
+    memberProfiles,
+    traditions,
+    deerDrives,
+    memories,
+    recipes
   };
 
-  localStorage.setItem("campData", JSON.stringify(data));
-
+  localStorage.setItem("campData", JSON.stringify(campData));
   window.location.href = "camp.html";
 });
 </script>
-
 </body>
 </html>
