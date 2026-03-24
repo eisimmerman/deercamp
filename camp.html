@@ -16,6 +16,7 @@
   }
 
   body {
+    padding-top: 0;
     background: #d8cfbf;
   }
 
@@ -23,9 +24,15 @@
     overflow: hidden;
   }
 
+  :root {
+    --camp-header-height: 118px;
+  }
+
   .camp-header {
-    position: sticky !important;
+    position: fixed !important;
     top: 0;
+    left: 0;
+    right: 0;
     z-index: 1000;
     width: 100%;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
@@ -40,6 +47,8 @@
     align-items: center;
     justify-content: space-between;
     gap: 18px;
+    padding: 12px 24px;
+    min-height: 92px;
   }
 
   .header-left,
@@ -133,38 +142,83 @@
     margin-top: 0 !important;
   }
 
-  .hero,
-  #heroImage {
-    position: relative;
-    display: block;
-    width: 100%;
-    height: clamp(220px, 24vw, 300px) !important;
-    min-height: clamp(220px, 24vw, 300px) !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: transparent !important;
-    background-position: center center !important;
-    background-repeat: no-repeat !important;
-    background-size: cover !important;
-    overflow: hidden;
-    isolation: isolate;
-  }
+.hero,
+#heroImage {
+  --hero-image: none;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: clamp(380px, 40vw, 560px) !important;
+  min-height: clamp(380px, 40vw, 560px) !important;
+  margin: -1px 0 0 !important;
+  padding: 0 !important;
+  background: #4b3826 !important;
+  overflow: hidden;
+  isolation: isolate;
+}
 
-  .hero::after,
-  #heroImage::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: linear-gradient(
-      to bottom,
-      rgba(0, 0, 0, 0.04) 0%,
-      rgba(0, 0, 0, 0.02) 58%,
-      rgba(216, 207, 191, 0.15) 100%
-    );
-  }
+.hero-blur {
+  position: absolute;
+  inset: -8%;
+  z-index: 0;
+  display: block;
+  background-image: var(--hero-image);
+  background-position: center center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: blur(34px) saturate(1.05) brightness(0.72);
+  transform: scale(1.18);
+  opacity: 0.96;
+}
 
-  .page {
+.hero-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  padding: 22px clamp(18px, 4vw, 44px) 26px;
+  box-sizing: border-box;
+}
+
+.hero-main-image {
+  display: block;
+  width: min(75vw, 1220px);
+  max-width: calc(100vw - 48px);
+  height: clamp(300px, 31vw, 470px);
+  max-height: calc(100% - 12px);
+  border-radius: 26px;
+  object-fit: cover;
+  object-position: center 18%;
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.28);
+  transform: none;
+}
+
+.hero::after,
+#heroImage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(12, 9, 6, 0.14) 0%,
+    rgba(12, 9, 6, 0.06) 26%,
+    rgba(12, 9, 6, 0.04) 58%,
+    rgba(12, 9, 6, 0.28) 100%
+  );
+}
+
+.page {
+
     position: relative !important;
     z-index: 1;
     width: 100%;
@@ -232,9 +286,11 @@
 
   .recipes-grid {
     display: grid !important;
-    grid-template-columns: 1fr !important;
-    gap: 12px !important;
-    max-width: 860px;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 14px !important;
+    width: 100%;
+    max-width: none;
+    align-items: stretch;
   }
 
   .recipe-compact-item {
@@ -291,7 +347,8 @@
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(30, 24, 18, 0.55);
+    background: rgba(24, 18, 12, 0.16);
+    backdrop-filter: blur(1.5px);
     z-index: 1290;
   }
 
@@ -302,26 +359,33 @@
 
   .recipe-modal {
     display: none;
-    position: fixed !important;
+    position: fixed;
     inset: 0;
     z-index: 1300;
-    align-items: center;
+    padding: calc(var(--camp-header-height, 118px) + 18px) 14px 0;
+    box-sizing: border-box;
+    align-items: flex-start;
     justify-content: center;
-    padding: 20px;
+    pointer-events: none;
+    background: transparent !important;
   }
 
   .recipe-modal.open {
     display: flex !important;
   }
 
-  .recipe-modal-shell {
-    width: min(760px, 94vw);
-    max-height: 88vh;
+  .recipe-modal-card {
+    position: relative;
+    width: min(560px, 100%);
+    max-width: 560px;
+    max-height: min(72vh, 620px);
     overflow: auto;
+    margin: 0 auto;
     background: #f6efe3;
-    border-radius: 22px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
-    padding: 22px 22px 18px;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+    padding: 16px 16px 14px;
+    pointer-events: auto;
   }
 
   .recipe-modal-content {
@@ -329,7 +393,7 @@
   }
 
   .recipe-modal-header {
-    padding-right: 44px;
+    padding-right: 40px;
   }
 
   .recipe-modal-subtitle {
@@ -342,8 +406,8 @@
 
   .recipe-modal-title {
     margin: 0 0 8px;
-    font-size: 1.55rem;
-    line-height: 1.14;
+    font-size: 1.45rem;
+    line-height: 1.12;
   }
 
   .recipe-modal-description {
@@ -355,13 +419,13 @@
   .recipe-modal-stats {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 10px;
-    margin: 16px 0 18px;
+    gap: 8px;
+    margin: 14px 0 14px;
   }
 
   .recipe-stat {
-    padding: 10px 12px;
-    border-radius: 14px;
+    padding: 9px 11px;
+    border-radius: 13px;
     background: rgba(125, 92, 50, 0.08);
   }
 
@@ -382,17 +446,17 @@
   .recipe-modal-columns-bottom {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 12px;
     margin-top: 0;
   }
 
   .recipe-modal-columns-bottom {
-    margin-top: 16px;
+    margin-top: 12px;
   }
 
   .recipe-modal-block {
-    padding: 14px 14px 12px;
-    border-radius: 16px;
+    padding: 12px 12px 10px;
+    border-radius: 14px;
     background: rgba(255, 255, 255, 0.46);
   }
 
@@ -412,12 +476,13 @@
   }
 
   .recipe-modal-close,
-  .member-modal-close {
-    position: sticky;
-    top: 0;
-    float: right;
-    width: 36px;
-    height: 36px;
+  .member-modal-close,
+  .tradition-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 34px;
+    height: 34px;
     border: 0;
     border-radius: 999px;
     background: rgba(0, 0, 0, 0.08);
@@ -425,40 +490,559 @@
     cursor: pointer;
   }
 
-  .member-modal {
+.member-modal {
+  display: none;
+  position: fixed;
+  top: calc(var(--camp-header-height, 118px) + 18px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(460px, calc(100vw - 28px));
+  max-height: calc(100vh - var(--camp-header-height, 118px) - 36px);
+  height: auto !important;
+  min-height: 0 !important;
+  bottom: auto !important;
+  right: auto !important;
+  z-index: 1310;
+  background: #f7f0e4;
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.member-modal.open {
+  display: block !important;
+}
+
+.member-modal h3 {
+  margin: 0 44px 12px 0;
+  font-size: 1.45rem;
+  line-height: 1.1;
+}
+
+.member-modal-content {
+  display: grid;
+  gap: 12px;
+}
+
+.member-modal-role-block,
+.member-modal-section {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.48);
+}
+
+.member-modal-role-label,
+.member-modal-section-title {
+  margin: 0 0 8px;
+  color: #7b5a33;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.member-modal-role-value {
+  margin: 0;
+  color: #3f2a15;
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.member-modal-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+
+.member-modal-list li + li {
+  margin-top: 6px;
+}
+
+.member-modal-detail-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.member-modal-detail-row {
+  display: grid;
+  grid-template-columns: minmax(132px, 152px) minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.member-modal-detail-label {
+  color: #7b5a33;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.member-modal-detail-value {
+  color: #3f2a15;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+  .feed-carousel-shell {
+    display: grid;
+    gap: 14px;
+  }
+
+  .feed-carousel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .feed-carousel-caption {
+    margin: 0;
+    color: #7b5a33;
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .feed-carousel-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .feed-carousel-arrow {
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(109, 77, 42, 0.12);
+    color: #4b3116;
+    font-size: 1.1rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: transform 0.16s ease, background 0.16s ease, opacity 0.16s ease;
+  }
+
+  .feed-carousel-arrow:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(109, 77, 42, 0.2);
+  }
+
+  .feed-carousel-arrow:disabled {
+    opacity: 0.42;
+    cursor: default;
+  }
+
+  .feed-carousel-viewport {
+    overflow: hidden;
+  }
+
+  .feed-carousel-track {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 32px) / 3);
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+
+  .feed-carousel-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .feed-card {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    min-height: 100%;
+    border-radius: 22px;
+    background: rgba(252, 246, 236, 0.8);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    scroll-snap-align: start;
+    border: 1px solid rgba(97, 70, 38, 0.08);
+  }
+
+  .feed-card.is-featured {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  }
+
+  .feed-card-media {
+    position: relative;
+    background: rgba(255, 255, 255, 0.55);
+  }
+
+  .feed-card-media img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 11;
+    object-fit: cover;
+    object-position: center center;
+    background: #e9decf;
+  }
+
+  .feed-card-media.is-contain img {
+    aspect-ratio: 4 / 5;
+    object-fit: contain;
+    object-position: center center;
+  }
+
+  .feed-card-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 11px;
+    border-radius: 999px;
+    background: rgba(31, 25, 17, 0.72);
+    color: #fff8ef;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .feed-card-copy {
+    display: grid;
+    gap: 10px;
+    padding: 16px 16px 18px;
+  }
+
+  .feed-card-kicker {
+    margin: 0;
+    color: #7b5a33;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .feed-card-title {
+    margin: 0;
+    font-size: 1.16rem;
+    line-height: 1.16;
+  }
+
+  .feed-card-meta {
+    margin: 0;
+    color: #5b3d1e;
+    font-size: 0.94rem;
+    font-weight: 700;
+    opacity: 0.82;
+  }
+
+  .feed-card-body {
+    margin: 0;
+    line-height: 1.55;
+    opacity: 0.92;
+  }
+
+  .feed-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .feed-card-tag {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.6);
+    color: #5b3d1e;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  .feed-card-audio {
+    width: 100%;
+  }
+
+  .map-preview {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(240px, 0.75fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  .map-preview-canvas {
+    position: relative;
+    min-height: 300px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: #d4c9b5;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 26px rgba(0, 0, 0, 0.14);
+  }
+
+  .map-preview-canvas::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(28, 21, 14, 0.06) 0%, rgba(28, 21, 14, 0.14) 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .map-preview-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center center;
+    display: block;
+  }
+
+  .map-preview-ribbon {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 2;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(31, 25, 17, 0.65);
+    color: #fff;
+    font-size: 0.84rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .map-pin {
+    position: absolute;
+    z-index: 2;
+    min-width: 112px;
+    padding: 8px 12px 8px 30px;
+    border: 0;
+    border-radius: 999px;
+    background: rgba(248, 241, 228, 0.94);
+    color: #4b3116;
+    font: inherit;
+    font-size: 0.88rem;
+    font-weight: 700;
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+    text-align: left;
+  }
+
+  .map-pin::before {
+    content: "📍";
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .map-pin--north { top: 74px; left: 68%; }
+  .map-pin--ridge { top: 158px; left: 18%; }
+  .map-pin--creek { top: 214px; left: 54%; }
+
+  .map-preview-note {
+    position: absolute;
+    right: 16px;
+    bottom: 16px;
+    z-index: 2;
+    width: min(250px, calc(100% - 32px));
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(31, 25, 17, 0.7);
+    color: rgba(255,255,255,0.96);
+    font-size: 0.88rem;
+    line-height: 1.45;
+  }
+
+  .map-preview-sidecard {
+    padding: 18px;
+    border-radius: 20px;
+    background: rgba(252, 246, 236, 0.72);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+  }
+
+  .map-preview-sidecard h3 {
+    margin: 0 0 10px;
+    font-size: 1.1rem;
+  }
+
+  .map-preview-sidecard p {
+    margin: 0 0 14px;
+    line-height: 1.5;
+  }
+
+  .map-legend {
+    display: grid;
+    gap: 10px;
+  }
+
+  .map-legend-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.5);
+  }
+
+  .map-legend-icon {
+    font-size: 1rem;
+    line-height: 1;
+    padding-top: 2px;
+  }
+
+  .calendar-event-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .calendar-event-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(91, 61, 30, 0.12);
+    font-size: 1rem;
+    flex: 0 0 auto;
+  }
+
+  .tradition-link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 8px 12px 0 0;
+    padding: 10px 14px;
+    border: 1px solid rgba(95, 64, 33, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 248, 237, 0.86);
+    color: #4b3116;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  .tradition-link-btn:hover {
+    background: rgba(255, 248, 237, 0.98);
+  }
+
+  .tradition-link-note {
+    font-size: 0.88rem;
+    opacity: 0.7;
+  }
+
+  .tradition-modal-backdrop {
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 1310;
+    background: rgba(30, 24, 18, 0.55);
+    z-index: 1315;
+  }
+
+  .tradition-modal-backdrop.open {
+    display: block;
+  }
+
+  .tradition-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 1320;
     padding: 20px;
     align-items: center;
     justify-content: center;
   }
 
-  .member-modal.open {
+  .tradition-modal.open {
     display: flex !important;
   }
 
-  .member-modal-card {
-    width: min(560px, 92vw);
+  .tradition-modal-card {
+    position: relative;
+    width: min(620px, 92vw);
     background: #f7f0e4;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
     padding: 22px;
   }
 
+  .tradition-modal-title {
+    margin: 0 0 8px;
+    padding-right: 46px;
+    font-size: 1.35rem;
+  }
+
+  .tradition-modal-description {
+    margin: 0 0 14px;
+    line-height: 1.45;
+    opacity: 0.9;
+  }
+
+  .tradition-modal-link {
+    display: block;
+    margin: 0 0 16px;
+    color: #5b3d1e;
+    word-break: break-word;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .tradition-modal-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .tradition-modal-open-link,
+  .tradition-modal-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    padding: 10px 16px;
+    border-radius: 12px;
+    border: 0;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+  }
+
+  .tradition-modal-open-link {
+    background: #5b3d1e;
+    color: #fff;
+  }
+
+  .tradition-modal-cancel {
+    background: rgba(0, 0, 0, 0.08);
+    color: #2d241a;
+  }
+
   .calendar-shell {
     display: grid;
-    grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.9fr);
-    gap: 20px;
+    grid-template-columns: minmax(0, 620px) minmax(240px, 320px);
+    gap: 18px;
     align-items: start;
+    justify-content: start;
   }
 
   .calendar-main,
   .calendar-events-panel {
     background: rgba(252, 246, 236, 0.72);
     border-radius: 20px;
-    padding: 18px;
+    padding: 16px;
     box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
   }
 
@@ -489,7 +1073,7 @@
   .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .calendar-weekday {
@@ -503,8 +1087,8 @@
   }
 
   .calendar-day {
-    min-height: 78px;
-    padding: 8px 8px 6px;
+    min-height: 58px;
+    padding: 6px 6px 4px;
     border: 1px solid rgba(97, 70, 38, 0.12);
     border-radius: 14px;
     background: rgba(255, 255, 255, 0.62);
@@ -533,7 +1117,7 @@
   }
 
   .calendar-day-number {
-    font-size: 0.96rem;
+    font-size: 0.88rem;
     font-weight: 800;
     line-height: 1;
   }
@@ -541,9 +1125,9 @@
   .calendar-day-dots {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     min-height: 10px;
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   .calendar-dot {
@@ -594,6 +1178,333 @@
     opacity: 0.76;
   }
 
+.deer-drives-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 18px;
+}
+
+.deer-drive-card {
+  padding: 20px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 249, 240, 0.96) 0%, rgba(247, 238, 223, 0.95) 100%);
+  border: 1px solid rgba(95, 64, 33, 0.10);
+  box-shadow: 0 8px 18px rgba(81, 57, 29, 0.10);
+}
+
+.deer-drive-kicker {
+  margin-bottom: 8px;
+  color: #8c6a44;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deer-drive-name {
+  color: #3f2a15;
+  font-size: 1.55rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.deer-drive-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 16px;
+}
+
+.deer-drive-map-shell {
+  position: relative;
+  min-height: 360px;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #d4c9b5;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 10px 26px rgba(0, 0, 0, 0.14);
+}
+
+.deer-drive-map-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(28, 21, 14, 0.08) 0%, rgba(28, 21, 14, 0.18) 100%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.deer-drive-map-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.deer-drive-map-tint {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  mix-blend-mode: multiply;
+  opacity: 0.52;
+}
+
+.deer-drive-map-shell.north .deer-drive-map-tint {
+  background: linear-gradient(135deg, rgba(82, 115, 72, 0.4) 0%, rgba(175, 132, 70, 0.15) 34%, rgba(89, 133, 145, 0.24) 100%);
+}
+
+.deer-drive-map-shell.south .deer-drive-map-tint {
+  background: linear-gradient(135deg, rgba(101, 121, 62, 0.32) 0%, rgba(182, 138, 71, 0.12) 38%, rgba(74, 106, 63, 0.3) 100%);
+}
+
+.deer-drive-route-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 2;
+}
+
+.deer-drive-trail {
+  fill: none;
+  stroke: rgba(255,255,255,0.32);
+  stroke-width: 18;
+  stroke-linecap: round;
+}
+
+.deer-drive-route {
+  fill: none;
+  stroke: rgba(119, 73, 31, 0.84);
+  stroke-width: 7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16 14;
+}
+
+.deer-drive-route.alt {
+  stroke: rgba(74, 58, 31, 0.76);
+  stroke-dasharray: 12 14;
+}
+
+.deer-drive-node {
+  position: absolute;
+  z-index: 3;
+  transform: translate(-50%, -50%);
+}
+
+.deer-drive-node-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 3px solid rgba(255,255,255,0.94);
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.14);
+}
+
+.deer-drive-node.stander .deer-drive-node-dot {
+  background: #375b34;
+}
+
+.deer-drive-node.driver .deer-drive-node-dot {
+  background: #8c5723;
+}
+
+.deer-drive-node-label {
+  margin-top: 10px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(248, 241, 228, 0.94);
+  color: #4b3116;
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+.deer-drive-node.stander .deer-drive-node-label {
+  background: rgba(239, 246, 231, 0.95);
+}
+
+.deer-drive-node.driver .deer-drive-node-label {
+  background: rgba(253, 240, 218, 0.95);
+}
+
+.deer-drive-map-note {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3;
+  width: min(250px, calc(100% - 32px));
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(31, 25, 17, 0.7);
+  color: rgba(255,255,255,0.96);
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.deer-drive-side {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.deer-drive-side-block {
+  padding: 16px;
+  border-radius: 18px;
+  background: rgba(255, 252, 246, 0.7);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+}
+
+.deer-drive-side-title {
+  margin: 0 0 10px;
+  color: #7b5a33;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deer-drive-side-copy {
+  margin: 0;
+  color: #4b3116;
+  line-height: 1.55;
+}
+
+.deer-drive-role-group + .deer-drive-role-group {
+  margin-top: 14px;
+}
+
+.deer-drive-role-label {
+  margin: 0 0 8px;
+  color: #7b5a33;
+  font-size: 0.8rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.deer-drive-members {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.deer-drive-member-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(95, 64, 33, 0.09);
+  color: #4b3116;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.deer-drive-member-chip.stander {
+  background: rgba(57, 93, 52, 0.16);
+}
+
+.deer-drive-member-chip.driver {
+  background: rgba(128, 77, 22, 0.16);
+}
+
+.drive-map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.drive-map-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.52);
+  color: #4b3116;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.drive-map-legend-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.drive-map-legend-dot.stander {
+  background: #375b34;
+}
+
+.drive-map-legend-dot.driver {
+  background: #8c5723;
+}
+
+
+  .traditions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
+  }
+
+  .tradition-card {
+    padding: 16px 16px 14px;
+    border-radius: 18px;
+    background: rgba(252, 246, 236, 0.78);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(97, 70, 38, 0.10);
+  }
+
+  .tradition-card-group {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(95, 64, 33, 0.09);
+    color: #7b5a33;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+
+  .tradition-card-title {
+    margin: 0 0 8px;
+    color: #3f2a15;
+    font-size: 1.06rem;
+    line-height: 1.2;
+  }
+
+  .tradition-card-description {
+    margin: 0;
+    color: #4b3116;
+    line-height: 1.5;
+    opacity: 0.92;
+  }
+
+  .tradition-card-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    color: #5b3d1e;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
   .cinematic-footer {
     display: block;
     width: 100% !important;
@@ -618,11 +1529,29 @@
     }
   }
 
+  @media (max-width: 1100px) {
+    .feed-carousel-track {
+      grid-auto-columns: calc((100% - 16px) / 2);
+    }
+  }
+
   @media (max-width: 720px) {
     .hero,
     #heroImage {
-      height: 220px !important;
-      min-height: 220px !important;
+      height: clamp(320px, 62vw, 430px) !important;
+      min-height: clamp(320px, 62vw, 430px) !important;
+    }
+
+    .hero-stage {
+      padding: 18px 12px 22px;
+    }
+
+    .hero-main-image {
+      width: min(92vw, 760px);
+      max-width: calc(100vw - 24px);
+      height: clamp(250px, 58vw, 360px);
+      object-position: center 20%;
+      border-radius: 20px;
     }
 
     .header-inner {
@@ -642,9 +1571,48 @@
       font-size: 0.88rem;
     }
 
+    .feed-carousel-track {
+      grid-auto-columns: calc((100% - 16px) / 2);
+    }
+
     .recipe-compact-item {
       align-items: flex-start;
       flex-direction: column;
+    }
+
+    .recipe-modal {
+      padding: calc(var(--camp-header-height, 118px) + 14px) 9px 0;
+    }
+
+    .recipe-modal-card {
+      width: min(560px, 100%);
+      max-width: 100%;
+    }
+
+    .member-modal {
+      top: calc(var(--camp-header-height, 118px) + 14px);
+      min-width: 0;
+      width: auto;
+      max-width: calc(100vw - 18px);
+      max-height: calc(100vh - var(--camp-header-height, 118px) - 22px);
+      padding: 14px 14px 12px;
+    }
+
+    .member-modal-detail-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .deer-drive-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .recipes-grid {
+      grid-template-columns: 1fr !important;
+    }
+
+    .deer-drive-map-shell {
+      min-height: 300px;
     }
 
     .recipe-modal-stats,
@@ -684,7 +1652,12 @@
   <nav id="menu" class="menu"></nav>
 </header>
 
-<section class="hero" id="heroImage"></section>
+<section class="hero" id="heroImage">
+  <div class="hero-blur" aria-hidden="true"></div>
+  <div class="hero-stage">
+    <img id="heroMainImage" class="hero-main-image" alt="Camp hero sign or image">
+  </div>
+</section>
 
 <div class="page" id="content"></div>
 
@@ -714,7 +1687,7 @@
 
 <div id="recipeModalBackdrop" class="recipe-modal-backdrop"></div>
 <div id="recipeModal" class="recipe-modal" aria-hidden="true">
-  <div class="recipe-modal-shell">
+  <div class="recipe-modal-card">
     <div class="recipe-modal-content">
       <button id="closeRecipeModal" class="recipe-modal-close" type="button" aria-label="Close recipe">×</button>
 
@@ -770,20 +1743,68 @@
 
 <div id="memberModalBackdrop" class="member-modal-backdrop"></div>
 <div id="memberModal" class="member-modal" aria-hidden="true">
-  <div class="member-modal-card">
-    <button id="closeMemberModal" class="member-modal-close" type="button" aria-label="Close member profile">×</button>
-    <h3 id="memberModalName">Camp Member</h3>
-    <div class="member-modal-lines">
-      <p><strong>Role:</strong> <span id="memberModalRole">Camp Member</span></p>
-      <p><strong>Year Joined:</strong> <span id="memberModalYearJoined">—</span></p>
-      <p><strong>Favorite Stand:</strong> <span id="memberModalStand">—</span></p>
-      <p><strong>Note:</strong> <span id="memberModalNote">Add member details later.</span></p>
+  <button id="closeMemberModal" class="member-modal-close" type="button" aria-label="Close member profile">×</button>
+  <h3 id="memberModalName">Camp Member</h3>
+  <div class="member-modal-content">
+    <div class="member-modal-role-block">
+      <p class="member-modal-role-label">Role</p>
+      <p id="memberModalRole" class="member-modal-role-value">Camp Member</p>
+    </div>
+
+    <div class="member-modal-section">
+      <p id="memberModalResponsibilitiesLabel" class="member-modal-section-title">Can contribute</p>
+      <ul id="memberModalResponsibilities" class="member-modal-list"></ul>
+    </div>
+
+    <div class="member-modal-section">
+      <p class="member-modal-section-title">Details</p>
+      <div class="member-modal-detail-grid">
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Name</div><div id="memberModalDetailName" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Year Joined Camp</div><div id="memberModalYearJoined" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Favorite Deer Stand</div><div id="memberModalStand" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Favorite Hunting Gear</div><div id="memberModalGear" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Nickname</div><div id="memberModalNickname" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Harvest Highlight</div><div id="memberModalHarvest" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Best Camp Memory</div><div id="memberModalMemory" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Specialty at Camp</div><div id="memberModalSpecialty" class="member-modal-detail-value">—</div></div>
+        <div class="member-modal-detail-row"><div class="member-modal-detail-label">Note</div><div id="memberModalNote" class="member-modal-detail-value">Add member details later.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="traditionModalBackdrop" class="tradition-modal-backdrop"></div>
+<div id="traditionModal" class="tradition-modal" aria-hidden="true">
+  <div class="tradition-modal-card">
+    <button id="closeTraditionModal" class="tradition-modal-close" type="button" aria-label="Close tradition link">×</button>
+    <h3 id="traditionModalTitle" class="tradition-modal-title">Camp Tradition</h3>
+    <p id="traditionModalDescription" class="tradition-modal-description">External details for this tradition.</p>
+    <a id="traditionModalLink" class="tradition-modal-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+    <div class="tradition-modal-actions">
+      <a id="traditionModalOpenLink" class="tradition-modal-open-link" href="#" target="_blank" rel="noopener noreferrer">Open Link</a>
+      <button id="traditionModalCancel" class="tradition-modal-cancel" type="button">Close</button>
     </div>
   </div>
 </div>
 
 <script>
 const data = JSON.parse(localStorage.getItem("campData")) || {};
+const defaultTraditionLinks = {
+  "Arnold Bar & Grill Buck Pool": "https://maps.app.goo.gl/DhaxcRFTHt9ysVHz5"
+};
+
+const STARTER_TRADITION_LIBRARY = {
+  "pre-opener campfire meal": { group: "Opening Camp", description: "The shared meal that marks the true start of camp before opening day." },
+  "opening morning coffee": { group: "Opening Camp", description: "Strong coffee, low voices, and final plans before first light." },
+  "first fire of the season": { group: "Opening Camp", description: "Lighting the stove, campfire, or cabin hearth that means camp is officially open." },
+  "deer hanging pole ritual": { group: "Camp Rituals", description: "The first buck on the pole, photos, stories, and camp pride." },
+  "story-telling hour": { group: "Camp Rituals", description: "Nightly retelling of hunts, near-misses, legends, and old camp lore." },
+  "card games after dark": { group: "Camp Rituals", description: "Euchre, poker, cribbage, or whatever keeps camp laughing late." },
+  "buck pole photo": { group: "Camp Rituals", description: "The official photo moment that preserves each season's harvest memories." },
+  "new hunter initiation": { group: "Legacy & Meaning", description: "A respectful or fun tradition for first-time hunters joining camp." },
+  "the empty chair": { group: "Legacy & Meaning", description: "A quiet way many camps remember members who are gone but still part of every season." },
+  "honor the elders": { group: "Legacy & Meaning", description: "A moment where longtime members tell how camp began and what it stands for." }
+};
 
 function toTitleCase(value = "") {
   return String(value)
@@ -824,39 +1845,190 @@ document.getElementById("campName").textContent = data.name || "DeerCamp";
 document.getElementById("campLocation").textContent =
   formattedLocation + (data.established ? " • Est. " + data.established : "");
 
+const STEWARD_ROLE_TEMPLATE = {
+  title: "Camp Steward",
+  roleLine: "Camp administrator",
+  responsibilitiesLabel: "Responsibilities",
+  responsibilities: [
+    "Camp administrator.",
+    "Adds and deletes camp members, sends DeerCamp invites, and removes non-current members.",
+    "Adds and changes content across approved camp sections.",
+    "Curates and creates CampMemories and CampCards content.",
+    "Helps manage traditions, deer drives, recipes, and season-to-season camp records."
+  ]
+};
+
+const MEMBER_ROLE_TEMPLATE = {
+  title: "Camp Member",
+  roleLine: "Camp member",
+  responsibilitiesLabel: "Can contribute",
+  responsibilities: [
+    "Adds field content through DeerCamp app.",
+    "Adds content to approved sections by Camp Steward.",
+    "Adds comments to CampFeed posts.",
+    "Uploads photos, notes, and optional audio from the field.",
+    "Contributes memories, recipes, deer drive participation, and story ideas for featured camp content."
+  ]
+};
+
+function getRoleTemplate(role = "Camp Member") {
+  return String(role || "").trim().toLowerCase() === "camp steward"
+    ? STEWARD_ROLE_TEMPLATE
+    : MEMBER_ROLE_TEMPLATE;
+}
+
+function buildDefaultMemberProfile(name = "", role = "Camp Member") {
+  const roleTemplate = getRoleTemplate(role);
+  return {
+    name: String(name || "").trim(),
+    role: roleTemplate.title,
+    roleLine: roleTemplate.roleLine,
+    responsibilitiesLabel: roleTemplate.responsibilitiesLabel,
+    responsibilities: [...roleTemplate.responsibilities],
+    yearJoined: "—",
+    favoriteStand: "—",
+    favoriteGear: "—",
+    nickname: "—",
+    harvestHighlight: "—",
+    bestCampMemory: "—",
+    specialty: "—",
+    note: roleTemplate.title === "Camp Steward"
+      ? "Keeps camp information current and helps guide the full DeerCamp experience."
+      : "Add member details later."
+  };
+}
+
+function normalizeMemberProfile(member, fallbackRole = "Camp Member") {
+  if (!member || typeof member !== "object") {
+    return buildDefaultMemberProfile(member, fallbackRole);
+  }
+
+  const role = String(member.role || fallbackRole || "Camp Member").trim() || "Camp Member";
+  const roleTemplate = getRoleTemplate(role);
+  const defaultProfile = buildDefaultMemberProfile(member.name || "", roleTemplate.title);
+
+  return {
+    ...defaultProfile,
+    ...member,
+    name: String(member.name || defaultProfile.name).trim(),
+    role: roleTemplate.title,
+    roleLine: String(member.roleLine || roleTemplate.roleLine).trim(),
+    responsibilitiesLabel: String(member.responsibilitiesLabel || roleTemplate.responsibilitiesLabel).trim(),
+    responsibilities: Array.isArray(member.responsibilities) && member.responsibilities.length
+      ? member.responsibilities.map(item => String(item).trim()).filter(Boolean)
+      : [...roleTemplate.responsibilities],
+    yearJoined: String(member.yearJoined || defaultProfile.yearJoined).trim() || "—",
+    favoriteStand: String(member.favoriteStand || defaultProfile.favoriteStand).trim() || "—",
+    favoriteGear: String(member.favoriteGear || defaultProfile.favoriteGear).trim() || "—",
+    nickname: String(member.nickname || defaultProfile.nickname).trim() || "—",
+    harvestHighlight: String(member.harvestHighlight || defaultProfile.harvestHighlight).trim() || "—",
+    bestCampMemory: String(member.bestCampMemory || defaultProfile.bestCampMemory).trim() || "—",
+    specialty: String(member.specialty || defaultProfile.specialty).trim() || "—",
+    note: String(member.note || defaultProfile.note).trim() || defaultProfile.note
+  };
+}
+
 const memberProfiles = Array.isArray(data.memberProfiles) && data.memberProfiles.length
-  ? data.memberProfiles
-  : (data.members || []).map(name => ({
-      name: String(name).trim(),
-      role: "Camp Member",
-      yearJoined: "—",
-      favoriteStand: "—",
-      note: "Add member details later."
-    }));
+  ? data.memberProfiles.map((profile) => normalizeMemberProfile(profile, profile?.role || "Camp Member"))
+  : (() => {
+      const fallbackProfiles = [];
+      const stewardName = String(data.stewardName || "").trim();
+      const savedCampMembers = Array.isArray(data.campMembers)
+        ? data.campMembers
+        : (Array.isArray(data.members) ? data.members.filter(name => String(name || "").trim() !== stewardName) : []);
+
+      if (stewardName) {
+        fallbackProfiles.push(buildDefaultMemberProfile(stewardName, "Camp Steward"));
+      }
+
+      savedCampMembers
+        .map(name => String(name || "").trim())
+        .filter(Boolean)
+        .forEach((name) => fallbackProfiles.push(buildDefaultMemberProfile(name, "Camp Member")));
+
+      return fallbackProfiles;
+    })();
 
 const memberModal = document.getElementById("memberModal");
 const memberModalBackdrop = document.getElementById("memberModalBackdrop");
 
+function renderMemberResponsibilityList(items = []) {
+  const list = document.getElementById("memberModalResponsibilities");
+  list.innerHTML = "";
+  items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    list.appendChild(li);
+  });
+}
+
 function openMemberModal(member) {
-  document.getElementById("memberModalName").textContent = member.name || "Camp Member";
-  document.getElementById("memberModalRole").textContent = member.role || "Camp Member";
-  document.getElementById("memberModalYearJoined").textContent = member.yearJoined || "—";
-  document.getElementById("memberModalStand").textContent = member.favoriteStand || "—";
-  document.getElementById("memberModalNote").textContent = member.note || "Add member details later.";
+  const profile = normalizeMemberProfile(member, member?.role || "Camp Member");
+
+  document.getElementById("memberModalName").textContent = profile.name || profile.role;
+  document.getElementById("memberModalRole").textContent = `${profile.role} • ${profile.roleLine}`;
+  document.getElementById("memberModalResponsibilitiesLabel").textContent = profile.responsibilitiesLabel || "Can contribute";
+  document.getElementById("memberModalDetailName").textContent = profile.name || "—";
+  document.getElementById("memberModalYearJoined").textContent = profile.yearJoined || "—";
+  document.getElementById("memberModalStand").textContent = profile.favoriteStand || "—";
+  document.getElementById("memberModalGear").textContent = profile.favoriteGear || "—";
+  document.getElementById("memberModalNickname").textContent = profile.nickname || "—";
+  document.getElementById("memberModalHarvest").textContent = profile.harvestHighlight || "—";
+  document.getElementById("memberModalMemory").textContent = profile.bestCampMemory || "—";
+  document.getElementById("memberModalSpecialty").textContent = profile.specialty || "—";
+  document.getElementById("memberModalNote").textContent = profile.note || "—";
+  renderMemberResponsibilityList(profile.responsibilities || []);
 
   memberModal.classList.add("open");
   memberModalBackdrop.classList.add("open");
+  memberModal.setAttribute("aria-hidden", "false");
   document.body.classList.add("modal-open");
 }
 
 function closeMemberModal() {
   memberModal.classList.remove("open");
   memberModalBackdrop.classList.remove("open");
+  memberModal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("modal-open");
 }
 
 document.getElementById("closeMemberModal").addEventListener("click", closeMemberModal);
 memberModalBackdrop.addEventListener("click", closeMemberModal);
+
+const traditionModal = document.getElementById("traditionModal");
+const traditionModalBackdrop = document.getElementById("traditionModalBackdrop");
+
+function openTraditionModal(item) {
+  const label = item.label || "Camp Tradition";
+  const url = item.url || "";
+  const description = item.description || "Open this external link for more details.";
+
+  document.getElementById("traditionModalTitle").textContent = label;
+  document.getElementById("traditionModalDescription").textContent = description;
+
+  const modalLink = document.getElementById("traditionModalLink");
+  const openLink = document.getElementById("traditionModalOpenLink");
+
+  modalLink.textContent = url;
+  modalLink.href = url || "#";
+  openLink.href = url || "#";
+
+  traditionModal.classList.add("open");
+  traditionModalBackdrop.classList.add("open");
+  traditionModal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+}
+
+function closeTraditionModal() {
+  traditionModal.classList.remove("open");
+  traditionModalBackdrop.classList.remove("open");
+  traditionModal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+document.getElementById("closeTraditionModal").addEventListener("click", closeTraditionModal);
+document.getElementById("traditionModalCancel").addEventListener("click", closeTraditionModal);
+traditionModalBackdrop.addEventListener("click", closeTraditionModal);
 
 function buildHeaderMembers() {
   const membersWrap = document.getElementById("campMembers");
@@ -888,7 +2060,16 @@ if (
   heroPath = "assets/heroes/" + heroPath;
 }
 
-document.getElementById("heroImage").style.backgroundImage = `url('${heroPath}')`;
+const heroElement = document.getElementById("heroImage");
+const heroMainImage = document.getElementById("heroMainImage");
+
+heroElement.style.setProperty("--hero-image", `url('${heroPath}')`);
+heroMainImage.src = heroPath;
+heroMainImage.alt = (data.name || "DeerCamp") + " hero";
+heroMainImage.addEventListener("error", () => {
+  heroMainImage.src = "assets/heroes/MN-deer-camp.jpg";
+  heroElement.style.setProperty("--hero-image", "url('assets/heroes/MN-deer-camp.jpg')");
+});
 
 const stories = [
   {
@@ -908,35 +2089,455 @@ const stories = [
 let currentStory = 0;
 let isStoryActive = false;
 
+function normalizeTraditionItem(item) {
+  const customTraditionLinks = data.traditionLinks || {};
+
+  const buildTradition = (label, url = "", description = "", group = "Camp Traditions") => {
+    const lookup = STARTER_TRADITION_LIBRARY[String(label || "").trim().toLowerCase()] || {};
+    return label
+      ? {
+          label,
+          url: String(url || customTraditionLinks[label] || defaultTraditionLinks[label] || "").trim(),
+          description: String(description || lookup.description || "A camp ritual that helps define this deer camp.").trim(),
+          group: String(group || lookup.group || "Camp Traditions").trim()
+        }
+      : null;
+  };
+
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    const label = String(item.label || item.title || item.name || item.text || "").trim();
+    return buildTradition(
+      label,
+      item.url || item.href || item.link || "",
+      item.description || item.note || item.details || "",
+      item.group || item.category || item.section || ""
+    );
+  }
+
+  if (typeof item === "string") {
+    const raw = item.trim();
+    if (!raw) return null;
+
+    if (raw.includes("|")) {
+      const [labelPart, urlPart, descriptionPart, groupPart] = raw.split("|");
+      const label = String(labelPart || "").trim();
+      return buildTradition(label, urlPart || "", descriptionPart || "", groupPart || "");
+    }
+
+    return buildTradition(raw);
+  }
+
+  return null;
+}
+
+const normalizedTraditions = (Array.isArray(data.traditions) ? data.traditions : [])
+  .map(normalizeTraditionItem)
+  .filter(Boolean);
+
+const deerDrives = campArray(data.deerDrives);
+const driveMemberNames = memberProfiles.map(member => String(member.name || "").trim()).filter(Boolean);
+
+
+function escapeHtml(value = "") {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function getDriveRoles(names = []) {
+  const clean = Array.isArray(names) ? names.filter(Boolean) : [];
+  const pool = clean.length ? clean : ["Poster 1", "Poster 2", "Poster 3", "Driver 1", "Driver 2"];
+
+  while (pool.length < 5) {
+    pool.push(clean[pool.length % Math.max(clean.length, 1)] || `Camp Member ${pool.length + 1}`);
+  }
+
+  return {
+    standers: pool.slice(0, 3),
+    drivers: pool.slice(3, 5)
+  };
+}
+
+function getDriveVariant(index = 0, driveName = "") {
+  const lower = String(driveName || "").toLowerCase();
+  const baseMapImage = String(data.map || "assets/maps/cedar-ridge-map.jpg").trim() || "assets/maps/cedar-ridge-map.jpg";
+
+  if (lower.includes("south") || index % 2 === 1) {
+    return {
+      key: "south",
+      mapImage: baseMapImage,
+      mapPosition: "center 60%",
+      ribbon: "South drive map",
+      terrainLabel: "South field route",
+      overview: "Two drivers push diagonally through a brushy south cut while three standers block the open exit lanes and pinch point.",
+      note: "Brush edge and lower cover push toward the south opening and creek-side exits.",
+      deerTrail: "M88 272 C 220 198, 332 204, 470 242 S 702 300, 890 220",
+      pushRoutes: [
+        "M310 456 C 356 390, 394 330, 436 270 S 488 190, 528 116",
+        "M676 434 C 626 386, 590 338, 560 290 S 548 204, 528 116",
+        "M310 456 C 420 414, 530 350, 646 280 S 776 224, 836 168"
+      ],
+      standers: [
+        { x: 20, y: 22, name: "John", role: "Stander" },
+        { x: 58, y: 18, name: "Joe", role: "Poster" },
+        { x: 86, y: 30, name: "Eric", role: "Blocker" }
+      ],
+      drivers: [
+        { x: 30, y: 76, name: "Phil", role: "Driver" },
+        { x: 70, y: 72, name: "Ben", role: "Pusher" }
+      ]
+    };
+  }
+
+  return {
+    key: "north",
+    mapImage: baseMapImage,
+    mapPosition: "center 38%",
+    ribbon: "North drive map",
+    terrainLabel: "North field route",
+    overview: "Three blockers set high along the timber edge while two drivers sweep the center lane uphill through the maples and creek bend.",
+    note: "Upper timber edge push with a center-lane sweep toward the north pinch point.",
+    deerTrail: "M100 242 C 238 276, 352 286, 486 250 S 724 176, 882 206",
+    pushRoutes: [
+      "M340 458 C 332 394, 334 340, 370 286 S 454 170, 514 112",
+      "M622 448 C 606 378, 578 324, 548 272 S 528 178, 514 112",
+      "M340 458 C 454 412, 566 350, 670 280 S 782 210, 840 146"
+    ],
+    standers: [
+      { x: 18, y: 22, name: "John", role: "Stander" },
+      { x: 52, y: 18, name: "Joe", role: "Poster" },
+      { x: 82, y: 22, name: "Eric", role: "Blocker" }
+    ],
+    drivers: [
+      { x: 31, y: 74, name: "Phil", role: "Driver" },
+      { x: 60, y: 72, name: "Ben", role: "Pusher" }
+    ]
+  };
+}
+
+function buildDriveMapMarkup(driveName = "", driveIndex = 0, memberNames = []) {
+  const safeDriveName = String(driveName || `Deer Drive ${driveIndex + 1}`).trim() || `Deer Drive ${driveIndex + 1}`;
+  const roles = getDriveRoles(memberNames);
+  const variant = getDriveVariant(driveIndex, safeDriveName);
+
+  const standers = variant.standers.map((point, idx) => ({ ...point, name: roles.standers[idx] || point.name }));
+  const drivers = variant.drivers.map((point, idx) => ({ ...point, name: roles.drivers[idx] || point.name }));
+  const allNodes = [
+    ...standers.map((point, idx) => ({ ...point, roleType: 'stander', roleLabel: ["Stander", "Poster", "Blocker"][idx] })),
+    ...drivers.map((point, idx) => ({ ...point, roleType: 'driver', roleLabel: idx === 0 ? 'Driver' : 'Pusher' }))
+  ];
+
+  const nodeMarkup = allNodes.map(point => `
+      <div class="deer-drive-node ${point.roleType}" style="left:${point.x}%; top:${point.y}%;">
+        <div class="deer-drive-node-dot"></div>
+        <div class="deer-drive-node-label">${escapeHtml(point.name)} • ${escapeHtml(point.roleLabel)}</div>
+      </div>
+    `).join('');
+
+  const routeMarkup = variant.pushRoutes.map((route, idx) => `<path class="deer-drive-route ${idx % 2 === 1 ? 'alt' : ''}" d="${route}"></path>`).join('');
+
+  return `
+    <div class="deer-drive-layout">
+      <div class="deer-drive-map-shell ${escapeHtml(variant.key)}">
+        <img src="${escapeHtml(variant.mapImage)}" class="deer-drive-map-image" style="object-position:${escapeHtml(variant.mapPosition)};" alt="${escapeHtml(safeDriveName)} terrain map">
+        <div class="deer-drive-map-tint" aria-hidden="true"></div>
+        <div class="map-preview-ribbon">${escapeHtml(variant.ribbon)}</div>
+        <svg class="deer-drive-route-svg" viewBox="0 0 1000 560" role="img" aria-label="${escapeHtml(safeDriveName)} map showing standers, drivers, and push routes">
+          <path class="deer-drive-trail" d="${variant.deerTrail}"></path>
+          ${routeMarkup}
+        </svg>
+        ${nodeMarkup}
+        <div class="deer-drive-map-note">${escapeHtml(variant.note)}</div>
+      </div>
+
+      <div class="deer-drive-side">
+        <div class="deer-drive-side-block">
+          <h3 class="deer-drive-side-title">Drive Plan</h3>
+          <p class="deer-drive-side-copy">${escapeHtml(variant.overview)}</p>
+        </div>
+
+        <div class="deer-drive-side-block">
+          <div class="deer-drive-role-group">
+            <div class="deer-drive-role-label">Standers / Posters / Blockers</div>
+            <div class="deer-drive-members">
+              ${roles.standers.map(name => `<span class="deer-drive-member-chip stander">${escapeHtml(name)}</span>`).join("")}
+            </div>
+          </div>
+
+          <div class="deer-drive-role-group">
+            <div class="deer-drive-role-label">Drivers / Pushers</div>
+            <div class="deer-drive-members">
+              ${roles.drivers.map(name => `<span class="deer-drive-member-chip driver">${escapeHtml(name)}</span>`).join("")}
+            </div>
+          </div>
+        </div>
+
+        <div class="deer-drive-side-block">
+          <div class="deer-drive-role-label">Map Legend</div>
+          <div class="drive-map-legend">
+            <span class="drive-map-legend-item"><span class="drive-map-legend-dot stander"></span> Standers</span>
+            <span class="drive-map-legend-item"><span class="drive-map-legend-dot driver"></span> Drivers</span>
+            <span class="drive-map-legend-item">Dashed path = push route</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function normalizeFeedEntry(entry = {}, index = 0) {
+  const requestedAudio = entry.audio || entry.voice || "assets/feed/winter-trail-deer.mp3.mp3";
+  const audioCandidates = Array.isArray(requestedAudio)
+    ? requestedAudio
+    : [
+        requestedAudio,
+        "assets/feed/winter-trail-deer.mp3.mp3",
+        "assets/feed/winter-trail-deer.mp3",
+        "winter-trail-deer.mp3.mp3",
+        "winter-trail-deer.mp3",
+        "assets/feed/ElevenLabs_2026-03-22T08_01_47_Christopher_pvc_sp100_s83_sb100_se4_m2.mp3",
+        "ElevenLabs_2026-03-22T08_01_47_Christopher_pvc_sp100_s83_sb100_se4_m2.mp3"
+      ];
+
+  return {
+    title: entry.title || `Field Update ${index + 1}`,
+    kicker: entry.kicker || "CampFeed Preview",
+    meta: entry.meta || "Posted from the field • Just now",
+    body: entry.body || "Hunters can share a live field update with a photo, quick note, and optional audio clip right from DeerCamp.",
+    image: entry.image || entry.img || "assets/feed/winter-trail-deer.jpg",
+    imageFit: entry.imageFit || entry.fit || "cover",
+    audio: audioCandidates.filter(Boolean).filter((value, idx, arr) => arr.indexOf(value) === idx),
+    tags: Array.isArray(entry.tags) && entry.tags.length ? entry.tags : ["Photo", "Audio", "Field note"]
+  };
+}
+
+function getCampFeedEntries() {
+  const baseEntries = Array.isArray(data.feedEntries) && data.feedEntries.length
+    ? data.feedEntries.map((entry, index) => normalizeFeedEntry(entry, index))
+    : [
+        normalizeFeedEntry({
+          title: "Three Does on the Winter Trail",
+          kicker: "CampFeed Example",
+          meta: "Lower trail camera lane • Eric voice note",
+          body: "A real-world CampFeed sample: photo from the snowy trail and a short audio note so the rest of camp can hear what is happening in the field.",
+          image: "assets/feed/winter-trail-deer.jpg",
+          imageFit: "contain",
+          audio: "assets/feed/winter-trail-deer.mp3.mp3",
+          tags: ["Real photo", "Audio update", "Trail movement"]
+        }, 0)
+      ];
+
+  const placeholders = [
+    normalizeFeedEntry({
+      title: "Morning scrape line check",
+      kicker: "Placeholder Update 2",
+      meta: "North ridge scrape line • Photo note",
+      body: "Second slot reserved for the next CampFeed update so hunters can quickly compare recent movement without extending the page.",
+      image: baseEntries[0]?.image || "assets/feed/winter-trail-deer.jpg",
+      imageFit: baseEntries[0]?.imageFit || "contain",
+      audio: [],
+      tags: ["Next update", "Photo slot", "Field note"]
+    }, 1),
+    normalizeFeedEntry({
+      title: "Sunset cutover movement",
+      kicker: "Placeholder Update 3",
+      meta: "South field edge • Quick camp note",
+      body: "Third slot reserved for the next field update, keeping CampFeed easier to browse on desktop and mobile.",
+      image: baseEntries[0]?.image || "assets/feed/winter-trail-deer.jpg",
+      imageFit: baseEntries[0]?.imageFit || "contain",
+      audio: [],
+      tags: ["Coming next", "Photo slot", "Trail intel"]
+    }, 2)
+  ];
+
+  const combined = [...baseEntries];
+  for (const entry of placeholders) {
+    if (combined.length >= 3) break;
+    combined.push(entry);
+  }
+  return combined;
+}
+
 const rawSections = [
+  { key: "feed", title: "CampFeed", hasContent: true, pinFirst: true },
   { key: "campcards", title: "CampCards", hasContent: true },
   { key: "members", title: "CampMembers", hasContent: memberProfiles.length > 0 },
+  { key: "deerdrives", title: "CampDeerDrives", hasContent: deerDrives.length > 0 },
   { key: "recipes", title: "CampRecipes", hasContent: true },
   { key: "calendar", title: "CampCalendar", hasContent: true },
-  { key: "traditions", title: "CampTraditions", hasContent: Array.isArray(data.traditions) && data.traditions.length > 0 },
+  { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
   { key: "memories", title: "CampMemories", hasContent: true },
-  { key: "map", title: "CampMap", placeholder: "Coming soon", hasContent: false },
-  { key: "feed", title: "CampFeed", placeholder: "Updated by hunters in the field with DeerCamp app<br><br>Coming soon", hasContent: false }
+  { key: "map", title: "CampMap", hasContent: true }
 ];
 
 const sections = [
-  ...rawSections.filter(section => section.hasContent),
-  ...rawSections.filter(section => !section.hasContent)
+  ...rawSections.filter(section => section.pinFirst),
+  ...rawSections.filter(section => !section.pinFirst && section.hasContent),
+  ...rawSections.filter(section => !section.pinFirst && !section.hasContent)
 ];
 
 const content = document.getElementById("content");
 const menu = document.getElementById("menu");
 const menuToggle = document.getElementById("menuToggle");
 
+function wireAudioFallback(audioEl, candidates = []) {
+  const queue = Array.isArray(candidates)
+    ? candidates.map(item => String(item || "").trim()).filter(Boolean)
+    : [String(candidates || "").trim()].filter(Boolean);
+
+  if (!queue.length) return;
+
+  let index = 0;
+
+  const tryNext = () => {
+    if (index >= queue.length) return;
+    audioEl.src = queue[index];
+    audioEl.load();
+    index += 1;
+  };
+
+  audioEl.addEventListener("error", tryNext);
+  tryNext();
+}
+
 sections.forEach(section => {
   const container = document.createElement("div");
   container.className = "content-section";
   container.id = section.key;
 
-  if (section.key === "campcards") {
+  if (section.key === "feed") {
+    const feedEntries = getCampFeedEntries();
+
+    container.innerHTML = `
+      <div class="feed-carousel-shell">
+        <div class="feed-carousel-header">
+          <div>
+            <h2>CampFeed</h2>
+          </div>
+          <div class="feed-carousel-controls">
+            <p class="feed-carousel-caption">Newest update on the left</p>
+            <button type="button" class="feed-carousel-arrow" id="feedPrevBtn" aria-label="Previous feed updates">◀</button>
+            <button type="button" class="feed-carousel-arrow" id="feedNextBtn" aria-label="Next feed updates">▶</button>
+          </div>
+        </div>
+        <div class="feed-carousel-viewport">
+          <div id="feedCarouselTrack" class="feed-carousel-track"></div>
+        </div>
+      </div>
+    `;
+
+    const track = container.querySelector("#feedCarouselTrack");
+    const prevBtn = container.querySelector("#feedPrevBtn");
+    const nextBtn = container.querySelector("#feedNextBtn");
+
+    feedEntries.forEach((entry, index) => {
+      const article = document.createElement("article");
+      article.className = "feed-card" + (index === 0 ? " is-featured" : "");
+
+      const media = document.createElement("div");
+      media.className = "feed-card-media";
+      if (entry.imageFit === "contain") media.classList.add("is-contain");
+
+      const image = document.createElement("img");
+      image.src = entry.image;
+      image.alt = entry.title;
+      image.loading = "lazy";
+      media.appendChild(image);
+
+      const badge = document.createElement("span");
+      badge.className = "feed-card-badge";
+      badge.textContent = index === 0 ? "Newest" : `Update ${index + 1}`;
+      media.appendChild(badge);
+
+      const copy = document.createElement("div");
+      copy.className = "feed-card-copy";
+
+      const kicker = document.createElement("p");
+      kicker.className = "feed-card-kicker";
+      kicker.textContent = entry.kicker;
+
+      const title = document.createElement("h3");
+      title.className = "feed-card-title";
+      title.textContent = entry.title;
+
+      const meta = document.createElement("p");
+      meta.className = "feed-card-meta";
+      meta.textContent = entry.meta;
+
+      const body = document.createElement("p");
+      body.className = "feed-card-body";
+      body.textContent = entry.body;
+
+      const tags = document.createElement("div");
+      tags.className = "feed-card-tags";
+      (entry.tags || []).forEach(tag => {
+        const el = document.createElement("span");
+        el.className = "feed-card-tag";
+        el.textContent = tag;
+        tags.appendChild(el);
+      });
+
+      copy.appendChild(kicker);
+      copy.appendChild(title);
+      copy.appendChild(meta);
+      copy.appendChild(body);
+      copy.appendChild(tags);
+
+      const audioSources = Array.isArray(entry.audio) ? entry.audio : [entry.audio];
+      const validAudioSources = audioSources.map(item => String(item || "").trim()).filter(Boolean);
+      if (validAudioSources.length) {
+        const audio = document.createElement("audio");
+        audio.className = "feed-card-audio";
+        audio.controls = true;
+        audio.preload = "metadata";
+        audio.appendChild(document.createTextNode("Your browser does not support the audio element."));
+        wireAudioFallback(audio, validAudioSources);
+        copy.appendChild(audio);
+      }
+
+      article.appendChild(media);
+      article.appendChild(copy);
+      track.appendChild(article);
+    });
+
+    const feedCards = Array.from(track.children);
+    let currentFeedIndex = 0;
+
+    const getVisibleFeedCards = () => {
+      if (window.innerWidth <= 720) return 1;
+      if (window.innerWidth <= 1100) return 2;
+      return 3;
+    };
+
+    const syncFeedButtons = () => {
+      const maxIndex = Math.max(0, feedCards.length - getVisibleFeedCards());
+      prevBtn.disabled = currentFeedIndex <= 0;
+      nextBtn.disabled = currentFeedIndex >= maxIndex;
+    };
+
+    const goToFeedIndex = nextIndex => {
+      const maxIndex = Math.max(0, feedCards.length - getVisibleFeedCards());
+      currentFeedIndex = Math.max(0, Math.min(nextIndex, maxIndex));
+      const target = feedCards[currentFeedIndex];
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      }
+      syncFeedButtons();
+    };
+
+    prevBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex - 1));
+    nextBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex + 1));
+    window.addEventListener("resize", () => goToFeedIndex(currentFeedIndex));
+    syncFeedButtons();
+  }
+
+  else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="placeholder">Your camp’s best moments will appear here</p>
+      <p class="placeholder">curated by Steward, with auto-suggestions based on engagement metrics.</p>
     `;
 
     const grid = document.createElement("div");
@@ -971,7 +2572,6 @@ sections.forEach(section => {
   else if (section.key === "members") {
     container.innerHTML = `
       <h2>CampMembers</h2>
-      <p class="section-helper">Tap a member name for details.</p>
       <div class="members-inline-grid" id="membersInlineGrid"></div>
     `;
     const memberGrid = container.querySelector("#membersInlineGrid");
@@ -987,7 +2587,29 @@ sections.forEach(section => {
     });
   }
 
-  else if (section.key === "recipes") {
+else if (section.key === "deerdrives") {
+  container.innerHTML = `
+    <h2>CampDeerDrives</h2>
+    <p class="section-helper">Named pushes, routes, and drive lanes your camp runs together.</p>
+    <div class="deer-drives-grid" id="deerDrivesGrid"></div>
+  `;
+
+  const drivesGrid = container.querySelector("#deerDrivesGrid");
+  deerDrives.forEach((drive, index) => {
+    const card = document.createElement("div");
+    card.className = "deer-drive-card";
+
+    const safeDrive = String(drive || `Deer Drive ${index + 1}`).trim();
+    card.innerHTML = `
+      <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
+      <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
+      ${buildDriveMapMarkup(safeDrive, index, driveMemberNames)}
+    `;
+    drivesGrid.appendChild(card);
+  });
+}
+
+else if (section.key === "recipes") {
     container.innerHTML = `
       <h2>CampRecipes</h2>
       <div id="recipesGrid" class="recipes-grid"></div>
@@ -1018,17 +2640,47 @@ sections.forEach(section => {
   }
 
   else if (section.key === "traditions") {
-    container.innerHTML = `<h2>CampTraditions</h2>`;
-    (data.traditions || []).forEach(item => {
-      const el = document.createElement("div");
-      el.className = "list-item";
-      el.textContent = item;
-      container.appendChild(el);
+    container.innerHTML = `
+      <h2>CampTraditions</h2>
+      <p class="section-helper">Starter traditions plus anything your camp adds over time — the rituals that make this camp this camp.</p>
+      <div class="traditions-grid" id="traditionsGrid"></div>
+    `;
+
+    const traditionsGrid = container.querySelector("#traditionsGrid");
+
+    normalizedTraditions.forEach(item => {
+      const card = document.createElement("article");
+      card.className = "tradition-card";
+
+      const safeTitle = escapeHtml(item.label || "Camp Tradition");
+      const safeDescription = escapeHtml(item.description || "A camp ritual that helps define this deer camp.");
+      const safeGroup = escapeHtml(item.group || "Camp Traditions");
+
+      card.innerHTML = `
+        <div class="tradition-card-group">${safeGroup}</div>
+        <h3 class="tradition-card-title">${safeTitle}</h3>
+        <p class="tradition-card-description">${safeDescription}</p>
+      `;
+
+      if (item.url) {
+        const link = document.createElement("a");
+        link.className = "tradition-card-link";
+        link.href = item.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Open related tradition link";
+        card.appendChild(link);
+      }
+
+      traditionsGrid.appendChild(card);
     });
   }
 
   else if (section.key === "memories") {
-    container.innerHTML = `<h2>CampMemories — Wall of Fame — Annual 3 Winners</h2>`;
+    container.innerHTML = `
+      <h2>CampMemories — Wall of Fame — Annual 3 Winners</h2>
+      <p class="section-helper">Tap first card to view/hear audio.</p>
+    `;
     const grid = document.createElement("div");
     grid.className = "memories-grid";
 
@@ -1041,6 +2693,33 @@ sections.forEach(section => {
     });
 
     container.appendChild(grid);
+  }
+
+  else if (section.key === "map") {
+    container.innerHTML = `
+      <h2>CampMap</h2>
+      <p class="section-helper">Placeholder example: interactive stand pins, notes, and scouting context will live here.</p>
+      <div class="map-preview">
+        <div class="map-preview-canvas">
+          <img src="assets/maps/cedar-ridge-map.jpg" class="map-preview-image" alt="Camp map preview">
+          <div class="map-preview-ribbon">Interactive preview</div>
+          <button type="button" class="map-pin map-pin--north">North Stand</button>
+          <button type="button" class="map-pin map-pin--ridge">Oak Ridge</button>
+          <button type="button" class="map-pin map-pin--creek">Creek Crossing</button>
+          <div class="map-preview-note">Tap-able stand pins can open trail notes, best-wind guidance, sighting history, and deer movement trends.</div>
+        </div>
+
+        <div class="map-preview-sidecard">
+          <h3>Sneak Peek</h3>
+          <p>This preview shows the kind of map magic DeerCamp can surface for every camp: stand locations, scouting notes, and quick context tied to each spot.</p>
+          <div class="map-legend">
+            <div class="map-legend-item"><span class="map-legend-icon">📍</span><div><strong>Stand pins</strong><br>Jump straight to a named location.</div></div>
+            <div class="map-legend-item"><span class="map-legend-icon">🧭</span><div><strong>Scouting context</strong><br>Track scrapes, rub lines, crossings, and wind reads.</div></div>
+            <div class="map-legend-item"><span class="map-legend-icon">🦌</span><div><strong>Deer movement notes</strong><br>Keep seasonal intel where the camp can use it.</div></div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   else {
@@ -1134,120 +2813,350 @@ function campArray(value, fallback = []) {
 }
 
 function normalizeCampRecipe(recipe = {}, index = 0) {
+  const source = typeof recipe === "string"
+    ? { title: recipe }
+    : (recipe || {});
+
   return {
-    subtitle: recipe.subtitle || "Camp Recipe",
-    title: recipe.title || `Camp Recipe ${index + 1}`,
-    description: recipe.description || "Built for the camp table.",
-    time: recipe.time || "—",
-    serves: recipe.serves || "—",
-    difficulty: recipe.difficulty || "—",
-    ingredients: campArray(recipe.ingredients, ["Add ingredients later."]),
-    steps: campArray(recipe.steps, ["Add method steps later."]),
-    serving: campArray(recipe.serving, ["Serve hot and enjoy around camp."]),
-    tips: campArray(recipe.tips, ["Make it your own."])
+    subtitle: source.subtitle || "Camp Recipe",
+    title: source.title || `Camp Recipe ${index + 1}`,
+    description: source.description || "Built for the camp table.",
+    time: source.time || source.totalTime || "—",
+    serves: source.serves || source.yield || "—",
+    difficulty: source.difficulty || "—",
+    ingredients: campArray(source.ingredients, ["Add ingredients later."]),
+    steps: campArray(source.steps || source.method, ["Add method steps later."]),
+    serving: campArray(source.serving || source.serve, ["Serve hot and enjoy around camp."]),
+    tips: campArray(source.tips, ["Make it your own."])
   };
 }
 
-const defaultCampRecipes = [
+const CAMP_RECIPE_ADJECTIVES = [
+  "Legendary",
+  "Backwoods",
+  "Smokehouse",
+  "First-Light",
+  "Buck Pole",
+  "Iron Skillet",
+  "Trailside",
+  "Northwoods",
+  "Campfire",
+  "Ridge-Run",
+  "Cold-Front",
+  "Fireline"
+];
+
+const AUTO_RECIPE_LIBRARY = [
   {
-    subtitle: "Camp Favorite",
-    title: "Venison Chili",
-    description: "A cold-weather classic built for camp supper.",
-    time: "1 hr 15 min",
-    serves: "6",
-    difficulty: "Easy",
-    ingredients: [
-      "2 lbs ground venison",
-      "1 onion, diced",
-      "2 cans kidney beans",
-      "2 cans diced tomatoes",
-      "Chili seasoning",
-      "Salt and pepper"
+    "meal": "Breakfast",
+    "icon": "🥚",
+    "baseTitle": "Skillet Eggs & Sausage Hash",
+    "description": "One pan, hot fire, full belly — ready before first light.",
+    "time": "20 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Cast iron skillet",
+    "ingredients": [
+      "1 lb breakfast sausage links or patties",
+      "6 large eggs",
+      "1 can (15 oz) diced potatoes, drained",
+      "1 small onion, rough chopped",
+      "Salt, pepper, garlic powder",
+      "2 tbsp butter or oil"
     ],
-    steps: [
-      "Brown the venison and onion in a heavy pot.",
-      "Add tomatoes, beans, and seasoning.",
-      "Simmer low for 45 minutes.",
-      "Serve hot."
+    "steps": [
+      "Brown sausage in skillet over medium-high heat. Set aside, leave drippings.",
+      "Add butter, onion, and potatoes. Cook until golden and slightly crispy, 8–10 min.",
+      "Crumble sausage back in. Make wells and crack eggs directly into them.",
+      "Season well. Cover with foil and cook until eggs set, about 5 min."
     ],
-    serving: [
-      "Top with cheese.",
-      "Serve with crackers or cornbread."
+    "serving": [
+      "Serve hot before first light.",
+      "Best with strong camp coffee."
     ],
-    tips: [
-      "Better the next day.",
-      "Add jalapeño for extra heat."
+    "tips": [
+      "Use a lid from a pot or foil as a cover. No fancy lids needed out here."
     ]
   },
   {
-    subtitle: "Camp Breakfast",
-    title: "Opening Morning Skillet",
-    description: "Quick, hearty, and easy before heading to the stand.",
-    time: "30 min",
-    serves: "4",
-    difficulty: "Easy",
-    ingredients: [
-      "Breakfast sausage",
-      "Potatoes",
-      "Eggs",
-      "Cheddar cheese",
-      "Butter",
-      "Salt and pepper"
+    "meal": "Breakfast",
+    "icon": "🥞",
+    "baseTitle": "Campfire Pancakes with Syrup",
+    "description": "Stack 'em high. Simple batter, big satisfaction.",
+    "time": "15 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Griddle or skillet",
+    "ingredients": [
+      "2 cups pancake mix (just-add-water kind)",
+      "1½ cups water (adjust as needed)",
+      "2 tbsp vegetable oil",
+      "Maple syrup or honey for serving",
+      "Butter for the pan"
     ],
-    steps: [
-      "Cook sausage until browned.",
-      "Add potatoes and cook until crisp.",
-      "Crack eggs over top and cover.",
-      "Finish with cheese and serve."
+    "steps": [
+      "Whisk pancake mix, water, and oil until just combined — lumps are fine.",
+      "Heat griddle or skillet over medium heat. Melt a pat of butter.",
+      "Pour ¼ cup batter per pancake. Cook until bubbles form and edges look set, about 2 min.",
+      "Flip once; cook another 1–2 min. Serve with syrup."
     ],
-    serving: [
-      "Serve with strong coffee.",
-      "Hot sauce optional."
+    "serving": [
+      "Serve in warm stacks with butter and syrup.",
+      "Keep the finished pancakes near the fire, not over it."
     ],
-    tips: [
-      "Cast iron works best.",
-      "Use leftover potatoes."
+    "tips": [
+      "Keep cooked pancakes warm by stacking them on a plate set near (not over) the fire."
     ]
   },
   {
-    subtitle: "Camp Dessert",
-    title: "Dutch Oven Apple Crisp",
-    description: "Simple dessert that fits the fire-and-family mood.",
-    time: "50 min",
-    serves: "8",
-    difficulty: "Medium",
-    ingredients: [
-      "6 apples, sliced",
-      "Brown sugar",
-      "Oats",
-      "Flour",
-      "Butter",
-      "Cinnamon"
+    "meal": "Lunch",
+    "icon": "🥪",
+    "baseTitle": "Smoked Meat Flatbread Wraps",
+    "description": "Minimal prep, maximum fuel for the afternoon stand.",
+    "time": "10 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "No heat needed",
+    "ingredients": [
+      "Large flour tortillas (4–6)",
+      "½ lb smoked or deli sliced meat (venison, beef, or turkey)",
+      "Sliced cheese (cheddar or pepper jack)",
+      "Mustard or mayo packets",
+      "Pickles or canned jalapeños"
     ],
-    steps: [
-      "Layer apples in dutch oven.",
-      "Mix topping and spread over apples.",
-      "Bake until bubbling and golden.",
-      "Cool slightly and serve warm."
+    "steps": [
+      "Lay tortilla flat. Spread mustard or mayo across the middle.",
+      "Layer meat and cheese generously.",
+      "Add pickles or jalapeños. Roll tightly, tucking in the sides.",
+      "Wrap in foil or eat immediately. Slice in half for easy handling."
     ],
-    serving: [
-      "Serve warm by the fire.",
-      "Ice cream if available."
+    "serving": [
+      "Slice in half for easy carry to the stand.",
+      "Best served cold from the cooler or lunch tote."
     ],
-    tips: [
-      "Tart apples hold up best.",
-      "Rotate heat for even cooking."
+    "tips": [
+      "Prep these the night before and wrap in foil — they hold well in a cooler all morning."
+    ]
+  },
+  {
+    "meal": "Lunch",
+    "icon": "🍲",
+    "baseTitle": "Quick Camp Chili",
+    "description": "Open cans, dump, simmer — done. Warms you to the bone.",
+    "time": "25 min",
+    "serves": "4–6",
+    "difficulty": "Easy",
+    "equipment": "Pot over fire",
+    "ingredients": [
+      "1 lb ground venison or beef",
+      "2 cans (15 oz each) chili-style beans",
+      "1 can (15 oz) diced tomatoes",
+      "1 packet chili seasoning mix",
+      "Salt and hot sauce to taste"
+    ],
+    "steps": [
+      "Brown ground meat in a pot over the fire or stove. Drain excess fat.",
+      "Add beans (with liquid), diced tomatoes, and chili seasoning packet.",
+      "Stir well and bring to a boil. Reduce heat and simmer 15 min.",
+      "Taste, adjust salt and hot sauce, and serve with crackers or bread."
+    ],
+    "serving": [
+      "Serve with crackers, bread, or a spoon right from the pot.",
+      "Great as a next-day reheat after the evening hunt."
+    ],
+    "tips": [
+      "This tastes even better the next day — make a double batch for dinner and reheat for lunch."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🥩",
+    "baseTitle": "Backstrap Steaks with Garlic Butter",
+    "description": "The crown jewel of deer camp. Keep it simple, let the meat shine.",
+    "time": "20 min",
+    "serves": "4",
+    "difficulty": "Medium",
+    "equipment": "Cast iron or grill",
+    "ingredients": [
+      "2 lbs venison backstrap, cut into 1-inch medallions",
+      "4 tbsp butter",
+      "4 garlic cloves, smashed",
+      "Salt and coarse black pepper",
+      "Fresh or dried rosemary (optional)",
+      "2 tbsp oil for the pan"
+    ],
+    "steps": [
+      "Pat medallions dry. Season generously with salt and pepper on both sides.",
+      "Heat oil in cast iron until shimmering hot. Sear medallions 2–3 min per side. Do not crowd the pan.",
+      "Reduce heat. Add butter, garlic, and rosemary. Tilt pan and spoon butter over steaks for 1 min.",
+      "Remove and rest 5 min before eating. Medium-rare is best for backstrap."
+    ],
+    "serving": [
+      "Rest the medallions before slicing and serving.",
+      "Excellent with camp potatoes or grilled vegetables."
+    ],
+    "tips": [
+      "Venison backstrap overcooks fast. Pull it when the inside still looks slightly pink — it carries over from the heat."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🍝",
+    "baseTitle": "Venison & Pasta Skillet",
+    "description": "Hearty, filling, and made in one pan. The whole camp will approve.",
+    "time": "30 min",
+    "serves": "4–6",
+    "difficulty": "Easy",
+    "equipment": "Large pot or deep skillet",
+    "ingredients": [
+      "1 lb ground venison",
+      "12 oz penne or rotini pasta",
+      "1 jar (24 oz) marinara sauce",
+      "2 cups water",
+      "1 tsp garlic powder, 1 tsp Italian seasoning",
+      "Shredded parmesan or mozzarella for topping"
+    ],
+    "steps": [
+      "Brown ground venison in a deep skillet or pot. Season with garlic powder and Italian seasoning.",
+      "Pour in marinara sauce and water. Stir and bring to a boil.",
+      "Add dry pasta directly into the pot. Stir frequently and cook 12–14 min until pasta is tender.",
+      "Top with cheese and cover off heat for 2 min to melt. Serve straight from the pan."
+    ],
+    "serving": [
+      "Top with parmesan or mozzarella and serve from the skillet.",
+      "Pair with crusty bread or crackers."
+    ],
+    "tips": [
+      "Add a pinch of red pepper flakes for kick. Crusty bread or crackers make excellent companions."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🫙",
+    "baseTitle": "Foil Pack Venison & Veggies",
+    "description": "Wrap it up, throw it in the coals, walk away. No dishes.",
+    "time": "35 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Campfire coals",
+    "ingredients": [
+      "1½ lbs venison stew meat or thin-cut pieces",
+      "2 cans (15 oz) mixed vegetables, drained",
+      "1 packet onion soup mix",
+      "4 tbsp butter, cut into pats",
+      "Salt and pepper",
+      "Heavy-duty aluminum foil"
+    ],
+    "steps": [
+      "Tear 4 large sheets of heavy foil. Layer double for strength.",
+      "Divide meat and veggies among the sheets. Sprinkle soup mix over each. Top with a pat of butter.",
+      "Fold foil tightly, sealing all edges to trap steam.",
+      "Place on hot coals (not open flame). Cook 25–30 min, flipping once halfway through."
+    ],
+    "serving": [
+      "Let the foil packs rest briefly before opening.",
+      "Serve straight from the pack for easy cleanup."
+    ],
+    "tips": [
+      "Use gloves or tongs — packs get very hot. Let rest 3 min before opening to avoid steam burns."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🫕",
+    "baseTitle": "Dutch Oven Deer Camp Stew",
+    "description": "Slow and steady over the fire. Stick-to-your-ribs satisfaction.",
+    "time": "1.5 hrs",
+    "serves": "6–8",
+    "difficulty": "Medium",
+    "equipment": "Dutch oven & coals",
+    "ingredients": [
+      "2 lbs venison stew meat, cubed",
+      "2 cans (10.5 oz) cream of mushroom soup",
+      "1 can (15 oz) beef broth",
+      "1 bag (16 oz) frozen mixed vegetables",
+      "1 packet dry onion soup mix",
+      "Salt and pepper"
+    ],
+    "steps": [
+      "Season venison cubes with salt and pepper. Brown in batches in the Dutch oven.",
+      "Add soup, broth, onion soup mix, and vegetables. Stir to combine.",
+      "Cover and hang over fire or set on coals with coals on the lid too.",
+      "Simmer 60–90 min, stirring occasionally, until meat is fork-tender."
+    ],
+    "serving": [
+      "Serve over instant mashed potatoes or with thick bread.",
+      "Perfect for warming up after a long cold sit."
+    ],
+    "tips": [
+      "Serve over instant mashed potatoes or with thick slices of bread for a complete, warming meal after a cold day in the stand."
     ]
   }
 ];
 
+
+function getFirstName(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "Camp";
+  const token = clean.split(/\s+/)[0].replace(/[^A-Za-z'\-]/g, "");
+  return token || "Camp";
+}
+
+function buildPersonalizedRecipeTitle(owner, adjective, baseTitle) {
+  if (!owner || owner === "Camp") {
+    return `${adjective} ${baseTitle}`;
+  }
+  return `${owner}'s ${adjective} ${baseTitle}`;
+}
+
+function buildAutoRecipeObjects(memberNames = []) {
+  const owners = (Array.isArray(memberNames) ? memberNames : [])
+    .map(getFirstName)
+    .filter(Boolean);
+
+  const cycleOwners = owners.length ? owners : ["Camp"];
+
+  return AUTO_RECIPE_LIBRARY.map((recipe, index) => {
+    const owner = cycleOwners[index % cycleOwners.length];
+    const adjective = CAMP_RECIPE_ADJECTIVES[index % CAMP_RECIPE_ADJECTIVES.length];
+
+    return {
+      subtitle: owner === "Camp"
+        ? `${recipe.meal} • DeerCamp Classic`
+        : `${recipe.meal} • ${owner}'s Camp Recipe`,
+      title: buildPersonalizedRecipeTitle(owner, adjective, recipe.baseTitle),
+      description: recipe.description,
+      time: recipe.time,
+      serves: recipe.serves,
+      difficulty: recipe.difficulty,
+      ingredients: [...recipe.ingredients],
+      steps: [...recipe.steps],
+      serving: [...recipe.serving],
+      tips: [...recipe.tips],
+      meal: recipe.meal,
+      owner,
+      adjective,
+      sourceTitle: recipe.baseTitle,
+      icon: recipe.icon,
+      equipment: recipe.equipment
+    };
+  });
+}
+
+
 function getCampRecipes() {
-  if (Array.isArray(data.recipes) && data.recipes.length) {
-    return data.recipes.map((recipe, index) => normalizeCampRecipe(recipe, index));
+  const recipeSource = Array.isArray(data.recipeObjects) && data.recipeObjects.length
+    ? data.recipeObjects
+    : (Array.isArray(data.recipes) && data.recipes.length ? data.recipes : []);
+
+  if (recipeSource.length) {
+    return recipeSource.map((recipe, index) => normalizeCampRecipe(recipe, index));
   }
 
-  return defaultCampRecipes.map((recipe, index) => normalizeCampRecipe(recipe, index));
+  const memberNames = (memberProfiles || []).map(profile => profile.name).filter(Boolean);
+  return buildAutoRecipeObjects(memberNames).map((recipe, index) => normalizeCampRecipe(recipe, index));
 }
+
 
 function openCampRecipeModal(recipe) {
   const modal = document.getElementById("recipeModal");
@@ -1298,6 +3207,8 @@ function openCampRecipeModal(recipe) {
   modal.classList.add("open");
   backdrop.classList.add("open");
   document.body.classList.add("modal-open");
+  const card = modal.querySelector(".recipe-modal-card");
+  if (card) card.scrollTop = 0;
 }
 
 function closeCampRecipeModal() {
@@ -1312,11 +3223,17 @@ function closeCampRecipeModal() {
 
 document.getElementById("closeRecipeModal").addEventListener("click", closeCampRecipeModal);
 document.getElementById("recipeModalBackdrop").addEventListener("click", closeCampRecipeModal);
+document.getElementById("recipeModal").addEventListener("click", event => {
+  if (event.target.id === "recipeModal") {
+    closeCampRecipeModal();
+  }
+});
 
 document.addEventListener("keydown", event => {
   if (event.key === "Escape") {
     closeCampRecipeModal();
     closeMemberModal();
+    closeTraditionModal();
     closeStory();
     menu.classList.remove("open");
     menuToggle.setAttribute("aria-expanded", "false");
@@ -1372,8 +3289,8 @@ function normalizeDateKey(value) {
     return value.trim();
   }
 
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "";
+  const parsed = parseLocalDate(value);
+  if (!parsed) return "";
 
   const y = parsed.getFullYear();
   const m = String(parsed.getMonth() + 1).padStart(2, "0");
@@ -1387,6 +3304,26 @@ function pad2(num) {
 
 function toDateKey(year, monthIndex, day) {
   return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+}
+
+function parseLocalDate(value) {
+  if (!value) return null;
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const isoMatch = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+      const [, y, m, d] = isoMatch;
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
 function normalizeCalendarEvents(source) {
@@ -1407,7 +3344,9 @@ function normalizeCalendarEvents(source) {
       return {
         date: dateKey,
         title: item.title || item.name || "Camp Event",
-        description: item.description || item.note || item.details || ""
+        member: item.member || item.by || item.host || item.who || item.plannedBy || "",
+        description: item.description || item.note || item.details || "",
+        icon: item.icon || item.emoji || ""
       };
     })
     .filter(Boolean);
@@ -1416,23 +3355,367 @@ function normalizeCalendarEvents(source) {
 function buildFallbackEvents() {
   const now = new Date();
   const y = now.getFullYear();
-  const m = now.getMonth();
 
   return [
     {
-      date: toDateKey(y, m, 6),
-      title: "Scout Night",
-      description: "Quick evening planning session and stand review."
+      date: toDateKey(y, 0, 6),
+      title: "Trail Camera Pull & Review",
+      description: "Late Winter — Swap cards, check batteries, and review late-season buck movement.",
+      icon: "📷"
     },
     {
-      date: toDateKey(y, m, 14),
-      title: "Camp Supper",
-      description: "Shared dinner at camp after the afternoon hunt."
+      date: toDateKey(y, 0, 13),
+      title: "Venison Processing Day",
+      description: "Late Winter — Butcher, process, and package venison from late-season harvests.",
+      icon: "🔪"
     },
     {
-      date: toDateKey(y, m, 22),
-      title: "Work Weekend",
-      description: "Cabin cleanup, trail check, and camera swap."
+      date: toDateKey(y, 0, 20),
+      title: "Season Debrief & Mapping",
+      description: "Late Winter — Review trail cam data, map buck patterns, and note what worked.",
+      icon: "🗺️"
+    },
+    {
+      date: toDateKey(y, 0, 27),
+      title: "Shed Hunting Opener",
+      description: "Late Winter — Begin walking ridges and open south-facing slopes for fresh sheds.",
+      icon: "🦌"
+    },
+    {
+      date: toDateKey(y, 0, 6),
+      title: "Gear Cleaning & Storage",
+      description: "Late Winter — Clean and store firearms, bows, and hunting gear for the off-season.",
+      icon: "🧹"
+    },
+    {
+      date: toDateKey(y, 1, 6),
+      title: "Prime Shed Hunting Day",
+      description: "Late Winter — Walk ridges, field edges, and bedding areas for dropped antlers.",
+      icon: "🦌"
+    },
+    {
+      date: toDateKey(y, 1, 13),
+      title: "Old Scrape & Rub Walk",
+      description: "Late Winter — Scout last year's rub lines and scrapes while snow shows deer sign.",
+      icon: "🌲"
+    },
+    {
+      date: toDateKey(y, 1, 20),
+      title: "Supplemental Feed Check",
+      description: "Late Winter — Refill feeders or mineral sites where legal to support deer health.",
+      icon: "🌽"
+    },
+    {
+      date: toDateKey(y, 1, 27),
+      title: "Seed & Supply Order",
+      description: "Late Winter — Order food plot seeds, lime, and fertilizer for spring planting.",
+      icon: "📦"
+    },
+    {
+      date: toDateKey(y, 1, 6),
+      title: "Aerial Map Study Night",
+      description: "Late Winter — Study aerials and topo maps to plan new stand locations.",
+      icon: "🗺️"
+    },
+    {
+      date: toDateKey(y, 2, 6),
+      title: "Continued Shed Hunt",
+      description: "Early Spring — As snow melts, revisit known bedding and travel corridors for sheds.",
+      icon: "🦌"
+    },
+    {
+      date: toDateKey(y, 2, 13),
+      title: "Soil Testing Day",
+      description: "Early Spring — Pull soil samples from food plot areas and send to the extension office.",
+      icon: "🌱"
+    },
+    {
+      date: toDateKey(y, 2, 20),
+      title: "Lime Application",
+      description: "Early Spring — Apply ag lime to food plots based on soil test results.",
+      icon: "🚜"
+    },
+    {
+      date: toDateKey(y, 2, 27),
+      title: "Buck Inventory Glass",
+      description: "Early Spring — Glass open fields at dusk to begin counting and identifying bucks.",
+      icon: "🔭"
+    },
+    {
+      date: toDateKey(y, 2, 6),
+      title: "New Equipment Order",
+      description: "Early Spring — Order new archery equipment, arrows, and hunting accessories.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 3, 6),
+      title: "Spring Scouting Weekend",
+      description: "Spring — Walk the property — map travel corridors, funnels, and pinch points.",
+      icon: "🥾"
+    },
+    {
+      date: toDateKey(y, 3, 13),
+      title: "Bedding Area Survey",
+      description: "Spring — Locate winter bedding areas while intrusion impact is minimal.",
+      icon: "🌿"
+    },
+    {
+      date: toDateKey(y, 3, 20),
+      title: "Cool-Season Plot Planting",
+      description: "Spring — Plant clover, chicory, and brassica blends in prepared food plots.",
+      icon: "🌱"
+    },
+    {
+      date: toDateKey(y, 3, 27),
+      title: "Shooting Lane Clearing",
+      description: "Spring — Clear lanes and trim brush around stand sites before greenup.",
+      icon: "🪚"
+    },
+    {
+      date: toDateKey(y, 3, 6),
+      title: "Stand Hanging Weekend",
+      description: "Spring — Hang stands, trim lanes, and mark quiet access routes.",
+      icon: "🪜"
+    },
+    {
+      date: toDateKey(y, 4, 6),
+      title: "Velvet Watch Begins",
+      description: "Late Spring — Glass fields at dusk — bucks are in early velvet antler growth.",
+      icon: "🔭"
+    },
+    {
+      date: toDateKey(y, 4, 13),
+      title: "Warm-Season Plot Planting",
+      description: "Late Spring — Plant corn, soybeans, or grain sorghum in warm-season food plots.",
+      icon: "🌽"
+    },
+    {
+      date: toDateKey(y, 4, 20),
+      title: "Mineral Lick Setup",
+      description: "Late Spring — Set out mineral sites where legal to attract and hold deer.",
+      icon: "🧂"
+    },
+    {
+      date: toDateKey(y, 4, 27),
+      title: "Trail Camera Deployment",
+      description: "Late Spring — Deploy cameras on mineral sites, field edges, and travel corridors.",
+      icon: "📷"
+    },
+    {
+      date: toDateKey(y, 4, 6),
+      title: "Bowhunting Practice Starts",
+      description: "Late Spring — Begin regular bow practice — shoot 3D targets at varied distances.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 5, 6),
+      title: "Velvet Buck Watching Night",
+      description: "Early Summer — Glass deer on food plots at dusk to catalog velvet bucks.",
+      icon: "🔭"
+    },
+    {
+      date: toDateKey(y, 5, 13),
+      title: "Food Plot Fertilizing",
+      description: "Early Summer — Fertilize established food plots to maximize summer growth.",
+      icon: "🌱"
+    },
+    {
+      date: toDateKey(y, 5, 20),
+      title: "Camera Card Pull",
+      description: "Early Summer — Rotate trail cameras to feeding areas and check velvet inventory.",
+      icon: "📷"
+    },
+    {
+      date: toDateKey(y, 5, 27),
+      title: "Bow Tuning Session",
+      description: "Early Summer — Tune bow, check paper tuning, and inspect broadheads.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 5, 6),
+      title: "Public Land Scout",
+      description: "Early Summer — Scout new public land using OnX or mapping apps for fall options.",
+      icon: "🗺️"
+    },
+    {
+      date: toDateKey(y, 6, 6),
+      title: "Heavy Velvet Trail Cam Pull",
+      description: "Summer — Inventory bucks in full velvet — build your hit list.",
+      icon: "📷"
+    },
+    {
+      date: toDateKey(y, 6, 13),
+      title: "Water Source Check",
+      description: "Summer — Check water holes and consider adding wildlife guzzlers in dry areas.",
+      icon: "💧"
+    },
+    {
+      date: toDateKey(y, 6, 20),
+      title: "Daily Shooting Routine",
+      description: "Summer — Shoot every day — distances from 10 to 60+ yards.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 6, 27),
+      title: "Fall Plot Blend Seeding",
+      description: "Summer — Plant early fall blends like turnips and radishes (early July).",
+      icon: "🌱"
+    },
+    {
+      date: toDateKey(y, 6, 6),
+      title: "License Draw Research",
+      description: "Summer — Research out-of-state draws and apply for bonus point states.",
+      icon: "📋"
+    },
+    {
+      date: toDateKey(y, 7, 6),
+      title: "Final Velvet Photo Session",
+      description: "Preseason — Last velvet camera pulls — finalize your buck hit list.",
+      icon: "📷"
+    },
+    {
+      date: toDateKey(y, 7, 13),
+      title: "Fall Food Plot Seeding",
+      description: "Preseason — Spray and seed fall plots: clover, brassica, winter rye.",
+      icon: "🌾"
+    },
+    {
+      date: toDateKey(y, 7, 20),
+      title: "Stand & Access Finalization",
+      description: "Preseason — Hang final stands and finalize quiet entry and exit routes.",
+      icon: "🪜"
+    },
+    {
+      date: toDateKey(y, 7, 27),
+      title: "Scent Control Prep",
+      description: "Preseason — Wash hunting clothes with scent-free soap and store in sealed bags.",
+      icon: "👃"
+    },
+    {
+      date: toDateKey(y, 7, 6),
+      title: "Rifle & Muzzleloader Sight-In",
+      description: "Preseason — Sight in rifles and check muzzleloader charge at the range.",
+      icon: "🎯"
+    },
+    {
+      date: toDateKey(y, 8, 6),
+      title: "Opening Morning Hunt",
+      description: "Early Fall — First sit of the season with coffee before daylight.",
+      icon: "🌄"
+    },
+    {
+      date: toDateKey(y, 8, 13),
+      title: "Archery Season Opener",
+      description: "Early Fall — Hunt early-season food sources and water holes on evenings.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 8, 20),
+      title: "Velvet Shed Camera Check",
+      description: "Early Fall — Bucks are stripping velvet — reposition cameras to scrapes.",
+      icon: "📷"
+    },
+    {
+      date: toDateKey(y, 8, 27),
+      title: "Fall Plot Maintenance",
+      description: "Early Fall — Monitor and manage fall food plots; control weeds if needed.",
+      icon: "🌱"
+    },
+    {
+      date: toDateKey(y, 8, 6),
+      title: "Mock Scrape Setup",
+      description: "Early Fall — Build mock scrapes near stand sites to pull bucks into range.",
+      icon: "🌿"
+    },
+    {
+      date: toDateKey(y, 9, 6),
+      title: "Pre-Rut Bowhunt",
+      description: "Fall — Hunt scrape lines and transition corridors as pre-rut activity builds.",
+      icon: "🏹"
+    },
+    {
+      date: toDateKey(y, 9, 13),
+      title: "Rattling & Calling Session",
+      description: "Fall — Use grunt calls and rattle antlers as October rut activity peaks.",
+      icon: "📯"
+    },
+    {
+      date: toDateKey(y, 9, 20),
+      title: "Scrape Line Walk",
+      description: "Fall — Mark new rubs and scrapes on the property — sign is ramping up.",
+      icon: "🌲"
+    },
+    {
+      date: toDateKey(y, 9, 27),
+      title: "Estrus Scent Drag Hunt",
+      description: "Fall — Lay estrus scent drags leading into your stand location.",
+      icon: "🦌"
+    },
+    {
+      date: toDateKey(y, 9, 6),
+      title: "Buck Pool Night",
+      description: "Fall — Camp gathering, stories, and season predictions before the rut.",
+      icon: "🏆"
+    },
+    {
+      date: toDateKey(y, 10, 6),
+      title: "Peak Rut All-Day Sit",
+      description: "Rut — The best hunting of the year — sit all day in a proven funnel.",
+      icon: "🦌"
+    },
+    {
+      date: toDateKey(y, 10, 13),
+      title: "Rifle Season Opening Day",
+      description: "Rut — Rifle season opens in most states — hunt high-traffic corridors.",
+      icon: "🔫"
+    },
+    {
+      date: toDateKey(y, 10, 20),
+      title: "Buck Harvest & Field Dress",
+      description: "Rut — Field dress, drag, and quarter a harvested buck in the field.",
+      icon: "🔪"
+    },
+    {
+      date: toDateKey(y, 10, 27),
+      title: "Second Rut Stand Setup",
+      description: "Rut — Hang or reposition stands for the second rut in late November.",
+      icon: "🪜"
+    },
+    {
+      date: toDateKey(y, 10, 6),
+      title: "Doe Management Hunt",
+      description: "Rut — Fill doe tags to manage the herd and stock the freezer.",
+      icon: "🎯"
+    },
+    {
+      date: toDateKey(y, 11, 6),
+      title: "Late Season Food Source Hunt",
+      description: "Late Season — Hunt ag fields and food plots — deer are focused on feeding.",
+      icon: "🌽"
+    },
+    {
+      date: toDateKey(y, 11, 13),
+      title: "Muzzleloader / Late Bow Hunt",
+      description: "Late Season — Take advantage of late-season rifle, muzzleloader, and bow tags.",
+      icon: "🔫"
+    },
+    {
+      date: toDateKey(y, 11, 20),
+      title: "Venison Processing & Sharing",
+      description: "Late Season — Process venison and share with family, friends, and food banks.",
+      icon: "🔪"
+    },
+    {
+      date: toDateKey(y, 11, 27),
+      title: "Harvest Log & Buck Scoring",
+      description: "Late Season — Log all harvests, score bucks, and record property observations.",
+      icon: "📋"
+    },
+    {
+      date: toDateKey(y, 11, 6),
+      title: "Next Year Strategy Session",
+      description: "Late Season — Begin planning next year — stands, food plots, and hit list.",
+      icon: "🗺️"
     }
   ];
 }
@@ -1441,9 +3724,51 @@ const normalizedCalendarEvents = normalizeCalendarEvents(
   data.calendarEvents || data.events || data.campEvents || []
 );
 
-const calendarEvents = normalizedCalendarEvents.length
-  ? normalizedCalendarEvents
-  : buildFallbackEvents();
+function shiftWeekendLabelEventsToWeekend(events) {
+  const weekendUsageBySaturday = new Map();
+
+  return (Array.isArray(events) ? events : [])
+    .map(event => {
+      const text = `${event.title || ""} ${event.description || ""}`.toLowerCase();
+      if (!text.includes("weekend")) return { ...event };
+
+      const parsed = parseLocalDate(event.date);
+      if (!parsed) return { ...event };
+
+      const day = parsed.getDay();
+      if (day === 0 || day === 6) return { ...event, date: normalizeDateKey(parsed) };
+
+      const saturday = new Date(parsed);
+      saturday.setDate(parsed.getDate() + ((6 - day + 7) % 7));
+
+      const saturdayKey = normalizeDateKey(saturday);
+      const usageCount = weekendUsageBySaturday.get(saturdayKey) || 0;
+      const sunday = new Date(saturday);
+      sunday.setDate(saturday.getDate() + 1);
+
+      let reassigned = new Date(saturday);
+      if (usageCount % 2 === 1 && sunday.getMonth() === saturday.getMonth()) {
+        reassigned = sunday;
+      }
+
+      weekendUsageBySaturday.set(saturdayKey, usageCount + 1);
+
+      return {
+        ...event,
+        date: normalizeDateKey(reassigned)
+      };
+    })
+    .sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return String(a.title || "").localeCompare(String(b.title || ""));
+    });
+}
+
+const calendarEvents = shiftWeekendLabelEventsToWeekend(
+  normalizedCalendarEvents.length
+    ? normalizedCalendarEvents
+    : buildFallbackEvents()
+);
 
 const eventsByDate = calendarEvents.reduce((acc, event) => {
   if (!acc[event.date]) acc[event.date] = [];
@@ -1455,6 +3780,19 @@ let calendarCursor = new Date();
 calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
 
 let selectedDateKey = "";
+
+function getCalendarEventIcon(event = {}) {
+  if (event.icon) return event.icon;
+
+  const text = `${event.title || ""} ${event.description || ""}`.toLowerCase();
+
+  if (/(work|fix|cleanup|swap|repair|build)/.test(text)) return "🛠️";
+  if (/(scout|trail|track|stand|map|plan)/.test(text)) return "🧭";
+  if (/(breakfast|supper|dinner|chili|recipe|meal|coffee)/.test(text)) return "🍳";
+  if (/(buck|deer|harvest|hunt)/.test(text)) return "🦌";
+  if (/(campfire|fire|story)/.test(text)) return "🔥";
+  return "📌";
+}
 
 function renderCalendarEventList(dateKey) {
   const eventList = document.getElementById("calendarEventList");
@@ -1475,15 +3813,36 @@ function renderCalendarEventList(dateKey) {
     const card = document.createElement("div");
     card.className = "calendar-event-item";
 
+    const head = document.createElement("div");
+    head.className = "calendar-event-head";
+
+    const icon = document.createElement("span");
+    icon.className = "calendar-event-icon";
+    icon.textContent = getCalendarEventIcon(event);
+
     const title = document.createElement("p");
     title.className = "calendar-event-title";
-    title.textContent = event.title;
+    title.textContent = event.member ? `${event.title} — ${event.member}` : event.title;
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "calendar-event-copy";
+    titleWrap.appendChild(title);
+
+    if (event.member) {
+      const byline = document.createElement("p");
+      byline.className = "calendar-event-byline";
+      byline.textContent = `${event.member} planning to be there`;
+      titleWrap.appendChild(byline);
+    }
 
     const desc = document.createElement("p");
     desc.className = "calendar-event-desc";
-    desc.textContent = event.description || "No additional details yet.";
+    desc.textContent = event.description || (event.member ? `${event.member} added this event.` : "No additional details yet.");
 
-    card.appendChild(title);
+    head.appendChild(icon);
+    head.appendChild(titleWrap);
+
+    card.appendChild(head);
     card.appendChild(desc);
     eventList.appendChild(card);
   });
@@ -1573,35 +3932,23 @@ function initCalendar() {
   prev.addEventListener("click", () => {
     calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1);
     renderCalendar();
+    renderCalendarEventList(selectedDateKey);
   });
 
   next.addEventListener("click", () => {
     calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1);
     renderCalendar();
+    renderCalendarEventList(selectedDateKey);
   });
 
-  const todayKey = normalizeDateKey(new Date());
-  const todayEvents = eventsByDate[todayKey] || [];
+  const today = new Date();
+  const todayKey = normalizeDateKey(today);
 
-  if (todayEvents.length) {
-    selectedDateKey = todayKey;
-    calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-    renderCalendar();
-    renderCalendarEventList(todayKey);
-  } else {
-    const firstEventKey = Object.keys(eventsByDate).sort()[0] || "";
-    selectedDateKey = firstEventKey;
-    if (firstEventKey) {
-      const parts = firstEventKey.split("-").map(Number);
-      calendarCursor = new Date(parts[0], parts[1] - 1, 1);
-    }
-    renderCalendar();
-    if (firstEventKey) {
-      renderCalendarEventList(firstEventKey);
-    } else {
-      renderCalendarEventList("");
-    }
-  }
+  selectedDateKey = todayKey;
+  calendarCursor = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  renderCalendar();
+  renderCalendarEventList(todayKey);
 }
 
 window.addEventListener("load", () => {

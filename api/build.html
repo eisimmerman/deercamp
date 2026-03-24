@@ -262,14 +262,6 @@
     color: #6b4b2a;
   }
 
-  .field-helper {
-    margin-top: 6px;
-    font-size: 0.88rem;
-    line-height: 1.4;
-    color: #6b4b2a;
-    opacity: 0.9;
-  }
-
 
   @media (max-width: 768px) {
     .hero-preview-frame {
@@ -401,19 +393,8 @@
       <h2>People &amp; Traditions</h2>
 
       <div class="form-row">
-        <label>Camp Steward</label>
-        <div>
-          <input id="campSteward" placeholder="camp administrator">
-          <div class="field-helper">Tap this name on the camp page for steward details.</div>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <label>Camp Members</label>
-        <div>
-          <input id="campMembers" placeholder="separate names with commas">
-          <div class="field-helper">These names appear after the steward and open member details when tapped.</div>
-        </div>
+        <label>Members</label>
+        <input id="campMembers" placeholder="Ben, Dave, Tyler">
       </div>
 
       <div class="form-row">
@@ -445,7 +426,7 @@
       <div class="form-row">
         <label>Camp Recipes</label>
         <div class="recipe-builder-wrap">
-          <p class="recipe-builder-note">DeerCamp auto-generates 8 recipe cards from your full camp roster. We loop back through the roster when there are more recipes than hunters.</p>
+          <p class="recipe-builder-note">DeerCamp auto-generates 8 recipe cards from your camp members. We loop back through the member list when there are more recipes than hunters.</p>
           <div id="recipeBuilderStatus" class="recipe-builder-status"></div>
           <div id="recipeNamePreview" class="recipe-name-preview"></div>
         </div>
@@ -624,146 +605,6 @@ const STARTER_TRADITIONS = [
   { group: "Legacy & Meaning", label: "Honor the Elders", description: "A moment where longtime members tell how camp began and what it stands for." }
 ];
 const STARTER_TRADITIONS_BY_LABEL = Object.fromEntries(STARTER_TRADITIONS.map(item => [item.label.toLowerCase(), item]));
-
-const STEWARD_RESPONSIBILITIES = [
-  "Camp administrator",
-  "Adds and deletes camp roster names, sends DeerCamp invites, and removes non-current members.",
-  "Adds and changes content across approved camp sections.",
-  "Curates and creates CampMemories and CampCards content.",
-  "Helps manage traditions, deer drives, recipes, and season-to-season camp records."
-];
-
-const MEMBER_RESPONSIBILITIES = [
-  "Adds field content through DeerCamp app.",
-  "Adds content to approved sections by Camp Steward.",
-  "Adds comments to CampFeed posts.",
-  "Uploads photos, notes, and optional audio from the field.",
-  "Contributes memories, recipes, deer drive participation, and story ideas for featured camp content."
-];
-
-function parseCommaNames(value = "") {
-  return String(value || "")
-    .split(",")
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-function buildDefaultMemberProfile(name, role = "Camp Member") {
-  const isSteward = role === "Camp Steward";
-  return {
-    name: String(name || "").trim(),
-    role,
-    roleTitle: isSteward ? "Camp administrator" : "Camp Member",
-    responsibilities: isSteward ? [...STEWARD_RESPONSIBILITIES] : [...MEMBER_RESPONSIBILITIES],
-    yearJoined: "—",
-    favoriteStand: "—",
-    favoriteGear: "—",
-    nickname: "—",
-    harvestHighlight: "—",
-    bestCampMemory: "—",
-    specialty: "—",
-    note: isSteward ? "Keeps camp information current and helps guide the full DeerCamp experience." : "Add member details later."
-  };
-}
-
-function getRosterNamesFromBuilder() {
-  const steward = String(document.getElementById("campSteward")?.value || "").trim();
-  const members = parseCommaNames(document.getElementById("campMembers")?.value || "");
-  return [steward, ...members].filter(Boolean);
-}
-
-
-function createTraditionOptionMarkup(item, index) {
-  const safeId = `tradition-option-${index}`;
-  return `
-    <label class="tradition-option" for="${safeId}">
-      <input type="checkbox" id="${safeId}" class="tradition-option-checkbox" data-tradition-label="${item.label}" data-tradition-group="${item.group}">
-      <div>
-        <strong>${item.label}</strong>
-        <span>${item.description}</span>
-      </div>
-    </label>
-  `;
-}
-
-function renderTraditionStarterOptions() {
-  const target = document.getElementById("traditionStarterGroups");
-  if (!target) return;
-
-  const grouped = STARTER_TRADITIONS.reduce((acc, item) => {
-    if (!acc[item.group]) acc[item.group] = [];
-    acc[item.group].push(item);
-    return acc;
-  }, {});
-
-  target.innerHTML = Object.entries(grouped).map(([group, items], groupIndex) => `
-    <div class="tradition-starter-group">
-      <div class="tradition-starter-group-title">${group}</div>
-      <div class="tradition-option-list">
-        ${items.map((item, itemIndex) => createTraditionOptionMarkup(item, `${groupIndex}-${itemIndex}`)).join("")}
-      </div>
-    </div>
-  `).join("");
-
-  target.querySelectorAll(".tradition-option-checkbox").forEach((checkbox) => {
-    checkbox.addEventListener("change", updateTraditionBuilderStatus);
-  });
-}
-
-function getSelectedStarterTraditions() {
-  return Array.from(document.querySelectorAll(".tradition-option-checkbox:checked"))
-    .map((checkbox) => {
-      const label = checkbox.dataset.traditionLabel || "";
-      const group = checkbox.dataset.traditionGroup || "Camp Traditions";
-      const known = STARTER_TRADITIONS_BY_LABEL[label.toLowerCase()];
-      return known ? { ...known } : { group, label, description: "A custom camp tradition." };
-    });
-}
-
-function parseCustomTraditions() {
-  const input = document.getElementById("campTraditionsCustom");
-  if (!input) return [];
-
-  return input.value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((label) => ({
-      group: "Custom Traditions",
-      label,
-      description: "A camp tradition added by this camp's steward or members."
-    }));
-}
-
-function collectSelectedTraditions() {
-  const combined = [...getSelectedStarterTraditions(), ...parseCustomTraditions()];
-  const seen = new Set();
-
-  return combined.filter((item) => {
-    const key = String(item.label || "").trim().toLowerCase();
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function updateTraditionBuilderStatus() {
-  const status = document.getElementById("traditionBuilderStatus");
-  if (!status) return;
-
-  const starterCount = getSelectedStarterTraditions().length;
-  const customCount = parseCustomTraditions().length;
-  const total = starterCount + customCount;
-
-  if (!total) {
-    status.textContent = "No traditions selected yet. Pick from the starter list or add your own.";
-    return;
-  }
-
-  status.textContent = `${starterCount} starter tradition${starterCount === 1 ? "" : "s"} selected` +
-    `${customCount ? ` • ${customCount} custom tradition${customCount === 1 ? "" : "s"} added` : ""}` +
-    ` • ${total} total tradition${total === 1 ? "" : "s"} will appear on your camp page.`;
-}
 
 const AUTO_RECIPE_LIBRARY = [
   {
@@ -1341,7 +1182,10 @@ async function autofillZip(forceReplace = false) {
 }
 
 function getMemberNamesFromBuilder() {
-  return getRosterNamesFromBuilder();
+  return document.getElementById("campMembers").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
 }
 
 function renderRecipePreview() {
@@ -1351,8 +1195,8 @@ function renderRecipePreview() {
   const recipes = buildAutoRecipeObjects(memberNames);
 
   recipeBuilderStatus.textContent = memberNames.length
-    ? `${memberNames.length} camp roster member${memberNames.length === 1 ? "" : "s"} loaded • DeerCamp will personalize all 8 recipe cards and loop back through the roster as needed.`
-    : "Add a camp steward and members and DeerCamp will personalize all 8 recipe cards. Until then, the preview uses camp-style default names.";
+    ? `${memberNames.length} camp member${memberNames.length === 1 ? "" : "s"} loaded • DeerCamp will personalize all 8 recipe cards and loop back through the member list as needed.`
+    : "Add camp members and DeerCamp will personalize all 8 recipe cards. Until then, the preview uses camp-style default names.";
 
   recipeNamePreview.innerHTML = "";
 
@@ -1387,7 +1231,6 @@ document.getElementById("campZip").addEventListener("input", () => {
 });
 
 document.getElementById("campName").addEventListener("input", updateHeroPreviewCopy);
-document.getElementById("campSteward").addEventListener("input", renderRecipePreview);
 document.getElementById("campMembers").addEventListener("input", renderRecipePreview);
 document.getElementById("campCity").addEventListener("input", () => {
   updateHeroPreviewCopy();
@@ -1423,17 +1266,18 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const zip = document.getElementById("campZip").value.trim();
   const year = document.getElementById("campYear").value.trim();
 
-  const stewardName = document.getElementById("campSteward").value.trim();
-  const campMembers = parseCommaNames(document.getElementById("campMembers").value);
-  const members = [stewardName, ...campMembers].filter(Boolean);
+  const members = document.getElementById("campMembers").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
 
-  const memberProfiles = [];
-  if (stewardName) {
-    memberProfiles.push(buildDefaultMemberProfile(stewardName, "Camp Steward"));
-  }
-  campMembers.forEach((memberName) => {
-    memberProfiles.push(buildDefaultMemberProfile(memberName, "Camp Member"));
-  });
+  const memberProfiles = members.map(name => ({
+    name,
+    role: "Camp Member",
+    yearJoined: "—",
+    favoriteStand: "—",
+    note: "Add member details later."
+  }));
 
   const traditions = collectSelectedTraditions();
 
@@ -1477,8 +1321,6 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     heroRegion: selectedSign.regionLabel,
     heroTemplate: selectedSign.file,
     heroTemplateLabel: selectedSign.label,
-    stewardName,
-    campMembers,
     members,
     memberProfiles,
     traditions,
