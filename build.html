@@ -304,6 +304,19 @@
     }
 
   }
+
+  .season-opener-status {
+    margin-top: 8px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: #5f4327;
+  }
+
+  .season-opener-status.is-warning {
+    color: #7a2f1c;
+    font-weight: 700;
+  }
+
 </style>
 </head>
 
@@ -344,7 +357,10 @@
 
       <div class="form-row">
         <label>Established</label>
-        <input id="campYear" placeholder="e.g. 1984">
+        <div style="width:100%;">
+          <input id="campYear" placeholder="e.g. 2026">
+          <div id="seasonOpenerStatus" class="season-opener-status">Calendar will only show official state hunting season opener dates once the camp is created.</div>
+        </div>
       </div>
     </div>
 
@@ -1245,6 +1261,99 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
+const OFFICIAL_DEER_SEASON_OPENERS_URL = "data/deer-season-openers.json";
+let officialSeasonOpenersCache = null;
+
+async function loadOfficialSeasonOpeners() {
+  if (officialSeasonOpenersCache) {
+    return officialSeasonOpenersCache;
+  }
+
+  try {
+    const response = await fetch(`${OFFICIAL_DEER_SEASON_OPENERS_URL}?ts=${Date.now()}`, {
+      cache: "no-store"
+    });
+
+    if (!response.ok) {
+      officialSeasonOpenersCache = {};
+      return officialSeasonOpenersCache;
+    }
+
+    const payload = await response.json();
+    officialSeasonOpenersCache = payload && typeof payload === "object" ? payload : {};
+    return officialSeasonOpenersCache;
+  } catch (error) {
+    officialSeasonOpenersCache = {};
+    return officialSeasonOpenersCache;
+  }
+}
+
+async function buildOfficialSeasonCalendarEvents(stateValue, yearValue) {
+  const stateCode = normalizeState(stateValue);
+  const yearKey = String(yearValue || "").trim();
+  const lookup = await loadOfficialSeasonOpeners();
+  const stateLookup = lookup[stateCode] || null;
+  const seasonRecord = stateLookup && yearKey ? stateLookup[yearKey] : null;
+
+  if (!seasonRecord || !seasonRecord.seasons) {
+    return [];
+  }
+
+  const seasonOrder = ["archery", "gun", "muzzleloader"];
+
+  return seasonOrder
+    .map((seasonKey) => {
+      const season = seasonRecord.seasons[seasonKey];
+      if (!season || !season.opener) return null;
+
+      return {
+        name: season.label,
+        date: season.opener,
+        type: "season-opener",
+        description: `${season.label} • Official opener`,
+        source: seasonRecord.source || "Official state wildlife agency",
+        sourceUrl: seasonRecord.sourceUrl || ""
+      };
+    })
+    .filter(Boolean);
+}
+
+async function updateSeasonOpenerStatus() {
+  const statusEl = document.getElementById("seasonOpenerStatus");
+  if (!statusEl) return;
+
+  const yearValue = document.getElementById("campYear").value.trim();
+  const stateValue = document.getElementById("campState").value.trim();
+  const stateCode = normalizeState(stateValue);
+
+  if (!stateValue && !yearValue) {
+    statusEl.textContent = "Calendar will only show official state hunting season opener dates once the camp is created.";
+    statusEl.classList.remove("is-warning");
+    return;
+  }
+
+  if (!stateCode || !yearValue) {
+    statusEl.textContent = "Enter both a state and camp year to load official opener dates for Bow/Archery, Gun/Rifle, and Muzzleloader seasons.";
+    statusEl.classList.add("is-warning");
+    return;
+  }
+
+  const officialEvents = await buildOfficialSeasonCalendarEvents(stateValue, yearValue);
+
+  if (!officialEvents.length) {
+    statusEl.textContent = `No official opener dates are loaded yet for ${stateCode} in ${yearValue}. The calendar will stay empty until that state's confirmed data is added.`;
+    statusEl.classList.add("is-warning");
+    return;
+  }
+
+  const openerSummary = officialEvents
+    .map(event => `${event.name}: ${event.date}`)
+    .join(" • ");
+
+  statusEl.textContent = `Official opener dates loaded for ${stateCode} ${yearValue} — ${openerSummary}`;
+  statusEl.classList.remove("is-warning");
+}
+
 function debounce(fn, wait = 500) {
   let timeoutId;
   return (...args) => {
@@ -1392,13 +1501,23 @@ document.getElementById("campMembers").addEventListener("input", renderRecipePre
 document.getElementById("campCity").addEventListener("input", () => {
   updateHeroPreviewCopy();
 });
-document.getElementById("campYear").addEventListener("input", updateHeroPreviewCopy);
+document.getElementById("campYear").addEventListener("input", () => {
+  updateHeroPreviewCopy();
+  updateSeasonOpenerStatus();
+});
 document.getElementById("campState").addEventListener("input", () => {
   updateHeroPreviewCopy();
   applySuggestedSignFromState();
+  updateSeasonOpenerStatus();
 });
-document.getElementById("campState").addEventListener("blur", () => applySuggestedSignFromState());
-document.getElementById("campState").addEventListener("change", () => applySuggestedSignFromState({ force: true }));
+document.getElementById("campState").addEventListener("blur", () => {
+  applySuggestedSignFromState();
+  updateSeasonOpenerStatus();
+});
+document.getElementById("campState").addEventListener("change", () => {
+  applySuggestedSignFromState({ force: true });
+  updateSeasonOpenerStatus();
+});
 
 heroSelect.addEventListener("change", () => {
   userHasManuallyChangedSign = true;
@@ -1407,6 +1526,7 @@ heroSelect.addEventListener("change", () => {
 heroUploadInput.addEventListener("change", previewUploadedHero);
 previewSelectedHero();
 applySuggestedSignFromState({ force: true });
+updateSeasonOpenerStatus();
 renderTraditionStarterOptions();
 document.getElementById("campTraditionsCustom").addEventListener("input", updateTraditionBuilderStatus);
 updateTraditionBuilderStatus();
@@ -1442,7 +1562,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     .map(item => item.trim())
     .filter(Boolean);
 
-  const memories = document.getElementById("campMemories").value
+  const memoryTopics = document.getElementById("campMemories").value
     .split(",")
     .map(item => item.trim())
     .filter(Boolean);
@@ -1464,6 +1584,13 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   }
 
   const location = [city, state].filter(Boolean).join(", ");
+  const calendarEvents = await buildOfficialSeasonCalendarEvents(state, year);
+  const calendarMeta = {
+    lookupType: "official-state-season-openers",
+    stateCode: normalizeState(state),
+    year: year || "",
+    hasOfficialData: calendarEvents.length > 0
+  };
 
   const campData = {
     name,
@@ -1483,10 +1610,13 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     memberProfiles,
     traditions,
     deerDrives,
-    memories,
+    memoryTopics,
+    memories: [],
     recipes: recipeObjects,
     recipeNames,
-    recipeObjects
+    recipeObjects,
+    calendarEvents,
+    calendarMeta
   };
 
   localStorage.setItem("campData", JSON.stringify(campData));
