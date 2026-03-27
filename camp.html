@@ -1783,6 +1783,78 @@
   }
 
 
+
+  .story-mode {
+    position: fixed;
+    inset: 0;
+    z-index: 3200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 22px;
+    background: rgba(10, 8, 6, 0.78);
+    backdrop-filter: blur(4px);
+  }
+
+  .story-mode.open {
+    display: flex;
+  }
+
+  .story-inner {
+    position: relative;
+    width: min(920px, 100%);
+    max-height: calc(100vh - 44px);
+    overflow: auto;
+    border-radius: 26px;
+    padding: 18px;
+    background: linear-gradient(180deg, rgba(255, 249, 240, 0.98) 0%, rgba(246, 236, 220, 0.98) 100%);
+    border: 1px solid rgba(95, 64, 33, 0.14);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+  }
+
+  .story-inner img {
+    width: 100%;
+    max-height: 62vh;
+    object-fit: cover;
+    display: block;
+    border-radius: 20px;
+    background: rgba(64, 44, 24, 0.10);
+  }
+
+  .story-inner audio {
+    width: 100%;
+    margin-top: 14px;
+  }
+
+  .story-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+
+  .story-controls button {
+    min-width: 54px;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 16px;
+    background: #6b4624;
+    color: #fffaf3;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 16px rgba(73, 48, 25, 0.18);
+  }
+
+  .story-controls button:hover {
+    background: #7a512c;
+  }
+
+  .story-controls button:focus-visible {
+    outline: 3px solid rgba(122, 81, 44, 0.28);
+    outline-offset: 2px;
+  }
+
 </style>
 </head>
 
@@ -1830,10 +1902,10 @@
   </div>
 </div>
 
-<div id="storyMode" class="story-mode">
+<div id="storyMode" class="story-mode" aria-hidden="true">
   <div class="story-inner">
     <img id="storyImage" alt="Camp story image">
-    <audio id="storyAudio" autoplay controls></audio>
+    <audio id="storyAudio" controls preload="auto"></audio>
 
     <div class="story-controls">
       <button type="button" onclick="prevStory()">◀</button>
@@ -2039,7 +2111,7 @@ const STEWARD_ROLE_TEMPLATE = {
     "Creates and manages the camp.",
     "Adds and removes camp members, sends DeerCamp invites, and removes non-current members.",
     "Adds and changes content across approved camp sections.",
-    "Curates CampCards and creates CampMemories / Wall of Fame content.",
+    "Curates CampCards and creates CampWallofFame content.",
     "Helps manage traditions, deer drives, recipes, and season-to-season camp records.",
     "Keeps camp information current."
   ]
@@ -2875,7 +2947,7 @@ const rawSections = [
   { key: "recipes", title: "CampRecipes", hasContent: true },
   { key: "calendar", title: "CampCalendar", hasContent: true },
   { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
-  { key: "memories", title: "CampMemories", hasContent: true },
+  { key: "memories", title: "CampWallofFame", hasContent: true },
   { key: "map", title: "CampStands", hasContent: true }
 ];
 
@@ -2888,25 +2960,62 @@ const sections = [
 const content = document.getElementById("content");
 const menu = document.getElementById("menu");
 const menuToggle = document.getElementById("menuToggle");
+const storyModeEl = document.getElementById("storyMode");
+const storyImageEl = document.getElementById("storyImage");
+const storyAudioEl = document.getElementById("storyAudio");
 
 function wireAudioFallback(audioEl, candidates = []) {
-  const queue = Array.isArray(candidates)
-    ? candidates.map(item => String(item || "").trim()).filter(Boolean)
-    : [String(candidates || "").trim()].filter(Boolean);
+  const queue = Array.from(new Set(
+    (Array.isArray(candidates) ? candidates : [candidates])
+      .map(item => String(item || "").trim())
+      .filter(Boolean)
+  ));
 
-  if (!queue.length) return;
+  if (!queue.length) {
+    audioEl.removeAttribute("src");
+    audioEl.load();
+    return Promise.reject(new Error("No audio candidates provided."));
+  }
+
+  if (typeof audioEl._cleanupFallbackListeners === "function") {
+    audioEl._cleanupFallbackListeners();
+  }
 
   let index = 0;
 
-  const tryNext = () => {
-    if (index >= queue.length) return;
-    audioEl.src = queue[index];
-    audioEl.load();
-    index += 1;
-  };
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      audioEl.removeEventListener("error", handleError);
+      audioEl.removeEventListener("canplay", handleReady);
+      audioEl.removeEventListener("loadedmetadata", handleReady);
+      audioEl._cleanupFallbackListeners = null;
+    };
 
-  audioEl.addEventListener("error", tryNext);
-  tryNext();
+    const handleReady = () => {
+      cleanup();
+      resolve(audioEl.currentSrc || audioEl.src || queue[Math.max(index - 1, 0)] || "");
+    };
+
+    const handleError = () => {
+      if (index >= queue.length) {
+        cleanup();
+        audioEl.removeAttribute("src");
+        audioEl.load();
+        reject(new Error("Unable to load any audio sources."));
+        return;
+      }
+
+      audioEl.src = queue[index];
+      index += 1;
+      audioEl.load();
+    };
+
+    audioEl._cleanupFallbackListeners = cleanup;
+    audioEl.addEventListener("error", handleError);
+    audioEl.addEventListener("canplay", handleReady);
+    audioEl.addEventListener("loadedmetadata", handleReady);
+    handleError();
+  });
 }
 
 sections.forEach(section => {
@@ -3265,7 +3374,7 @@ else if (section.key === "recipes") {
 
   else if (section.key === "memories") {
     container.innerHTML = `
-      <h2>CampMemories — Wall of Fame — Annual 3 Winners</h2>
+      <h2>CampWallofFame — Annual 3 Winners</h2>
       <p class="section-helper">Tap a memory card to view and hear the story.</p>
     `;
     const grid = document.createElement("div");
@@ -3353,75 +3462,105 @@ document.addEventListener("click", event => {
   }
 });
 
+function getStoryAudioCandidates(story = {}) {
+  const fallbackAudio = [
+    "campcards/audio/brittneys-first-deer.mp3",
+    "campcards/audio/grandpas-biggest-buck.mp3",
+    "campcards/audio/camp-tracker.mp3"
+  ];
+
+  return Array.from(new Set(
+    (Array.isArray(story.audio) ? story.audio : [story.audio, story.voice, story.sound])
+      .concat(fallbackAudio)
+      .map(item => String(item || "").trim())
+      .filter(Boolean)
+  ));
+}
+
 function openStory(index) {
-  if (!Array.isArray(activeMemoryStories) || !activeMemoryStories.length) return;
-  currentStory = index;
+  if (!Array.isArray(activeMemoryStories) || !activeMemoryStories.length || !storyModeEl) return;
+  currentStory = Math.max(0, Math.min(Number(index) || 0, activeMemoryStories.length - 1));
   isStoryActive = true;
-  document.getElementById("storyMode").style.display = "flex";
+  storyModeEl.classList.add("open");
+  storyModeEl.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
   loadStory();
 }
 
 function loadStory() {
   const story = activeMemoryStories[currentStory];
-  if (!story) return closeStory();
-  const img = document.getElementById("storyImage");
-  const audio = document.getElementById("storyAudio");
+  if (!story || !storyModeEl || !storyImageEl || !storyAudioEl) return closeStory();
 
-  audio.pause();
-  audio.currentTime = 0;
-  audio.removeAttribute("src");
-  audio.load();
+  storyAudioEl.pause();
+  storyAudioEl.currentTime = 0;
+  storyAudioEl.removeAttribute("src");
+  storyAudioEl.load();
 
-  img.style.opacity = 0;
+  storyImageEl.style.opacity = 0;
   setTimeout(() => {
-    img.src = story.image || story.img || "campcards/images/brittneys-first-deer.png";
-    img.style.opacity = 1;
-  }, 150);
+    storyImageEl.src = story.image || story.img || "campcards/images/brittneys-first-deer.png";
+    storyImageEl.style.opacity = 1;
+  }, 120);
 
-  const audioCandidates = Array.isArray(story.audio)
-    ? story.audio
-    : [
-        story.audio,
-        "campcards/audio/brittneys-first-deer.mp3",
-        "campcards/audio/grandpas-biggest-buck.mp3",
-        "campcards/audio/camp-tracker.mp3"
-      ].filter(Boolean);
+  wireAudioFallback(storyAudioEl, getStoryAudioCandidates(story))
+    .then(() => storyAudioEl.play().catch(() => {}))
+    .catch(() => {});
 
-  const tryPlay = () => {
-    audio.play().catch(() => {});
-  };
-
-  audio.addEventListener("loadedmetadata", tryPlay, { once: true });
-  wireAudioFallback(audio, audioCandidates);
-
-  audio.onended = () => {
+  storyAudioEl.onended = () => {
     if (isStoryActive) nextStory();
   };
 }
 
 function nextStory() {
-  currentStory++;
-  if (currentStory >= activeMemoryStories.length) return closeStory();
+  if (!Array.isArray(activeMemoryStories) || !activeMemoryStories.length) return;
+  currentStory = (currentStory + 1) % activeMemoryStories.length;
   loadStory();
 }
 
 function prevStory() {
+  if (!Array.isArray(activeMemoryStories) || !activeMemoryStories.length) return;
   currentStory = (currentStory - 1 + activeMemoryStories.length) % activeMemoryStories.length;
   loadStory();
 }
 
 function closeStory() {
   isStoryActive = false;
-  document.getElementById("storyMode").style.display = "none";
+  if (storyModeEl) {
+    storyModeEl.classList.remove("open");
+    storyModeEl.setAttribute("aria-hidden", "true");
+  }
+  document.body.classList.remove("modal-open");
 
-  const audio = document.getElementById("storyAudio");
-  audio.pause();
-  audio.currentTime = 0;
+  if (storyAudioEl) {
+    storyAudioEl.pause();
+    storyAudioEl.currentTime = 0;
+    storyAudioEl.removeAttribute("src");
+    storyAudioEl.load();
+  }
 }
 
 function closeMemoryCard() {
-  document.getElementById("memoryModal").style.display = "none";
+  const memoryModal = document.getElementById("memoryModal");
+  if (memoryModal) {
+    memoryModal.style.display = "none";
+  }
+  closeStory();
 }
+
+if (storyModeEl) {
+  storyModeEl.addEventListener("click", (event) => {
+    if (event.target === storyModeEl) {
+      closeStory();
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (!isStoryActive) return;
+  if (event.key === "Escape") closeStory();
+  if (event.key === "ArrowRight") nextStory();
+  if (event.key === "ArrowLeft") prevStory();
+});
 
 function campArray(value, fallback = []) {
   return Array.isArray(value)
@@ -4191,14 +4330,18 @@ function initCalendar() {
   });
 
   const firstOfficialEvent = calendarEvents.length ? parseLocalDate(calendarEvents[0].date) : null;
-  const establishedYear = Number.parseInt(data.established, 10);
+  const siteSeasonYear = Number.parseInt(
+    data.siteSeasonLookupYear
+      || (data.siteCreatedAt ? String(new Date(data.siteCreatedAt).getFullYear()) : ""),
+    10
+  );
 
   if (firstOfficialEvent) {
     selectedDateKey = normalizeDateKey(firstOfficialEvent);
     calendarCursor = new Date(firstOfficialEvent.getFullYear(), firstOfficialEvent.getMonth(), 1);
-  } else if (!Number.isNaN(establishedYear) && establishedYear > 1900) {
+  } else if (!Number.isNaN(siteSeasonYear) && siteSeasonYear > 1900) {
     selectedDateKey = "";
-    calendarCursor = new Date(establishedYear, 0, 1);
+    calendarCursor = new Date(siteSeasonYear, 0, 1);
   } else {
     const today = new Date();
     selectedDateKey = "";

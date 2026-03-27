@@ -358,8 +358,9 @@
       <div class="form-row">
         <label>Established</label>
         <div style="width:100%;">
-          <input id="campYear" placeholder="e.g. 2026">
-          <div id="seasonOpenerStatus" class="season-opener-status">Calendar will only show official state hunting season opener dates once the camp is created.</div>
+          <input id="campYear" placeholder="e.g. 1984">
+          <div class="field-helper">Camp established year is for display only. The calendar uses the current DeerCamp build year for official season opener dates.</div>
+          <div id="seasonOpenerStatus" class="season-opener-status">Calendar will only show official statewide hunting season opener dates for the current DeerCamp build year once the camp is created.</div>
         </div>
       </div>
     </div>
@@ -451,12 +452,7 @@
     </div>
 
     <div class="form-section">
-      <h2>Memories &amp; Recipes</h2>
-
-      <div class="form-row">
-        <label>Memories</label>
-        <input id="campMemories" placeholder="First buck, Big storm hunt">
-      </div>
+      <h2>Recipes</h2>
 
       <div class="form-row">
         <label>Camp Recipes</label>
@@ -645,7 +641,7 @@ const STEWARD_RESPONSIBILITIES = [
   "Camp administrator",
   "Adds and deletes camp roster names, sends DeerCamp invites, and removes non-current members.",
   "Adds and changes content across approved camp sections.",
-  "Curates and creates CampMemories and CampCards content.",
+  "Curates CampWallofFame and CampCards content.",
   "Helps manage traditions, deer drives, recipes, and season-to-season camp records."
 ];
 
@@ -1261,7 +1257,11 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
-const OFFICIAL_DEER_SEASON_OPENERS_URL = "data/deer-season-openers.json";
+
+const OFFICIAL_DEER_SEASON_OPENERS_URLS = [
+  "data/us-state-deer-openers.json",
+  "data/deer-season-openers.json"
+];
 let officialSeasonOpenersCache = null;
 
 async function loadOfficialSeasonOpeners() {
@@ -1269,35 +1269,60 @@ async function loadOfficialSeasonOpeners() {
     return officialSeasonOpenersCache;
   }
 
-  try {
-    const response = await fetch(`${OFFICIAL_DEER_SEASON_OPENERS_URL}?ts=${Date.now()}`, {
-      cache: "no-store"
-    });
+  for (const url of OFFICIAL_DEER_SEASON_OPENERS_URLS) {
+    try {
+      const response = await fetch(`${url}?ts=${Date.now()}`, {
+        cache: "no-store"
+      });
 
-    if (!response.ok) {
-      officialSeasonOpenersCache = {};
-      return officialSeasonOpenersCache;
+      if (!response.ok) {
+        continue;
+      }
+
+      const payload = await response.json();
+      if (payload && typeof payload === "object") {
+        officialSeasonOpenersCache = payload;
+        return officialSeasonOpenersCache;
+      }
+    } catch (error) {
+      // Try the next data source.
     }
-
-    const payload = await response.json();
-    officialSeasonOpenersCache = payload && typeof payload === "object" ? payload : {};
-    return officialSeasonOpenersCache;
-  } catch (error) {
-    officialSeasonOpenersCache = {};
-    return officialSeasonOpenersCache;
   }
+
+  officialSeasonOpenersCache = {};
+  return officialSeasonOpenersCache;
 }
 
-async function buildOfficialSeasonCalendarEvents(stateValue, yearValue) {
-  const stateCode = normalizeState(stateValue);
-  const yearKey = String(yearValue || "").trim();
-  const lookup = await loadOfficialSeasonOpeners();
-  const stateLookup = lookup[stateCode] || null;
-  const seasonRecord = stateLookup && yearKey ? stateLookup[yearKey] : null;
+function getCurrentSeasonLookupDate() {
+  return new Date();
+}
 
-  if (!seasonRecord || !seasonRecord.seasons) {
-    return [];
-  }
+function getCurrentSeasonLookupYear() {
+  return String(getCurrentSeasonLookupDate().getFullYear());
+}
+
+function getCurrentSeasonLookupLabel() {
+  return getCurrentSeasonLookupDate().toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function normalizeSeasonType(value) {
+  const clean = String(value || "").trim().toLowerCase();
+  if (!clean) return "";
+  if (clean.includes("arch")) return "archery";
+  if (clean.includes("bow")) return "archery";
+  if (clean.includes("muzzle")) return "muzzleloader";
+  if (clean.includes("black powder")) return "muzzleloader";
+  if (clean.includes("firearm")) return "gun";
+  if (clean.includes("rifle")) return "gun";
+  if (clean.includes("gun")) return "gun";
+  return clean;
+}
+
+function buildOfficialEventsFromLegacyRecord(seasonRecord) {
+  if (!seasonRecord || !seasonRecord.seasons) return [];
 
   const seasonOrder = ["archery", "gun", "muzzleloader"];
 
@@ -1318,30 +1343,86 @@ async function buildOfficialSeasonCalendarEvents(stateValue, yearValue) {
     .filter(Boolean);
 }
 
+function buildOfficialEventsFromStateSchema(stateEntry, yearKey) {
+  if (!stateEntry || !Array.isArray(stateEntry.seasons)) {
+    return [];
+  }
+
+  const seasonOrder = ["archery", "gun", "muzzleloader"];
+  const bestByType = new Map();
+
+  stateEntry.seasons.forEach((season) => {
+    const normalizedType = normalizeSeasonType(season.type || season.label || season.title || "");
+    const opener = String(season.date || season.opener || "").trim();
+    if (!normalizedType || !opener || !seasonOrder.includes(normalizedType)) return;
+    if (!opener.startsWith(`${yearKey}-`)) return;
+    if (String(season.scopeNote || "").trim()) return;
+
+    if (!bestByType.has(normalizedType)) {
+      const defaultLabelMap = {
+        archery: "Bow / Archery Opener",
+        gun: "Gun / Rifle Opener",
+        muzzleloader: "Black Powder / Muzzleloader Opener"
+      };
+
+      bestByType.set(normalizedType, {
+        name: season.title || season.label || defaultLabelMap[normalizedType],
+        date: opener,
+        type: "season-opener",
+        description: season.description || `${defaultLabelMap[normalizedType]} • Official opener`,
+        source: stateEntry.source || "Official state wildlife agency",
+        sourceUrl: stateEntry.sourceUrl || ""
+      });
+    }
+  });
+
+  return seasonOrder
+    .map((seasonKey) => bestByType.get(seasonKey) || null)
+    .filter(Boolean);
+}
+
+async function buildOfficialSeasonCalendarEvents(stateValue, yearValue = getCurrentSeasonLookupYear()) {
+  const stateCode = normalizeState(stateValue);
+  const yearKey = String(yearValue || getCurrentSeasonLookupYear()).trim();
+  const lookup = await loadOfficialSeasonOpeners();
+
+  if (!stateCode || !yearKey || !lookup || typeof lookup !== "object") {
+    return [];
+  }
+
+  if (lookup.states && lookup.states[stateCode]) {
+    return buildOfficialEventsFromStateSchema(lookup.states[stateCode], yearKey);
+  }
+
+  const stateLookup = lookup[stateCode] || null;
+  const seasonRecord = stateLookup && yearKey ? stateLookup[yearKey] : null;
+  return buildOfficialEventsFromLegacyRecord(seasonRecord);
+}
+
 async function updateSeasonOpenerStatus() {
   const statusEl = document.getElementById("seasonOpenerStatus");
   if (!statusEl) return;
 
-  const yearValue = document.getElementById("campYear").value.trim();
   const stateValue = document.getElementById("campState").value.trim();
   const stateCode = normalizeState(stateValue);
+  const seasonYear = getCurrentSeasonLookupYear();
 
-  if (!stateValue && !yearValue) {
-    statusEl.textContent = "Calendar will only show official state hunting season opener dates once the camp is created.";
+  if (!stateValue) {
+    statusEl.textContent = `Calendar will only show official statewide hunting season opener dates for the DeerCamp site build window (${getCurrentSeasonLookupLabel()}) once the camp is created.`;
     statusEl.classList.remove("is-warning");
     return;
   }
 
-  if (!stateCode || !yearValue) {
-    statusEl.textContent = "Enter both a state and camp year to load official opener dates for Bow/Archery, Gun/Rifle, and Muzzleloader seasons.";
+  if (!stateCode) {
+    statusEl.textContent = `Enter a valid state to load official ${seasonYear} opener dates for Bow/Archery, Gun/Rifle, and Muzzleloader seasons tied to this DeerCamp site build.`;
     statusEl.classList.add("is-warning");
     return;
   }
 
-  const officialEvents = await buildOfficialSeasonCalendarEvents(stateValue, yearValue);
+  const officialEvents = await buildOfficialSeasonCalendarEvents(stateValue, seasonYear);
 
   if (!officialEvents.length) {
-    statusEl.textContent = `No official opener dates are loaded yet for ${stateCode} in ${yearValue}. The calendar will stay empty until that state's confirmed data is added.`;
+    statusEl.textContent = `No official opener dates are loaded yet for ${stateCode} in ${seasonYear} for DeerCamp sites created in ${getCurrentSeasonLookupLabel()}. The calendar will stay empty until that state's confirmed data is added.`;
     statusEl.classList.add("is-warning");
     return;
   }
@@ -1350,7 +1431,7 @@ async function updateSeasonOpenerStatus() {
     .map(event => `${event.name}: ${event.date}`)
     .join(" • ");
 
-  statusEl.textContent = `Official opener dates loaded for ${stateCode} ${yearValue} — ${openerSummary}`;
+  statusEl.textContent = `Official opener dates loaded for ${stateCode} ${seasonYear} based on the DeerCamp site build date (${getCurrentSeasonLookupLabel()}) — ${openerSummary}`;
   statusEl.classList.remove("is-warning");
 }
 
@@ -1562,11 +1643,6 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     .map(item => item.trim())
     .filter(Boolean);
 
-  const memoryTopics = document.getElementById("campMemories").value
-    .split(",")
-    .map(item => item.trim())
-    .filter(Boolean);
-
   const recipeObjects = buildAutoRecipeObjects(members);
   const recipeNames = recipeObjects.map(recipe => recipe.title);
 
@@ -1584,11 +1660,12 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   }
 
   const location = [city, state].filter(Boolean).join(", ");
-  const calendarEvents = await buildOfficialSeasonCalendarEvents(state, year);
+  const seasonYear = getCurrentSeasonLookupYear();
+  const calendarEvents = await buildOfficialSeasonCalendarEvents(state, seasonYear);
   const calendarMeta = {
     lookupType: "official-state-season-openers",
     stateCode: normalizeState(state),
-    year: year || "",
+    year: seasonYear,
     hasOfficialData: calendarEvents.length > 0
   };
 
@@ -1610,13 +1687,15 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     memberProfiles,
     traditions,
     deerDrives,
-    memoryTopics,
     memories: [],
     recipes: recipeObjects,
     recipeNames,
     recipeObjects,
     calendarEvents,
-    calendarMeta
+    calendarMeta,
+    siteCreatedAt: new Date().toISOString(),
+    siteSeasonLookupYear: seasonYear,
+    siteSeasonLookupMonthLabel: getCurrentSeasonLookupLabel()
   };
 
   localStorage.setItem("campData", JSON.stringify(campData));
