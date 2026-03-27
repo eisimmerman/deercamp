@@ -23,8 +23,8 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 
-import { auth } from "@/src/lib/firebase";
-import { saveLocalMemory } from "@/src/lib/localMemories";
+import { auth } from "@/lib/firebase";
+import { saveLocalMemory } from "@/lib/localMemories";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 

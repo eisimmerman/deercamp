@@ -4,8 +4,8 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { auth } from "@/src/lib/firebase";
-import { getLocalMemories, type LocalMemoryItem } from "@/src/lib/localMemories";
+import { auth } from "@/lib/firebase";
+import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
 
 type EntryItem = {
   id: string;

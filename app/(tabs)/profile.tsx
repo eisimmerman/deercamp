@@ -4,7 +4,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 
-import { auth } from "@/src/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export default function ProfileScreen() {
   const router = useRouter();

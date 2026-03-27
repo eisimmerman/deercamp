@@ -19,8 +19,8 @@ import {
   markMemoryPublishFailed,
   markMemoryPublishing,
   type LocalMemoryItem,
-} from "@/src/lib/localMemories";
-import { publishMemoryToFeed } from "@/src/lib/publishMemory";
+} from "@/lib/localMemories";
+import { publishMemoryToFeed } from "@/lib/publishMemory";
 
 function formatWhen(ms?: number) {
   if (!ms) return "";

@@ -6,8 +6,8 @@ import {
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 
-import { auth } from "@/src/lib/firebase";
-import { useAuth } from "@/src/auth/useAuth";
+import { auth } from "@/lib/firebase";
+import { useAuth } from "@/auth/useAuth";
 
 export default function SignInScreen() {
   const { initializing, user } = useAuth();

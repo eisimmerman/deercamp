@@ -12,7 +12,7 @@ import {
 import { useRouter } from "expo-router";
 
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { auth, db } from "@/src/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 
 export default function NewEntryScreen() {
   const router = useRouter();

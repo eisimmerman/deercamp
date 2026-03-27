@@ -14,8 +14,8 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 
-import { auth } from "@/src/lib/firebase";
-import { saveLocalMemory } from "@/src/lib/localMemories";
+import { auth } from "@/lib/firebase";
+import { saveLocalMemory } from "@/lib/localMemories";
 
 export default function FieldPhotoScreen() {
   const user = auth.currentUser;

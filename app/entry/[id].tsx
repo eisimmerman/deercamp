@@ -16,7 +16,7 @@ import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import {
   getLocalMemoryById,
   type LocalMemoryItem,
-} from "@/src/lib/localMemories";
+} from "@/lib/localMemories";
 
 function formatWhen(ms?: number) {
   if (!ms) return "";

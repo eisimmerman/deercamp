@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { useAuth } from "@/src/auth/useAuth";
+import { useAuth } from "@/auth/useAuth";
 
 export default function FieldScreen() {
   const router = useRouter();

@@ -4,7 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import { auth } from "@/src/lib/firebase";
+import { auth } from "@/lib/firebase";
 
 export default function HomeScreen() {
   const router = useRouter();
