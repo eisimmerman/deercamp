@@ -1,0 +1,4115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp Steward Dashboard</title>
+  <style>
+    :root {
+      --bg: #d7ccb9;
+      --panel: #f6f0e6;
+      --panel-2: #efe5d6;
+      --ink: #231a13;
+      --muted: #6b5644;
+      --brown: #6a4427;
+      --brown-deep: #452a16;
+      --gold: #b1792d;
+      --green: #496647;
+      --red: #8b3b2f;
+      --line: rgba(69, 42, 22, 0.12);
+      --shadow: 0 10px 28px rgba(0,0,0,0.12);
+      --radius: 22px;
+      --radius-sm: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+    }
+
+    button, input, select, textarea { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+    .dashboard-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      align-self: start;
+      min-height: 100vh;
+      padding: 22px 18px;
+      background:
+        linear-gradient(rgba(37,24,14,0.16), rgba(37,24,14,0.16)),
+        linear-gradient(180deg, #6f4a2b 0%, #4d311d 100%);
+      color: #fff;
+      border-right: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 8px 0 24px rgba(0,0,0,0.12);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .brand-mark {
+      width: 58px;
+      height: 58px;
+      padding: 6px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,0.12);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.18);
+      overflow: hidden;
+      flex: 0 0 auto;
+    }
+
+    .brand-buck-icon {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+      image-rendering: auto;
+      filter: none;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.25rem;
+      line-height: 1.05;
+    }
+
+    .brand p {
+      margin: 4px 0 0;
+      font-size: 0.88rem;
+      opacity: 0.86;
+    }
+
+    .camp-badge {
+      margin: 0 0 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .camp-badge .label {
+      display: inline-block;
+      margin-bottom: 6px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.82;
+    }
+
+    .camp-badge .title {
+      font-size: 1.12rem;
+      font-weight: 700;
+    }
+
+    .camp-badge .sub {
+      margin-top: 5px;
+      font-size: 0.92rem;
+      opacity: 0.88;
+      line-height: 1.45;
+    }
+
+    .nav-group-title {
+      margin: 18px 8px 8px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.75;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.92);
+      background: transparent;
+      border: 0;
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.16s ease, transform 0.16s ease;
+    }
+
+    .nav-link:hover,
+    .nav-link.active {
+      background: rgba(255,255,255,0.13);
+      transform: translateX(2px);
+    }
+
+    .main {
+      min-width: 0;
+      padding: 22px;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 18px;
+      margin-bottom: 22px;
+      border-radius: 24px;
+      background: rgba(246, 240, 230, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(69,42,22,0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h2 {
+      margin: 0;
+      font-size: 1.35rem;
+    }
+
+    .topbar p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .btn-primary { background: var(--brown); color: #fff; box-shadow: 0 10px 24px rgba(69,42,22,0.18); }
+    .btn-secondary { background: #fff; color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.12); }
+    .btn-soft { background: rgba(255,255,255,0.6); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.1); }
+    .btn-danger { background: #fff3f1; color: var(--red); border: 1px solid rgba(139,59,47,0.16); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .content-grid, .stack { display: grid; gap: 22px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+    .split-grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 22px; }
+    .triple-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+    .two-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+    .stat-card,
+    .panel,
+    .mini-card,
+    .profile-card,
+    .summary-item,
+    .action-tile,
+    .list-row {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card {
+      padding: 18px;
+      min-height: 132px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .stat-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    .stat-value { font-size: 2rem; font-weight: 800; color: var(--brown-deep); line-height: 1; }
+    .stat-sub { color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+
+    .panel { padding: 22px; }
+    .panel h3 { margin: 0 0 8px; font-size: 1.2rem; }
+    .panel .helper { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+
+    .summary-list, .action-grid, .list-stack { display: grid; gap: 14px; }
+    .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+    .summary-item,
+    .action-tile,
+    .list-row {
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      box-shadow: none;
+      background: linear-gradient(180deg, rgba(255,255,255,0.44), rgba(255,255,255,0.12));
+    }
+
+    .summary-item strong,
+    .action-tile strong,
+    .list-row strong { display: block; margin-bottom: 6px; }
+
+    .action-tile { cursor: pointer; }
+
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+    .field { display: grid; gap: 7px; }
+    .field label { font-size: 0.88rem; font-weight: 700; color: var(--brown-deep); }
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(69,42,22,0.14);
+      background: #fff;
+      color: var(--ink);
+    }
+    .field textarea { min-height: 110px; resize: vertical; }
+    .field.span-2 { grid-column: 1 / -1; }
+    .field-note { font-size: 0.82rem; color: var(--muted); }
+
+    .person-card {
+      display: grid;
+      grid-template-columns: 64px 1fr auto;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(255,255,255,0.44), rgba(255,255,255,0.12));
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #7d5636, #55341e);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      font-size: 1.1rem;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.14);
+      overflow: hidden;
+    }
+
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .person-meta strong { display: block; font-size: 1.05rem; }
+    .person-meta .sub { color: var(--muted); margin-top: 4px; font-size: 0.92rem; line-height: 1.4; }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: rgba(106,68,39,0.08);
+      color: var(--brown-deep);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+    .pill.green { background: rgba(73,102,71,0.12); color: var(--green); }
+    .pill.gold { background: rgba(177,121,45,0.16); color: #855713; }
+
+    .list-row {
+      display: grid;
+      grid-template-columns: 1.1fr 0.8fr 0.8fr auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .list-row .meta { color: var(--muted); font-size: 0.9rem; }
+    .row-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+    .profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+
+    .profile-card {
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .profile-card .top {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .profile-card .detail-list {
+      display: grid;
+      gap: 8px;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    .profile-card .detail-list div {
+      display: grid;
+      grid-template-columns: 132px 1fr;
+      gap: 10px;
+    }
+
+    .empty-state {
+      padding: 28px;
+      text-align: center;
+      border-radius: var(--radius-sm);
+      border: 1px dashed rgba(69,42,22,0.18);
+      color: var(--muted);
+      background: rgba(255,255,255,0.2);
+    }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(24,17,12,0.44);
+      display: none;
+      z-index: 50;
+    }
+
+    .drawer-backdrop.open { display: block; }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      width: min(100%, 560px);
+      height: 100vh;
+      background: #f7f1e7;
+      box-shadow: -10px 0 28px rgba(0,0,0,0.22);
+      transform: translateX(100%);
+      transition: transform 0.22s ease;
+      z-index: 60;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .drawer.open { transform: translateX(0); }
+    .drawer-header, .drawer-footer { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .drawer-footer { border-bottom: 0; border-top: 1px solid var(--line); display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    .drawer-body { overflow: auto; padding: 20px; }
+    .drawer-header h3 { margin: 0 0 6px; }
+    .drawer-header p { margin: 0; color: var(--muted); }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 80;
+      min-width: 240px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #fff;
+      color: var(--brown-deep);
+      border: 1px solid rgba(69,42,22,0.1);
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .tradition-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .tradition-admin-card,
+    .starter-card {
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(69,42,22,0.1);
+      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.16));
+    }
+
+    .tradition-admin-card {
+      display: grid;
+      gap: 12px;
+    }
+
+    .tradition-admin-top,
+    .starter-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .tradition-admin-title,
+    .starter-card strong {
+      display: block;
+      font-size: 1.04rem;
+      color: var(--brown-deep);
+    }
+
+    .tradition-admin-group,
+    .starter-card .group-label {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: rgba(106,68,39,0.08);
+      color: var(--brown-deep);
+      border: 1px solid rgba(69,42,22,0.08);
+      margin-top: 8px;
+    }
+
+    .tradition-admin-description,
+    .starter-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.94rem;
+    }
+
+    .tradition-admin-link {
+      font-size: 0.86rem;
+      color: var(--brown);
+      font-weight: 700;
+      word-break: break-all;
+    }
+
+    .tradition-admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .starter-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .starter-card .btn {
+      margin-top: 12px;
+    }
+
+    .section-label {
+      margin: 0 0 10px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .order-note {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.5;
+    }
+
+    .empty-state .btn {
+      margin-top: 14px;
+    }
+
+
+    .campcard-admin-card {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(92, 66, 46, 0.12);
+      background: rgba(255, 250, 242, 0.9);
+      box-shadow: 0 8px 20px rgba(32, 18, 8, 0.06);
+      display: grid;
+      gap: 14px;
+    }
+
+    .campcard-admin-preview {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(115, 84, 52, 0.16), rgba(67, 45, 28, 0.24));
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+
+    .campcard-admin-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .campcard-admin-meta {
+      display: grid;
+      gap: 6px;
+    }
+
+    .campcard-admin-meta strong {
+      font-size: 1.06rem;
+    }
+
+    .campcard-admin-source {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .campcard-admin-caption {
+      margin: 0;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .campcard-admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .starter-card img {
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      object-fit: cover;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      background: rgba(90, 63, 41, 0.12);
+    }
+
+
+
+    .calendar-admin-grid,
+    .stands-admin-grid {
+      display: grid;
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .calendar-admin-card,
+    .stand-admin-card {
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(92, 66, 46, 0.12);
+      background: rgba(255, 250, 242, 0.9);
+      box-shadow: 0 8px 20px rgba(32, 18, 8, 0.06);
+      display: grid;
+      gap: 12px;
+    }
+
+    .calendar-admin-head,
+    .stand-admin-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .calendar-admin-title-wrap {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .calendar-admin-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(106,68,39,0.1);
+      font-size: 1.08rem;
+      flex: 0 0 auto;
+    }
+
+    .calendar-admin-title,
+    .stand-admin-title {
+      margin: 0;
+      font-size: 1.04rem;
+      color: var(--brown-deep);
+    }
+
+    .calendar-admin-date {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .stand-admin-kicker {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .calendar-admin-desc,
+    .stand-admin-notes {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .stand-admin-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 1200px) {
+      .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    .drive-grid { display: grid; gap: 16px; }
+    .drive-card {
+      padding: 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.52);
+      border: 1px solid rgba(69,42,22,0.08);
+      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
+      display: grid;
+      gap: 14px;
+    }
+    .drive-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .drive-card-title {
+      margin: 0;
+      font-size: 1.18rem;
+      line-height: 1.15;
+    }
+    .drive-kicker {
+      display: inline-block;
+      margin-bottom: 6px;
+      font-size: 0.76rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .drive-roles-preview {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .drive-role-block {
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.44);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+    .drive-role-title {
+      margin: 0 0 8px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(106,68,39,0.08);
+      border: 1px solid rgba(69,42,22,0.08);
+      font-weight: 700;
+      font-size: 0.92rem;
+    }
+    .chip.driver { background: rgba(177,121,45,0.12); }
+    .drive-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    @media (max-width: 980px) {
+      .dashboard-shell { grid-template-columns: 1fr; }
+      .sidebar {
+        position: relative;
+        min-height: auto;
+        border-right: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.12);
+      }
+      .main { padding-top: 14px; }
+      .split-grid, .two-grid, .triple-grid { grid-template-columns: 1fr; }
+      .profile-grid { grid-template-columns: 1fr; }
+      .list-row { grid-template-columns: 1fr; }
+      .row-actions { justify-content: flex-start; }
+      .drive-roles-preview, .drive-meta-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 720px) {
+      .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .form-grid { grid-template-columns: 1fr; }
+      .topbar { position: relative; flex-direction: column; align-items: stretch; }
+      .topbar-actions { width: 100%; }
+      .topbar-actions .btn { flex: 1 1 auto; }
+      .person-card { grid-template-columns: 56px 1fr; }
+      .person-card > .row-actions { grid-column: 1 / -1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/images/buck-deer-icon.png" alt="Whitetail buck icon" class="brand-buck-icon" /></div>
+        <div>
+          <h1>DeerCamp</h1>
+          <p>Steward Dashboard</p>
+        </div>
+      </div>
+
+      <div class="camp-badge">
+        <div class="label">Managing Camp</div>
+        <div class="title" id="sidebarCampName">Big Buck Camp</div>
+        <div class="sub" id="sidebarCampMeta">Eau Claire, WI • Est. 1999</div>
+      </div>
+
+      <div class="nav-group-title">Core Tabs</div>
+      <div class="nav-list">
+        <button class="nav-link active" data-tab="dashboard">🏠 Dashboard Home</button>
+        <button class="nav-link" data-tab="membership">👥 Membership</button>
+        <button class="nav-link" data-tab="profiles">🪪 Member Profiles</button>
+      </div>
+
+      <div class="nav-group-title">Camp Sections</div>
+      <div class="nav-list">
+        <button class="nav-link" data-tab="stands">📍 CampStands</button>
+        <button class="nav-link" data-tab="deerdrives">🦶 CampDeerDrives</button>
+        <button class="nav-link" data-tab="calendar">🗓️ CampCalendar</button>
+        <button class="nav-link" type="button" disabled>📰 CampFeed</button>
+        <button class="nav-link" data-tab="campcards">⭐ CampCards</button>
+        <button class="nav-link" data-tab="campmemories">🏆 CampMemories</button>
+        <button class="nav-link" data-tab="camprecipes">🍳 CampRecipes</button>
+        <button class="nav-link" data-tab="traditions">🔥 CampTraditions</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 id="topbarTitle">Dashboard Home</h2>
+          <p id="topbarSubtitle">Steward control center for camp members, invites, and profile details.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-secondary" id="viewCampPageBtn">View Camp Page</button>
+          <button class="btn btn-primary" id="saveAllBtn">Save Changes</button>
+        </div>
+      </div>
+
+      <section class="tab-panel active" id="tab-dashboard">
+        <div class="content-grid">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Active Members</div><div class="stat-value" id="statActiveMembers">0</div><div class="stat-sub">Steward + active camp members</div></div>
+            <div class="stat-card"><div class="stat-label">Pending Invites</div><div class="stat-value" id="statPendingInvites">0</div><div class="stat-sub">Invites waiting to be accepted</div></div>
+            <div class="stat-card"><div class="stat-label">Profiles Completed</div><div class="stat-value" id="statProfilesCompleted">0</div><div class="stat-sub">Profiles with core details filled in</div></div>
+            <div class="stat-card"><div class="stat-label">Incomplete Profiles</div><div class="stat-value" id="statProfilesIncomplete">0</div><div class="stat-sub">Good next Steward task</div></div>
+            <div class="stat-card"><div class="stat-label">Camp Steward</div><div class="stat-value" id="statStewardName">—</div><div class="stat-sub">Primary camp administrator</div></div>
+            <div class="stat-card"><div class="stat-label">Last Saved</div><div class="stat-value" id="statLastSaved" style="font-size:1.1rem;">Not yet</div><div class="stat-sub">Saved locally in this browser</div></div>
+          </div>
+
+          <div class="split-grid">
+            <div class="panel">
+              <h3>What needs your attention</h3>
+              <p class="helper">This first real build focuses on the jobs a Steward will do most: keep the roster current, send invites, and finish profile details.</p>
+              <div class="summary-list" id="attentionList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Fast actions</h3>
+              <p class="helper">Jump to the first jobs most camps need after the page is built.</p>
+              <div class="action-grid">
+                <button class="action-tile" data-jump="membership"><strong>Invite Members</strong><span>Add another camp member and send an invite.</span></button>
+                <button class="action-tile" data-jump="profiles"><strong>Finish Profiles</strong><span>Fill in joined year, stand, gear, and camp specialty.</span></button>
+                <button class="action-tile" data-jump="membership"><strong>Review Roster</strong><span>See active, invited, and removed statuses in one place.</span></button>
+                <button class="action-tile" data-jump="profiles"><strong>Edit Steward Profile</strong><span>Tighten the public details popup for the camp administrator.</span></button>
+                <button class="action-tile" data-jump="stands"><strong>Manage CampStands</strong><span>Name stands, assign hunters, and publish stand details back to the live camp page.</span></button>
+                <button class="action-tile" data-jump="deerdrives"><strong>Set Deer Drives</strong><span>Assign standers and drivers, tune map variants, and publish drive plans to the live camp page.</span></button>
+                <button class="action-tile" data-jump="calendar"><strong>Manage CampCalendar</strong><span>Add opener dates, hunt weekends, meals, and memorial camp events for the live camp page.</span></button>
+                <button class="action-tile" data-jump="traditions"><strong>Manage Traditions</strong><span>Refine the starter list, add custom camp rituals, and save them to the live camp page.</span></button>
+                <button class="action-tile" data-jump="campcards"><strong>Curate CampCards</strong><span>Create featured stories, adjust the order, and control what appears in the public CampCards section.</span></button>
+                <button class="action-tile" data-jump="campmemories"><strong>Manage Wall of Fame</strong><span>Add annual winners, captions, audio, and preserve the season-ending CampMemories section.</span></button>
+                <button class="action-tile" data-jump="camprecipes"><strong>Refine CampRecipes</strong><span>Edit recipe cards, tune ingredients and steps, and keep the public recipe section camp-worthy.</span></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-membership">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Camp Steward</h3>
+              <p class="helper">The Steward creates and manages the camp, controls membership, and curates published content.</p>
+              <div id="stewardCardWrap"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Add Member / Send Invite</h3>
+              <p class="helper">Create a new member entry now. Invite sending is simulated in this first build, so status changes to Invited and the record is saved locally.</p>
+              <form id="inviteForm" class="form-grid">
+                <div class="field">
+                  <label for="inviteName">Member Name</label>
+                  <input id="inviteName" type="text" placeholder="Ben Larson" required />
+                </div>
+                <div class="field">
+                  <label for="inviteEmail">Email</label>
+                  <input id="inviteEmail" type="email" placeholder="ben@example.com" required />
+                </div>
+                <div class="field">
+                  <label for="invitePhone">Mobile (optional)</label>
+                  <input id="invitePhone" type="text" placeholder="555-0104" />
+                </div>
+                <div class="field">
+                  <label for="inviteStatus">Invite Status</label>
+                  <select id="inviteStatus">
+                    <option value="Invited">Invited</option>
+                    <option value="Active">Active</option>
+                  </select>
+                </div>
+                <div class="field span-2">
+                  <label for="inviteNote">Steward Note</label>
+                  <textarea id="inviteNote" placeholder="First new member from the West Ridge camp crew."></textarea>
+                </div>
+                <div class="field span-2">
+                  <button class="btn btn-primary" type="submit">Add Member</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Active Members</h3>
+            <p class="helper">These members are already part of the camp and appear in the public roster.</p>
+            <div class="list-stack" id="activeMembersList"></div>
+          </div>
+
+          <div class="panel">
+            <h3>Pending Invites</h3>
+            <p class="helper">Pending invites can be re-sent, activated manually, or removed.</p>
+            <div class="list-stack" id="pendingInvitesList"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-profiles">
+        <div class="stack">
+          <div class="panel">
+            <h3>Member Profiles</h3>
+            <p class="helper">This tab controls the public details popup for both the Steward and Members. Version 1 uses initials badges with a ready place for future photo upload.</p>
+            <div class="profile-grid" id="profileGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-stands">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>CampStands</h3>
+              <p class="helper">Create stand cards, assign primary and backup hunters, track wind and access notes, and publish the stand roster back to the live camp page.</p>
+
+              <div class="two-grid">
+                <div class="summary-item">
+                  <strong id="standTotal">0</strong>
+                  <span>Total saved stands</span>
+                </div>
+                <div class="summary-item">
+                  <strong id="standAssignedTotal">0</strong>
+                  <span>Stands with a hunter assigned</span>
+                </div>
+              </div>
+
+              <div class="stands-admin-grid" id="standsAdminList"></div>
+            </div>
+
+            <div class="panel">
+              <h3 id="standPanelTitle">Add / Edit Stand</h3>
+              <p class="helper" id="standPanelSubtitle">These stand cards publish directly to the live CampStands section.</p>
+
+              <form id="standForm" class="form-grid">
+                <input type="hidden" id="standId" />
+
+                <div class="field">
+                  <label for="standName">Stand Name</label>
+                  <input id="standName" type="text" placeholder="North Ridge Ladder Stand" required />
+                </div>
+
+                <div class="field">
+                  <label for="standArea">Area / Zone</label>
+                  <input id="standArea" type="text" placeholder="North Ridge" />
+                </div>
+
+                <div class="field">
+                  <label for="standAssignedHunter">Assigned Hunter</label>
+                  <input id="standAssignedHunter" type="text" placeholder="Bruce" />
+                </div>
+
+                <div class="field">
+                  <label for="standBackupHunter">Backup Hunter</label>
+                  <input id="standBackupHunter" type="text" placeholder="Nate" />
+                </div>
+
+                <div class="field">
+                  <label for="standBestWind">Best Wind</label>
+                  <input id="standBestWind" type="text" placeholder="NW / W" />
+                </div>
+
+                <div class="field">
+                  <label for="standAccessRoute">Access Route</label>
+                  <input id="standAccessRoute" type="text" placeholder="Creek bottom from south gate" />
+                </div>
+
+                <div class="field span-2">
+                  <label for="standNotes">Notes</label>
+                  <textarea id="standNotes" placeholder="Good early sit. Quiet entry. Watch the scrape line at first light."></textarea>
+                </div>
+
+                <div class="field span-2" style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <button class="btn btn-primary" type="submit">Save CampStand</button>
+                  <button class="btn btn-secondary" type="button" id="resetStandBtn">Reset Form</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-calendar">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>CampCalendar</h3>
+              <p class="helper">Add hunt weekends, work weekends, camp meals, opener dates, and memorial events. These publish directly to the live camp page calendar.</p>
+
+              <div class="two-grid">
+                <div class="summary-item">
+                  <strong id="calendarEventTotal">0</strong>
+                  <span>Total saved events</span>
+                </div>
+                <div class="summary-item">
+                  <strong id="calendarUpcomingTotal">0</strong>
+                  <span>Upcoming / current events</span>
+                </div>
+              </div>
+
+              <div class="calendar-admin-grid" id="calendarAdminList"></div>
+            </div>
+
+            <div class="panel">
+              <h3 id="calendarPanelTitle">Add / Edit Calendar Event</h3>
+              <p class="helper" id="calendarPanelSubtitle">These events publish directly to the live CampCalendar section.</p>
+
+              <form id="calendarForm" class="form-grid">
+                <input type="hidden" id="calendarEventId" />
+
+                <div class="field">
+                  <label for="calendarEventDate">Date</label>
+                  <input id="calendarEventDate" type="date" required />
+                </div>
+
+                <div class="field">
+                  <label for="calendarEventTitle">Event Title</label>
+                  <input id="calendarEventTitle" type="text" placeholder="Opening Weekend Hunt" required />
+                </div>
+
+                <div class="field">
+                  <label for="calendarEventMember">Member / Host</label>
+                  <input id="calendarEventMember" type="text" placeholder="Bruce" />
+                </div>
+
+                <div class="field">
+                  <label for="calendarEventIcon">Icon / Emoji</label>
+                  <input id="calendarEventIcon" type="text" placeholder="🦌" />
+                </div>
+
+                <div class="field span-2">
+                  <label for="calendarEventDescription">Description</label>
+                  <textarea id="calendarEventDescription" placeholder="Camp breakfast at 5:30, then all-day sit on the north ridge."></textarea>
+                </div>
+
+                <div class="field span-2">
+                  <div class="field-note">Tip: if the title or description includes the word <strong>Weekend</strong>, your live camp page can place it on a Saturday or Sunday in the generated calendar.</div>
+                </div>
+
+                <div class="field span-2" style="display:flex; gap:10px; flex-wrap:wrap;">
+                  <button class="btn btn-primary" type="submit">Save Calendar Event</button>
+                  <button class="btn btn-secondary" type="button" id="resetCalendarBtn">Reset Form</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-deerdrives">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>CampDeerDrives</h3>
+              <p class="helper">Set the official names, assignments, and plan copy for each drive that appears on the public camp page.</p>
+              <div class="drive-grid" id="deerDriveList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Add / Edit Deer Drive</h3>
+              <p class="helper">Use camp member names separated with commas. The public camp page will map these into the drive layout and labels.</p>
+              <form id="driveForm" class="form-grid">
+                <input type="hidden" id="driveId" />
+                <div class="field">
+                  <label for="driveName">Drive Name</label>
+                  <input id="driveName" type="text" placeholder="North Field" required />
+                </div>
+                <div class="field">
+                  <label for="driveVariant">Map Variant</label>
+                  <select id="driveVariant">
+                    <option value="north">North / timber edge</option>
+                    <option value="south">South / brush cut</option>
+                  </select>
+                </div>
+                <div class="field span-2">
+                  <label for="drivePlan">Drive Plan</label>
+                  <textarea id="drivePlan" placeholder="Three blockers set high along the timber edge while two drivers sweep the center lane uphill through the maples and creek bend."></textarea>
+                </div>
+                <div class="field span-2">
+                  <label for="driveStanders">Standers / Posters / Blockers</label>
+                  <input id="driveStanders" type="text" placeholder="John, Joe, Eric" />
+                </div>
+                <div class="field span-2">
+                  <label for="driveDrivers">Drivers / Pushers</label>
+                  <input id="driveDrivers" type="text" placeholder="Phil, Ben" />
+                </div>
+                <div class="field span-2">
+                  <label for="driveNotes">Notes</label>
+                  <textarea id="driveNotes" placeholder="Safety note, pinch point, or quick terrain reminder."></textarea>
+                </div>
+                <div class="field">
+                  <button class="btn btn-primary" type="submit">Save Deer Drive</button>
+                </div>
+                <div class="field">
+                  <button class="btn btn-secondary" type="button" id="resetDriveBtn">Clear Form</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="tab-panel" id="tab-traditions">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Active CampTraditions</h3>
+              <p class="helper">These tradition cards save into <code>campData</code> and render on the live <code>camp.html</code> page. Reorder them, edit the copy, or remove anything that does not fit your camp.</p>
+              <div class="tradition-grid" id="traditionsList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Starter Tradition Library</h3>
+              <p class="helper">Add starter traditions with one tap, then customize the wording to fit your camp. Duplicates are blocked automatically.</p>
+              <div class="starter-grid" id="starterTraditionsGrid"></div>
+            </div>
+          </div>
+
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Add Custom Tradition</h3>
+              <p class="helper">Use this when your camp has a ritual that is unique to your crew and not in the starter library yet.</p>
+              <form id="customTraditionForm" class="form-grid">
+                <div class="field">
+                  <label for="customTraditionTitle">Tradition Title</label>
+                  <input id="customTraditionTitle" type="text" placeholder="Last-Night Camp Supper" required />
+                </div>
+                <div class="field">
+                  <label for="customTraditionGroup">Group</label>
+                  <select id="customTraditionGroup">
+                    <option value="Opening Camp">Opening Camp</option>
+                    <option value="Camp Rituals">Camp Rituals</option>
+                    <option value="Legacy & Meaning">Legacy & Meaning</option>
+                    <option value="Camp Traditions">Camp Traditions</option>
+                  </select>
+                </div>
+                <div class="field span-2">
+                  <label for="customTraditionDescription">Description</label>
+                  <textarea id="customTraditionDescription" placeholder="The closing meal that wraps the season, the stories, and the camp year together."></textarea>
+                </div>
+                <div class="field span-2">
+                  <label for="customTraditionUrl">Related Link (optional)</label>
+                  <input id="customTraditionUrl" type="url" placeholder="https://example.com/tradition-story" />
+                </div>
+                <div class="field span-2">
+                  <button class="btn btn-primary" type="submit">Add Custom Tradition</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="panel">
+              <h3>Tradition Builder Notes</h3>
+              <p class="helper">CampTraditions should feel like the heartbeat of the camp: the recurring meals, rituals, remembrance, storytelling, and shared identity that makes one camp different from another.</p>
+              <div class="summary-list">
+                <div class="summary-item">
+                  <strong>Keep the titles short and the descriptions meaningful</strong>
+                  <span>One strong sentence usually reads better on the public page than a paragraph.</span>
+                </div>
+                <div class="summary-item">
+                  <strong>Use group labels to create shape</strong>
+                  <span>Opening Camp, Camp Rituals, and Legacy & Meaning help the public page feel organized instead of random.</span>
+                </div>
+                <div class="summary-item">
+                  <strong>Optional links are supported</strong>
+                  <span>If you have a related article, memorial page, or reference, add a URL and the live camp page will open it from the tradition card.</span>
+                </div>
+                <div class="summary-item">
+                  <strong>Order matters</strong>
+                  <span>The traditions will display in the same order you set here, so put the strongest or most defining rituals first.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      
+      <section class="tab-panel" id="tab-campmemories">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Wall of Fame / CampMemories</h3>
+              <p class="helper">Add annual winners, tribute moments, and memory cards that flow straight into the public CampMemories section.</p>
+              <div class="list-stack" id="campMemoriesList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Add Custom Memory</h3>
+              <p class="helper">Create a memory card manually now, then refine images, audio, and copy later as your app pipeline grows.</p>
+              <form id="customCampMemoryForm" class="form-grid">
+                <div class="field">
+                  <label for="customCampMemoryTitle">Memory Title</label>
+                  <input id="customCampMemoryTitle" type="text" placeholder="Brittney's First Deer" required />
+                </div>
+                <div class="field">
+                  <label for="customCampMemoryCategory">Category</label>
+                  <select id="customCampMemoryCategory">
+                    <option value="Bow">Bow</option>
+                    <option value="Gun">Gun</option>
+                    <option value="Black Powder">Black Powder</option>
+                    <option value="Muzzle Loader">Muzzle Loader</option>
+                    <option value="Legacy">Legacy</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="customCampMemoryWinner">Winner / Member</label>
+                  <input id="customCampMemoryWinner" type="text" placeholder="Brittney" />
+                </div>
+                <div class="field">
+                  <label for="customCampMemoryYear">Year</label>
+                  <input id="customCampMemoryYear" type="text" placeholder="2025" />
+                </div>
+                <div class="field span-2">
+                  <label for="customCampMemoryImage">Image Path</label>
+                  <input id="customCampMemoryImage" type="text" placeholder="campcards/images/brittneys-first-deer.png" />
+                  <div class="field-note">Use a local asset path for now. The public camp page will render this image directly.</div>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampMemoryAudio">Audio Path (optional)</label>
+                  <input id="customCampMemoryAudio" type="text" placeholder="campcards/audio/brittneys-first-deer.mp3" />
+                </div>
+                <div class="field span-2">
+                  <label for="customCampMemoryCaption">Caption</label>
+                  <textarea id="customCampMemoryCaption" placeholder="A season-defining harvest and the kind of photo the camp keeps forever."></textarea>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampMemoryStory">Story / Details</label>
+                  <textarea id="customCampMemoryStory" placeholder="Use this for the longer story, remembrance, or year-end notes you want preserved."></textarea>
+                </div>
+                <div class="field span-2">
+                  <button class="btn btn-primary" type="submit">Add CampMemory</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Suggested Wall of Fame Starters</h3>
+            <p class="helper">Use these first, then swap in real winners and stories when your season wraps and the Steward is ready to publish them.</p>
+            <div class="triple-grid" id="campMemoryStarterGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-campcards">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Featured CampCards</h3>
+              <p class="helper">curated by Steward, with auto-suggestions based on engagement metrics.</p>
+              <div class="list-stack" id="campCardsList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Add Custom CampCard</h3>
+              <p class="helper">Create a featured story manually. Add an image path now, or swap in a better image later when your app pipeline is connected.</p>
+              <form id="customCampCardForm" class="form-grid">
+                <div class="field">
+                  <label for="customCampCardTitle">Card Title</label>
+                  <input id="customCampCardTitle" type="text" placeholder="Opening Morning Coffee" required />
+                </div>
+                <div class="field">
+                  <label for="customCampCardSource">Source / Member</label>
+                  <input id="customCampCardSource" type="text" placeholder="Camp Steward" />
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardImage">Image Path</label>
+                  <input id="customCampCardImage" type="text" placeholder="campcards/images/opening-morning.jpg" />
+                  <div class="field-note">Use a local asset path for now. The public camp page will render this image directly.</div>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardCaption">Caption</label>
+                  <textarea id="customCampCardCaption" placeholder="Strong coffee, quiet voices, and the last few minutes before everyone disappears into the timber."></textarea>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardStory">Story / Details</label>
+                  <textarea id="customCampCardStory" placeholder="Use this for the longer story text you want to preserve for later app or modal use."></textarea>
+                </div>
+                <div class="field span-2">
+                  <button class="btn btn-primary" type="submit">Add CampCard</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Suggested CampCard Starters</h3>
+            <p class="helper">These starter cards give you a clean first version today. Later, app engagement can feed true auto-suggestions.</p>
+            <div class="triple-grid" id="campCardStarterGrid"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-camprecipes">
+        <div class="stack">
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Active CampRecipes</h3>
+              <p class="helper">These recipe cards save into <code>campData.recipeObjects</code> and render on the live <code>camp.html</code> page. Reorder them, refine the copy, or remove recipes that do not fit your camp.</p>
+              <div class="recipe-admin-grid" id="campRecipesList"></div>
+            </div>
+
+            <div class="panel">
+              <h3>Starter Recipe Library</h3>
+              <p class="helper">Add a starter recipe with one tap, then personalize the title, ingredients, and serving notes to match your camp.</p>
+              <div class="starter-grid" id="campRecipeStarterGrid"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>Add Custom Recipe</h3>
+            <p class="helper">Use this for a camp favorite you want to preserve outside the starter library. Keep ingredients, steps, and tips on separate lines for a clean public recipe modal.</p>
+            <form id="customCampRecipeForm" class="form-grid">
+              <div class="field">
+                <label for="customCampRecipeTitle">Recipe Title</label>
+                <input id="customCampRecipeTitle" type="text" placeholder="Bruce's Smokehouse Backstrap Steaks" required />
+              </div>
+              <div class="field">
+                <label for="customCampRecipeMeal">Meal</label>
+                <select id="customCampRecipeMeal">
+                  <option value="Breakfast">Breakfast</option>
+                  <option value="Lunch">Lunch</option>
+                  <option value="Dinner" selected>Dinner</option>
+                  <option value="Snack">Snack</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="customCampRecipeBaseTitle">Base Recipe Name</label>
+                <input id="customCampRecipeBaseTitle" type="text" placeholder="Backstrap Steaks with Garlic Butter" />
+              </div>
+              <div class="field">
+                <label for="customCampRecipeSubtitle">Subtitle</label>
+                <input id="customCampRecipeSubtitle" type="text" placeholder="Dinner • Bruce's Camp Recipe" />
+              </div>
+              <div class="field">
+                <label for="customCampRecipeTime">Time</label>
+                <input id="customCampRecipeTime" type="text" placeholder="20 min" />
+              </div>
+              <div class="field">
+                <label for="customCampRecipeServes">Serves</label>
+                <input id="customCampRecipeServes" type="text" placeholder="4" />
+              </div>
+              <div class="field">
+                <label for="customCampRecipeDifficulty">Difficulty</label>
+                <select id="customCampRecipeDifficulty">
+                  <option value="Easy">Easy</option>
+                  <option value="Medium" selected>Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="customCampRecipeEquipment">Equipment</label>
+                <input id="customCampRecipeEquipment" type="text" placeholder="Cast iron skillet" />
+              </div>
+              <div class="field span-2">
+                <label for="customCampRecipeDescription">Description</label>
+                <textarea id="customCampRecipeDescription" placeholder="Quick to cook, camp-approved, and worth making every season."></textarea>
+              </div>
+              <div class="field span-2">
+                <label for="customCampRecipeIngredients">Ingredients</label>
+                <textarea id="customCampRecipeIngredients" placeholder="1 lb venison backstrap&#10;4 tbsp butter&#10;Salt and pepper"></textarea>
+                <div class="field-note">Use one ingredient per line.</div>
+              </div>
+              <div class="field span-2">
+                <label for="customCampRecipeSteps">Steps</label>
+                <textarea id="customCampRecipeSteps" placeholder="Season the meat.&#10;Sear hot in cast iron.&#10;Rest and serve."></textarea>
+                <div class="field-note">Use one cooking step per line.</div>
+              </div>
+              <div class="field span-2">
+                <label for="customCampRecipeServing">Serving Notes</label>
+                <textarea id="customCampRecipeServing" placeholder="Serve with camp potatoes.&#10;Best hot off the skillet."></textarea>
+              </div>
+              <div class="field span-2">
+                <label for="customCampRecipeTips">Tips</label>
+                <textarea id="customCampRecipeTips" placeholder="Do not overcook backstrap.&#10;Let it rest before slicing."></textarea>
+              </div>
+              <div class="field span-2">
+                <button class="btn btn-primary" type="submit">Add CampRecipe</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </section>
+
+
+    </main>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="profileDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <h3 id="drawerTitle">Edit Profile</h3>
+      <p id="drawerSubtitle">Update the public details popup for this person.</p>
+    </div>
+    <div class="drawer-body">
+      <form id="profileForm" class="form-grid">
+        <input type="hidden" id="profileId" />
+        <div class="field">
+          <label for="profileName">Name</label>
+          <input id="profileName" type="text" required />
+        </div>
+        <div class="field">
+          <label for="profileRole">Role</label>
+          <select id="profileRole">
+            <option value="Camp Steward">Camp Steward</option>
+            <option value="Camp Member">Camp Member</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="profileRoleLine">Role Line</label>
+          <input id="profileRoleLine" type="text" placeholder="Camp administrator" />
+        </div>
+        <div class="field">
+          <label for="profileStatus">Status</label>
+          <select id="profileStatus">
+            <option value="Active">Active</option>
+            <option value="Invited">Invited</option>
+            <option value="Removed">Removed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="profileEmail">Email</label>
+          <input id="profileEmail" type="email" placeholder="member@example.com" />
+        </div>
+        <div class="field">
+          <label for="profileJoined">Year Joined Camp</label>
+          <input id="profileJoined" type="text" placeholder="2014" />
+        </div>
+        <div class="field">
+          <label for="profileStand">Favorite Deer Stand</label>
+          <input id="profileStand" type="text" placeholder="North Ridge Ladder" />
+        </div>
+        <div class="field">
+          <label for="profileGear">Favorite Hunting Gear</label>
+          <input id="profileGear" type="text" placeholder=".30-06, 150 gr Core-Lokt" />
+        </div>
+        <div class="field">
+          <label for="profileNickname">Nickname</label>
+          <input id="profileNickname" type="text" placeholder="Ridge Runner" />
+        </div>
+        <div class="field">
+          <label for="profileSpecialty">Specialty at Camp</label>
+          <input id="profileSpecialty" type="text" placeholder="Deer drive organizer" />
+        </div>
+        <div class="field span-2">
+          <label for="profileHarvest">Harvest Highlight</label>
+          <input id="profileHarvest" type="text" placeholder="10-point buck, 2021" />
+        </div>
+        <div class="field span-2">
+          <label for="profileMemory">Best Camp Memory</label>
+          <textarea id="profileMemory" placeholder="Snow opener with Bruce and Nate."></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="profileNote">Note</label>
+          <textarea id="profileNote" placeholder="First one up, last one in."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" id="closeDrawerBtn" type="button">Close</button>
+      <button class="btn btn-primary" id="saveProfileBtn" type="button">Save Profile</button>
+    </div>
+  </aside>
+
+
+  <aside class="drawer" id="traditionDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <h3 id="traditionDrawerTitle">Edit Tradition</h3>
+      <p id="traditionDrawerSubtitle">Refine how this tradition will appear on the public camp page.</p>
+    </div>
+    <div class="drawer-body">
+      <form id="traditionForm" class="form-grid">
+        <input type="hidden" id="traditionIndex" />
+        <div class="field">
+          <label for="traditionLabel">Tradition Title</label>
+          <input id="traditionLabel" type="text" required />
+        </div>
+        <div class="field">
+          <label for="traditionGroup">Group</label>
+          <select id="traditionGroup">
+            <option value="Opening Camp">Opening Camp</option>
+            <option value="Camp Rituals">Camp Rituals</option>
+            <option value="Legacy & Meaning">Legacy & Meaning</option>
+            <option value="Camp Traditions">Camp Traditions</option>
+          </select>
+        </div>
+        <div class="field span-2">
+          <label for="traditionDescription">Description</label>
+          <textarea id="traditionDescription" placeholder="The meal that marks the true start of camp."></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="traditionUrl">Related Link (optional)</label>
+          <input id="traditionUrl" type="url" placeholder="https://example.com/tradition-story" />
+          <div class="field-note">Optional. The current camp page can open this from a tradition card.</div>
+        </div>
+      </form>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" id="closeTraditionDrawerBtn" type="button">Close</button>
+      <button class="btn btn-primary" id="saveTraditionBtn" type="button">Save Tradition</button>
+    </div>
+  </aside>
+
+  <aside class="drawer" id="campCardDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <h3 id="campCardDrawerTitle">Edit CampCard</h3>
+      <p id="campCardDrawerSubtitle">Refine the featured story that appears in the public CampCards section.</p>
+    </div>
+    <div class="drawer-body">
+      <form id="campCardForm" class="form-grid">
+        <input type="hidden" id="campCardIndex" />
+        <div class="field">
+          <label for="campCardTitle">Card Title</label>
+          <input id="campCardTitle" type="text" required />
+        </div>
+        <div class="field">
+          <label for="campCardSource">Source / Member</label>
+          <input id="campCardSource" type="text" placeholder="Camp Steward" />
+        </div>
+        <div class="field span-2">
+          <label for="campCardImage">Image Path</label>
+          <input id="campCardImage" type="text" placeholder="campcards/images/packers-burgers.png" />
+        </div>
+        <div class="field span-2">
+          <label for="campCardCaption">Caption</label>
+          <textarea id="campCardCaption" placeholder="Short story text for the featured card."></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="campCardStory">Story / Details</label>
+          <textarea id="campCardStory" placeholder="Longer story details for later modal or app use."></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" id="closeCampCardDrawerBtn" type="button">Close</button>
+      <button class="btn btn-primary" id="saveCampCardBtn" type="button">Save CampCard</button>
+    </div>
+  </aside>
+
+
+
+  <aside class="drawer" id="campRecipeDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <h3 id="campRecipeDrawerTitle">Edit CampRecipe</h3>
+      <p id="campRecipeDrawerSubtitle">Refine how this recipe will appear in the public CampRecipes section.</p>
+    </div>
+    <div class="drawer-body">
+      <form class="form-grid">
+        <input type="hidden" id="campRecipeIndex" />
+        <div class="field">
+          <label for="campRecipeTitle">Recipe Title</label>
+          <input id="campRecipeTitle" type="text" />
+        </div>
+        <div class="field">
+          <label for="campRecipeMeal">Meal</label>
+          <select id="campRecipeMeal">
+            <option value="Breakfast">Breakfast</option>
+            <option value="Lunch">Lunch</option>
+            <option value="Dinner">Dinner</option>
+            <option value="Snack">Snack</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="campRecipeBaseTitle">Base Recipe Name</label>
+          <input id="campRecipeBaseTitle" type="text" />
+        </div>
+        <div class="field">
+          <label for="campRecipeSubtitle">Subtitle</label>
+          <input id="campRecipeSubtitle" type="text" />
+        </div>
+        <div class="field">
+          <label for="campRecipeTime">Time</label>
+          <input id="campRecipeTime" type="text" />
+        </div>
+        <div class="field">
+          <label for="campRecipeServes">Serves</label>
+          <input id="campRecipeServes" type="text" />
+        </div>
+        <div class="field">
+          <label for="campRecipeDifficulty">Difficulty</label>
+          <select id="campRecipeDifficulty">
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="campRecipeEquipment">Equipment</label>
+          <input id="campRecipeEquipment" type="text" />
+        </div>
+        <div class="field span-2">
+          <label for="campRecipeDescription">Description</label>
+          <textarea id="campRecipeDescription"></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="campRecipeIngredients">Ingredients</label>
+          <textarea id="campRecipeIngredients"></textarea>
+          <div class="field-note">Use one ingredient per line.</div>
+        </div>
+        <div class="field span-2">
+          <label for="campRecipeSteps">Steps</label>
+          <textarea id="campRecipeSteps"></textarea>
+          <div class="field-note">Use one cooking step per line.</div>
+        </div>
+        <div class="field span-2">
+          <label for="campRecipeServing">Serving Notes</label>
+          <textarea id="campRecipeServing"></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="campRecipeTips">Tips</label>
+          <textarea id="campRecipeTips"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" id="closeCampRecipeDrawerBtn" type="button">Close</button>
+      <button class="btn btn-primary" id="saveCampRecipeBtn" type="button">Save CampRecipe</button>
+    </div>
+  </aside>
+
+
+  <aside class="drawer" id="campMemoryDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <h3 id="campMemoryDrawerTitle">Edit CampMemory</h3>
+      <p id="campMemoryDrawerSubtitle">Refine how this memory will appear on the public CampMemories / Wall of Fame section.</p>
+    </div>
+    <div class="drawer-body">
+      <form class="form-grid">
+        <input type="hidden" id="campMemoryIndex" />
+        <div class="field">
+          <label for="campMemoryTitle">Memory Title</label>
+          <input id="campMemoryTitle" type="text" />
+        </div>
+        <div class="field">
+          <label for="campMemoryCategory">Category</label>
+          <select id="campMemoryCategory">
+            <option value="Bow">Bow</option>
+            <option value="Gun">Gun</option>
+            <option value="Black Powder">Black Powder</option>
+            <option value="Muzzle Loader">Muzzle Loader</option>
+            <option value="Legacy">Legacy</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="campMemoryWinner">Winner / Member</label>
+          <input id="campMemoryWinner" type="text" />
+        </div>
+        <div class="field">
+          <label for="campMemoryYear">Year</label>
+          <input id="campMemoryYear" type="text" />
+        </div>
+        <div class="field span-2">
+          <label for="campMemoryImage">Image Path</label>
+          <input id="campMemoryImage" type="text" />
+        </div>
+        <div class="field span-2">
+          <label for="campMemoryAudio">Audio Path</label>
+          <input id="campMemoryAudio" type="text" />
+        </div>
+        <div class="field span-2">
+          <label for="campMemoryCaption">Caption</label>
+          <textarea id="campMemoryCaption"></textarea>
+        </div>
+        <div class="field span-2">
+          <label for="campMemoryStory">Story / Details</label>
+          <textarea id="campMemoryStory"></textarea>
+        </div>
+      </form>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-secondary" id="closeCampMemoryDrawerBtn" type="button">Close</button>
+      <button class="btn btn-primary" id="saveCampMemoryBtn" type="button">Save CampMemory</button>
+    </div>
+  </aside>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const STORAGE_KEY = "deerCampStewardDashboard";
+    const CAMP_DATA_KEY = "campData";
+
+    const defaultStewardResponsibilities = [
+      "Creates and manages the camp",
+      "Adds and removes camp members",
+      "Sends DeerCamp invites and removes non-current members",
+      "Adds and changes content across approved camp sections",
+      "Curates CampCards and CampMemories",
+      "Keeps camp information current season to season"
+    ];
+
+
+    const STARTER_TRADITIONS = [
+      { label: "Pre-Opener Campfire Meal", group: "Opening Camp", description: "The meal that marks the true start of camp." },
+      { label: "Opening Morning Coffee", group: "Opening Camp", description: "First light, strong coffee, low voices, and final plans before heading out." },
+      { label: "First Fire of the Season", group: "Opening Camp", description: "Lighting the stove, fireplace, or campfire that means camp is officially open." },
+      { label: "Deer Hanging Pole Ritual", group: "Camp Rituals", description: "That first buck on the pole, the photos, the stories, and the shared camp pride." },
+      { label: "Story-Telling Hour", group: "Camp Rituals", description: "The nightly retelling of hunts, near-misses, old legends, and camp lore." },
+      { label: "Card Games After Dark", group: "Camp Rituals", description: "Euchre, poker, cribbage, or whatever keeps the cabin laughing late into the night." },
+      { label: "Buck Pole Photo", group: "Camp Rituals", description: "The official photo moment that marks the season and preserves the record." },
+      { label: "New Hunter Initiation", group: "Legacy & Meaning", description: "A respectful or fun tradition for first-time hunters joining camp." },
+      { label: "The Empty Chair", group: "Legacy & Meaning", description: "A quiet remembrance for camp members who are gone but still part of every season." },
+      { label: "Honor the Elders", group: "Legacy & Meaning", description: "A moment where older members tell the story of how camp began and what it means." }
+    ];
+
+    const STARTER_TRADITION_LOOKUP = Object.fromEntries(
+      STARTER_TRADITIONS.map(item => [item.label.toLowerCase(), item])
+    );
+
+    const STARTER_CAMP_CARDS = [
+      { title: "Packers & Burgers Night", source: "Camp Steward", image: "campcards/images/packers-burgers.png", caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early.", story: "A featured camp story preserved by the Steward for the CampCards section." },
+      { title: "First Coffee at Camp", source: "Camp Steward", image: "campcards/images/first-coffee.png", caption: "The first mug of camp coffee before daylight and before the woods wake up.", story: "A featured camp story preserved by the Steward for the CampCards section." },
+      { title: "Campfire Camaraderie", source: "Camp Steward", image: "campcards/images/campfire-camaraderie.png", caption: "Stories, laughter, and the kind of campfire talk that becomes tradition.", story: "A featured camp story preserved by the Steward for the CampCards section." },
+      { title: "Fall Scouting Loop", source: "Camp Steward", image: "campcards/images/fall-scouting.png", caption: "An evening scouting walk that sets the tone for the whole season.", story: "A featured camp story preserved by the Steward for the CampCards section." }
+    ];
+
+
+
+    const STARTER_CAMP_MEMORIES = [
+      { title: "Brittney's First Deer", category: "Bow", winner: "Brittney", year: "2025", image: "campcards/images/brittneys-first-deer.png", audio: "campcards/audio/brittneys-first-deer.mp3", caption: "A first deer and the kind of memory the whole camp wants preserved.", story: "Wall of Fame starter for the annual bow season winner." },
+      { title: "Grandpa's Biggest Buck", category: "Gun", winner: "Grandpa", year: "2025", image: "campcards/images/grandpas-biggest-buck.png", audio: "campcards/audio/grandpas-biggest-buck.mp3", caption: "The buck everybody talks about long after the season closes.", story: "Wall of Fame starter for the annual gun season winner." },
+      { title: "Camp Tracker", category: "Muzzle Loader", winner: "Camp Tracker", year: "2025", image: "campcards/images/camp-tracker.png", audio: "campcards/audio/camp-tracker.mp3", caption: "A season-closing memory preserved for the camp archive.", story: "Wall of Fame starter for the annual muzzle loader winner." }
+    ];
+
+
+    const STARTER_CAMP_RECIPES = [
+      {
+        title: "Legendary Skillet Eggs & Sausage Hash",
+        subtitle: "Breakfast • DeerCamp Classic",
+        meal: "Breakfast",
+        sourceTitle: "Skillet Eggs & Sausage Hash",
+        description: "One pan, hot fire, full belly — ready before first light.",
+        time: "20 min",
+        serves: "4",
+        difficulty: "Easy",
+        equipment: "Cast iron skillet",
+        ingredients: ["1 lb breakfast sausage", "6 large eggs", "1 can diced potatoes", "1 small onion", "Salt, pepper, garlic powder"],
+        steps: ["Brown sausage and set aside.", "Cook onions and potatoes until crisp.", "Return sausage, add eggs, season, and cover until set."],
+        serving: ["Serve hot before first light.", "Best with strong camp coffee."],
+        tips: ["Use a pot lid or foil as a cover at camp."]
+      },
+      {
+        title: "Backwoods Campfire Pancakes with Syrup",
+        subtitle: "Breakfast • DeerCamp Classic",
+        meal: "Breakfast",
+        sourceTitle: "Campfire Pancakes with Syrup",
+        description: "Stack 'em high. Simple batter, big satisfaction.",
+        time: "15 min",
+        serves: "4",
+        difficulty: "Easy",
+        equipment: "Griddle or skillet",
+        ingredients: ["2 cups pancake mix", "1½ cups water", "2 tbsp oil", "Maple syrup", "Butter for the pan"],
+        steps: ["Whisk mix, water, and oil.", "Heat griddle with butter.", "Cook pancakes until bubbly, flip once, and finish."],
+        serving: ["Serve in warm stacks with butter and syrup."],
+        tips: ["Keep finished pancakes warm near the fire, not over it."]
+      },
+      {
+        title: "Smokehouse Smoked Meat Flatbread Wraps",
+        subtitle: "Lunch • DeerCamp Classic",
+        meal: "Lunch",
+        sourceTitle: "Smoked Meat Flatbread Wraps",
+        description: "Minimal prep, maximum fuel for the afternoon stand.",
+        time: "10 min",
+        serves: "4",
+        difficulty: "Easy",
+        equipment: "No heat needed",
+        ingredients: ["4 large tortillas", "½ lb smoked or deli meat", "Sliced cheese", "Mustard or mayo", "Pickles or jalapeños"],
+        steps: ["Spread condiments on tortilla.", "Layer meat and cheese.", "Add pickles or jalapeños, roll tight, and slice."],
+        serving: ["Wrap in foil for easy carry to the stand."],
+        tips: ["Prep these the night before and store them in the cooler."]
+      },
+      {
+        title: "First-Light Quick Camp Chili",
+        subtitle: "Lunch • DeerCamp Classic",
+        meal: "Lunch",
+        sourceTitle: "Quick Camp Chili",
+        description: "Open cans, dump, simmer — done. Warms you to the bone.",
+        time: "25 min",
+        serves: "4–6",
+        difficulty: "Easy",
+        equipment: "Pot over fire",
+        ingredients: ["1 lb ground venison", "2 cans chili beans", "1 can diced tomatoes", "1 packet chili seasoning", "Salt and hot sauce"],
+        steps: ["Brown the meat.", "Add beans, tomatoes, and seasoning.", "Simmer 15 minutes and serve hot."],
+        serving: ["Serve with crackers or thick bread."],
+        tips: ["This tastes even better the next day."]
+      },
+      {
+        title: "Buck Pole Backstrap Steaks with Garlic Butter",
+        subtitle: "Dinner • DeerCamp Classic",
+        meal: "Dinner",
+        sourceTitle: "Backstrap Steaks with Garlic Butter",
+        description: "The crown jewel of deer camp. Keep it simple and let the meat shine.",
+        time: "20 min",
+        serves: "4",
+        difficulty: "Medium",
+        equipment: "Cast iron or grill",
+        ingredients: ["2 lbs venison backstrap", "4 tbsp butter", "4 garlic cloves", "Salt and pepper", "2 tbsp oil"],
+        steps: ["Season medallions well.", "Sear in hot cast iron 2–3 minutes per side.", "Add butter and garlic, baste, then rest before serving."],
+        serving: ["Serve with potatoes or grilled vegetables."],
+        tips: ["Medium-rare is best for backstrap."]
+      },
+      {
+        title: "Iron Skillet Venison & Pasta Skillet",
+        subtitle: "Dinner • DeerCamp Classic",
+        meal: "Dinner",
+        sourceTitle: "Venison & Pasta Skillet",
+        description: "Hearty, filling, and made in one pan. The whole camp will approve.",
+        time: "30 min",
+        serves: "4–6",
+        difficulty: "Easy",
+        equipment: "Large pot or deep skillet",
+        ingredients: ["1 lb ground venison", "12 oz pasta", "1 jar marinara", "2 cups water", "Italian seasoning", "Shredded cheese"],
+        steps: ["Brown venison.", "Add sauce, water, and pasta.", "Cook until tender, then top with cheese."],
+        serving: ["Serve straight from the skillet."],
+        tips: ["Crusty bread or crackers make excellent companions."]
+      },
+      {
+        title: "Trailside Foil Pack Venison & Veggies",
+        subtitle: "Dinner • DeerCamp Classic",
+        meal: "Dinner",
+        sourceTitle: "Foil Pack Venison & Veggies",
+        description: "Wrap it up, throw it in the coals, walk away. No dishes.",
+        time: "35 min",
+        serves: "4",
+        difficulty: "Easy",
+        equipment: "Campfire coals",
+        ingredients: ["1½ lbs venison stew meat", "2 cans mixed vegetables", "1 packet onion soup mix", "4 tbsp butter", "Heavy-duty foil"],
+        steps: ["Divide meat and vegetables between foil sheets.", "Add soup mix and butter.", "Seal tightly and cook on coals 25–30 minutes."],
+        serving: ["Serve right from the foil pack for easy cleanup."],
+        tips: ["Let foil packs rest briefly before opening."]
+      },
+      {
+        title: "Northwoods Dutch Oven Deer Camp Stew",
+        subtitle: "Dinner • DeerCamp Classic",
+        meal: "Dinner",
+        sourceTitle: "Dutch Oven Deer Camp Stew",
+        description: "Slow and steady over the fire. Stick-to-your-ribs satisfaction.",
+        time: "1.5 hrs",
+        serves: "6–8",
+        difficulty: "Medium",
+        equipment: "Dutch oven & coals",
+        ingredients: ["2 lbs venison stew meat", "2 cans cream of mushroom soup", "1 can beef broth", "1 bag mixed vegetables", "1 packet onion soup mix"],
+        steps: ["Brown venison in batches.", "Add remaining ingredients.", "Simmer 60–90 minutes until fork-tender."],
+        serving: ["Serve over instant mashed potatoes or with thick bread."],
+        tips: ["Great for warming up after a cold sit."]
+      }
+    ];
+
+
+    const defaultMemberContributions = [
+      "Adds field content through DeerCamp app",
+      "Adds content to approved sections by Camp Steward",
+      "Adds comments to CampFeed posts",
+      "Uploads photos, notes, and optional audio from the field",
+      "Contributes memories, recipes, deer drive participation, and story ideas"
+    ];
+
+    const tabMeta = {
+      dashboard: {
+        title: "Dashboard Home",
+        subtitle: "Steward control center for camp members, invites, and profile details."
+      },
+      membership: {
+        title: "Membership",
+        subtitle: "Manage the Steward, active members, and pending invites in one place."
+      },
+      profiles: {
+        title: "Member Profiles",
+        subtitle: "Edit the details popup content for the Steward and all camp members."
+      },
+      stands: {
+        title: "CampStands",
+        subtitle: "Manage stand names, assignments, wind notes, access routes, and live stand details."
+      },
+      deerdrives: {
+        title: "CampDeerDrives",
+        subtitle: "Assign standers and drivers, tune map variants, and publish deer-drive plans back to the live camp page."
+      },
+      calendar: {
+        title: "CampCalendar",
+        subtitle: "Manage camp events, hunt weekends, and season dates that publish to the live camp page."
+      },
+      traditions: {
+        title: "CampTraditions",
+        subtitle: "Manage starter traditions, add custom camp rituals, and save them to the live camp page."
+      },
+      campcards: {
+        title: "CampCards",
+        subtitle: "Create, curate, and reorder featured camp stories for the public camp page."
+      },
+      campmemories: {
+        title: "CampMemories / Wall of Fame",
+        subtitle: "Add annual winners, tribute moments, and memory cards for the public camp page."
+      },
+      camprecipes: {
+        title: "CampRecipes",
+        subtitle: "Edit recipe cards, tune ingredients and steps, and publish the recipe section back to the live camp page."
+      }
+    };
+
+    function slugify(value = "") {
+      return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+
+    function initialsFromName(name = "") {
+      const parts = String(name).trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return "DC";
+      return parts.slice(0, 2).map(part => part[0].toUpperCase()).join("");
+    }
+
+    function fallback(value) {
+      return value && String(value).trim() ? String(value).trim() : "—";
+    }
+
+    function currentTimestampLabel() {
+      return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function normalizeDateKey(value) {
+      if (!value) return "";
+      if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+        return value.trim();
+      }
+
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return "";
+
+      const y = parsed.getFullYear();
+      const m = String(parsed.getMonth() + 1).padStart(2, "0");
+      const d = String(parsed.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatCalendarDate(dateKey) {
+      if (!dateKey) return "No date";
+      const parsed = new Date(`${dateKey}T12:00:00`);
+      if (Number.isNaN(parsed.getTime())) return dateKey;
+      return parsed.toLocaleDateString([], {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric"
+      });
+    }
+
+    function getCalendarAdminIcon(event = {}) {
+      if (event.icon) return event.icon;
+
+      const text = `${event.title || ""} ${event.description || ""}`.toLowerCase();
+      if (/(work|fix|cleanup|swap|repair|build)/.test(text)) return "🛠️";
+      if (/(scout|trail|track|stand|map|plan)/.test(text)) return "🧭";
+      if (/(breakfast|supper|dinner|chili|recipe|meal|coffee)/.test(text)) return "🍳";
+      if (/(buck|deer|harvest|hunt|opener|season)/.test(text)) return "🦌";
+      if (/(campfire|fire|story|tradition|memory|memorial)/.test(text)) return "🔥";
+      return "📌";
+    }
+
+    function normalizeCalendarEvent(item, index = 0) {
+      if (!item) return null;
+
+      if (typeof item === "string") {
+        const date = normalizeDateKey(item);
+        return date ? {
+          id: `calendar-event-${index + 1}`,
+          date,
+          title: `Camp Event ${index + 1}`,
+          member: "",
+          description: "",
+          icon: "",
+          status: "Active"
+        } : null;
+      }
+
+      if (typeof item !== "object" || Array.isArray(item)) return null;
+
+      const date = normalizeDateKey(item.date || item.day || item.when);
+      if (!date) return null;
+
+      const title = String(item.title || item.name || "Camp Event").trim();
+
+      return {
+        id: item.id || slugify(`${title}-${date}-${index}-${Math.random().toString(36).slice(2, 7)}`) || `calendar-event-${index + 1}`,
+        date,
+        title: title || "Camp Event",
+        member: String(item.member || item.by || item.host || item.who || item.plannedBy || "").trim(),
+        description: String(item.description || item.note || item.details || "").trim(),
+        icon: String(item.icon || item.emoji || "").trim(),
+        status: String(item.status || "Active").trim() || "Active"
+      };
+    }
+
+    function normalizeStand(item, index = 0) {
+      if (!item) return null;
+
+      if (typeof item === "string") {
+        const name = item.trim();
+        if (!name) return null;
+        return {
+          id: slugify(`${name}-${index + 1}`) || `camp-stand-${index + 1}`,
+          name,
+          area: "",
+          assignedHunter: "",
+          backupHunter: "",
+          bestWind: "",
+          accessRoute: "",
+          notes: "",
+          status: "Active"
+        };
+      }
+
+      if (typeof item !== "object" || Array.isArray(item)) return null;
+
+      const name = String(item.name || item.title || item.label || item.standName || "Camp Stand").trim();
+      if (!name) return null;
+
+      return {
+        id: item.id || slugify(`${name}-${index + 1}-${Math.random().toString(36).slice(2, 7)}`) || `camp-stand-${index + 1}`,
+        name,
+        area: String(item.area || item.zone || item.location || item.region || "").trim(),
+        assignedHunter: String(item.assignedHunter || item.hunter || item.primaryHunter || item.member || item.assignedTo || "").trim(),
+        backupHunter: String(item.backupHunter || item.secondaryHunter || item.alternateHunter || item.backup || "").trim(),
+        bestWind: String(item.bestWind || item.wind || item.windNotes || item.preferredWind || "").trim(),
+        accessRoute: String(item.accessRoute || item.route || item.entryRoute || item.access || "").trim(),
+        notes: String(item.notes || item.description || item.details || item.note || "").trim(),
+        status: String(item.status || "Active").trim() || "Active"
+      };
+    }
+
+    function buildRoleLine(role) {
+      return role === "Camp Steward" ? "Camp administrator" : "Invited camp contributor";
+    }
+
+    function normalizeProfile(profile) {
+      const role = profile.role === "Camp Steward" ? "Camp Steward" : "Camp Member";
+      return {
+        id: profile.id || slugify(profile.name || `${role}-${Math.random().toString(36).slice(2, 7)}`),
+        name: profile.name || (role === "Camp Steward" ? "Camp Steward" : "Camp Member"),
+        role,
+        roleLine: profile.roleLine || buildRoleLine(role),
+        status: profile.status || "Active",
+        email: profile.email || "",
+        phone: profile.phone || "",
+        yearJoined: profile.yearJoined || profile.year || "",
+        favoriteStand: profile.favoriteStand || "",
+        favoriteGear: profile.favoriteGear || "",
+        nickname: profile.nickname || "",
+        harvestHighlight: profile.harvestHighlight || "",
+        bestCampMemory: profile.bestCampMemory || "",
+        specialty: profile.specialty || "",
+        note: profile.note || "",
+        responsibilities: Array.isArray(profile.responsibilities) && profile.responsibilities.length
+          ? profile.responsibilities
+          : (role === "Camp Steward" ? [...defaultStewardResponsibilities] : [...defaultMemberContributions]),
+        photo: profile.photo || ""
+      };
+    }
+
+
+
+
+    function normalizeDrive(drive, index = 0, rosterNames = []) {
+      const roster = Array.isArray(rosterNames) ? rosterNames.filter(Boolean).map(name => String(name || "").trim()).filter(Boolean) : [];
+      const defaultStanders = roster.length ? roster.slice(0, 3) : ["Poster 1", "Poster 2", "Poster 3"];
+      while (defaultStanders.length < 3) defaultStanders.push(roster[defaultStanders.length % Math.max(roster.length, 1)] || `Poster ${defaultStanders.length + 1}`);
+
+      const defaultDrivers = roster.length > 3 ? roster.slice(3, 5) : roster.slice(0, 2);
+      while (defaultDrivers.length < 2) defaultDrivers.push(roster[(defaultDrivers.length + 3) % Math.max(roster.length, 1)] || `Driver ${defaultDrivers.length + 1}`);
+
+      const asObject = (typeof drive === "object" && drive && !Array.isArray(drive)) ? drive : {};
+
+      const pickDriveText = (...values) => {
+        for (const value of values) {
+          if (typeof value === "string" && value.trim()) return value.trim();
+          if (typeof value === "number" && Number.isFinite(value)) return String(value);
+          if (value && typeof value === "object" && !Array.isArray(value)) {
+            const nested = pickDriveText(value.name, value.title, value.label, value.text, value.value, value.displayName, value.heading);
+            if (nested) return nested;
+          }
+        }
+        return "";
+      };
+
+      const toNameArray = (primary, fallback = []) => {
+        const source = Array.isArray(primary) && primary.length ? primary : fallback;
+        return (Array.isArray(source) ? source : [])
+          .map(item => {
+            if (typeof item === "string") return item.trim();
+            if (typeof item === "number" && Number.isFinite(item)) return String(item);
+            if (item && typeof item === "object" && !Array.isArray(item)) {
+              return pickDriveText(item.name, item.label, item.title, item.text, item.value, item.member);
+            }
+            return "";
+          })
+          .filter(Boolean);
+      };
+
+      const rawName = typeof drive === "string"
+        ? drive
+        : pickDriveText(
+            asObject.name,
+            asObject.title,
+            asObject.label,
+            asObject.heading,
+            asObject.displayName,
+            asObject.driveName,
+            asObject.driveTitle
+          ) || `Deer Drive ${index + 1}`;
+
+      const rawVariant = pickDriveText(
+        asObject.variant,
+        asObject.mapVariant,
+        asObject.variantKey,
+        asObject.layout,
+        asObject.terrain
+      ) || (String(rawName).toLowerCase().includes("south") || index % 2 === 1 ? "south" : "north");
+
+      const variant = String(rawVariant).trim().toLowerCase() === "south" ? "south" : "north";
+      const standers = toNameArray(asObject.standers, asObject.roles?.standers).length
+        ? toNameArray(asObject.standers, asObject.roles?.standers)
+        : defaultStanders.slice(0, 3);
+      const drivers = toNameArray(asObject.drivers, asObject.roles?.drivers).length
+        ? toNameArray(asObject.drivers, asObject.roles?.drivers)
+        : defaultDrivers.slice(0, 2);
+      const cleanName = pickDriveText(rawName) || `Deer Drive ${index + 1}`;
+
+      return {
+        id: pickDriveText(asObject.id) || slugify(`${cleanName}-${index + 1}`) || `deer-drive-${index + 1}`,
+        name: cleanName,
+        title: cleanName,
+        label: cleanName,
+        displayName: cleanName,
+        heading: cleanName,
+        driveName: cleanName,
+        driveTitle: cleanName,
+        variant,
+        plan: pickDriveText(asObject.plan, asObject.overview, asObject.description, asObject.summary) || (
+          variant === "south"
+            ? "Two drivers push diagonally through a brushy south cut while three standers block the open exit lanes and pinch point."
+            : "Three blockers set high along the timber edge while two drivers sweep the center lane uphill through the maples and creek bend."
+        ),
+        overview: pickDriveText(asObject.overview, asObject.plan, asObject.description, asObject.summary) || (
+          variant === "south"
+            ? "Two drivers push diagonally through a brushy south cut while three standers block the open exit lanes and pinch point."
+            : "Three blockers set high along the timber edge while two drivers sweep the center lane uphill through the maples and creek bend."
+        ),
+        standers,
+        drivers,
+        roles: { standers: [...standers], drivers: [...drivers] },
+        notes: pickDriveText(asObject.notes, asObject.note, asObject.mapNote, asObject.safetyNote)
+      };
+    }
+
+    function normalizeTradition(item) {
+      if (!item) return null;
+
+      const buildTradition = (label = "", description = "", group = "", url = "") => {
+        const cleanLabel = String(label || "").trim();
+        if (!cleanLabel) return null;
+        const lookup = STARTER_TRADITION_LOOKUP[cleanLabel.toLowerCase()] || {};
+        return {
+          id: item.id || slugify(`${cleanLabel}-${Math.random().toString(36).slice(2, 7)}`),
+          label: cleanLabel,
+          description: String(description || lookup.description || "A camp ritual that helps define this deer camp.").trim(),
+          group: String(group || lookup.group || "Camp Traditions").trim(),
+          url: String(url || "").trim()
+        };
+      };
+
+      if (typeof item === "string") {
+        const raw = item.trim();
+        if (!raw) return null;
+        if (raw.includes("|")) {
+          const [labelPart, urlPart, descriptionPart, groupPart] = raw.split("|");
+          return buildTradition(labelPart, descriptionPart, groupPart, urlPart);
+        }
+        return buildTradition(raw);
+      }
+
+      if (typeof item === "object" && !Array.isArray(item)) {
+        return buildTradition(
+          item.label || item.title || item.name || "",
+          item.description || item.note || item.details || "",
+          item.group || item.category || item.section || "",
+          item.url || item.href || item.link || ""
+        );
+      }
+
+      return null;
+    }
+
+
+
+    function normalizeCampCard(item, index = 0) {
+      if (!item) return null;
+      if (typeof item === "string") {
+        const clean = item.trim();
+        if (!clean) return null;
+        return {
+          id: slugify(`${clean}-${index}`) || `campcard-${index + 1}`,
+          title: clean,
+          source: "Camp Steward",
+          image: "",
+          caption: "Featured camp story.",
+          story: "",
+          status: "Active"
+        };
+      }
+      if (typeof item === "object" && !Array.isArray(item)) {
+        const title = String(item.title || item.label || item.name || `CampCard ${index + 1}`).trim();
+        return {
+          id: item.id || slugify(`${title}-${index}-${Math.random().toString(36).slice(2, 7)}`) || `campcard-${index + 1}`,
+          title: title || `CampCard ${index + 1}`,
+          source: String(item.source || item.member || item.author || "Camp Steward").trim(),
+          image: String(item.image || item.img || "").trim(),
+          caption: String(item.caption || item.description || item.body || "Featured camp story.").trim(),
+          story: String(item.story || item.details || item.text || "").trim(),
+          status: String(item.status || "Active").trim() || "Active"
+        };
+      }
+      return null;
+    }
+
+
+    function normalizeCampMemory(item, index = 0) {
+      if (!item) return null;
+      if (typeof item === "string") {
+        const clean = item.trim();
+        if (!clean) return null;
+        return {
+          id: `campmemory-${index + 1}`,
+          title: clean,
+          category: "Legacy",
+          winner: "Camp Steward",
+          year: "",
+          image: "",
+          audio: "",
+          caption: "Camp memory preserved by the Steward.",
+          story: "",
+          status: "Active"
+        };
+      }
+      if (typeof item === "object" && !Array.isArray(item)) {
+        const title = String(item.title || item.label || item.name || `CampMemory ${index + 1}`).trim();
+        return {
+          id: item.id || slugify(`${title}-${index}-${Math.random().toString(36).slice(2, 7)}`) || `campmemory-${index + 1}`,
+          title: title || `CampMemory ${index + 1}`,
+          category: String(item.category || item.type || "Legacy").trim(),
+          winner: String(item.winner || item.member || item.source || "Camp Steward").trim(),
+          year: String(item.year || "").trim(),
+          image: String(item.image || item.img || "").trim(),
+          audio: String(item.audio || item.voice || "").trim(),
+          caption: String(item.caption || item.description || item.body || "Camp memory preserved by the Steward.").trim(),
+          story: String(item.story || item.details || item.text || "").trim(),
+          status: String(item.status || "Active").trim() || "Active"
+        };
+      }
+      return null;
+    }
+
+function normalizeCampRecipe(item, index = 0) {
+      const source = item || {};
+      const title = String(source.title || source.name || source.sourceTitle || `Camp Recipe ${index + 1}`).trim();
+      const meal = String(source.meal || "Dinner").trim() || "Dinner";
+      return {
+        id: source.id || slugify(`${title}-${index}`),
+        title,
+        subtitle: String(source.subtitle || `${meal} • DeerCamp Recipe`).trim(),
+        meal,
+        sourceTitle: String(source.sourceTitle || title).trim(),
+        description: String(source.description || "A camp recipe preserved by the Steward.").trim(),
+        time: String(source.time || "30 min").trim(),
+        serves: String(source.serves || "4").trim(),
+        difficulty: String(source.difficulty || "Easy").trim(),
+        equipment: String(source.equipment || "").trim(),
+        ingredients: Array.isArray(source.ingredients) ? source.ingredients.filter(Boolean) : [],
+        steps: Array.isArray(source.steps) ? source.steps.filter(Boolean) : [],
+        serving: Array.isArray(source.serving) ? source.serving.filter(Boolean) : [],
+        tips: Array.isArray(source.tips) ? source.tips.filter(Boolean) : [],
+        icon: String(source.icon || "").trim(),
+        owner: String(source.owner || "").trim(),
+        adjective: String(source.adjective || "").trim(),
+        status: source.status || "Active"
+      };
+    }
+
+    function linesToArray(value) {
+      return String(value || "")
+        .split(/\r?\n/)
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function arrayToLines(value) {
+      return Array.isArray(value) ? value.join("\n") : "";
+    }
+
+
+
+    function sanitizeStoredDriveArray(source, rosterNames = []) {
+      return (Array.isArray(source) ? source : []).map((drive, index) => {
+        const normalizedDrive = normalizeDrive(drive, index, rosterNames);
+        const safeName = normalizedDrive.name || `Deer Drive ${index + 1}`;
+        return {
+          ...normalizedDrive,
+          name: safeName,
+          title: safeName,
+          label: safeName,
+          displayName: safeName,
+          heading: safeName,
+          driveName: safeName,
+          driveTitle: safeName,
+          plan: normalizedDrive.plan || normalizedDrive.overview || "",
+          overview: normalizedDrive.overview || normalizedDrive.plan || "",
+          standers: Array.isArray(normalizedDrive.standers) ? normalizedDrive.standers.filter(Boolean) : [],
+          drivers: Array.isArray(normalizedDrive.drivers) ? normalizedDrive.drivers.filter(Boolean) : [],
+          roles: {
+            standers: Array.isArray(normalizedDrive.standers) ? normalizedDrive.standers.filter(Boolean) : [],
+            drivers: Array.isArray(normalizedDrive.drivers) ? normalizedDrive.drivers.filter(Boolean) : []
+          },
+          notes: normalizedDrive.notes || ""
+        };
+      });
+    }
+
+    function sanitizeLocalStorageDriveData() {
+      try {
+        const rawCampData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
+        const rawDashboardData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
+
+        const rosterFromDashboard = Array.isArray(rawDashboardData.people)
+          ? rawDashboardData.people.map(person => normalizeProfile(person)).map(person => person.name).filter(Boolean)
+          : [];
+        const rosterFromCampProfiles = Array.isArray(rawCampData.memberProfiles)
+          ? rawCampData.memberProfiles.map(profile => normalizeProfile(profile)).map(person => person.name).filter(Boolean)
+          : [];
+        const rosterFromCampMembers = Array.isArray(rawCampData.members)
+          ? rawCampData.members.map(value => String(value || "").trim()).filter(Boolean)
+          : [];
+        const rosterNames = rosterFromDashboard.length
+          ? rosterFromDashboard
+          : (rosterFromCampProfiles.length ? rosterFromCampProfiles : rosterFromCampMembers);
+
+        if (Array.isArray(rawCampData.deerDrives)) {
+          rawCampData.deerDrives = sanitizeStoredDriveArray(rawCampData.deerDrives, rosterNames);
+          localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(rawCampData));
+        }
+
+        if (rawDashboardData && typeof rawDashboardData === "object") {
+          if (Array.isArray(rawDashboardData.people)) {
+            rawDashboardData.people = rawDashboardData.people.map(person => normalizeProfile(person));
+          }
+          if (Array.isArray(rawDashboardData.deerDrives)) {
+            rawDashboardData.deerDrives = sanitizeStoredDriveArray(rawDashboardData.deerDrives, rosterNames);
+          }
+          if (Object.keys(rawDashboardData).length) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(rawDashboardData));
+          }
+        }
+      } catch (error) {
+        console.warn("Could not sanitize deer-drive storage", error);
+      }
+    }
+
+    function deriveDashboardData() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed.people)) {
+            parsed.people = parsed.people.map(normalizeProfile);
+            const rosterNames = parsed.people.map(person => person.name);
+            parsed.deerDrives = (Array.isArray(parsed.deerDrives) ? parsed.deerDrives : []).map((drive, index) => normalizeDrive(drive, index, rosterNames));
+            parsed.traditions = (Array.isArray(parsed.traditions) ? parsed.traditions : [])
+              .map(normalizeTradition)
+              .filter(Boolean);
+            parsed.campCards = (Array.isArray(parsed.campCards) ? parsed.campCards : [])
+              .map(normalizeCampCard)
+              .filter(Boolean);
+            parsed.campMemories = (Array.isArray(parsed.campMemories) ? parsed.campMemories : [])
+              .map(normalizeCampMemory)
+              .filter(Boolean);
+            parsed.calendarEvents = (Array.isArray(parsed.calendarEvents) ? parsed.calendarEvents : [])
+              .map(normalizeCalendarEvent)
+              .filter(Boolean);
+            parsed.campStands = (Array.isArray(parsed.campStands) ? parsed.campStands : [])
+              .map(normalizeStand)
+              .filter(Boolean);
+            parsed.lastSaved = parsed.lastSaved || "";
+            return parsed;
+          }
+        } catch (error) {
+          console.warn("Could not parse saved dashboard data", error);
+        }
+      }
+
+      let campData = {};
+      try {
+        campData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
+      } catch (error) {
+        campData = {};
+      }
+
+      const campName = campData.name || campData.campName || "Big Buck Camp";
+      const city = campData.city || "Eau Claire";
+      const state = campData.state || "WI";
+      const established = campData.established || campData.year || "1999";
+
+      const sourceProfiles = Array.isArray(campData.memberProfiles) && campData.memberProfiles.length
+        ? campData.memberProfiles
+        : [];
+
+      let people = sourceProfiles.map(profile => normalizeProfile(profile));
+
+      if (!people.length) {
+        const stewardName = campData.steward || campData.stewardName || campData.campSteward || "Eric Simmerman";
+        const members = Array.isArray(campData.members) ? campData.members : ["Bruce", "Phil", "Nate", "Ben"];
+        people = [
+          normalizeProfile({
+            id: "steward",
+            name: stewardName,
+            role: "Camp Steward",
+            roleLine: "Camp administrator",
+            status: "Active"
+          }),
+          ...members.map((name, index) => normalizeProfile({
+            id: `member-${index + 1}`,
+            name,
+            role: "Camp Member",
+            roleLine: "Invited camp contributor",
+            status: "Active"
+          }))
+        ];
+      }
+
+      const customTraditionLinks = campData.traditionLinks && typeof campData.traditionLinks === "object"
+        ? campData.traditionLinks
+        : {};
+
+      const campCards = (Array.isArray(campData.campCards) ? campData.campCards : STARTER_CAMP_CARDS)
+        .map(normalizeCampCard)
+        .filter(Boolean);
+
+      const campMemories = (Array.isArray(campData.memories) ? campData.memories : (Array.isArray(campData.wallOfFame) ? campData.wallOfFame : STARTER_CAMP_MEMORIES))
+        .map(normalizeCampMemory)
+        .filter(Boolean);
+
+      const campRecipes = (Array.isArray(campData.recipeObjects) && campData.recipeObjects.length
+          ? campData.recipeObjects
+          : (Array.isArray(campData.recipes) && campData.recipes.length ? campData.recipes : STARTER_CAMP_RECIPES))
+        .map(normalizeCampRecipe)
+        .filter(Boolean);
+
+      const campCalendarEvents = (
+        Array.isArray(campData.calendarEvents) ? campData.calendarEvents
+        : (Array.isArray(campData.events) ? campData.events
+        : (Array.isArray(campData.campEvents) ? campData.campEvents : []))
+      )
+        .map(normalizeCalendarEvent)
+        .filter(Boolean);
+
+      const campStands = (
+        Array.isArray(campData.campStands) ? campData.campStands
+        : (Array.isArray(campData.stands) ? campData.stands
+        : (Array.isArray(campData.campMap) ? campData.campMap
+        : (Array.isArray(campData.standMap) ? campData.standMap : [])))
+      )
+        .map(normalizeStand)
+        .filter(Boolean);
+
+      const traditions = (Array.isArray(campData.traditions) ? campData.traditions : [])
+        .map(item => {
+          if (item && typeof item === "object" && !Array.isArray(item) && !item.url) {
+            const derivedUrl = customTraditionLinks[item.label || item.title || item.name || ""];
+            return derivedUrl ? { ...item, url: derivedUrl } : item;
+          }
+          return item;
+        })
+        .map(normalizeTradition)
+        .filter(Boolean);
+
+      const rosterNames = people.filter(person => person.status !== "Removed").map(person => person.name);
+      const sourceDrives = Array.isArray(campData.deerDrives) ? campData.deerDrives : [];
+      const deerDrives = (sourceDrives.length ? sourceDrives : ["North Field", "South Field"]).map((drive, index) => normalizeDrive(drive, index, rosterNames));
+
+      const steward = people.find(person => person.role === "Camp Steward");
+      if (!steward) {
+        people.unshift(normalizeProfile({
+          id: "steward",
+          name: "Camp Steward",
+          role: "Camp Steward",
+          roleLine: "Camp administrator",
+          status: "Active"
+        }));
+      }
+
+      return {
+        camp: {
+          name: campName,
+          city,
+          state,
+          established,
+          location: [city, state].filter(Boolean).join(", "),
+          slug: slugify(campName) || "big-buck-camp"
+        },
+        people,
+        campStands,
+        deerDrives,
+        traditions,
+        campCards,
+        campMemories,
+        campRecipes,
+        calendarEvents: campCalendarEvents,
+        lastSaved: ""
+      };
+    }
+
+    sanitizeLocalStorageDriveData();
+    let dashboardState = deriveDashboardData();
+    dashboardState.deerDrives = Array.isArray(dashboardState.deerDrives)
+      ? dashboardState.deerDrives.map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)))
+      : ["North Field", "South Field"].map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)));
+    dashboardState.traditions = Array.isArray(dashboardState.traditions) ? dashboardState.traditions : [];
+    dashboardState.campCards = Array.isArray(dashboardState.campCards) ? dashboardState.campCards : STARTER_CAMP_CARDS.map(normalizeCampCard).filter(Boolean);
+    dashboardState.campMemories = Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : STARTER_CAMP_MEMORIES.map(normalizeCampMemory).filter(Boolean);
+    dashboardState.campRecipes = Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : STARTER_CAMP_RECIPES.map(normalizeCampRecipe).filter(Boolean);
+    dashboardState.calendarEvents = Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents.map(normalizeCalendarEvent).filter(Boolean) : [];
+    dashboardState.campStands = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : [];
+    syncCampDataFromDashboard();
+
+    function syncCampDataFromDashboard() {
+      let campData = {};
+      try {
+        campData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
+      } catch (error) {
+        campData = {};
+      }
+
+      const steward = getSteward();
+      const activeMembers = dashboardState.people
+        .filter(person => person.role !== "Camp Steward" && person.status === "Active")
+        .map(person => String(person.name || "").trim())
+        .filter(Boolean);
+
+      const syncedProfiles = dashboardState.people
+        .filter(person => person.status !== "Removed")
+        .map(person => ({ ...person }));
+
+      const syncedTraditions = (Array.isArray(dashboardState.traditions) ? dashboardState.traditions : [])
+        .map(item => ({
+          label: item.label,
+          description: item.description,
+          group: item.group,
+          url: item.url || ""
+        }));
+
+      const syncedCampCards = (Array.isArray(dashboardState.campCards) ? dashboardState.campCards : [])
+        .filter(item => item.status !== "Removed")
+        .map(item => ({
+          id: item.id,
+          title: item.title,
+          source: item.source,
+          image: item.image,
+          caption: item.caption,
+          story: item.story,
+          status: item.status || "Active"
+        }));
+
+      const traditionLinks = {};
+      syncedTraditions.forEach(item => {
+        if (item.url) traditionLinks[item.label] = item.url;
+      });
+
+      const syncedCampMemories = (Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : [])
+        .filter(item => item.status !== "Removed")
+        .map(item => ({
+          id: item.id,
+          title: item.title,
+          category: item.category,
+          winner: item.winner,
+          year: item.year,
+          image: item.image,
+          audio: item.audio,
+          caption: item.caption,
+          story: item.story,
+          status: item.status || "Active"
+        }));
+
+      const syncedCampRecipes = (Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : [])
+        .filter(item => item.status !== "Removed")
+        .map(item => ({
+          id: item.id,
+          title: item.title,
+          subtitle: item.subtitle,
+          meal: item.meal,
+          sourceTitle: item.sourceTitle,
+          description: item.description,
+          time: item.time,
+          serves: item.serves,
+          difficulty: item.difficulty,
+          equipment: item.equipment,
+          ingredients: [...(Array.isArray(item.ingredients) ? item.ingredients : [])],
+          steps: [...(Array.isArray(item.steps) ? item.steps : [])],
+          serving: [...(Array.isArray(item.serving) ? item.serving : [])],
+          tips: [...(Array.isArray(item.tips) ? item.tips : [])],
+          icon: item.icon || "",
+          owner: item.owner || "",
+          adjective: item.adjective || "",
+          status: item.status || "Active"
+        }));
+
+      const syncedCalendarEvents = (Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents : [])
+        .filter(item => item.status !== "Removed")
+        .map(item => ({
+          id: item.id,
+          date: item.date,
+          title: item.title,
+          member: item.member || "",
+          description: item.description || "",
+          icon: item.icon || "",
+          status: item.status || "Active"
+        }));
+
+      const syncedCampStands = (Array.isArray(dashboardState.campStands) ? dashboardState.campStands : [])
+        .filter(item => item.status !== "Removed")
+        .map(item => ({
+          id: item.id,
+          name: item.name,
+          title: item.name,
+          label: item.name,
+          standName: item.name,
+          area: item.area || "",
+          zone: item.area || "",
+          assignedHunter: item.assignedHunter || "",
+          hunter: item.assignedHunter || "",
+          primaryHunter: item.assignedHunter || "",
+          backupHunter: item.backupHunter || "",
+          alternateHunter: item.backupHunter || "",
+          bestWind: item.bestWind || "",
+          wind: item.bestWind || "",
+          accessRoute: item.accessRoute || "",
+          route: item.accessRoute || "",
+          notes: item.notes || "",
+          description: item.notes || "",
+          status: item.status || "Active"
+        }));
+
+      const syncedDeerDrives = (Array.isArray(dashboardState.deerDrives) ? dashboardState.deerDrives : []).map((drive, index) => {
+        const normalizedDrive = normalizeDrive(drive, index, dashboardState.people
+          .filter(person => person.status !== "Removed")
+          .map(person => person.name));
+        const safeName = normalizedDrive.name || `Deer Drive ${index + 1}`;
+        return {
+          id: normalizedDrive.id || `deer-drive-${index + 1}`,
+          name: safeName,
+          title: safeName,
+          label: safeName,
+          displayName: safeName,
+          heading: safeName,
+          driveName: safeName,
+          driveTitle: safeName,
+          variant: normalizedDrive.variant || (index % 2 === 1 ? "south" : "north"),
+          plan: normalizedDrive.plan || "",
+          overview: normalizedDrive.overview || normalizedDrive.plan || "",
+          standers: Array.isArray(normalizedDrive.standers) ? normalizedDrive.standers.filter(Boolean) : [],
+          drivers: Array.isArray(normalizedDrive.drivers) ? normalizedDrive.drivers.filter(Boolean) : [],
+          roles: {
+            standers: Array.isArray(normalizedDrive.standers) ? normalizedDrive.standers.filter(Boolean) : [],
+            drivers: Array.isArray(normalizedDrive.drivers) ? normalizedDrive.drivers.filter(Boolean) : []
+          },
+          notes: normalizedDrive.notes || ""
+        };
+      });
+
+      const updatedCampData = {
+        ...campData,
+        name: dashboardState.camp.name || campData.name || "DeerCamp",
+        campName: dashboardState.camp.name || campData.campName || campData.name || "DeerCamp",
+        city: dashboardState.camp.city || campData.city || "",
+        state: dashboardState.camp.state || campData.state || "",
+        established: dashboardState.camp.established || campData.established || campData.year || "",
+        location: dashboardState.camp.location || campData.location || "",
+        stewardName: steward?.name || campData.stewardName || campData.steward || "",
+        steward: steward?.name || campData.steward || campData.stewardName || "",
+        campSteward: steward?.name || campData.campSteward || campData.stewardName || "",
+        members: activeMembers,
+        campMembers: activeMembers,
+        memberProfiles: syncedProfiles,
+        traditions: syncedTraditions,
+        traditionLinks,
+        memories: syncedCampMemories,
+        wallOfFame: syncedCampMemories,
+        campStands: syncedCampStands,
+        stands: syncedCampStands,
+        campMap: syncedCampStands,
+        standMap: syncedCampStands,
+        deerDrives: syncedDeerDrives,
+        calendarEvents: syncedCalendarEvents,
+        events: syncedCalendarEvents,
+        campEvents: syncedCalendarEvents,
+        recipeObjects: syncedCampRecipes,
+        recipes: syncedCampRecipes,
+        recipeNames: syncedCampRecipes.map(item => item.title)
+      };
+
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
+    }
+
+    function saveState(showMessage = false) {
+      dashboardState.lastSaved = currentTimestampLabel();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+      syncCampDataFromDashboard();
+      if (showMessage) showToast("Steward dashboard and camp page saved locally.");
+      render();
+    }
+
+    function isProfileComplete(person) {
+      const requiredFields = [
+        person.yearJoined,
+        person.favoriteStand,
+        person.favoriteGear,
+        person.harvestHighlight,
+        person.bestCampMemory,
+        person.specialty
+      ];
+      return requiredFields.every(value => String(value || "").trim());
+    }
+
+    function getPeopleByStatus(status) {
+      return dashboardState.people.filter(person => person.status === status);
+    }
+
+    function getSteward() {
+      return dashboardState.people.find(person => person.role === "Camp Steward") || dashboardState.people[0];
+    }
+
+    function setTopbar(tab) {
+      document.getElementById("topbarTitle").textContent = tabMeta[tab].title;
+      document.getElementById("topbarSubtitle").textContent = tabMeta[tab].subtitle;
+    }
+
+    function showTab(tabName) {
+      document.querySelectorAll(".nav-link[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
+      document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
+      setTopbar(tabName);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function renderSidebar() {
+      const camp = dashboardState.camp;
+      document.getElementById("sidebarCampName").textContent = camp.name;
+      document.getElementById("sidebarCampMeta").textContent = `${camp.location || [camp.city, camp.state].filter(Boolean).join(", ") || "Camp location"} • Est. ${camp.established || "—"}`;
+    }
+
+    function renderDashboardHome() {
+      const activePeople = dashboardState.people.filter(person => person.status === "Active");
+      const pendingPeople = dashboardState.people.filter(person => person.status === "Invited");
+      const completeCount = activePeople.filter(isProfileComplete).length;
+      const incompleteCount = activePeople.length - completeCount;
+      const steward = getSteward();
+
+      document.getElementById("statActiveMembers").textContent = activePeople.length;
+      document.getElementById("statPendingInvites").textContent = pendingPeople.length;
+      document.getElementById("statProfilesCompleted").textContent = completeCount;
+      document.getElementById("statProfilesIncomplete").textContent = incompleteCount;
+      document.getElementById("statStewardName").textContent = steward ? steward.name.split(" ")[0] : "—";
+      document.getElementById("statLastSaved").textContent = dashboardState.lastSaved || "Not yet";
+
+      const attentionList = document.getElementById("attentionList");
+      const items = [];
+
+      if (pendingPeople.length) {
+        items.push(`<div class="summary-item"><strong>${pendingPeople.length} pending invite${pendingPeople.length > 1 ? "s" : ""}</strong><span>Follow up with invited members or activate them after they join.</span></div>`);
+      }
+
+      if (incompleteCount) {
+        items.push(`<div class="summary-item"><strong>${incompleteCount} incomplete active profile${incompleteCount > 1 ? "s" : ""}</strong><span>Finish joined year, favorite stand, gear, and memory details for better public popups.</span></div>`);
+      }
+
+      items.push(`<div class="summary-item"><strong>Steward profile is public-facing</strong><span>Keep ${steward.name}'s role, duties, and camp note polished for the member popup modal.</span></div>`);
+      const traditionCount = Array.isArray(dashboardState.traditions) ? dashboardState.traditions.length : 0;
+      if (traditionCount) {
+        items.push(`<div class="summary-item"><strong>${traditionCount} active tradition${traditionCount > 1 ? "s" : ""}</strong><span>Your CampTraditions section is now editable from the dashboard and publishes directly to the live camp page.</span></div>`);
+      } else {
+        items.push(`<div class="summary-item"><strong>No traditions saved yet</strong><span>Open CampTraditions and add starter or custom camp rituals so that section does not feel empty on the public page.</span></div>`);
+      }
+
+      const memoryCount = Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories.length : 0;
+      if (memoryCount) {
+        items.push(`<div class="summary-item"><strong>${memoryCount} CampMemories / Wall of Fame entr${memoryCount === 1 ? "y" : "ies"}</strong><span>The Steward can now manage annual winners and preserved memories from the dashboard.</span></div>`);
+      } else {
+        items.push(`<div class="summary-item"><strong>No CampMemories saved yet</strong><span>Open CampMemories / Wall of Fame and add this season's winners or key camp moments.</span></div>`);
+      }
+
+      const standCount = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.length : 0;
+      if (standCount) {
+        items.push(`<div class="summary-item"><strong>${standCount} CampStand${standCount > 1 ? "s" : ""} configured</strong><span>Stand assignments, wind notes, and access routes are ready to publish from the dashboard.</span></div>`);
+      } else {
+        items.push(`<div class="summary-item"><strong>No CampStands saved yet</strong><span>Open CampStands and build your stand roster before the season starts.</span></div>`);
+      }
+
+      const calendarCount = Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents.length : 0;
+      if (calendarCount) {
+        items.push(`<div class="summary-item"><strong>${calendarCount} CampCalendar event${calendarCount > 1 ? "s" : ""} saved</strong><span>Your hunt weekends, opener dates, and camp events are now manageable from the dashboard.</span></div>`);
+      } else {
+        items.push(`<div class="summary-item"><strong>No CampCalendar events saved yet</strong><span>Open CampCalendar and add opener dates, hunt weekends, camp meals, or work weekends.</span></div>`);
+      }
+
+      const driveCount = Array.isArray(dashboardState.deerDrives) ? dashboardState.deerDrives.length : 0;
+      if (driveCount) {
+        items.push(`<div class="summary-item"><strong>${driveCount} CampDeerDrive${driveCount > 1 ? "s" : ""} configured</strong><span>Driver and stander assignments are now publishing from the dashboard to the live camp page.</span></div>`);
+      } else {
+        items.push(`<div class="summary-item"><strong>No CampDeerDrives set yet</strong><span>Open CampDeerDrives and build the drive plans you want shown on the live camp page.</span></div>`);
+      }
+
+      items.push(`<div class="summary-item"><strong>Roster now drives later sections</strong><span>This membership data now feeds Deer Drive assignments along with future CampFeed and CampCards tools.</span></div>`);
+
+      attentionList.innerHTML = items.join("");
+    }
+
+    function renderStewardCard() {
+      const steward = getSteward();
+      const wrap = document.getElementById("stewardCardWrap");
+      if (!steward) {
+        wrap.innerHTML = '<div class="empty-state">No Steward found yet.</div>';
+        return;
+      }
+
+      wrap.innerHTML = `
+        <div class="person-card">
+          <div class="avatar">${steward.photo ? `<img src="${steward.photo}" alt="${steward.name}">` : initialsFromName(steward.name)}</div>
+          <div class="person-meta">
+            <strong>${steward.name}</strong>
+            <div class="sub">${steward.roleLine} • ${steward.email || "No email yet"}</div>
+            <div class="pill-row">
+              <span class="pill gold">${steward.role}</span>
+              <span class="pill green">${steward.status}</span>
+            </div>
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-secondary" type="button" onclick="openProfileDrawer('${steward.id}')">Edit Steward</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function buildMemberRow(person) {
+      return `
+        <div class="list-row">
+          <div>
+            <strong>${person.name}</strong>
+            <div class="meta">${person.email || "No email yet"}</div>
+          </div>
+          <div class="meta">${person.role}</div>
+          <div>
+            <span class="pill ${person.status === "Active" ? "green" : person.status === "Invited" ? "gold" : ""}">${person.status}</span>
+          </div>
+          <div class="row-actions">
+            <button class="btn btn-soft" type="button" onclick="openProfileDrawer('${person.id}')">Edit</button>
+            ${person.status === "Invited" ? `<button class="btn btn-secondary" type="button" onclick="activateMember('${person.id}')">Activate</button>` : ""}
+            ${person.role !== "Camp Steward" ? `<button class="btn btn-danger" type="button" onclick="removeMember('${person.id}')">Remove</button>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderMembership() {
+      renderStewardCard();
+      const activeMembers = dashboardState.people.filter(person => person.status === "Active" && person.role !== "Camp Steward");
+      const pendingInvites = getPeopleByStatus("Invited");
+
+      document.getElementById("activeMembersList").innerHTML = activeMembers.length
+        ? activeMembers.map(buildMemberRow).join("")
+        : '<div class="empty-state">No active members yet. Add one from the invite form above.</div>';
+
+      document.getElementById("pendingInvitesList").innerHTML = pendingInvites.length
+        ? pendingInvites.map(buildMemberRow).join("")
+        : '<div class="empty-state">No pending invites right now.</div>';
+    }
+
+
+
+    function resetStandForm() {
+      const form = document.getElementById("standForm");
+      if (form) form.reset();
+      document.getElementById("standId").value = "";
+      document.getElementById("standPanelTitle").textContent = "Add / Edit Stand";
+      document.getElementById("standPanelSubtitle").textContent = "These stand cards publish directly to the live CampStands section.";
+    }
+
+    function editStand(index) {
+      const stand = dashboardState.campStands[index];
+      if (!stand) return;
+
+      document.getElementById("standId").value = stand.id || "";
+      document.getElementById("standName").value = stand.name || "";
+      document.getElementById("standArea").value = stand.area || "";
+      document.getElementById("standAssignedHunter").value = stand.assignedHunter || "";
+      document.getElementById("standBackupHunter").value = stand.backupHunter || "";
+      document.getElementById("standBestWind").value = stand.bestWind || "";
+      document.getElementById("standAccessRoute").value = stand.accessRoute || "";
+      document.getElementById("standNotes").value = stand.notes || "";
+
+      document.getElementById("standPanelTitle").textContent = `Edit ${stand.name}`;
+      document.getElementById("standPanelSubtitle").textContent = [stand.area, stand.assignedHunter].filter(Boolean).join(" • ") || "Update the saved stand details.";
+
+      showTab("stands");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function removeStand(index) {
+      const stand = dashboardState.campStands[index];
+      if (!stand) return;
+      dashboardState.campStands.splice(index, 1);
+      saveState(true);
+      showToast(`${stand.name} removed from CampStands.`);
+      showTab("stands");
+    }
+
+    function renderCampStands() {
+      const list = document.getElementById("standsAdminList");
+      if (!list) return;
+
+      const items = (Array.isArray(dashboardState.campStands) ? dashboardState.campStands : [])
+        .filter(item => item.status !== "Removed");
+
+      document.getElementById("standTotal").textContent = String(items.length);
+      document.getElementById("standAssignedTotal").textContent = String(items.filter(item => item.assignedHunter).length);
+
+      if (!items.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            No CampStands saved yet.<br>
+            Add stand names, hunter assignments, wind notes, and access routes.
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = items.map((stand, index) => `
+        <div class="stand-admin-card">
+          <div class="stand-admin-head">
+            <div>
+              <p class="stand-admin-kicker">${stand.area || "Stand Area"}</p>
+              <p class="stand-admin-title">${stand.name}</p>
+            </div>
+            <div class="row-actions">
+              <button class="btn btn-soft" type="button" onclick="editStand(${index})">Edit</button>
+              <button class="btn btn-danger" type="button" onclick="removeStand(${index})">Remove</button>
+            </div>
+          </div>
+
+          <div class="stand-admin-meta">
+            <div class="summary-item"><strong>Assigned Hunter</strong><span>${stand.assignedHunter || "—"}</span></div>
+            <div class="summary-item"><strong>Backup Hunter</strong><span>${stand.backupHunter || "—"}</span></div>
+            <div class="summary-item"><strong>Best Wind</strong><span>${stand.bestWind || "—"}</span></div>
+            <div class="summary-item"><strong>Access Route</strong><span>${stand.accessRoute || "—"}</span></div>
+          </div>
+
+          <p class="stand-admin-notes">${stand.notes || "No notes yet."}</p>
+        </div>
+      `).join("");
+    }
+
+    function renderDeerDrives() {
+      const wrap = document.getElementById("deerDriveList");
+      if (!wrap) return;
+      const drives = Array.isArray(dashboardState.deerDrives) ? dashboardState.deerDrives : [];
+      wrap.innerHTML = drives.length ? drives.map((drive, index) => `
+        <div class="drive-card">
+          <div class="drive-card-head">
+            <div>
+              <div class="drive-kicker">Deer Drive ${index + 1}</div>
+              <h4 class="drive-card-title">${drive.name}</h4>
+              <div class="meta">${drive.variant === "south" ? "South / brush cut map" : "North / timber edge map"}</div>
+            </div>
+            <div class="row-actions">
+              <button class="btn btn-soft" type="button" onclick="editDrive('${drive.id}')">Edit</button>
+              <button class="btn btn-soft" type="button" onclick="moveDrive('${drive.id}', -1)" ${index === 0 ? 'disabled' : ''}>↑</button>
+              <button class="btn btn-soft" type="button" onclick="moveDrive('${drive.id}', 1)" ${index === drives.length - 1 ? 'disabled' : ''}>↓</button>
+              <button class="btn btn-danger" type="button" onclick="removeDrive('${drive.id}')">Remove</button>
+            </div>
+          </div>
+          <div class="drive-meta-grid">
+            <div class="summary-item"><strong>Drive plan</strong><span>${drive.plan || "No plan text yet."}</span></div>
+            <div class="summary-item"><strong>Notes</strong><span>${drive.notes || "—"}</span></div>
+          </div>
+          <div class="drive-roles-preview">
+            <div class="drive-role-block">
+              <div class="drive-role-title">Standers / Posters / Blockers</div>
+              <div class="chip-row">${(drive.standers || []).map(name => `<span class="chip">${name}</span>`).join("") || '<span class="meta">No standers assigned yet.</span>'}</div>
+            </div>
+            <div class="drive-role-block">
+              <div class="drive-role-title">Drivers / Pushers</div>
+              <div class="chip-row">${(drive.drivers || []).map(name => `<span class="chip driver">${name}</span>`).join("") || '<span class="meta">No drivers assigned yet.</span>'}</div>
+            </div>
+          </div>
+        </div>
+      `).join("") : '<div class="empty-state">No deer drives yet. Add one from the form on the right.</div>';
+    }
+
+    function renderTraditions() {
+      const list = document.getElementById("traditionsList");
+      const starters = document.getElementById("starterTraditionsGrid");
+      const activeTraditions = Array.isArray(dashboardState.traditions) ? dashboardState.traditions : [];
+
+      if (!activeTraditions.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            <div>No active traditions yet.</div>
+            <button class="btn btn-primary" type="button" onclick="showTab('traditions')">Start with the tradition library</button>
+          </div>
+        `;
+      } else {
+        list.innerHTML = activeTraditions.map((tradition, index) => `
+          <div class="tradition-admin-card">
+            <div class="tradition-admin-top">
+              <div>
+                <strong class="tradition-admin-title">${tradition.label}</strong>
+                <div class="tradition-admin-group">${tradition.group}</div>
+              </div>
+              <span class="pill">${index + 1}</span>
+            </div>
+            <p class="tradition-admin-description">${tradition.description || "A camp ritual that helps define this deer camp."}</p>
+            ${tradition.url ? `<div class="tradition-admin-link">${tradition.url}</div>` : ""}
+            <div class="tradition-admin-actions">
+              <button class="btn btn-soft" type="button" onclick="moveTradition(${index}, -1)" ${index === 0 ? "disabled" : ""}>Move Up</button>
+              <button class="btn btn-soft" type="button" onclick="moveTradition(${index}, 1)" ${index === activeTraditions.length - 1 ? "disabled" : ""}>Move Down</button>
+              <button class="btn btn-secondary" type="button" onclick="openTraditionDrawer(${index})">Edit</button>
+              <button class="btn btn-danger" type="button" onclick="removeTradition(${index})">Remove</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      starters.innerHTML = STARTER_TRADITIONS.map(item => {
+        const alreadyAdded = activeTraditions.some(tradition => tradition.label.toLowerCase() === item.label.toLowerCase());
+        return `
+          <div class="starter-card">
+            <div class="starter-card-top">
+              <div>
+                <strong>${item.label}</strong>
+                <div class="group-label">${item.group}</div>
+              </div>
+              ${alreadyAdded ? '<span class="pill green">Added</span>' : '<span class="pill">Starter</span>'}
+            </div>
+            <p>${item.description}</p>
+            <button class="btn ${alreadyAdded ? 'btn-soft' : 'btn-primary'}" type="button" onclick="addStarterTradition('${item.label.replace(/'/g, "\'")}')" ${alreadyAdded ? "disabled" : ""}>${alreadyAdded ? "Already Added" : "Add Tradition"}</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+
+
+    function addStarterCampCard(index) {
+      const template = STARTER_CAMP_CARDS[index];
+      if (!template) return;
+      const exists = dashboardState.campCards.some(item => (item.title || "").toLowerCase() === template.title.toLowerCase());
+      if (exists) {
+        showToast(`${template.title} is already in CampCards.`);
+        return;
+      }
+      dashboardState.campCards.push(normalizeCampCard(template, dashboardState.campCards.length));
+      saveState(true);
+      showTab("campcards");
+      showToast(`${template.title} added to CampCards.`);
+    }
+
+    function moveCampCard(index, direction) {
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= dashboardState.campCards.length) return;
+      const [moved] = dashboardState.campCards.splice(index, 1);
+      dashboardState.campCards.splice(nextIndex, 0, moved);
+      saveState(true);
+      showTab("campcards");
+    }
+
+    function removeCampCard(index) {
+      const card = dashboardState.campCards[index];
+      if (!card) return;
+      dashboardState.campCards.splice(index, 1);
+      saveState(true);
+      showToast(`${card.title} removed from CampCards.`);
+      showTab("campcards");
+    }
+
+    function openCampCardDrawer(index) {
+      const card = dashboardState.campCards[index];
+      if (!card) return;
+      document.getElementById("campCardIndex").value = String(index);
+      document.getElementById("campCardTitle").value = card.title || "";
+      document.getElementById("campCardSource").value = card.source || "";
+      document.getElementById("campCardImage").value = card.image || "";
+      document.getElementById("campCardCaption").value = card.caption || "";
+      document.getElementById("campCardStory").value = card.story || "";
+      document.getElementById("campCardDrawerTitle").textContent = `Edit ${card.title}`;
+      document.getElementById("campCardDrawerSubtitle").textContent = `${card.source || "Camp Steward"} • Featured camp story`;
+      document.getElementById("drawerBackdrop").classList.add("open");
+      document.getElementById("campCardDrawer").classList.add("open");
+      document.getElementById("campCardDrawer").setAttribute("aria-hidden", "false");
+    }
+
+    function closeCampCardDrawer() {
+      document.getElementById("campCardDrawer").classList.remove("open");
+      document.getElementById("campCardDrawer").setAttribute("aria-hidden", "true");
+      if (!document.getElementById("profileDrawer").classList.contains("open") && !document.getElementById("traditionDrawer").classList.contains("open") && !document.getElementById("campMemoryDrawer").classList.contains("open")) {
+        document.getElementById("drawerBackdrop").classList.remove("open");
+      }
+    }
+
+    function renderCampCards() {
+      const list = document.getElementById("campCardsList");
+      const starters = document.getElementById("campCardStarterGrid");
+      const activeCards = Array.isArray(dashboardState.campCards) ? dashboardState.campCards : [];
+
+      if (!activeCards.length) {
+        list.innerHTML = `<div class="empty-state"><div>No CampCards yet.</div><button class="btn btn-primary" type="button" onclick="showTab('campcards')">Add a featured story</button></div>`;
+      } else {
+        list.innerHTML = activeCards.map((card, index) => `
+          <div class="campcard-admin-card">
+            <div class="campcard-admin-preview">
+              ${card.image ? `<img src="${card.image}" alt="${card.title}">` : `<div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px;color:var(--muted);font-weight:700;">Add image path</div>`}
+            </div>
+            <div class="campcard-admin-meta">
+              <strong>${card.title}</strong>
+              <div class="campcard-admin-source">${card.source || "Camp Steward"}</div>
+              <p class="campcard-admin-caption">${card.caption || "Featured camp story."}</p>
+            </div>
+            <div class="campcard-admin-actions">
+              <button class="btn btn-soft" type="button" onclick="moveCampCard(${index}, -1)" ${index === 0 ? "disabled" : ""}>Move Up</button>
+              <button class="btn btn-soft" type="button" onclick="moveCampCard(${index}, 1)" ${index === activeCards.length - 1 ? "disabled" : ""}>Move Down</button>
+              <button class="btn btn-secondary" type="button" onclick="openCampCardDrawer(${index})">Edit</button>
+              <button class="btn btn-danger" type="button" onclick="removeCampCard(${index})">Remove</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      starters.innerHTML = STARTER_CAMP_CARDS.map((card, index) => {
+        const alreadyAdded = activeCards.some(item => (item.title || "").toLowerCase() === card.title.toLowerCase());
+        return `
+          <div class="starter-card">
+            ${card.image ? `<img src="${card.image}" alt="${card.title}">` : ""}
+            <div class="starter-card-top">
+              <div>
+                <strong>${card.title}</strong>
+                <div class="group-label">${card.source}</div>
+              </div>
+              ${alreadyAdded ? '<span class="pill green">Added</span>' : '<span class="pill">Starter</span>'}
+            </div>
+            <p>${card.caption}</p>
+            <button class="btn ${alreadyAdded ? 'btn-soft' : 'btn-primary'}" type="button" onclick="addStarterCampCard(${index})" ${alreadyAdded ? "disabled" : ""}>${alreadyAdded ? "Already Added" : "Add CampCard"}</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+
+    function addStarterCampMemory(index) {
+      const template = STARTER_CAMP_MEMORIES[index];
+      if (!template) return;
+      const exists = dashboardState.campMemories.some(item => (item.title || "").toLowerCase() === template.title.toLowerCase());
+      if (exists) {
+        showToast(`${template.title} is already in CampMemories.`);
+        return;
+      }
+      dashboardState.campMemories.push(normalizeCampMemory(template, dashboardState.campMemories.length));
+      saveState(true);
+      showTab("campmemories");
+      showToast(`${template.title} added to CampMemories.`);
+    }
+
+    function moveCampMemory(index, direction) {
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= dashboardState.campMemories.length) return;
+      const [moved] = dashboardState.campMemories.splice(index, 1);
+      dashboardState.campMemories.splice(nextIndex, 0, moved);
+      saveState(true);
+      showTab("campmemories");
+    }
+
+    function removeCampMemory(index) {
+      const memory = dashboardState.campMemories[index];
+      if (!memory) return;
+      dashboardState.campMemories.splice(index, 1);
+      saveState(true);
+      showToast(`${memory.title} removed from CampMemories.`);
+      showTab("campmemories");
+    }
+
+    function openCampMemoryDrawer(index) {
+      const memory = dashboardState.campMemories[index];
+      if (!memory) return;
+      document.getElementById("campMemoryIndex").value = String(index);
+      document.getElementById("campMemoryTitle").value = memory.title || "";
+      document.getElementById("campMemoryCategory").value = memory.category || "Legacy";
+      document.getElementById("campMemoryWinner").value = memory.winner || "";
+      document.getElementById("campMemoryYear").value = memory.year || "";
+      document.getElementById("campMemoryImage").value = memory.image || "";
+      document.getElementById("campMemoryAudio").value = memory.audio || "";
+      document.getElementById("campMemoryCaption").value = memory.caption || "";
+      document.getElementById("campMemoryStory").value = memory.story || "";
+      document.getElementById("campMemoryDrawerTitle").textContent = `Edit ${memory.title}`;
+      document.getElementById("campMemoryDrawerSubtitle").textContent = `${memory.category || "Legacy"} • ${memory.winner || "Camp Steward"}`;
+      document.getElementById("drawerBackdrop").classList.add("open");
+      document.getElementById("campMemoryDrawer").classList.add("open");
+      document.getElementById("campMemoryDrawer").setAttribute("aria-hidden", "false");
+    }
+
+    function closeCampMemoryDrawer() {
+      document.getElementById("campMemoryDrawer").classList.remove("open");
+      document.getElementById("campMemoryDrawer").setAttribute("aria-hidden", "true");
+      if (!document.getElementById("profileDrawer").classList.contains("open") && !document.getElementById("traditionDrawer").classList.contains("open") && !document.getElementById("campCardDrawer").classList.contains("open")) {
+        document.getElementById("drawerBackdrop").classList.remove("open");
+      }
+    }
+
+    function renderCampMemories() {
+      const list = document.getElementById("campMemoriesList");
+      const starters = document.getElementById("campMemoryStarterGrid");
+      const activeMemories = Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : [];
+
+      if (!activeMemories.length) {
+        list.innerHTML = `<div class="empty-state"><div>No CampMemories yet.</div><button class="btn btn-primary" type="button" onclick="showTab('campmemories')">Add a memory card</button></div>`;
+      } else {
+        list.innerHTML = activeMemories.map((memory, index) => `
+          <div class="campcard-admin-card">
+            <div class="campcard-admin-preview">
+              ${memory.image ? `<img src="${memory.image}" alt="${memory.title}">` : `<div style="display:flex;align-items:center;justify-content:center;width:100%;padding:20px;color:var(--muted);font-weight:700;">Add image path</div>`}
+            </div>
+            <div class="campcard-admin-meta">
+              <strong>${memory.title}</strong>
+              <div class="campcard-admin-source">${memory.category || "Legacy"} • ${memory.winner || "Camp Steward"}${memory.year ? ` • ${memory.year}` : ""}</div>
+              <p class="campcard-admin-caption">${memory.caption || "Camp memory preserved by the Steward."}</p>
+            </div>
+            <div class="campcard-admin-actions">
+              <button class="btn btn-soft" type="button" onclick="moveCampMemory(${index}, -1)" ${index === 0 ? "disabled" : ""}>Move Up</button>
+              <button class="btn btn-soft" type="button" onclick="moveCampMemory(${index}, 1)" ${index === activeMemories.length - 1 ? "disabled" : ""}>Move Down</button>
+              <button class="btn btn-secondary" type="button" onclick="openCampMemoryDrawer(${index})">Edit</button>
+              <button class="btn btn-danger" type="button" onclick="removeCampMemory(${index})">Remove</button>
+            </div>
+          </div>
+        `).join("");
+      }
+
+      starters.innerHTML = STARTER_CAMP_MEMORIES.map((memory, index) => {
+        const alreadyAdded = activeMemories.some(item => (item.title || "").toLowerCase() === memory.title.toLowerCase());
+        return `
+          <div class="starter-card">
+            ${memory.image ? `<img src="${memory.image}" alt="${memory.title}">` : ""}
+            <div class="starter-card-top">
+              <div>
+                <strong>${memory.title}</strong>
+                <div class="group-label">${memory.category} • ${memory.winner}</div>
+              </div>
+              ${alreadyAdded ? '<span class="pill green">Added</span>' : '<span class="pill">Starter</span>'}
+            </div>
+            <p>${memory.caption}</p>
+            <button class="btn ${alreadyAdded ? 'btn-soft' : 'btn-primary'}" type="button" onclick="addStarterCampMemory(${index})" ${alreadyAdded ? "disabled" : ""}>${alreadyAdded ? "Already Added" : "Add Memory"}</button>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderProfiles() {
+      const grid = document.getElementById("profileGrid");
+      grid.innerHTML = dashboardState.people.map(person => `
+        <div class="profile-card">
+          <div class="top">
+            <div class="avatar">${person.photo ? `<img src="${person.photo}" alt="${person.name}">` : initialsFromName(person.name)}</div>
+            <div>
+              <strong>${person.name}</strong>
+              <div class="sub">${person.role} • ${person.roleLine}</div>
+              <div class="pill-row">
+                <span class="pill ${person.status === "Active" ? "green" : person.status === "Invited" ? "gold" : ""}">${person.status}</span>
+                <span class="pill">${isProfileComplete(person) ? "Profile complete" : "Needs details"}</span>
+              </div>
+            </div>
+          </div>
+          <div class="detail-list">
+            <div><strong>Joined</strong><span>${fallback(person.yearJoined)}</span></div>
+            <div><strong>Stand</strong><span>${fallback(person.favoriteStand)}</span></div>
+            <div><strong>Gear</strong><span>${fallback(person.favoriteGear)}</span></div>
+            <div><strong>Specialty</strong><span>${fallback(person.specialty)}</span></div>
+          </div>
+          <div class="row-actions" style="justify-content:flex-start;">
+            <button class="btn btn-secondary" type="button" onclick="openProfileDrawer('${person.id}')">Edit Profile</button>
+          </div>
+        </div>
+      `).join("");
+    }
+
+
+    function renderCampRecipes() {
+      const list = document.getElementById("campRecipesList");
+      const starterGrid = document.getElementById("campRecipeStarterGrid");
+      if (!list || !starterGrid) return;
+
+      const recipes = (Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : [])
+        .filter(item => item.status !== "Removed");
+
+      if (!recipes.length) {
+        list.innerHTML = `<div class="empty-state"><div>No CampRecipes yet.</div><button class="btn btn-primary" type="button" onclick="showTab('camprecipes')">Add a recipe</button></div>`;
+      } else {
+        list.innerHTML = recipes.map((recipe, index) => `
+          <article class="recipe-admin-card">
+            <div class="recipe-admin-head">
+              <div>
+                <div class="mini-label">${recipe.meal || "Recipe"} • ${recipe.time || "—"} • Serves ${recipe.serves || "—"}</div>
+                <h4>${recipe.title}</h4>
+                <p>${recipe.description || "Camp recipe preserved by the Steward."}</p>
+              </div>
+            </div>
+            <div class="recipe-admin-meta">
+              <span><strong>Base:</strong> ${recipe.sourceTitle || "DeerCamp Recipe"}</span>
+              <span><strong>Difficulty:</strong> ${recipe.difficulty || "Easy"}</span>
+              <span><strong>Equipment:</strong> ${recipe.equipment || "—"}</span>
+            </div>
+            <div class="row-actions">
+              <button class="btn btn-soft" type="button" onclick="openCampRecipeDrawer(${index})">Edit</button>
+              <button class="btn btn-soft" type="button" onclick="moveCampRecipe(${index}, -1)" ${index === 0 ? "disabled" : ""}>↑</button>
+              <button class="btn btn-soft" type="button" onclick="moveCampRecipe(${index}, 1)" ${index === recipes.length - 1 ? "disabled" : ""}>↓</button>
+              <button class="btn btn-danger" type="button" onclick="removeCampRecipe(${index})">Remove</button>
+            </div>
+          </article>
+        `).join("");
+      }
+
+      starterGrid.innerHTML = STARTER_CAMP_RECIPES.map((recipe, index) => `
+        <article class="mini-card">
+          <div class="mini-label">${recipe.meal}</div>
+          <h4>${recipe.sourceTitle || recipe.title}</h4>
+          <p>${recipe.description}</p>
+          <div class="row-actions">
+            <button class="btn btn-primary" type="button" onclick="addStarterCampRecipe(${index})">Add Recipe</button>
+          </div>
+        </article>
+      `).join("");
+    }
+
+    function openCampRecipeDrawer(index) {
+      const recipe = dashboardState.campRecipes[index];
+      if (!recipe) return;
+      document.getElementById("campRecipeIndex").value = String(index);
+      document.getElementById("campRecipeTitle").value = recipe.title || "";
+      document.getElementById("campRecipeMeal").value = recipe.meal || "Dinner";
+      document.getElementById("campRecipeBaseTitle").value = recipe.sourceTitle || "";
+      document.getElementById("campRecipeSubtitle").value = recipe.subtitle || "";
+      document.getElementById("campRecipeTime").value = recipe.time || "";
+      document.getElementById("campRecipeServes").value = recipe.serves || "";
+      document.getElementById("campRecipeDifficulty").value = recipe.difficulty || "Easy";
+      document.getElementById("campRecipeEquipment").value = recipe.equipment || "";
+      document.getElementById("campRecipeDescription").value = recipe.description || "";
+      document.getElementById("campRecipeIngredients").value = arrayToLines(recipe.ingredients);
+      document.getElementById("campRecipeSteps").value = arrayToLines(recipe.steps);
+      document.getElementById("campRecipeServing").value = arrayToLines(recipe.serving);
+      document.getElementById("campRecipeTips").value = arrayToLines(recipe.tips);
+      document.getElementById("campRecipeDrawerTitle").textContent = `Edit ${recipe.title}`;
+      document.getElementById("campRecipeDrawerSubtitle").textContent = `${recipe.meal || "Recipe"} • ${recipe.sourceTitle || "DeerCamp Recipe"}`;
+
+      document.getElementById("campRecipeDrawer").classList.add("open");
+      document.getElementById("campRecipeDrawer").setAttribute("aria-hidden", "false");
+      document.getElementById("drawerBackdrop").classList.add("open");
+    }
+
+    function closeCampRecipeDrawer() {
+      document.getElementById("campRecipeDrawer").classList.remove("open");
+      document.getElementById("campRecipeDrawer").setAttribute("aria-hidden", "true");
+      document.getElementById("drawerBackdrop").classList.remove("open");
+    }
+
+    function addStarterCampRecipe(index) {
+      const template = STARTER_CAMP_RECIPES[index];
+      if (!template) return;
+
+      const existing = (dashboardState.campRecipes || []).some(item => String(item.sourceTitle || item.title).toLowerCase() === String(template.sourceTitle || template.title).toLowerCase());
+      if (existing) {
+        showToast(`${template.sourceTitle || template.title} is already in CampRecipes.`);
+        return;
+      }
+
+      dashboardState.campRecipes.push(normalizeCampRecipe({ ...template }, dashboardState.campRecipes.length));
+      saveState(true);
+      showToast(`${template.sourceTitle || template.title} added to CampRecipes.`);
+      showTab("camprecipes");
+    }
+
+    function moveCampRecipe(index, direction) {
+      const nextIndex = index + direction;
+      if (nextIndex < 0 || nextIndex >= dashboardState.campRecipes.length) return;
+      const copy = [...dashboardState.campRecipes];
+      const [recipe] = copy.splice(index, 1);
+      copy.splice(nextIndex, 0, recipe);
+      dashboardState.campRecipes = copy;
+      saveState(true);
+      showTab("camprecipes");
+    }
+
+    function removeCampRecipe(index) {
+      const recipe = dashboardState.campRecipes[index];
+      if (!recipe) return;
+      dashboardState.campRecipes.splice(index, 1);
+      saveState(true);
+      showToast(`${recipe.title} removed from CampRecipes.`);
+      showTab("camprecipes");
+    }
+
+    function resetCalendarForm() {
+      const form = document.getElementById("calendarForm");
+      if (form) form.reset();
+      const idField = document.getElementById("calendarEventId");
+      if (idField) idField.value = "";
+      const dateField = document.getElementById("calendarEventDate");
+      if (dateField) dateField.value = normalizeDateKey(new Date());
+      const title = document.getElementById("calendarPanelTitle");
+      if (title) title.textContent = "Add / Edit Calendar Event";
+      const subtitle = document.getElementById("calendarPanelSubtitle");
+      if (subtitle) subtitle.textContent = "These events publish directly to the live CampCalendar section.";
+    }
+
+    function openCalendarEventForEdit(index) {
+      const item = dashboardState.calendarEvents[index];
+      if (!item) return;
+
+      document.getElementById("calendarEventId").value = item.id || "";
+      document.getElementById("calendarEventDate").value = item.date || "";
+      document.getElementById("calendarEventTitle").value = item.title || "";
+      document.getElementById("calendarEventMember").value = item.member || "";
+      document.getElementById("calendarEventIcon").value = item.icon || "";
+      document.getElementById("calendarEventDescription").value = item.description || "";
+
+      document.getElementById("calendarPanelTitle").textContent = `Edit ${item.title}`;
+      document.getElementById("calendarPanelSubtitle").textContent = `${formatCalendarDate(item.date)}${item.member ? ` • ${item.member}` : ""}`;
+
+      showTab("calendar");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function removeCalendarEvent(index) {
+      const item = dashboardState.calendarEvents[index];
+      if (!item) return;
+
+      dashboardState.calendarEvents.splice(index, 1);
+      saveState(true);
+      showToast(`${item.title} removed from CampCalendar.`);
+      showTab("calendar");
+    }
+
+    function renderCampCalendar() {
+      const list = document.getElementById("calendarAdminList");
+      if (!list) return;
+
+      const todayKey = normalizeDateKey(new Date());
+
+      const items = (Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents : [])
+        .map((event, sourceIndex) => ({ event, sourceIndex }))
+        .filter(({ event }) => event.status !== "Removed")
+        .sort((a, b) => {
+          if (a.event.date !== b.event.date) return a.event.date.localeCompare(b.event.date);
+          return String(a.event.title || "").localeCompare(String(b.event.title || ""));
+        });
+
+      document.getElementById("calendarEventTotal").textContent = String(items.length);
+      document.getElementById("calendarUpcomingTotal").textContent = String(
+        items.filter(({ event }) => !event.date || event.date >= todayKey).length
+      );
+
+      if (!items.length) {
+        list.innerHTML = `
+          <div class="empty-state">
+            No CampCalendar events saved yet.<br>
+            Add opener dates, hunt weekends, work weekends, meals, or memorial camp events.
+          </div>
+        `;
+        return;
+      }
+
+      list.innerHTML = items.map(({ event, sourceIndex }) => `
+        <div class="calendar-admin-card">
+          <div class="calendar-admin-head">
+            <div class="calendar-admin-title-wrap">
+              <div class="calendar-admin-icon">${getCalendarAdminIcon(event)}</div>
+              <div>
+                <p class="calendar-admin-title">${event.title}</p>
+                <p class="calendar-admin-date">${formatCalendarDate(event.date)}${event.member ? ` • ${event.member}` : ""}</p>
+              </div>
+            </div>
+
+            <div class="row-actions">
+              <button class="btn btn-soft" type="button" data-calendar-edit="${sourceIndex}">Edit</button>
+              <button class="btn btn-danger" type="button" data-calendar-remove="${sourceIndex}">Remove</button>
+            </div>
+          </div>
+
+          <p class="calendar-admin-desc">${event.description || "No additional details yet."}</p>
+        </div>
+      `).join("");
+
+      list.querySelectorAll("[data-calendar-edit]").forEach(btn => {
+        btn.addEventListener("click", () => openCalendarEventForEdit(Number(btn.dataset.calendarEdit)));
+      });
+
+      list.querySelectorAll("[data-calendar-remove]").forEach(btn => {
+        btn.addEventListener("click", () => removeCalendarEvent(Number(btn.dataset.calendarRemove)));
+      });
+    }
+
+    function render() {
+      renderSidebar();
+      renderDashboardHome();
+      renderMembership();
+      renderProfiles();
+      renderCampStands();
+      renderDeerDrives();
+      renderCampCalendar();
+      renderTraditions();
+      renderCampCards();
+      renderCampMemories();
+      renderCampRecipes();
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove("show"), 2400);
+    }
+
+    function openProfileDrawer(id) {
+      const person = dashboardState.people.find(entry => entry.id === id);
+      if (!person) return;
+      document.getElementById("profileId").value = person.id;
+      document.getElementById("profileName").value = person.name;
+      document.getElementById("profileRole").value = person.role;
+      document.getElementById("profileRoleLine").value = person.roleLine;
+      document.getElementById("profileStatus").value = person.status;
+      document.getElementById("profileEmail").value = person.email || "";
+      document.getElementById("profileJoined").value = person.yearJoined || "";
+      document.getElementById("profileStand").value = person.favoriteStand || "";
+      document.getElementById("profileGear").value = person.favoriteGear || "";
+      document.getElementById("profileNickname").value = person.nickname || "";
+      document.getElementById("profileSpecialty").value = person.specialty || "";
+      document.getElementById("profileHarvest").value = person.harvestHighlight || "";
+      document.getElementById("profileMemory").value = person.bestCampMemory || "";
+      document.getElementById("profileNote").value = person.note || "";
+      document.getElementById("drawerTitle").textContent = `Edit ${person.name}`;
+      document.getElementById("drawerSubtitle").textContent = `${person.role} • ${person.roleLine}`;
+      document.getElementById("drawerBackdrop").classList.add("open");
+      document.getElementById("profileDrawer").classList.add("open");
+      document.getElementById("profileDrawer").setAttribute("aria-hidden", "false");
+    }
+
+    function closeProfileDrawer() {
+      document.getElementById("profileDrawer").classList.remove("open");
+      document.getElementById("profileDrawer").setAttribute("aria-hidden", "true");
+      if (!document.getElementById("traditionDrawer").classList.contains("open") && !document.getElementById("campCardDrawer").classList.contains("open") && !document.getElementById("campMemoryDrawer").classList.contains("open")) {
+        document.getElementById("drawerBackdrop").classList.remove("open");
+      }
+    }
+
+    function activateMember(id) {
+      const person = dashboardState.people.find(entry => entry.id === id);
+      if (!person) return;
+      person.status = "Active";
+      saveState(true);
+      showToast(`${person.name} is now active.`);
+    }
+
+    function removeMember(id) {
+      const person = dashboardState.people.find(entry => entry.id === id);
+      if (!person) return;
+      person.status = "Removed";
+      saveState(true);
+      showToast(`${person.name} was marked as removed.`);
+    }
+
+
+    function openTraditionDrawer(index) {
+      const tradition = dashboardState.traditions[index];
+      if (!tradition) return;
+      document.getElementById("traditionIndex").value = String(index);
+      document.getElementById("traditionLabel").value = tradition.label || "";
+      document.getElementById("traditionGroup").value = tradition.group || "Camp Traditions";
+      document.getElementById("traditionDescription").value = tradition.description || "";
+      document.getElementById("traditionUrl").value = tradition.url || "";
+      document.getElementById("traditionDrawerTitle").textContent = `Edit ${tradition.label}`;
+      document.getElementById("traditionDrawerSubtitle").textContent = `${tradition.group} • Refine how this tradition appears on the public camp page.`;
+      document.getElementById("drawerBackdrop").classList.add("open");
+      document.getElementById("traditionDrawer").classList.add("open");
+      document.getElementById("traditionDrawer").setAttribute("aria-hidden", "false");
+    }
+
+    function closeTraditionDrawer() {
+      document.getElementById("traditionDrawer").classList.remove("open");
+      document.getElementById("traditionDrawer").setAttribute("aria-hidden", "true");
+      if (!document.getElementById("profileDrawer").classList.contains("open") && !document.getElementById("campCardDrawer").classList.contains("open") && !document.getElementById("campMemoryDrawer").classList.contains("open")) {
+        document.getElementById("drawerBackdrop").classList.remove("open");
+      }
+    }
+
+    function addStarterTradition(label) {
+      const template = STARTER_TRADITION_LOOKUP[String(label || "").toLowerCase()];
+      if (!template) return;
+      const exists = dashboardState.traditions.some(item => item.label.toLowerCase() === template.label.toLowerCase());
+      if (exists) {
+        showToast(`${template.label} is already in CampTraditions.`);
+        return;
+      }
+      dashboardState.traditions.push(normalizeTradition(template));
+      saveState(true);
+      showTab("traditions");
+      showToast(`${template.label} added to CampTraditions.`);
+    }
+
+    function moveTradition(index, direction) {
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= dashboardState.traditions.length) return;
+      const [moved] = dashboardState.traditions.splice(index, 1);
+      dashboardState.traditions.splice(nextIndex, 0, moved);
+      saveState(true);
+      showTab("traditions");
+    }
+
+    function removeTradition(index) {
+      const tradition = dashboardState.traditions[index];
+      if (!tradition) return;
+      dashboardState.traditions.splice(index, 1);
+      saveState(true);
+      showToast(`${tradition.label} removed from CampTraditions.`);
+      showTab("traditions");
+    }
+
+    window.openProfileDrawer = openProfileDrawer;
+    window.activateMember = activateMember;
+    window.removeMember = removeMember;
+    window.openTraditionDrawer = openTraditionDrawer;
+    window.addStarterTradition = addStarterTradition;
+    window.moveTradition = moveTradition;
+    window.removeTradition = removeTradition;
+    window.openCampCardDrawer = openCampCardDrawer;
+    window.addStarterCampCard = addStarterCampCard;
+    window.moveCampCard = moveCampCard;
+    window.removeCampCard = removeCampCard;
+    window.openCampMemoryDrawer = openCampMemoryDrawer;
+    window.addStarterCampMemory = addStarterCampMemory;
+    window.moveCampMemory = moveCampMemory;
+    window.removeCampMemory = removeCampMemory;
+    window.openCampRecipeDrawer = openCampRecipeDrawer;
+    window.addStarterCampRecipe = addStarterCampRecipe;
+    window.moveCampRecipe = moveCampRecipe;
+    window.removeCampRecipe = removeCampRecipe;
+    window.showTab = showTab;
+
+    document.querySelectorAll(".nav-link[data-tab]").forEach(button => {
+      button.addEventListener("click", () => showTab(button.dataset.tab));
+    });
+
+    document.querySelectorAll(".action-tile[data-jump]").forEach(button => {
+      button.addEventListener("click", () => showTab(button.dataset.jump));
+    });
+
+    document.getElementById("inviteForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const name = document.getElementById("inviteName").value.trim();
+      const email = document.getElementById("inviteEmail").value.trim();
+      const phone = document.getElementById("invitePhone").value.trim();
+      const status = document.getElementById("inviteStatus").value;
+      const note = document.getElementById("inviteNote").value.trim();
+      if (!name || !email) return;
+
+      const newMember = normalizeProfile({
+        id: slugify(`${name}-${Date.now()}`),
+        name,
+        role: "Camp Member",
+        roleLine: "Invited camp contributor",
+        status,
+        email,
+        phone,
+        note
+      });
+
+      dashboardState.people.push(newMember);
+      event.target.reset();
+      saveState(true);
+      showToast(`${name} added to camp roster.`);
+      showTab("membership");
+    });
+
+    document.getElementById("saveProfileBtn").addEventListener("click", () => {
+      const id = document.getElementById("profileId").value;
+      const person = dashboardState.people.find(entry => entry.id === id);
+      if (!person) return;
+
+      person.name = document.getElementById("profileName").value.trim() || person.name;
+      person.role = document.getElementById("profileRole").value;
+      person.roleLine = document.getElementById("profileRoleLine").value.trim() || buildRoleLine(person.role);
+      person.status = document.getElementById("profileStatus").value;
+      person.email = document.getElementById("profileEmail").value.trim();
+      person.yearJoined = document.getElementById("profileJoined").value.trim();
+      person.favoriteStand = document.getElementById("profileStand").value.trim();
+      person.favoriteGear = document.getElementById("profileGear").value.trim();
+      person.nickname = document.getElementById("profileNickname").value.trim();
+      person.specialty = document.getElementById("profileSpecialty").value.trim();
+      person.harvestHighlight = document.getElementById("profileHarvest").value.trim();
+      person.bestCampMemory = document.getElementById("profileMemory").value.trim();
+      person.note = document.getElementById("profileNote").value.trim();
+      person.responsibilities = person.role === "Camp Steward" ? [...defaultStewardResponsibilities] : [...defaultMemberContributions];
+
+      saveState(true);
+      closeProfileDrawer();
+      showToast(`${person.name}'s profile was updated.`);
+    });
+
+    document.getElementById("closeDrawerBtn").addEventListener("click", closeProfileDrawer);
+    document.getElementById("drawerBackdrop").addEventListener("click", () => {
+      closeProfileDrawer();
+      closeTraditionDrawer();
+      closeCampCardDrawer();
+      closeCampRecipeDrawer();
+      closeCampMemoryDrawer();
+    });
+
+
+    document.getElementById("customTraditionForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const label = document.getElementById("customTraditionTitle").value.trim();
+      const group = document.getElementById("customTraditionGroup").value;
+      const description = document.getElementById("customTraditionDescription").value.trim();
+      const url = document.getElementById("customTraditionUrl").value.trim();
+      if (!label) return;
+
+      const exists = dashboardState.traditions.some(item => item.label.toLowerCase() === label.toLowerCase());
+      if (exists) {
+        showToast(`${label} is already in CampTraditions.`);
+        return;
+      }
+
+      dashboardState.traditions.push(normalizeTradition({ label, group, description, url }));
+      event.target.reset();
+      saveState(true);
+      showToast(`${label} added to CampTraditions.`);
+      showTab("traditions");
+    });
+
+    document.getElementById("saveTraditionBtn").addEventListener("click", () => {
+      const index = Number(document.getElementById("traditionIndex").value);
+      const tradition = dashboardState.traditions[index];
+      if (!tradition) return;
+
+      tradition.label = document.getElementById("traditionLabel").value.trim() || tradition.label;
+      tradition.group = document.getElementById("traditionGroup").value;
+      tradition.description = document.getElementById("traditionDescription").value.trim() || "A camp ritual that helps define this deer camp.";
+      tradition.url = document.getElementById("traditionUrl").value.trim();
+
+      saveState(true);
+      closeTraditionDrawer();
+      showToast(`${tradition.label} was updated.`);
+      showTab("traditions");
+    });
+
+    document.getElementById("closeTraditionDrawerBtn").addEventListener("click", closeTraditionDrawer);
+
+    document.getElementById("customCampCardForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const title = document.getElementById("customCampCardTitle").value.trim();
+      const source = document.getElementById("customCampCardSource").value.trim();
+      const image = document.getElementById("customCampCardImage").value.trim();
+      const caption = document.getElementById("customCampCardCaption").value.trim();
+      const story = document.getElementById("customCampCardStory").value.trim();
+      if (!title) return;
+
+      dashboardState.campCards.push(normalizeCampCard({ title, source, image, caption, story }, dashboardState.campCards.length));
+      event.target.reset();
+      saveState(true);
+      showToast(`${title} added to CampCards.`);
+      showTab("campcards");
+    });
+
+    document.getElementById("saveCampCardBtn").addEventListener("click", () => {
+      const index = Number(document.getElementById("campCardIndex").value);
+      const card = dashboardState.campCards[index];
+      if (!card) return;
+
+      card.title = document.getElementById("campCardTitle").value.trim() || card.title;
+      card.source = document.getElementById("campCardSource").value.trim() || "Camp Steward";
+      card.image = document.getElementById("campCardImage").value.trim();
+      card.caption = document.getElementById("campCardCaption").value.trim() || "Featured camp story.";
+      card.story = document.getElementById("campCardStory").value.trim();
+
+      saveState(true);
+      closeCampCardDrawer();
+      showToast(`${card.title} was updated.`);
+      showTab("campcards");
+    });
+
+
+    document.getElementById("closeCampCardDrawerBtn").addEventListener("click", closeCampCardDrawer);
+
+    document.getElementById("customCampRecipeForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const title = document.getElementById("customCampRecipeTitle").value.trim();
+      const meal = document.getElementById("customCampRecipeMeal").value;
+      const sourceTitle = document.getElementById("customCampRecipeBaseTitle").value.trim();
+      const subtitle = document.getElementById("customCampRecipeSubtitle").value.trim();
+      const time = document.getElementById("customCampRecipeTime").value.trim();
+      const serves = document.getElementById("customCampRecipeServes").value.trim();
+      const difficulty = document.getElementById("customCampRecipeDifficulty").value;
+      const equipment = document.getElementById("customCampRecipeEquipment").value.trim();
+      const description = document.getElementById("customCampRecipeDescription").value.trim();
+      const ingredients = linesToArray(document.getElementById("customCampRecipeIngredients").value);
+      const steps = linesToArray(document.getElementById("customCampRecipeSteps").value);
+      const serving = linesToArray(document.getElementById("customCampRecipeServing").value);
+      const tips = linesToArray(document.getElementById("customCampRecipeTips").value);
+      if (!title) return;
+
+      dashboardState.campRecipes.push(normalizeCampRecipe({ title, meal, sourceTitle, subtitle, time, serves, difficulty, equipment, description, ingredients, steps, serving, tips }, dashboardState.campRecipes.length));
+      event.target.reset();
+      saveState(true);
+      showToast(`${title} added to CampRecipes.`);
+      showTab("camprecipes");
+    });
+
+    document.getElementById("saveCampRecipeBtn").addEventListener("click", () => {
+      const index = Number(document.getElementById("campRecipeIndex").value);
+      const recipe = dashboardState.campRecipes[index];
+      if (!recipe) return;
+
+      recipe.title = document.getElementById("campRecipeTitle").value.trim() || recipe.title;
+      recipe.meal = document.getElementById("campRecipeMeal").value;
+      recipe.sourceTitle = document.getElementById("campRecipeBaseTitle").value.trim() || recipe.sourceTitle || recipe.title;
+      recipe.subtitle = document.getElementById("campRecipeSubtitle").value.trim() || `${recipe.meal} • DeerCamp Recipe`;
+      recipe.time = document.getElementById("campRecipeTime").value.trim() || recipe.time;
+      recipe.serves = document.getElementById("campRecipeServes").value.trim() || recipe.serves;
+      recipe.difficulty = document.getElementById("campRecipeDifficulty").value;
+      recipe.equipment = document.getElementById("campRecipeEquipment").value.trim();
+      recipe.description = document.getElementById("campRecipeDescription").value.trim() || recipe.description;
+      recipe.ingredients = linesToArray(document.getElementById("campRecipeIngredients").value);
+      recipe.steps = linesToArray(document.getElementById("campRecipeSteps").value);
+      recipe.serving = linesToArray(document.getElementById("campRecipeServing").value);
+      recipe.tips = linesToArray(document.getElementById("campRecipeTips").value);
+
+      saveState(true);
+      closeCampRecipeDrawer();
+      showToast(`${recipe.title} was updated.`);
+      showTab("camprecipes");
+    });
+
+    document.getElementById("closeCampRecipeDrawerBtn").addEventListener("click", closeCampRecipeDrawer);
+
+    document.getElementById("calendarForm")?.addEventListener("submit", event => {
+      event.preventDefault();
+
+      if (!Array.isArray(dashboardState.calendarEvents)) {
+        dashboardState.calendarEvents = [];
+      }
+
+      const id = document.getElementById("calendarEventId").value.trim();
+
+      const normalized = normalizeCalendarEvent({
+        id,
+        date: document.getElementById("calendarEventDate").value,
+        title: document.getElementById("calendarEventTitle").value.trim(),
+        member: document.getElementById("calendarEventMember").value.trim(),
+        icon: document.getElementById("calendarEventIcon").value.trim(),
+        description: document.getElementById("calendarEventDescription").value.trim(),
+        status: "Active"
+      }, dashboardState.calendarEvents.length);
+
+      if (!normalized) return;
+
+      const existingIndex = id
+        ? dashboardState.calendarEvents.findIndex(item => item.id === id)
+        : -1;
+
+      if (existingIndex > -1) {
+        dashboardState.calendarEvents[existingIndex] = {
+          ...dashboardState.calendarEvents[existingIndex],
+          ...normalized,
+          id
+        };
+        saveState(true);
+        showToast(`${normalized.title} updated.`);
+      } else {
+        dashboardState.calendarEvents.push(normalized);
+        saveState(true);
+        showToast(`${normalized.title} added to CampCalendar.`);
+      }
+
+      resetCalendarForm();
+      showTab("calendar");
+    });
+
+    document.getElementById("resetCalendarBtn")?.addEventListener("click", resetCalendarForm);
+
+    document.getElementById("standForm")?.addEventListener("submit", event => {
+      event.preventDefault();
+
+      if (!Array.isArray(dashboardState.campStands)) {
+        dashboardState.campStands = [];
+      }
+
+      const id = document.getElementById("standId").value.trim();
+      const normalized = normalizeStand({
+        id,
+        name: document.getElementById("standName").value.trim(),
+        area: document.getElementById("standArea").value.trim(),
+        assignedHunter: document.getElementById("standAssignedHunter").value.trim(),
+        backupHunter: document.getElementById("standBackupHunter").value.trim(),
+        bestWind: document.getElementById("standBestWind").value.trim(),
+        accessRoute: document.getElementById("standAccessRoute").value.trim(),
+        notes: document.getElementById("standNotes").value.trim(),
+        status: "Active"
+      }, dashboardState.campStands.length);
+
+      if (!normalized) return;
+
+      const existingIndex = id
+        ? dashboardState.campStands.findIndex(item => item.id === id)
+        : -1;
+
+      if (existingIndex > -1) {
+        dashboardState.campStands[existingIndex] = {
+          ...dashboardState.campStands[existingIndex],
+          ...normalized,
+          id
+        };
+        saveState(true);
+        showToast(`${normalized.name} updated.`);
+      } else {
+        dashboardState.campStands.push(normalized);
+        saveState(true);
+        showToast(`${normalized.name} added to CampStands.`);
+      }
+
+      resetStandForm();
+      showTab("stands");
+    });
+
+    document.getElementById("resetStandBtn")?.addEventListener("click", resetStandForm);
+
+    function resetDriveForm() {
+      document.getElementById("driveForm")?.reset();
+      const idField = document.getElementById("driveId");
+      if (idField) idField.value = "";
+      const variant = document.getElementById("driveVariant");
+      if (variant) variant.value = "north";
+    }
+
+    function editDrive(id) {
+      const drive = (dashboardState.deerDrives || []).find(entry => entry.id === id);
+      if (!drive) return;
+      document.getElementById("driveId").value = drive.id;
+      document.getElementById("driveName").value = drive.name || "";
+      document.getElementById("driveVariant").value = drive.variant || "north";
+      document.getElementById("drivePlan").value = drive.plan || "";
+      document.getElementById("driveStanders").value = (drive.standers || []).join(", ");
+      document.getElementById("driveDrivers").value = (drive.drivers || []).join(", ");
+      document.getElementById("driveNotes").value = drive.notes || "";
+      showTab("deerdrives");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function moveDrive(id, delta) {
+      const drives = dashboardState.deerDrives || [];
+      const index = drives.findIndex(entry => entry.id === id);
+      const nextIndex = index + delta;
+      if (index < 0 || nextIndex < 0 || nextIndex >= drives.length) return;
+      const [item] = drives.splice(index, 1);
+      drives.splice(nextIndex, 0, item);
+      saveState(true);
+      showToast(`${item.name} moved.`);
+    }
+
+    function removeDrive(id) {
+      const drives = dashboardState.deerDrives || [];
+      const index = drives.findIndex(entry => entry.id === id);
+      if (index < 0) return;
+      const [removed] = drives.splice(index, 1);
+      saveState(true);
+      showToast(`${removed.name} removed from CampDeerDrives.`);
+    }
+
+    window.editStand = editStand;
+    window.removeStand = removeStand;
+    window.editDrive = editDrive;
+    window.moveDrive = moveDrive;
+    window.removeDrive = removeDrive;
+
+    document.getElementById("customCampMemoryForm").addEventListener("submit", event => {
+      event.preventDefault();
+      const title = document.getElementById("customCampMemoryTitle").value.trim();
+      const category = document.getElementById("customCampMemoryCategory").value;
+      const winner = document.getElementById("customCampMemoryWinner").value.trim();
+      const year = document.getElementById("customCampMemoryYear").value.trim();
+      const image = document.getElementById("customCampMemoryImage").value.trim();
+      const audio = document.getElementById("customCampMemoryAudio").value.trim();
+      const caption = document.getElementById("customCampMemoryCaption").value.trim();
+      const story = document.getElementById("customCampMemoryStory").value.trim();
+      if (!title) return;
+
+      dashboardState.campMemories.push(normalizeCampMemory({ title, category, winner, year, image, audio, caption, story }, dashboardState.campMemories.length));
+      event.target.reset();
+      saveState(true);
+      showToast(`${title} added to CampMemories.`);
+      showTab("campmemories");
+    });
+
+    document.getElementById("saveCampMemoryBtn").addEventListener("click", () => {
+      const index = Number(document.getElementById("campMemoryIndex").value);
+      const memory = dashboardState.campMemories[index];
+      if (!memory) return;
+
+      memory.title = document.getElementById("campMemoryTitle").value.trim() || memory.title;
+      memory.category = document.getElementById("campMemoryCategory").value;
+      memory.winner = document.getElementById("campMemoryWinner").value.trim() || "Camp Steward";
+      memory.year = document.getElementById("campMemoryYear").value.trim();
+      memory.image = document.getElementById("campMemoryImage").value.trim();
+      memory.audio = document.getElementById("campMemoryAudio").value.trim();
+      memory.caption = document.getElementById("campMemoryCaption").value.trim() || "Camp memory preserved by the Steward.";
+      memory.story = document.getElementById("campMemoryStory").value.trim();
+
+      saveState(true);
+      closeCampMemoryDrawer();
+      showToast(`${memory.title} was updated.`);
+      showTab("campmemories");
+    });
+
+    document.getElementById("closeCampMemoryDrawerBtn").addEventListener("click", closeCampMemoryDrawer);
+
+    document.getElementById("driveForm")?.addEventListener("submit", event => {
+      event.preventDefault();
+      const id = document.getElementById("driveId").value.trim();
+      const name = document.getElementById("driveName").value.trim();
+      if (!name) return;
+      const variant = document.getElementById("driveVariant").value === "south" ? "south" : "north";
+      const plan = document.getElementById("drivePlan").value.trim();
+      const standers = document.getElementById("driveStanders").value.split(",").map(item => item.trim()).filter(Boolean);
+      const drivers = document.getElementById("driveDrivers").value.split(",").map(item => item.trim()).filter(Boolean);
+      const notes = document.getElementById("driveNotes").value.trim();
+      const rosterNames = dashboardState.people.filter(person => person.status !== "Removed").map(person => person.name);
+
+      if (id) {
+        const drive = (dashboardState.deerDrives || []).find(entry => entry.id === id);
+        if (!drive) return;
+        Object.assign(drive, normalizeDrive({ id, name, variant, plan, standers, drivers, notes }, 0, rosterNames));
+        saveState(true);
+        showToast(`${name} updated.`);
+      } else {
+        const drive = normalizeDrive({ id: slugify(`${name}-${Date.now()}`), name, variant, plan, standers, drivers, notes }, (dashboardState.deerDrives || []).length, rosterNames);
+        if (!Array.isArray(dashboardState.deerDrives)) dashboardState.deerDrives = [];
+        dashboardState.deerDrives.push(drive);
+        saveState(true);
+        showToast(`${name} added to CampDeerDrives.`);
+      }
+
+      resetDriveForm();
+      showTab("deerdrives");
+    });
+
+    document.getElementById("resetDriveBtn")?.addEventListener("click", resetDriveForm);
+
+    document.getElementById("saveAllBtn").addEventListener("click", () => {
+      saveState(true);
+    });
+
+    document.getElementById("viewCampPageBtn").addEventListener("click", () => {
+      window.location.href = "camp.html";
+    });
+
+    resetCalendarForm();
+    resetStandForm();
+    render();
+  </script>
+</body>
+</html>
