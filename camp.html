@@ -130,20 +130,28 @@
     display: inline-block;
   }
 
+  .camp-member-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
   .camp-member-role-tag,
   .member-inline-role-tag {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 3px 8px;
+    min-height: 18px;
+    padding: 2px 7px;
     border-radius: 999px;
-    background: rgba(75, 49, 22, 0.12);
-    color: #5b3d1e;
-    font-size: 0.68rem;
+    background: rgba(111, 77, 43, 0.12);
+    color: #6b4624;
+    font-size: 0.62rem;
     font-weight: 800;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0.08em;
     line-height: 1;
+    text-transform: uppercase;
     white-space: nowrap;
   }
 
@@ -351,15 +359,21 @@
   .member-inline-card {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     padding: 12px 20px;
     border: 0;
     border-radius: 999px;
     background: rgba(245, 234, 213, 0.96);
+    color: #3f2a15;
     cursor: pointer;
     font-size: 1rem;
-    color: #3f2a15;
     font-weight: 700;
+  }
+
+  .member-inline-name {
+    display: inline-block;
+    line-height: 1;
   }
 
   .recipes-grid {
@@ -715,6 +729,26 @@
     margin: 0;
   }
 
+  .feed-carousel-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .feed-recent-count {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: rgba(91, 61, 30, 0.10);
+    color: #6b4624;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+  }
+
   .feed-archive-header-copy {
     display: grid;
     gap: 6px;
@@ -735,25 +769,6 @@
     color: #5a4331;
     line-height: 1.45;
     opacity: 0.88;
-  }
-
-  .feed-carousel-title-row {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-
-  .feed-carousel-title-row h2 {
-    margin: 0;
-  }
-
-  .feed-recent-count {
-    color: #7b5a33;
-    font-size: 0.9rem;
-    font-weight: 700;
-    opacity: 0.88;
-    white-space: nowrap;
   }
 
   .feed-carousel-controls {
@@ -1013,8 +1028,8 @@
   .feed-archive-list {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 14px;
-    align-items: stretch;
+    gap: 16px;
+    align-items: start;
   }
 
   .feed-archive-card {
@@ -1022,14 +1037,12 @@
     grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
     gap: 0;
-    align-items: stretch;
+    min-height: 100%;
     border-radius: 20px;
     background: rgba(255, 248, 237, 0.84);
     border: 1px solid rgba(98, 72, 44, 0.10);
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     overflow: hidden;
-    min-width: 0;
-    height: 100%;
   }
 
   .feed-archive-media {
@@ -1044,7 +1057,7 @@
     display: block;
     object-fit: cover;
     background: #e9decf;
-    aspect-ratio: 4 / 3;
+    aspect-ratio: 4 / 5;
   }
 
   .feed-archive-media.is-contain img {
@@ -1138,7 +1151,7 @@
     inset: 0;
     background: rgba(24, 18, 12, 0.3);
     backdrop-filter: blur(1.5px);
-    z-index: 4998;
+    z-index: 1292;
   }
 
   .feed-modal-backdrop.open {
@@ -1149,7 +1162,7 @@
     display: none;
     position: fixed;
     inset: 0;
-    z-index: 4999;
+    z-index: 1302;
     padding: calc(var(--camp-header-height, 118px) + 18px) 14px 18px;
     box-sizing: border-box;
     align-items: flex-start;
@@ -2103,8 +2116,9 @@
     }
 
     .feed-archive-list {
+      display: grid;
       grid-auto-flow: column;
-      grid-auto-columns: minmax(280px, 82vw);
+      grid-auto-columns: minmax(78vw, 78vw);
       grid-template-columns: none;
       overflow-x: auto;
       scroll-snap-type: x mandatory;
@@ -2120,6 +2134,10 @@
     .feed-archive-card {
       grid-template-columns: 1fr;
       scroll-snap-align: start;
+    }
+
+    .feed-archive-copy {
+      padding: 14px 14px 16px;
     }
 
     .feed-modal {
@@ -2686,6 +2704,10 @@ function getRoleTemplate(role = "Camp Member") {
     : MEMBER_ROLE_TEMPLATE;
 }
 
+function isStewardProfile(profile) {
+  return String(profile?.role || "").trim().toLowerCase() === "camp steward";
+}
+
 function getInitials(name = "") {
   const cleaned = String(name || "").trim();
   if (!cleaned) return "DC";
@@ -2777,13 +2799,6 @@ function isPublicMemberProfile(profile) {
 
 const publicMemberProfiles = memberProfiles.filter(isPublicMemberProfile);
 const renderedMemberProfiles = publicMemberProfiles.length ? publicMemberProfiles : memberProfiles.filter(profile => String(profile?.status || "").trim().toLowerCase() !== "removed");
-const stewardNameNormalized = String(data.stewardName || "").trim().toLowerCase();
-
-function isStewardProfile(profile = {}) {
-  const role = String(profile.role || "").trim().toLowerCase();
-  const name = String(profile.name || "").trim().toLowerCase();
-  return role === "camp steward" || (Boolean(stewardNameNormalized) && name === stewardNameNormalized);
-}
 
 const memberModal = document.getElementById("memberModal");
 const memberModalBackdrop = document.getElementById("memberModalBackdrop");
@@ -2885,20 +2900,23 @@ function buildHeaderMembers() {
     badge.setAttribute("aria-hidden", "true");
     badge.textContent = getInitials(member.name || `Member ${index + 1}`);
 
+    const copy = document.createElement("span");
+    copy.className = "camp-member-copy";
+
     const label = document.createElement("span");
     label.className = "camp-member-name";
     label.textContent = member.name || `Member ${index + 1}`;
-
-    btn.appendChild(badge);
-    btn.appendChild(label);
+    copy.appendChild(label);
 
     if (isStewardProfile(member)) {
       const roleTag = document.createElement("span");
       roleTag.className = "camp-member-role-tag";
       roleTag.textContent = "Steward";
-      btn.appendChild(roleTag);
+      copy.appendChild(roleTag);
     }
 
+    btn.appendChild(badge);
+    btn.appendChild(copy);
     btn.addEventListener("click", () => openMemberModal(member));
     membersWrap.appendChild(btn);
   });
@@ -3526,7 +3544,7 @@ const rawSections = [
   { key: "recipes", title: "CampRecipes", hasContent: true },
   { key: "calendar", title: "CampCalendar", hasContent: true },
   { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
-  { key: "memories", title: "CampWallofFame", hasContent: true },
+  { key: "memories", title: "CampMemories / Wall of Fame", hasContent: true },
   { key: "map", title: "CampStands", hasContent: true }
 ];
 
@@ -3622,8 +3640,8 @@ sections.forEach(section => {
             </div>
             <div class="feed-carousel-controls">
               <p class="feed-carousel-caption">Latest 3 posts • newest on the left</p>
-              <button type="button" class="feed-carousel-arrow" id="feedPrevBtn" aria-label="Previous featured posts" hidden>◀</button>
-              <button type="button" class="feed-carousel-arrow" id="feedNextBtn" aria-label="Next featured posts" hidden>▶</button>
+              <button type="button" class="feed-carousel-arrow" id="feedPrevBtn" aria-label="Previous featured posts">◀</button>
+              <button type="button" class="feed-carousel-arrow" id="feedNextBtn" aria-label="Next featured posts">▶</button>
             </div>
           </div>
           <div class="feed-carousel-viewport">
@@ -3686,7 +3704,7 @@ sections.forEach(section => {
     `;
 
     const featuredTrack = container.querySelector("#feedCarouselTrack");
-    const recentCount = container.querySelector("#feedRecentCount");
+    const feedRecentCount = container.querySelector("#feedRecentCount");
     const prevBtn = container.querySelector("#feedPrevBtn");
     const nextBtn = container.querySelector("#feedNextBtn");
     const searchInput = container.querySelector("#feedSearchInput");
@@ -3707,7 +3725,6 @@ sections.forEach(section => {
     const modalClose = container.querySelector("#feedModalClose");
     const modalPrev = container.querySelector("#feedModalPrev");
     const modalNext = container.querySelector("#feedModalNext");
-    const modalCard = container.querySelector(".feed-modal-card");
 
     const ensureFeedModalOverlayRoot = () => {
       if (modalBackdrop && modalBackdrop.parentElement !== document.body) {
@@ -3717,10 +3734,9 @@ sections.forEach(section => {
         document.body.appendChild(modal);
       }
     };
-    ensureFeedModalOverlayRoot();
 
     const feedFilters = [
-      { key: "current", label: "Current 10" },
+      { key: "all", label: "All" },
       { key: "photo", label: "Photos" },
       { key: "audio", label: "Audio" },
       { key: "video", label: "Video" },
@@ -3734,7 +3750,7 @@ sections.forEach(section => {
     let currentFeedIndex = 0;
     let allFeedEntries = [];
     let filteredEntries = [];
-    let activeFilter = "current";
+    let activeFilter = "all";
     let activeModalIndex = -1;
 
     const getVisibleFeedCards = () => {
@@ -3742,6 +3758,9 @@ sections.forEach(section => {
       if (window.innerWidth <= 1100) return 2;
       return 3;
     };
+
+
+    const formatFeedCount = value => Number(value || 0).toLocaleString();
 
     const normalizeMediaType = entry => {
       const raw = String(entry.mediaType || entry.type || "").trim().toLowerCase();
@@ -3838,13 +3857,6 @@ sections.forEach(section => {
       const text = String(value || "").trim();
       if (text.length <= limit) return text;
       return `${text.slice(0, limit).trimEnd()}…`;
-    };
-
-    const updateRecentFeedCount = totalEntries => {
-      if (!recentCount) return;
-      const total = Math.max(0, Number(totalEntries) || 0);
-      const visible = Math.min(3, total);
-      recentCount.textContent = `Showing ${visible.toLocaleString()} of ${total.toLocaleString()}`;
     };
 
     const renderFeaturedFeedCards = entries => {
@@ -3974,7 +3986,7 @@ sections.forEach(section => {
           return entry.searchBlob.includes(searchTerm);
         })
         .filter(entry => {
-          if (activeFilter === "current") return true;
+          if (activeFilter === "all") return true;
           if (["photo", "audio", "video"].includes(activeFilter)) {
             return entry.mediaType === activeFilter;
           }
@@ -3982,14 +3994,7 @@ sections.forEach(section => {
         })
         .sort((a, b) => sortMode === "oldest" ? a.createdAtMs - b.createdAtMs : b.createdAtMs - a.createdAtMs);
 
-      if (activeFilter === "current") {
-        filteredEntries = filteredEntries.slice(0, 10);
-      }
-
-      const totalLabel = activeFilter === "current"
-        ? `Showing ${filteredEntries.length} recent post${filteredEntries.length === 1 ? "" : "s"}`
-        : `${filteredEntries.length} post${filteredEntries.length === 1 ? "" : "s"}`;
-      resultsCount.textContent = totalLabel;
+      resultsCount.textContent = `${filteredEntries.length} post${filteredEntries.length === 1 ? "" : "s"}`;
       archiveList.innerHTML = "";
 
       if (!filteredEntries.length) {
@@ -4089,8 +4094,6 @@ sections.forEach(section => {
       modalBackdrop.style.display = "none";
       modal.setAttribute("aria-hidden", "true");
       modalAudio.pause();
-      modalAudio.muted = false;
-      modalAudio.volume = 1;
       modalAudio.currentTime = 0;
       modalAudio.removeAttribute("src");
       modalAudio.load();
@@ -4167,7 +4170,9 @@ sections.forEach(section => {
 
     const refreshFeedUI = liveEntries => {
       allFeedEntries = combineFeedEntries(liveEntries, fallbackFeedEntries);
-      updateRecentFeedCount(allFeedEntries.length);
+      if (feedRecentCount) {
+        feedRecentCount.textContent = `Showing ${formatFeedCount(Math.min(3, allFeedEntries.length))} of ${formatFeedCount(allFeedEntries.length)}`;
+      }
       renderFeaturedFeedCards(allFeedEntries);
       renderFilterChips();
       renderArchiveFeed();
@@ -4200,23 +4205,17 @@ sections.forEach(section => {
 
     prevBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex - 1));
     nextBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex + 1));
-    prevBtn.style.display = "none";
-    nextBtn.style.display = "none";
     searchInput.addEventListener("input", () => renderArchiveFeed());
     sortSelect.addEventListener("change", () => renderArchiveFeed());
     clearBtn.addEventListener("click", () => {
       searchInput.value = "";
       sortSelect.value = "newest";
-      activeFilter = "current";
+      activeFilter = "all";
       renderFilterChips();
       renderArchiveFeed();
     });
     modalClose.addEventListener("click", closeFeedModal);
     modalBackdrop.addEventListener("click", closeFeedModal);
-    modal.addEventListener("click", event => {
-      if (event.target === modal) closeFeedModal();
-    });
-    modalCard?.addEventListener("click", event => event.stopPropagation());
     modalPrev.addEventListener("click", () => stepFeedModal(-1));
     modalNext.addEventListener("click", () => stepFeedModal(1));
     window.addEventListener("resize", () => goToFeedIndex(currentFeedIndex));
@@ -4254,7 +4253,7 @@ sections.forEach(section => {
   else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="placeholder">Steward-picked photos and stories pulled from CampFeed and featured here.</p>
+      <p class="placeholder">curated by Steward, with auto-suggestions based on engagement metrics.</p>
     `;
 
     const grid = document.createElement("div");
@@ -4333,9 +4332,10 @@ sections.forEach(section => {
       btn.className = "member-inline-card";
       btn.id = `member-${index}`;
 
-      const label = document.createElement("span");
-      label.textContent = member.name || `Member ${index + 1}`;
-      btn.appendChild(label);
+      const name = document.createElement("span");
+      name.className = "member-inline-name";
+      name.textContent = member.name || `Member ${index + 1}`;
+      btn.appendChild(name);
 
       if (isStewardProfile(member)) {
         const roleTag = document.createElement("span");
@@ -4446,7 +4446,7 @@ sections.forEach(section => {
 
   else if (section.key === "memories") {
     container.innerHTML = `
-      <h2>CampWallofFame — Annual 3 Winners</h2>
+      <h2>CampMemories / Wall of Fame — Annual 3 Winners</h2>
       <p class="section-helper">Tap a memory card to view and hear the story.</p>
     `;
     const grid = document.createElement("div");
