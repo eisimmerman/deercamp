@@ -14,10 +14,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 import {
+  getActiveCampId,
   getLocalMemoryById,
   markMemoryPublished,
   markMemoryPublishFailed,
   markMemoryPublishing,
+  setActiveCampId,
   type LocalMemoryItem,
 } from "@/lib/localMemories";
 import { publishMemoryToFeed } from "@/lib/publishMemory";
@@ -78,7 +80,7 @@ function VoicePlayer({ uri, durationMs }: { uri: string; durationMs?: number }) 
         <Pressable
           onPress={onPress}
           disabled={!status.isLoaded}
-          style={({ pressed }) => [
+          style={({ pressed }: { pressed: boolean }) => [
             styles.voiceBtn,
             pressed && styles.voiceBtnPressed,
             !status.isLoaded && styles.voiceBtnDisabled,
@@ -89,7 +91,7 @@ function VoicePlayer({ uri, durationMs }: { uri: string; durationMs?: number }) 
 
         <Pressable
           onPress={() => router.replace("/")}
-          style={({ pressed }) => [styles.homeBtn, pressed && styles.voiceBtnPressed]}
+          style={({ pressed }: { pressed: boolean }) => [styles.homeBtn, pressed && styles.voiceBtnPressed]}
         >
           <Text style={styles.homeBtnText}>Home</Text>
         </Pressable>
@@ -135,19 +137,26 @@ export default function LocalEntryDetailScreen() {
 
     try {
       await markMemoryPublishing(entry.id);
-      setEntry((current) =>
+      setEntry((current: LocalMemoryItem | null) =>
         current ? { ...current, syncStatus: "publishing", publishError: undefined } : current
       );
 
+      const resolvedCampId =
+        String(entry.campId || "").trim() ||
+        String((await getActiveCampId()) || "").trim() ||
+        "ourdeercamp";
+
       const result = await publishMemoryToFeed(entry, {
-        campId: entry.campId || "ourdeercamp",
+        campId: resolvedCampId,
         defaultTitle: entry.title?.trim() || "Field Memory",
         defaultCaption: entry.details?.trim() || "Captured in DeerCamp Field Mode.",
       });
 
+      await setActiveCampId(resolvedCampId);
+
       await markMemoryPublished(entry.id, {
         feedDocId: result.feedDocId,
-        campId: entry.campId || "ourdeercamp",
+        campId: resolvedCampId,
       });
 
       await loadEntry();
@@ -159,7 +168,7 @@ export default function LocalEntryDetailScreen() {
       console.error("Publish memory failed:", error);
 
       await markMemoryPublishFailed(entry.id, message);
-      setEntry((current) =>
+      setEntry((current: LocalMemoryItem | null) =>
         current ? { ...current, syncStatus: "failed", publishError: message } : current
       );
 
@@ -250,7 +259,7 @@ export default function LocalEntryDetailScreen() {
       <Pressable
         onPress={onPublish}
         disabled={!canPublish}
-        style={({ pressed }) => [
+        style={({ pressed }: { pressed: boolean }) => [
           styles.publishBtn,
           pressed && canPublish && styles.publishBtnPressed,
           !canPublish && styles.publishBtnDisabled,

@@ -608,6 +608,96 @@ const stateMap = {
   "district of columbia": "DC"
 };
 
+function slugifyCampId(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function deriveCampIdFromBuilder(values = {}) {
+  const parts = [values.name, values.city, values.state, values.zip]
+    .map(item => String(item || "").trim())
+    .filter(Boolean);
+
+  return slugifyCampId(parts.join("-")) || "ourdeercamp";
+}
+
+const STARTER_FEED_ENTRIES = [
+  {
+    title: "Three Does in the Shooting Lane",
+    kicker: "CampFeed Example",
+    meta: "Lower trail camera lane • Eric voice note",
+    body: "Three does drifted through the shooting lane on the winter trail, giving camp a clean first look at daylight movement in the woods.",
+    image: "assets/feed/winter-trail-deer.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/winter-trail-deer.mp3",
+    tags: ["Real photo", "Audio update", "Trail movement"]
+  },
+  {
+    title: "Big buck by the road",
+    kicker: "Roadside Sighting",
+    meta: "Camp road edge • Field audio note",
+    body: "A mature buck stepped out by the road and paused in the open long enough for a clean photo and a quick audio update back to camp.",
+    image: "assets/feed/big-buck-near-road.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/big-buck-near-road.mp3",
+    tags: ["Big buck", "Road edge", "Audio update"]
+  },
+  {
+    title: "Spike buck by the road",
+    kicker: "Young Buck Sighting",
+    meta: "Roadside timber • Quick camp note",
+    body: "A spike buck slipped along the roadside cover, making a good watch-and-pass moment and a solid addition to the CampFeed presentation.",
+    image: "assets/feed/can't-shoot-spike-buck.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/can't-shoot-spike-buck.mp3",
+    tags: ["Spike buck", "Road edge", "Audio update"]
+  }
+];
+
+const STARTER_CAMP_CARDS = [
+  { title: "Packers & Burgers Night", source: "Camp Steward", image: "campcards/images/packers-burgers.png", caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early." },
+  { title: "First Coffee at Camp", source: "Camp Steward", image: "campcards/images/first-coffee.png", caption: "The first mug of camp coffee before daylight and before the woods wake up." },
+  { title: "Campfire Camaraderie", source: "Camp Steward", image: "campcards/images/campfire-camaraderie.png", caption: "Stories, laughter, and the kind of campfire talk that becomes tradition." },
+  { title: "Fall Scouting Loop", source: "Camp Steward", image: "campcards/images/fall-scouting.png", caption: "An evening scouting walk that sets the tone for the whole season." }
+];
+
+const STARTER_WALL_OF_FAME = [
+  {
+    id: "memory-1",
+    title: "Brittney's First Deer",
+    winner: "Brittney",
+    year: "2025",
+    image: "campcards/images/brittneys-first-deer.png",
+    audio: "campcards/audio/brittneys-first-deer.mp3",
+    caption: "A first deer and the kind of memory the whole camp wants preserved.",
+    story: "Wall of Fame starter for the annual bow season winner."
+  },
+  {
+    id: "memory-2",
+    title: "Grandpa's Biggest Buck",
+    winner: "Grandpa",
+    year: "2025",
+    image: "campcards/images/grandpas-biggest-buck.png",
+    audio: "campcards/audio/grandpas-biggest-buck.mp3",
+    caption: "The buck everybody talks about long after the season closes.",
+    story: "Wall of Fame starter for the annual gun season winner."
+  },
+  {
+    id: "memory-3",
+    title: "Camp Tracker",
+    winner: "Camp Tracker",
+    year: "2025",
+    image: "campcards/images/camp-tracker.png",
+    audio: "campcards/audio/camp-tracker.mp3",
+    caption: "A season-closing memory preserved for the camp archive.",
+    story: "Wall of Fame starter for the annual muzzle loader winner."
+  }
+];
+
 const CAMP_RECIPE_ADJECTIVES = [
   "Legendary",
   "Backwoods",
@@ -1647,6 +1737,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const recipeNames = recipeObjects.map(recipe => recipe.title);
 
   const selectedSign = getSelectedSignDefinition();
+  const campId = deriveCampIdFromBuilder({ name, city, state, zip });
 
   let hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
 
@@ -1670,6 +1761,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   };
 
   const campData = {
+    campId,
     name,
     city,
     state,
@@ -1687,7 +1779,10 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     memberProfiles,
     traditions,
     deerDrives,
-    memories: [],
+    feedEntries: STARTER_FEED_ENTRIES,
+    campCards: STARTER_CAMP_CARDS,
+    memories: STARTER_WALL_OF_FAME,
+    wallOfFame: STARTER_WALL_OF_FAME,
     recipes: recipeObjects,
     recipeNames,
     recipeObjects,
@@ -1699,6 +1794,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   };
 
   localStorage.setItem("campData", JSON.stringify(campData));
+  localStorage.setItem("deercamp.activeCampId", campId);
   window.location.href = "camp.html";
 });
 </script>

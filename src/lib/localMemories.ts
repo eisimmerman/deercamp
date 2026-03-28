@@ -23,6 +23,7 @@ export type LocalMemoryItem = {
 };
 
 const STORAGE_KEY = "deercamp.localMemories.v1";
+const ACTIVE_CAMP_ID_KEY = "deercamp.activeCampId.v1";
 
 function normalizeMemory(item: any): LocalMemoryItem {
   return {
@@ -82,6 +83,32 @@ export async function updateLocalMemory(
   const items = await readAll();
   const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
   await writeAll(next);
+}
+
+export async function getActiveCampId() {
+  try {
+    const raw = await AsyncStorage.getItem(ACTIVE_CAMP_ID_KEY);
+    const clean = String(raw || "").trim();
+    return clean || null;
+  } catch (error) {
+    console.error("getActiveCampId failed:", error);
+    return null;
+  }
+}
+
+export async function setActiveCampId(campId?: string | null) {
+  const clean = String(campId || "").trim();
+
+  try {
+    if (!clean) {
+      await AsyncStorage.removeItem(ACTIVE_CAMP_ID_KEY);
+      return;
+    }
+
+    await AsyncStorage.setItem(ACTIVE_CAMP_ID_KEY, clean);
+  } catch (error) {
+    console.error("setActiveCampId failed:", error);
+  }
 }
 
 export async function markMemoryPublishing(id: string) {
