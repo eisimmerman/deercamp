@@ -2215,9 +2215,34 @@
 
   .memories-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 18px;
     margin-top: 16px;
+    align-items: stretch;
+  }
+
+  @media (max-width: 1440px) {
+    .memories-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 1160px) {
+    .memories-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 860px) {
+    .memories-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .memories-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
   .memory-card {
@@ -3675,12 +3700,7 @@ sections.forEach(section => {
 
           <div class="feed-archive-meta">
             <p id="feedResultsCount" class="feed-results-count">0 posts</p>
-            <div class="feed-archive-actions-bar" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:flex-end;">
-              <button type="button" id="feedArchivePrevBtn" class="feed-clear-btn">Previous 10</button>
-              <span id="feedArchivePageLabel" class="feed-results-count">Archive page 1</span>
-              <button type="button" id="feedArchiveNextBtn" class="feed-clear-btn">Next 10</button>
-              <button type="button" id="feedClearBtn" class="feed-clear-btn">Clear Filters</button>
-            </div>
+            <button type="button" id="feedClearBtn" class="feed-clear-btn">Clear Filters</button>
           </div>
 
           <div id="feedArchiveList" class="feed-archive-list"></div>
@@ -3717,9 +3737,6 @@ sections.forEach(section => {
     const filterRow = container.querySelector("#feedFilterRow");
     const resultsCount = container.querySelector("#feedResultsCount");
     const clearBtn = container.querySelector("#feedClearBtn");
-    const archivePrevBtn = container.querySelector("#feedArchivePrevBtn");
-    const archiveNextBtn = container.querySelector("#feedArchiveNextBtn");
-    const archivePageLabel = container.querySelector("#feedArchivePageLabel");
     const archiveList = container.querySelector("#feedArchiveList");
     const modalBackdrop = container.querySelector("#feedModalBackdrop");
     const modal = container.querySelector("#feedModal");
@@ -3757,13 +3774,9 @@ sections.forEach(section => {
     let featuredCards = [];
     let currentFeedIndex = 0;
     let allFeedEntries = [];
-    let archiveEntries = [];
     let filteredEntries = [];
     let activeFilter = "all";
     let activeModalIndex = -1;
-    let modalEntries = [];
-    let archivePageIndex = 0;
-    const archivePageSize = 10;
 
     const getVisibleFeedCards = () => {
       if (window.innerWidth <= 720) return 1;
@@ -3931,7 +3944,7 @@ sections.forEach(section => {
         openBtn.textContent = "Open Post";
         openBtn.addEventListener("click", event => {
           event.stopPropagation();
-          openFeedModal(entry.id, "all");
+          openFeedModal(entry.id);
         });
 
         copy.appendChild(kicker);
@@ -3953,11 +3966,11 @@ sections.forEach(section => {
           copy.appendChild(audio);
         }
 
-        article.addEventListener("click", () => openFeedModal(entry.id, "all"));
+        article.addEventListener("click", () => openFeedModal(entry.id));
         article.addEventListener("keypress", event => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            openFeedModal(entry.id, "all");
+            openFeedModal(entry.id);
           }
         });
 
@@ -3981,7 +3994,6 @@ sections.forEach(section => {
         button.textContent = filter.label;
         button.addEventListener("click", () => {
           activeFilter = filter.key;
-          archivePageIndex = 0;
           renderFilterChips();
           renderArchiveFeed();
         });
@@ -3993,9 +4005,7 @@ sections.forEach(section => {
       const searchTerm = String(searchInput.value || "").trim().toLowerCase();
       const sortMode = sortSelect.value || "newest";
 
-      const archivePool = allFeedEntries.slice(3);
-
-      filteredEntries = archivePool
+      filteredEntries = allFeedEntries
         .filter(entry => {
           if (!searchTerm) return true;
           return entry.searchBlob.includes(searchTerm);
@@ -4009,36 +4019,13 @@ sections.forEach(section => {
         })
         .sort((a, b) => sortMode === "oldest" ? a.createdAtMs - b.createdAtMs : b.createdAtMs - a.createdAtMs);
 
-      const totalArchivePosts = filteredEntries.length;
-      const maxPageIndex = Math.max(0, Math.ceil(totalArchivePosts / archivePageSize) - 1);
-      archivePageIndex = Math.min(archivePageIndex, maxPageIndex);
-
-      const pageStart = archivePageIndex * archivePageSize;
-      const pagedArchiveEntries = filteredEntries.slice(pageStart, pageStart + archivePageSize);
-      const pageFirst = totalArchivePosts ? pageStart + 4 : 0;
-      const pageLast = totalArchivePosts ? pageStart + 3 + pagedArchiveEntries.length : 0;
-
-      resultsCount.textContent = totalArchivePosts
-        ? `Archive showing ${formatFeedCount(pageFirst)}–${formatFeedCount(pageLast)} of ${formatFeedCount(totalArchivePosts)} older post${totalArchivePosts === 1 ? "" : "s"}`
-        : "No archived posts";
-
-      if (archivePageLabel) {
-        archivePageLabel.textContent = totalArchivePosts
-          ? `Archive page ${archivePageIndex + 1} of ${maxPageIndex + 1}`
-          : "Archive page 0 of 0";
-      }
-
-      if (archivePrevBtn) archivePrevBtn.disabled = archivePageIndex <= 0;
-      if (archiveNextBtn) archiveNextBtn.disabled = archivePageIndex >= maxPageIndex || !totalArchivePosts;
-
+      resultsCount.textContent = `${filteredEntries.length} post${filteredEntries.length === 1 ? "" : "s"}`;
       archiveList.innerHTML = "";
 
-      if (!pagedArchiveEntries.length) {
+      if (!filteredEntries.length) {
         const empty = document.createElement("div");
         empty.className = "feed-empty-state";
-        empty.innerHTML = totalArchivePosts
-          ? `<strong>No posts on this archive page.</strong><p>Use Previous 10 to go back through older CampFeed posts.</p>`
-          : `
+        empty.innerHTML = `
           <strong>No posts matched your search.</strong>
           <p>Try another keyword or clear filters to browse the full CampFeed archive.</p>
         `;
@@ -4046,7 +4033,7 @@ sections.forEach(section => {
         return;
       }
 
-      pagedArchiveEntries.forEach(entry => {
+      filteredEntries.forEach(entry => {
         const card = document.createElement("article");
         card.className = "feed-archive-card";
 
@@ -4109,7 +4096,7 @@ sections.forEach(section => {
         openBtn.type = "button";
         openBtn.className = "feed-card-open";
         openBtn.textContent = "Open Post";
-        openBtn.addEventListener("click", () => openFeedModal(entry.id, "archive"));
+        openBtn.addEventListener("click", () => openFeedModal(entry.id));
         actions.appendChild(openBtn);
 
         copy.appendChild(topline);
@@ -4177,15 +4164,16 @@ sections.forEach(section => {
       }
 
       modalPrev.disabled = activeModalIndex <= 0;
-      modalNext.disabled = activeModalIndex >= modalEntries.length - 1;
+      modalNext.disabled = activeModalIndex >= filteredEntries.length - 1;
     };
 
-    const openFeedModal = (entryId, source = "archive") => {
-      modalEntries = source === "all" ? allFeedEntries : filteredEntries;
-      const modalIndex = modalEntries.findIndex(entry => entry.id === entryId);
-      if (modalIndex < 0) return;
-      activeModalIndex = modalIndex;
-      const entry = modalEntries[activeModalIndex];
+    const openFeedModal = entryId => {
+      const modalIndex = filteredEntries.findIndex(entry => entry.id === entryId);
+      const resolvedIndex = modalIndex >= 0 ? modalIndex : allFeedEntries.findIndex(entry => entry.id === entryId);
+      if (resolvedIndex < 0) return;
+      activeModalIndex = modalIndex >= 0 ? modalIndex : resolvedIndex;
+      const sourceEntries = modalIndex >= 0 ? filteredEntries : allFeedEntries;
+      const entry = sourceEntries[activeModalIndex];
       if (!entry) return;
       ensureFeedModalOverlayRoot();
       renderFeedModal(entry);
@@ -4200,15 +4188,13 @@ sections.forEach(section => {
     const stepFeedModal = direction => {
       if (activeModalIndex < 0) return;
       const nextIndex = activeModalIndex + direction;
-      if (nextIndex < 0 || nextIndex >= modalEntries.length) return;
+      if (nextIndex < 0 || nextIndex >= filteredEntries.length) return;
       activeModalIndex = nextIndex;
-      renderFeedModal(modalEntries[activeModalIndex]);
+      renderFeedModal(filteredEntries[activeModalIndex]);
     };
 
     const refreshFeedUI = liveEntries => {
       allFeedEntries = combineFeedEntries(liveEntries, fallbackFeedEntries);
-      modalEntries = allFeedEntries;
-      archivePageIndex = 0;
       if (feedRecentCount) {
         feedRecentCount.textContent = `Showing ${formatFeedCount(Math.min(3, allFeedEntries.length))} of ${formatFeedCount(allFeedEntries.length)}`;
       }
@@ -4244,28 +4230,13 @@ sections.forEach(section => {
 
     prevBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex - 1));
     nextBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex + 1));
-    searchInput.addEventListener("input", () => {
-      archivePageIndex = 0;
-      renderArchiveFeed();
-    });
-    sortSelect.addEventListener("change", () => {
-      archivePageIndex = 0;
-      renderArchiveFeed();
-    });
+    searchInput.addEventListener("input", () => renderArchiveFeed());
+    sortSelect.addEventListener("change", () => renderArchiveFeed());
     clearBtn.addEventListener("click", () => {
       searchInput.value = "";
       sortSelect.value = "newest";
       activeFilter = "all";
-      archivePageIndex = 0;
       renderFilterChips();
-      renderArchiveFeed();
-    });
-    archivePrevBtn.addEventListener("click", () => {
-      archivePageIndex = Math.max(0, archivePageIndex - 1);
-      renderArchiveFeed();
-    });
-    archiveNextBtn.addEventListener("click", () => {
-      archivePageIndex += 1;
       renderArchiveFeed();
     });
     modalClose.addEventListener("click", closeFeedModal);
@@ -4307,7 +4278,7 @@ sections.forEach(section => {
   else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="placeholder">Curated by the Steward to spotlight the stories, moments, and camp culture that matter most.</p>
+      <p class="section-helper">Featured camp stories curated by the Steward for the live camp page.</p>
     `;
 
     const grid = document.createElement("div");
@@ -4499,15 +4470,17 @@ sections.forEach(section => {
   }
 
   else if (section.key === "memories") {
+    const memories = normalizedCampMemories.length ? normalizedCampMemories : STARTER_CAMP_MEMORIES;
+    const visibleMemories = memories.slice(0, 10);
+
     container.innerHTML = `
-      <h2>CampMemories / Wall of Fame — Annual 3 Winners</h2>
-      <p class="section-helper">Tap a memory card to view and hear the story.</p>
+      <h2>CampMemories / Wall of Fame — Recent Memories</h2>
+      <p class="section-helper">Showing the 10 most recent memory cards. Tap a card to view and hear the story.</p>
     `;
     const grid = document.createElement("div");
     grid.className = "memories-grid";
 
-    const memories = normalizedCampMemories.length ? normalizedCampMemories : STARTER_CAMP_MEMORIES;
-    activeMemoryStories = memories.map(item => normalizeCampMemoryItem(item)).filter(Boolean);
+    activeMemoryStories = visibleMemories.map(item => normalizeCampMemoryItem(item)).filter(Boolean);
 
     activeMemoryStories.forEach((memory, index) => {
       const card = document.createElement("article");
@@ -5095,16 +5068,44 @@ function buildAutoRecipeObjects(memberNames = []) {
 }
 
 
+function getRecipeMemberNames() {
+  return (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
+}
+
+function recipeTitlesNeedPersonalization(recipes = [], memberNames = []) {
+  if (!Array.isArray(recipes) || !recipes.length || !Array.isArray(memberNames) || !memberNames.length) {
+    return false;
+  }
+
+  const firstNames = memberNames
+    .map(getFirstName)
+    .filter(Boolean)
+    .map(name => name.toLowerCase());
+
+  if (!firstNames.length) return false;
+
+  return recipes.every((recipe) => {
+    const title = String(recipe?.title || "").toLowerCase();
+    if (!title) return true;
+    if (title.includes("'s ")) return false;
+    return !firstNames.some((name) => title.includes(name));
+  });
+}
+
 function getCampRecipes() {
   const recipeSource = Array.isArray(data.recipeObjects) && data.recipeObjects.length
     ? data.recipeObjects
     : (Array.isArray(data.recipes) && data.recipes.length ? data.recipes : []);
 
+  const memberNames = getRecipeMemberNames();
+
   if (recipeSource.length) {
+    if (recipeTitlesNeedPersonalization(recipeSource, memberNames)) {
+      return buildAutoRecipeObjects(memberNames).map((recipe, index) => normalizeCampRecipe(recipe, index));
+    }
     return recipeSource.map((recipe, index) => normalizeCampRecipe(recipe, index));
   }
 
-  const memberNames = (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
   return buildAutoRecipeObjects(memberNames).map((recipe, index) => normalizeCampRecipe(recipe, index));
 }
 
@@ -5303,11 +5304,106 @@ function normalizeCalendarEvents(source) {
     .filter(Boolean);
 }
 
-function buildFallbackEvents() {
-  return [];
+function normalizeStateCodeFromValue(stateValue = "", lookupStates = {}) {
+  const raw = String(stateValue || "").trim();
+  if (!raw) return "";
+
+  if (/^[A-Za-z]{2}$/.test(raw)) {
+    return raw.toUpperCase();
+  }
+
+  const lowered = raw.toLowerCase();
+  for (const [code, record] of Object.entries(lookupStates || {})) {
+    const stateName = String(record?.stateName || "").trim().toLowerCase();
+    if (stateName && stateName === lowered) return code;
+  }
+
+  return "";
 }
 
-const normalizedCalendarEvents = normalizeCalendarEvents(
+function getCalendarSeasonLookupYear() {
+  const siteYear = Number.parseInt(
+    data.siteSeasonLookupYear
+      || (data.siteCreatedAt ? String(new Date(data.siteCreatedAt).getFullYear()) : ""),
+    10
+  );
+
+  if (!Number.isNaN(siteYear) && siteYear > 1900) return siteYear;
+  return new Date().getFullYear();
+}
+
+async function loadOfficialSeasonOpenersForCamp() {
+  try {
+    const response = await fetch(`data/us-state-deer-openers.json?ts=${Date.now()}`, {
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+function buildOfficialEventsFromStateSchema(stateRecord = {}, yearKey = "") {
+  const seasons = Array.isArray(stateRecord.seasons) ? stateRecord.seasons : [];
+
+  return seasons
+    .map((season) => {
+      const dateKey = normalizeDateKey(season?.date);
+      if (!dateKey) return null;
+      if (yearKey && !String(dateKey).startsWith(`${yearKey}-`)) return null;
+
+      return {
+        date: dateKey,
+        title: String(season.title || season.name || "Season Opener").trim(),
+        description: String(season.description || season.scopeNote || "Official statewide season opener.").trim(),
+        icon: String(season.icon || "").trim(),
+        type: String(season.type || "").trim().toLowerCase()
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildEventsByDateMap(events = []) {
+  return (Array.isArray(events) ? events : []).reduce((acc, event) => {
+    if (!acc[event.date]) acc[event.date] = [];
+    acc[event.date].push(event);
+    return acc;
+  }, {});
+}
+
+function mergeOfficialSeasonFallbackEvents(currentEvents = [], officialEvents = []) {
+  const normalizedCurrent = normalizeCalendarEvents(currentEvents);
+  const requiredTypes = ["archery", "firearm", "muzzleloader"];
+  const existingTypes = new Set(
+    normalizedCurrent
+      .map((event) => `${event.title || ""} ${event.description || ""}`.toLowerCase())
+      .flatMap((text) => requiredTypes.filter((type) => text.includes(type)))
+  );
+
+  const toAdd = officialEvents.filter((event) => {
+    if (!event?.date || !event?.title) return false;
+    const eventType = String(event.type || "").trim().toLowerCase();
+    if (eventType && existingTypes.has(eventType)) return false;
+    return !normalizedCurrent.some((current) => current.date === event.date && String(current.title || "").trim() === String(event.title || "").trim());
+  });
+
+  return normalizedCurrent.concat(toAdd);
+}
+
+async function buildFallbackEvents() {
+  const lookup = await loadOfficialSeasonOpenersForCamp();
+  const stateCode = normalizeStateCodeFromValue(data.state, lookup?.states || {});
+  const yearKey = String(getCalendarSeasonLookupYear());
+
+  if (!lookup || !lookup.states || !stateCode || !lookup.states[stateCode]) {
+    return [];
+  }
+
+  return buildOfficialEventsFromStateSchema(lookup.states[stateCode], yearKey);
+}
+
+let normalizedCalendarEvents = normalizeCalendarEvents(
   data.calendarEvents || data.events || data.campEvents || []
 );
 
@@ -5351,13 +5447,9 @@ function shiftWeekendLabelEventsToWeekend(events) {
     });
 }
 
-const calendarEvents = shiftWeekendLabelEventsToWeekend(normalizedCalendarEvents);
+let calendarEvents = shiftWeekendLabelEventsToWeekend(normalizedCalendarEvents);
 
-const eventsByDate = calendarEvents.reduce((acc, event) => {
-  if (!acc[event.date]) acc[event.date] = [];
-  acc[event.date].push(event);
-  return acc;
-}, {});
+let eventsByDate = buildEventsByDateMap(calendarEvents);
 
 let calendarCursor = new Date();
 calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
@@ -5506,6 +5598,32 @@ function renderCalendar() {
   }
 }
 
+async function hydrateOfficialCalendarEvents() {
+  const fallbackEvents = await buildFallbackEvents();
+  if (!fallbackEvents.length) return;
+
+  const mergedEvents = mergeOfficialSeasonFallbackEvents(normalizedCalendarEvents, fallbackEvents);
+  const mergedShifted = shiftWeekendLabelEventsToWeekend(mergedEvents);
+
+  const changed = JSON.stringify(mergedShifted) !== JSON.stringify(calendarEvents);
+  if (!changed) return;
+
+  normalizedCalendarEvents = mergedEvents;
+  calendarEvents = mergedShifted;
+  eventsByDate = buildEventsByDateMap(calendarEvents);
+
+  if (!(eventsByDate[selectedDateKey] || []).length && calendarEvents.length) {
+    const firstOfficialEvent = parseLocalDate(calendarEvents[0].date);
+    if (firstOfficialEvent) {
+      selectedDateKey = normalizeDateKey(firstOfficialEvent);
+      calendarCursor = new Date(firstOfficialEvent.getFullYear(), firstOfficialEvent.getMonth(), 1);
+    }
+  }
+
+  renderCalendar();
+  renderCalendarEventList(selectedDateKey);
+}
+
 function initCalendar() {
   const prev = document.getElementById("calendarPrev");
   const next = document.getElementById("calendarNext");
@@ -5545,6 +5663,7 @@ function initCalendar() {
 
   renderCalendar();
   renderCalendarEventList(selectedDateKey);
+  hydrateOfficialCalendarEvents();
 }
 
 window.addEventListener("load", () => {
