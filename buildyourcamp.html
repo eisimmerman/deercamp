@@ -1,153 +1,747 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp Steward Onboarding Wizard</title>
+  <style>
+    :root {
+      --bg: #d7ccb9;
+      --panel: #f7f1e7;
+      --panel-2: #efe4d2;
+      --ink: #231a13;
+      --muted: #6b5644;
+      --brown: #6a4427;
+      --brown-deep: #452a16;
+      --green: #496647;
+      --gold: #b1792d;
+      --line: rgba(69, 42, 22, 0.12);
+      --shadow: 0 10px 28px rgba(0,0,0,0.12);
+      --radius: 22px;
+      --radius-sm: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+    }
+    button, input, select, textarea { font: inherit; }
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      padding: 24px;
+    }
+    .sidebar, .panel, .card, .status-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .sidebar {
+      padding: 22px 18px;
+      position: sticky;
+      top: 24px;
+      align-self: start;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      padding: 8px;
+      background: rgba(106,68,39,0.1);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .brand h1 { margin: 0; font-size: 1.2rem; }
+    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    .rule-card {
+      margin-bottom: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(106,68,39,0.09), rgba(106,68,39,0.03));
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+    .rule-card strong { display: block; margin-bottom: 6px; }
+    .step-list { display: grid; gap: 10px; }
+    .step {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+    .step.active { background: var(--brown); color: #fff; }
+    .step.done { background: rgba(73,102,71,0.12); border-color: rgba(73,102,71,0.16); }
+    .step-num {
+      width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; font-weight: 800;
+      background: rgba(69,42,22,0.12); color: var(--brown-deep); flex: 0 0 auto;
+    }
+    .step.active .step-num { background: rgba(255,255,255,0.16); color: #fff; }
+    .step.done .step-num { background: var(--green); color: #fff; }
+    .main { display: grid; gap: 22px; }
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between; gap: 14px;
+      padding: 18px 22px; background: rgba(247,241,231,0.88); backdrop-filter: blur(8px);
+      border: 1px solid rgba(69,42,22,0.08); border-radius: 24px; box-shadow: var(--shadow);
+    }
+    .topbar h2 { margin: 0; font-size: 1.35rem; }
+    .topbar p { margin: 4px 0 0; color: var(--muted); }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px;
+      border-radius: 999px; border: 0; font-weight: 700; cursor: pointer; font-size: 0.95rem;
+    }
+    .btn-primary { background: var(--brown); color: #fff; box-shadow: 0 10px 24px rgba(69,42,22,0.18); }
+    .btn-secondary { background: #fff; color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.12); }
+    .btn-soft { background: rgba(255,255,255,0.65); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.1); }
+    .panel { padding: 22px; }
+    .panel h3 { margin: 0 0 8px; }
+    .helper { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+    .two-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+    .field { display: grid; gap: 7px; }
+    .field.span-2 { grid-column: 1 / -1; }
+    .field label { font-size: 0.88rem; font-weight: 700; color: var(--brown-deep); }
+    .field input, .field textarea, .field select {
+      width: 100%; min-height: 46px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(69,42,22,0.14);
+      background: #fff; color: var(--ink);
+    }
+    .field textarea { min-height: 110px; resize: vertical; }
+    .field-note { font-size: 0.82rem; color: var(--muted); }
+    .card, .status-card {
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18));
+    }
+    .card strong, .status-card strong { display: block; margin-bottom: 6px; }
+    .badge {
+      display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: 999px;
+      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+      background: rgba(106,68,39,0.08); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.08);
+    }
+    .badge.green { background: rgba(73,102,71,0.12); color: var(--green); }
+    .toggle-grid { display: grid; gap: 12px; }
+    .toggle-card {
+      display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
+      padding: 16px 18px; border-radius: var(--radius-sm); background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18)); border: 1px solid rgba(69,42,22,0.08);
+    }
+    .toggle-card label { font-weight: 700; }
+    .toggle-card p { margin: 6px 0 0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+    .switch { display: inline-flex; gap: 8px; align-items: center; }
+    .switch input { width: 18px; height: 18px; }
+    .preview {
+      display: grid; gap: 14px; align-content: start;
+    }
+    .hero-preview {
+      min-height: 180px; border-radius: 18px; overflow: hidden; background: linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28)); display: grid; place-items: center; color: #fff; font-weight: 700;
+    }
+    .hero-preview small { display: block; font-weight: 400; opacity: 0.88; }
+    .member-list, .summary-list { display: grid; gap: 12px; }
+    .member-row {
+      padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.58); border: 1px solid rgba(69,42,22,0.08);
+    }
+    .member-row strong { display: block; }
+    .member-row span { color: var(--muted); font-size: 0.92rem; }
+    .footer-actions {
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px;
+    }
+    .save-pill {
+      display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 12px; border-radius: 999px;
+      background: rgba(73,102,71,0.12); color: var(--green); font-size: 0.86rem; font-weight: 700;
+    }
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Build Your DeerCamp</title>
-
-<style>
-
-body{
-font-family:system-ui,-apple-system,Segoe UI,Roboto;
-background:#d2c6b2;
-display:flex;
-justify-content:center;
-padding:40px;
-}
-
-.container{
-max-width:650px;
-width:100%;
-background:white;
-padding:30px;
-border-radius:16px;
-box-shadow:0 8px 20px rgba(0,0,0,.15);
-}
-
-h1{
-text-align:center;
-margin-bottom:30px;
-}
-
-label{
-display:block;
-margin-top:15px;
-font-weight:600;
-}
-
-input,select,textarea{
-width:100%;
-padding:10px;
-margin-top:5px;
-border-radius:6px;
-border:1px solid #ccc;
-font-size:15px;
-}
-
-textarea{
-height:90px;
-}
-
-button{
-width:100%;
-margin-top:20px;
-padding:14px;
-border:none;
-border-radius:8px;
-background:#7b5734;
-color:white;
-font-size:16px;
-cursor:pointer;
-}
-
-button:hover{
-background:#5e4229;
-}
-
-</style>
-
+    .progress-wrap { display:grid; gap:10px; margin-top: 10px; }
+    .progress-meta { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; color: var(--muted); font-size:0.9rem; }
+    .progress-bar { width:100%; height:12px; border-radius:999px; background: rgba(69,42,22,0.10); overflow:hidden; }
+    .progress-fill { height:100%; width:0; border-radius:999px; background: linear-gradient(90deg, var(--brown), var(--gold)); transition: width 0.2s ease; }
+    .welcome-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    .sticky-footer { position: sticky; bottom: 14px; z-index: 8; padding: 14px 16px; background: rgba(247,241,231,0.94); backdrop-filter: blur(8px); border: 1px solid rgba(69,42,22,0.08); border-radius: 20px; box-shadow: var(--shadow); }
+    .member-card { display:grid; gap:10px; padding:14px 16px; border-radius:16px; background: rgba(255,255,255,0.58); border: 1px solid rgba(69,42,22,0.08); }
+    .member-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .member-card-lines { display:grid; gap:4px; color: var(--muted); font-size:0.92rem; }
+    .member-card-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    .step-complete { margin-top:14px; padding:12px 14px; border-radius:16px; background: rgba(73,102,71,0.12); color: var(--green); font-weight:700; }
+    .toggle-copy { display:grid; gap:6px; }
+    .toggle-recommendation { display:flex; gap:8px; flex-wrap:wrap; }
+    .toggle-card .helper-copy { margin:0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+    .switch-label { font-size:0.84rem; font-weight:700; color: var(--muted); }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+      .two-grid, .three-grid, .form-grid { grid-template-columns: 1fr; }
+      .field.span-2 { grid-column: auto; }
+    }
+  </style>
 </head>
-
 <body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="Deer track icon" /></div>
+        <div>
+          <h1>DeerCamp</h1>
+          <p>Steward Onboarding Wizard</p>
+        </div>
+      </div>
 
-<div class="container">
+      <div class="rule-card">
+        <strong>First rule</strong>
+        <div>No replacement of prior Steward work. DeerCamp preloads what already exists, fills blanks, and only changes existing values when the Steward edits them.</div>
+      </div>
 
-<h1>Build Your DeerCamp</h1>
+      <div class="step-list" id="stepList"></div>
+    </aside>
 
-<label>Camp Name</label>
-<input id="campName">
+    <main class="main">
+      <div class="topbar">
+        <div style="flex:1 1 auto; min-width:0;">
+          <h2 id="wizardTitle">Build Your DeerCamp</h2>
+          <p id="wizardSubtitle">Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.</p>
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="progressStepLabel">Step 1 of 6</span>
+              <span id="progressPercent">17% complete</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          </div>
+        </div>
+        <div class="save-pill" id="savePill">Autosaved locally</div>
+      </div>
 
-<label>Location</label>
-<input id="location">
+      <section class="panel step-panel active" id="step-0">
+        <h3>Welcome</h3>
+        <p class="helper">This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.</p>
+        <div class="three-grid">
+          <div class="card"><strong>Build my camp</strong><span>CampProfile, members, sections, and starter content in one guided pass.</span></div>
+          <div class="card"><strong>Run my camp</strong><span>When you finish here, DeerCamp takes you into the Steward Dashboard command center.</span></div>
+          <div class="card"><strong>Do no harm</strong><span>Existing steward work stays in place unless you intentionally change it.</span></div>
+        </div>
+        <div class="welcome-actions">
+          <button class="btn btn-primary" id="startSetupBtn" type="button">Start Setup</button>
+          <button class="btn btn-secondary" id="continueSavedBtn" type="button">Continue Where I Left Off</button>
+          <button class="btn btn-soft" id="openDashboardStartBtn" type="button">Open Dashboard Instead</button>
+        </div>
+      </section>
 
-<label>Established Year</label>
-<input id="established">
+      <section class="panel step-panel" id="step-1">
+        <h3>CampProfile</h3>
+        <p class="helper">Lock the public identity of your camp first. This should map directly into the CampProfile tab in the Steward Dashboard.</p>
+        <div class="two-grid">
+          <form class="form-grid" id="campProfileStepForm">
+            <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text" placeholder="Big Buck Camp" /></div>
+            <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text" placeholder="1999" /></div>
+            <div class="field"><label for="campCity">City</label><input id="campCity" type="text" placeholder="Eau Claire" /></div>
+            <div class="field"><label for="campState">State</label><input id="campState" type="text" placeholder="WI" /></div>
+            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text" placeholder="54701" /></div>
+            <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text" placeholder="assets/heroes/MN-deer-camp.jpg" /></div>
+            <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary" placeholder="What makes this camp unique, who it is for, and what the season means here."></textarea></div>
+            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text" placeholder="assets/branding/deer-track.png" /></div>
+            <div class="field span-2"><label for="campAccess">Access / Rules Note</label><textarea id="campAccess" placeholder="Gate locked after dark. Text the steward before bringing guests."></textarea></div>
+          </form>
+          <div class="preview">
+            <div class="hero-preview" id="heroPreview">
+              <div>
+                Camp hero preview
+                <small id="heroPreviewPath">No hero path yet</small>
+              </div>
+            </div>
+            <div class="card"><strong id="profilePreviewName">Big Buck Camp</strong><span id="profilePreviewMeta">Add location and established year.</span></div>
+            <div class="card"><strong>Summary</strong><span id="profilePreviewSummary">Add a camp summary so this reads like a real camp, not just saved data.</span></div>
+            <div class="card"><strong>Access Note</strong><span id="profilePreviewAccess">No access note yet.</span></div>
+            <div class="step-complete" id="campProfileComplete">CampProfile needs a few more details before this step feels complete.</div>
+          </div>
+        </div>
+      </section>
 
-<label>Choose Your Camp Style</label>
-<select id="style">
-<option value="classic.jpg">Classic Deer Camp</option>
-<option value="pines.jpg">Pine Woods Camp</option>
-<option value="cabin.jpg">Cabin Camp</option>
-<option value="snow.jpg">Snow Camp</option>
-</select>
+      <section class="panel step-panel" id="step-2">
+        <h3>Members</h3>
+        <p class="helper">Add or confirm the Steward and camp members. Existing people are preserved. New people are merged in without replacing current profiles.</p>
+        <div class="card" style="margin-bottom:18px;"><strong>Start here</strong><span>Add the Steward email first, then add members one by one with name and email. You can remove any row here, and you can fine-tune full profile details later from the Steward Dashboard.</span></div>
+        <div class="two-grid">
+          <div>
+            <form class="form-grid" id="memberAddForm">
+              <div class="field"><label for="stewardName">Steward Name</label><input id="stewardName" type="text" placeholder="Eric Simmerman" /></div>
+              <div class="field"><label for="stewardEmail">Steward Email</label><input id="stewardEmail" type="email" placeholder="ourdeercamp@gmail.com" /></div>
+              <div class="field"><label for="memberName">Add Member Name</label><input id="memberName" type="text" placeholder="Bruce" /></div>
+              <div class="field"><label for="memberEmail">Add Member Email</label><input id="memberEmail" type="email" placeholder="bruce@example.com" /></div>
+              <div class="field span-2"><button class="btn btn-primary" type="submit">Add Member</button></div>
+            </form>
+          </div>
+          <div>
+            <div class="member-list" id="memberList"></div>
+          </div>
+        </div>
+      </section>
 
-<label>Camp Members (comma separated)</label>
-<input id="members">
+      <section class="panel step-panel" id="step-3">
+        <h3>Sections</h3>
+        <p class="helper">Choose what goes live in this camp. Existing enabled sections stay enabled unless you explicitly turn them off. Each card explains why you would keep a section on at launch.</p>
+        <div class="toggle-grid" id="sectionToggleGrid"></div>
+      </section>
 
-<label>Camp Traditions (one per line)</label>
-<textarea id="traditions"></textarea>
+      <section class="panel step-panel" id="step-4">
+        <h3>Starter Content</h3>
+        <p class="helper">Starter content should fill empty sections, not replace custom steward work. These switches only seed sections that are empty or explicitly chosen.</p>
+        <div class="toggle-grid" id="starterToggleGrid"></div>
+      </section>
 
-<button onclick="generateCamp()">
-Generate My DeerCamp
-</button>
+      <section class="panel step-panel" id="step-5">
+        <h3>Review + Launch</h3>
+        <p class="helper">Review what is new, what is updated, and what remains unchanged. Launching writes into the same DeerCamp data model used by the Steward Dashboard.</p>
+        <div class="three-grid" id="reviewStats"></div>
+        <div class="summary-list" id="reviewList" style="margin-top:16px;"></div>
+      </section>
 
-</div>
+      <div class="footer-actions sticky-footer">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="prevBtn" type="button">Back</button>
+          <button class="btn btn-soft" id="continueLaterBtn" type="button">Save + Continue Later</button>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-secondary" id="openDashboardBtn" type="button">Open Dashboard</button>
+          <button class="btn btn-primary" id="nextBtn" type="button">Next</button>
+        </div>
+      </div>
+    </main>
+  </div>
 
-<script>
+  <script>
+    const CAMP_DATA_KEY = "campData";
+    const DASHBOARD_KEY = "deerCampStewardDashboard";
+    const WIZARD_KEY = "deerCampStewardWizard";
 
-function generateCamp(){
+    const SECTIONS = [
+      { key: "campfeed", label: "CampFeed", description: "Receives field posts, photos, and audio synced from the DeerCamp App so your camp can see real updates from the woods.", recommendation: "Recommended", reason: "Keep this on if your camp will use the DeerCamp App." },
+      { key: "stands", label: "CampStands", description: "Stand names, assignments, wind notes, and access routes.", recommendation: "Recommended", reason: "Needed for serious season setup and for later deer-drive planning." },
+      { key: "deerdrives", label: "CampDeerDrives", description: "Multiple drive plans built from the stand map.", recommendation: "Optional", reason: "Turn this on if your camp runs deer drives or will later." },
+      { key: "calendar", label: "CampCalendar", description: "Opener dates, hunt weekends, meals, and work weekends.", recommendation: "Recommended", reason: "Keeps the season organized and visible for everyone." },
+      { key: "campcards", label: "CampCards", description: "Featured camp stories shown on the public camp page.", recommendation: "Optional", reason: "Great for storytelling and featured moments, but not required for launch." },
+      { key: "campmemories", label: "CampMemories", description: "Wall of Fame winners, legacy moments, and preserved memories.", recommendation: "Optional", reason: "Good to keep on if you want to preserve season highlights and camp history." },
+      { key: "camprecipes", label: "CampRecipes", description: "Camp meal cards, ingredients, and methods.", recommendation: "Optional", reason: "Perfect if camp meals are part of your identity, but can be added later." },
+      { key: "traditions", label: "CampTraditions", description: "The camp heartbeat: rituals, remembrance, and identity.", recommendation: "Recommended", reason: "Adds instant soul to a new camp page and helps it feel alive on day one." }
+    ];
 
-const name = document.getElementById("campName").value
-const location = document.getElementById("location").value
-const established = document.getElementById("established").value
-const hero = document.getElementById("style").value
+    const STARTERS = [
+      { key: "traditions", label: "Seed CampTraditions", description: "Add starter traditions only if the section is empty." },
+      { key: "campcards", label: "Seed CampCards", description: "Add featured story starters only if no custom cards exist yet." },
+      { key: "campmemories", label: "Seed CampMemories", description: "Add wall-of-fame starters only if the section is empty." },
+      { key: "camprecipes", label: "Seed CampRecipes", description: "Add recipe starters only if the section is empty." }
+    ];
 
-const members =
-document.getElementById("members").value
-.split(",")
-.map(x=>x.trim())
-.filter(Boolean)
+    const STEPS = [
+      { title: "Welcome", subtitle: "Build your DeerCamp once, then refine it later." },
+      { title: "CampProfile", subtitle: "Set the public identity of the camp." },
+      { title: "Members", subtitle: "Add Steward and camp members." },
+      { title: "Sections", subtitle: "Choose which camp sections are on." },
+      { title: "Starter Content", subtitle: "Seed empty sections without replacing work." },
+      { title: "Review + Launch", subtitle: "Review, merge, and open the dashboard." }
+    ];
 
-const traditions =
-document.getElementById("traditions").value
-.split("\n")
-.map(x=>x.trim())
-.filter(Boolean)
+    function safeParse(key, fallback = {}) {
+      try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)) || fallback; }
+      catch { return fallback; }
+    }
 
-const slug =
-name.toLowerCase()
-.replace(/&/g,"")
-.replace(/\s+/g,"-")
+    function slugify(value = "") {
+      return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
 
-const camp = {
-slug,
-name,
-location,
-established,
-hero,
-members,
-traditions
-}
+    function initialsFromName(name = "") {
+      const parts = String(name).trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return "DC";
+      return parts.slice(0, 2).map(part => part[0].toUpperCase()).join("");
+    }
 
-localStorage.setItem("generatedCamp", JSON.stringify(camp))
+    function currentTimestampLabel() {
+      return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
 
-window.location="camp.html?camp=preview"
+    function uniquePeople(people = []) {
+      const seen = new Set();
+      return people.filter(person => {
+        const key = `${String(person.name || "").trim().toLowerCase()}|${String(person.email || "").trim().toLowerCase()}`;
+        if (!String(person.name || "").trim() || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
 
-}
+    const campData = safeParse(CAMP_DATA_KEY, {});
+    const dashboardState = safeParse(DASHBOARD_KEY, {});
+    const wizardState = safeParse(WIZARD_KEY, {});
 
-</script>
+    const state = {
+      step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
+      camp: {
+        name: wizardState.camp?.name ?? dashboardState.camp?.name ?? campData.name ?? campData.campName ?? "DeerCamp",
+        established: wizardState.camp?.established ?? dashboardState.camp?.established ?? campData.established ?? "",
+        city: wizardState.camp?.city ?? dashboardState.camp?.city ?? campData.city ?? "",
+        state: wizardState.camp?.state ?? dashboardState.camp?.state ?? campData.state ?? "",
+        zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? "",
+        summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? "",
+        hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? "",
+        brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? "",
+        accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
+      },
+      steward: {
+        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? "",
+        email: wizardState.steward?.email ?? ""
+      },
+      members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
+        ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+        : (Array.isArray(campData.memberProfiles)
+          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : [])))),
+      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
+      starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
+      autosavedAt: wizardState.autosavedAt || ""
+    };
 
+    const stepList = document.getElementById("stepList");
+    const wizardTitle = document.getElementById("wizardTitle");
+    const wizardSubtitle = document.getElementById("wizardSubtitle");
+    const savePill = document.getElementById("savePill");
+    const progressStepLabel = document.getElementById("progressStepLabel");
+    const progressPercent = document.getElementById("progressPercent");
+    const progressFill = document.getElementById("progressFill");
+
+    function renderStepList() {
+      stepList.innerHTML = STEPS.map((step, index) => {
+        const cls = index === state.step ? "step active" : index < state.step ? "step done" : "step";
+        return `<div class="${cls}"><div class="step-num">${index < state.step ? "✓" : index + 1}</div><div><strong>${step.title}</strong><div style="font-size:0.84rem; opacity:0.82; margin-top:4px;">${step.subtitle}</div></div></div>`;
+      }).join("");
+    }
+
+    function showStep(index) {
+      state.step = Math.max(0, Math.min(STEPS.length - 1, index));
+      document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
+      wizardTitle.textContent = STEPS[state.step].title;
+      wizardSubtitle.textContent = STEPS[state.step].subtitle;
+      document.getElementById('prevBtn').disabled = state.step === 0;
+      document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
+      const totalFlowSteps = STEPS.length;
+      const currentStepNumber = state.step + 1;
+      const pct = Math.round((currentStepNumber / totalFlowSteps) * 100);
+      progressStepLabel.textContent = `Step ${currentStepNumber} of ${totalFlowSteps}`;
+      progressPercent.textContent = `${pct}% complete`;
+      progressFill.style.width = `${pct}%`;
+      renderStepList();
+      if (state.step === 5) renderReview();
+      persist(false);
+    }
+
+    function syncCampProfilePreview() {
+      document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
+      const meta = [ [state.camp.city, state.camp.state].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
+      document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
+      document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
+      document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
+      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
+      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
+      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
+      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
+      const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
+      document.getElementById('campProfileComplete').textContent = complete
+        ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
+        : 'CampProfile needs camp name, location, and established year before this step feels complete.';
+    }
+
+    function renderMemberList() {
+      const list = document.getElementById('memberList');
+      const rows = [];
+      rows.push(`<div class="member-card"><div class="member-card-top"><strong>Steward — ${state.steward.name || 'Not set yet'}</strong><span class="badge green">Required</span></div><div class="member-card-lines"><span>${state.steward.email || 'Add the steward email used for follow-up and quick-start messages.'}</span><span>This is the person who receives onboarding follow-up and manages the camp.</span></div></div>`);
+      if (!state.members.length) {
+        rows.push(`<div class="member-card"><div class="member-card-top"><strong>No members added yet</strong><span class="badge">Optional now</span></div><div class="member-card-lines"><span>Add members now or do it later from the Steward Dashboard.</span></div></div>`);
+      } else {
+        state.members.forEach((member, index) => {
+          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Active'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>Members added here merge into the roster without replacing prior steward work.</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
+        });
+      }
+      list.innerHTML = rows.join('');
+    }
+
+    window.removeWizardMember = function(index) {
+      state.members.splice(index, 1);
+      renderMemberList();
+      persist();
+    };
+
+    window.editWizardMember = function(index) {
+      const member = state.members[index];
+      if (!member) return;
+      const nextName = window.prompt('Edit member name', member.name || '');
+      if (nextName === null) return;
+      const nextEmail = window.prompt('Edit member email', member.email || '');
+      state.members[index] = Object.assign({}, member, { name: String(nextName || '').trim(), email: String(nextEmail || '').trim() });
+      state.members = uniquePeople(state.members.filter(item => String(item.name || '').trim()));
+      renderMemberList();
+      persist();
+    };
+
+    function renderSectionToggles() {
+      document.getElementById('sectionToggleGrid').innerHTML = SECTIONS.map(item => `
+        <div class="toggle-card">
+          <div class="toggle-copy">
+            <div class="toggle-recommendation"><label>${item.label}</label><span class="badge ${item.recommendation === 'Recommended' ? 'green' : ''}">${item.recommendation}</span></div>
+            <p>${item.description}</p>
+            <p class="helper-copy">${item.reason}</p>
+          </div>
+          <div class="switch"><span class="switch-label">${state.sections[item.key] ? 'On' : 'Off'}</span><input type="checkbox" data-section="${item.key}" ${state.sections[item.key] ? 'checked' : ''} /></div>
+        </div>
+      `).join('');
+      document.querySelectorAll('[data-section]').forEach(input => {
+        input.addEventListener('change', (event) => {
+          state.sections[event.target.dataset.section] = event.target.checked;
+          renderSectionToggles();
+          persist();
+        });
+      });
+    }
+
+    function renderStarterToggles() {
+      document.getElementById('starterToggleGrid').innerHTML = STARTERS.map(item => `
+        <div class="toggle-card">
+          <div><label>${item.label}</label><p>${item.description}</p></div>
+          <div class="switch"><input type="checkbox" data-starter="${item.key}" ${state.starters[item.key] ? 'checked' : ''} /></div>
+        </div>
+      `).join('');
+      document.querySelectorAll('[data-starter]').forEach(input => {
+        input.addEventListener('change', (event) => {
+          state.starters[event.target.dataset.starter] = event.target.checked;
+          persist();
+        });
+      });
+    }
+
+    function renderReview() {
+      const existingCampProfile = Boolean(campData.name || dashboardState.camp?.name);
+      const existingMembers = (Array.isArray(campData.memberProfiles) && campData.memberProfiles.length) || (Array.isArray(dashboardState.people) && dashboardState.people.length);
+      const enabledSections = Object.values(state.sections).filter(Boolean).length;
+      document.getElementById('reviewStats').innerHTML = `
+        <div class="status-card"><strong>${enabledSections}</strong><span>Sections enabled for this camp</span></div>
+        <div class="status-card"><strong>${state.members.length + (state.steward.name ? 1 : 0)}</strong><span>People included in the wizard plan</span></div>
+        <div class="status-card"><strong>${state.camp.name || 'DeerCamp'}</strong><span>${existingCampProfile ? 'Existing CampProfile will be updated only with current wizard values.' : 'New CampProfile will be created.'}</span></div>
+      `;
+      const items = [
+        `<div class="card"><strong>CampProfile</strong><span>${existingCampProfile ? 'Existing values are preserved unless edited in this wizard.' : 'A fresh CampProfile will be created.'}</span></div>`,
+        `<div class="card"><strong>Membership</strong><span>${existingMembers ? 'Current members stay in place. New wizard members will merge in without replacing profiles.' : 'A starter member roster will be created.'}</span></div>`,
+        `<div class="card"><strong>Sections</strong><span>${enabledSections} section${enabledSections === 1 ? '' : 's'} will be enabled in the steward flow.</span></div>`,
+        `<div class="card"><strong>Starter content</strong><span>Only empty sections get seeded unless you later choose to replace content intentionally.</span></div>`,
+        `<div class="card"><strong>Autosave</strong><span>Wizard progress is already saved locally. Launch writes the merged result into DeerCamp storage for the Steward Dashboard.</span></div>`
+      ];
+      document.getElementById('reviewList').innerHTML = items.join('');
+    }
+
+    function applyDomToState() {
+      state.camp.name = document.getElementById('campName').value.trim();
+      state.camp.established = document.getElementById('campEstablished').value.trim();
+      state.camp.city = document.getElementById('campCity').value.trim();
+      state.camp.state = document.getElementById('campState').value.trim();
+      state.camp.zip = document.getElementById('campZip').value.trim();
+      state.camp.hero = document.getElementById('campHero').value.trim();
+      state.camp.summary = document.getElementById('campSummary').value.trim();
+      state.camp.brand = document.getElementById('campBrand').value.trim();
+      state.camp.accessNote = document.getElementById('campAccess').value.trim();
+      state.steward.name = document.getElementById('stewardName').value.trim();
+      state.steward.email = document.getElementById('stewardEmail').value.trim();
+      syncCampProfilePreview();
+    }
+
+    function persist(showFlash = true) {
+      applyDomToState();
+      state.autosavedAt = currentTimestampLabel();
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
+      savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
+    }
+
+    let autosaveTimer = null;
+    function queuePersist() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => persist(true), 280);
+    }
+
+    function fillForms() {
+      document.getElementById('campName').value = state.camp.name || '';
+      document.getElementById('campEstablished').value = state.camp.established || '';
+      document.getElementById('campCity').value = state.camp.city || '';
+      document.getElementById('campState').value = state.camp.state || '';
+      document.getElementById('campZip').value = state.camp.zip || '';
+      document.getElementById('campHero').value = state.camp.hero || '';
+      document.getElementById('campSummary').value = state.camp.summary || '';
+      document.getElementById('campBrand').value = state.camp.brand || '';
+      document.getElementById('campAccess').value = state.camp.accessNote || '';
+      document.getElementById('stewardName').value = state.steward.name || '';
+      document.getElementById('stewardEmail').value = state.steward.email || '';
+      syncCampProfilePreview();
+      renderMemberList();
+      renderSectionToggles();
+      renderStarterToggles();
+    }
+
+    function mergeAndLaunch() {
+      applyDomToState();
+      const nextCampData = Object.assign({}, campData);
+      nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
+      nextCampData.campName = nextCampData.name;
+      nextCampData.city = state.camp.city || campData.city || '';
+      nextCampData.state = state.camp.state || campData.state || '';
+      nextCampData.zip = state.camp.zip || campData.zip || '';
+      nextCampData.established = state.camp.established || campData.established || '';
+      nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || campData.location || '';
+      nextCampData.summary = state.camp.summary || campData.summary || campData.about || '';
+      nextCampData.about = nextCampData.summary;
+      nextCampData.hero = state.camp.hero || campData.hero || '';
+      nextCampData.brandImage = state.camp.brand || campData.brandImage || campData.brandingImage || '';
+      nextCampData.brandingImage = nextCampData.brandImage;
+      nextCampData.accessNote = state.camp.accessNote || campData.accessNote || '';
+      nextCampData.feedSourceMode = 'app';
+      nextCampData.feedModeration = 'review';
+      nextCampData.feedOfflinePolicy = 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.';
+      nextCampData.stewardName = state.steward.name || campData.stewardName || '';
+      nextCampData.steward = state.steward.name || campData.steward || '';
+      nextCampData.campSteward = state.steward.name || campData.campSteward || '';
+
+      const existingProfiles = Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles.slice() : [];
+      const stewardProfile = existingProfiles.find(profile => String(profile.role || '').toLowerCase() === 'camp steward') || {
+        id: 'steward', role: 'Camp Steward', roleLine: 'Camp administrator', status: 'Active'
+      };
+      stewardProfile.name = state.steward.name || stewardProfile.name || 'Camp Steward';
+      stewardProfile.email = state.steward.email || stewardProfile.email || '';
+      stewardProfile.status = 'Active';
+      stewardProfile.role = 'Camp Steward';
+      stewardProfile.roleLine = 'Camp administrator';
+
+      const profileMap = new Map();
+      existingProfiles.forEach(profile => {
+        const key = String(profile.name || '').trim().toLowerCase();
+        if (key) profileMap.set(key, profile);
+      });
+      profileMap.set(String(stewardProfile.name || '').trim().toLowerCase(), stewardProfile);
+      state.members.forEach((member, index) => {
+        const key = String(member.name || '').trim().toLowerCase();
+        if (!key) return;
+        const existing = profileMap.get(key) || {};
+        profileMap.set(key, Object.assign({}, existing, {
+          id: existing.id || `member-${index + 1}`,
+          name: member.name,
+          email: member.email || existing.email || '',
+          role: 'Camp Member',
+          roleLine: existing.roleLine || 'Invited camp contributor',
+          status: existing.status || member.status || 'Active'
+        }));
+      });
+      nextCampData.memberProfiles = Array.from(profileMap.values());
+      nextCampData.members = nextCampData.memberProfiles.filter(profile => String(profile.role || '').toLowerCase() !== 'camp steward' && String(profile.status || '').toLowerCase() !== 'removed').map(profile => profile.name);
+      nextCampData.campMembers = nextCampData.members.slice();
+
+      if (state.starters.traditions && (!Array.isArray(nextCampData.traditions) || !nextCampData.traditions.length)) {
+        nextCampData.traditions = [
+          { label: 'Pre-Opener Campfire Meal', group: 'Opening Camp', description: 'The meal that marks the true start of camp.' },
+          { label: 'Opening Morning Coffee', group: 'Opening Camp', description: 'First light, strong coffee, low voices, and final plans before heading out.' }
+        ];
+      }
+      if (state.starters.campcards && (!Array.isArray(nextCampData.campCards) || !nextCampData.campCards.length)) {
+        nextCampData.campCards = [
+          { title: 'First Coffee at Camp', source: 'Camp Steward', image: '', caption: 'The first mug of camp coffee before daylight and before the woods wake up.', story: '' },
+          { title: 'Campfire Camaraderie', source: 'Camp Steward', image: '', caption: 'Stories, laughter, and the kind of campfire talk that becomes tradition.', story: '' }
+        ];
+      }
+      if (state.starters.campmemories && (!Array.isArray(nextCampData.memories) || !nextCampData.memories.length) && (!Array.isArray(nextCampData.wallOfFame) || !nextCampData.wallOfFame.length)) {
+        nextCampData.memories = [{ title: "Brittney's First Deer", category: 'Bow', winner: 'Brittney', year: '2025', image: '', audio: '', caption: 'A first deer and the kind of memory the whole camp wants preserved.', story: '' }];
+        nextCampData.wallOfFame = nextCampData.memories.slice();
+      }
+      if (state.starters.camprecipes && (!Array.isArray(nextCampData.recipeObjects) || !nextCampData.recipeObjects.length) && (!Array.isArray(nextCampData.recipes) || !nextCampData.recipes.length)) {
+        nextCampData.recipeObjects = [{ title: 'Legendary Skillet Eggs & Sausage Hash', subtitle: 'Breakfast • DeerCamp Classic', meal: 'Breakfast', sourceTitle: 'Skillet Eggs & Sausage Hash', description: 'One pan, hot fire, full belly — ready before first light.', time: '20 min', serves: '4', difficulty: 'Easy', equipment: 'Cast iron skillet', ingredients: ['1 lb breakfast sausage','6 large eggs'], steps: ['Brown sausage.','Cook eggs and hash.'], serving: ['Serve hot before first light.'], tips: ['Best with strong coffee.'] }];
+        nextCampData.recipes = nextCampData.recipeObjects.slice();
+      }
+
+      const existingDashboard = safeParse(DASHBOARD_KEY, {});
+      const nextDashboard = Object.assign({}, existingDashboard, {
+        camp: {
+          name: nextCampData.name,
+          city: nextCampData.city,
+          state: nextCampData.state,
+          zip: nextCampData.zip,
+          established: nextCampData.established,
+          location: nextCampData.location,
+          summary: nextCampData.summary,
+          hero: nextCampData.hero,
+          brandImage: nextCampData.brandImage,
+          accessNote: nextCampData.accessNote,
+          feedSourceMode: 'app',
+          feedModeration: 'review',
+          feedOfflinePolicy: 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.',
+          slug: slugify(nextCampData.name) || 'deercamp'
+        },
+        people: nextCampData.memberProfiles,
+        lastSaved: currentTimestampLabel()
+      });
+
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, { autosavedAt: currentTimestampLabel() })));
+      window.location.href = 'steward-dashboard.html';
+    }
+
+    document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
+    document.getElementById('campProfileStepForm').addEventListener('change', queuePersist);
+    document.getElementById('memberAddForm').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const name = document.getElementById('memberName').value.trim();
+      const email = document.getElementById('memberEmail').value.trim();
+      if (!name) return;
+      state.members = uniquePeople([...state.members, { name, email, status: 'Invited' }]);
+      document.getElementById('memberName').value = '';
+      document.getElementById('memberEmail').value = '';
+      renderMemberList();
+      persist();
+    });
+
+    document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
+    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
+    document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
+    document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (state.step === STEPS.length - 1) {
+        mergeAndLaunch();
+      } else {
+        showStep(state.step + 1);
+      }
+    });
+    document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
+    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
+    document.getElementById('stewardName').addEventListener('input', queuePersist);
+    document.getElementById('stewardEmail').addEventListener('input', queuePersist);
+
+    fillForms();
+    renderStepList();
+    showStep(state.step);
+    persist(false);
+  </script>
 </body>
 </html>
