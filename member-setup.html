@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp Member Setup</title>
+  <style>
+    :root {
+      --bg: #d7ccb9;
+      --panel: #f7f1e7;
+      --panel-2: #efe4d2;
+      --ink: #231a13;
+      --muted: #6b5644;
+      --brown: #6a4427;
+      --brown-deep: #452a16;
+      --green: #496647;
+      --gold: #b1792d;
+      --line: rgba(69, 42, 22, 0.12);
+      --shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+      --radius: 22px;
+      --radius-sm: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+    }
+
+    button, input, select, textarea { font: inherit; }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+      padding: 24px;
+    }
+
+    .sidebar, .panel, .card, .status-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .sidebar {
+      padding: 22px 18px;
+      position: sticky;
+      top: 24px;
+      align-self: start;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      display: grid;
+      place-items: center;
+      background: rgba(106,68,39,0.1);
+      border-radius: 16px;
+      font-weight: 800;
+      color: var(--brown-deep);
+      font-size: 1.15rem;
+    }
+
+    .brand h1 { margin: 0; font-size: 1.2rem; }
+    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+
+    .rule-card {
+      margin-bottom: 18px;
+      padding: 14px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(106,68,39,0.09), rgba(106,68,39,0.03));
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .rule-card strong { display: block; margin-bottom: 6px; }
+
+    .step-list { display: grid; gap: 10px; }
+
+    .step {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.55);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .step.active { background: var(--brown); color: #fff; }
+    .step.done { background: rgba(73,102,71,0.12); border-color: rgba(73,102,71,0.16); }
+
+    .step-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      background: rgba(69,42,22,0.12);
+      color: var(--brown-deep);
+      flex: 0 0 auto;
+    }
+
+    .step.active .step-num { background: rgba(255,255,255,0.16); color: #fff; }
+    .step.done .step-num { background: var(--green); color: #fff; }
+
+    .main { display: grid; gap: 22px; }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 18px 22px;
+      background: rgba(247,241,231,0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(69,42,22,0.08);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar h2 { margin: 0; font-size: 1.35rem; }
+    .topbar p { margin: 4px 0 0; color: var(--muted); }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 10px 16px;
+      border-radius: 999px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+
+    .btn-primary { background: var(--brown); color: #fff; box-shadow: 0 10px 24px rgba(69,42,22,0.18); }
+    .btn-secondary { background: #fff; color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.12); }
+    .btn-soft { background: rgba(255,255,255,0.65); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.1); }
+
+    .panel { padding: 22px; }
+    .panel h3 { margin: 0 0 8px; }
+    .helper { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
+
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    .two-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
+
+    .field { display: grid; gap: 7px; }
+    .field.span-2 { grid-column: 1 / -1; }
+
+    .field label { font-size: 0.88rem; font-weight: 700; color: var(--brown-deep); }
+
+    .field input,
+    .field textarea,
+    .field select {
+      width: 100%;
+      min-height: 46px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(69,42,22,0.14);
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .field textarea { min-height: 110px; resize: vertical; }
+    .field-note { font-size: 0.82rem; color: var(--muted); }
+
+    .card, .status-card {
+      padding: 16px 18px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18));
+    }
+
+    .card strong, .status-card strong { display: block; margin-bottom: 6px; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      background: rgba(106,68,39,0.08);
+      color: var(--brown-deep);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .badge.green { background: rgba(73,102,71,0.12); color: var(--green); }
+
+    .hero-preview {
+      min-height: 180px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28));
+      display: grid;
+      place-items: center;
+      color: #fff;
+      font-weight: 700;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .hero-preview small { display: block; font-weight: 400; opacity: 0.88; }
+
+    .member-card-preview {
+      display: grid;
+      grid-template-columns: 76px 1fr;
+      gap: 14px;
+      align-items: center;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .avatar {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(180deg, #7d5636, #55341e);
+      color: #fff;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      font-size: 1.3rem;
+      overflow: hidden;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.14);
+    }
+
+    .avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: rgba(106,68,39,0.08);
+      color: var(--brown-deep);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .summary-list { display: grid; gap: 12px; }
+
+    .summary-item {
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.58);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .summary-item strong { display: block; margin-bottom: 5px; }
+    .summary-item span { color: var(--muted); font-size: 0.92rem; }
+
+    .footer-actions {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .save-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(73,102,71,0.12);
+      color: var(--green);
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .sticky-footer {
+      position: sticky;
+      bottom: 18px;
+      z-index: 10;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 20px;
+      background: rgba(247,241,231,0.92);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(69,42,22,0.08);
+      box-shadow: var(--shadow);
+    }
+
+    .footer-left,
+    .footer-right {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+      .two-grid, .three-grid, .form-grid { grid-template-columns: 1fr; }
+      .field.span-2 { grid-column: auto; }
+      .member-card-preview { grid-template-columns: 1fr; text-align: center; }
+      .member-card-preview .avatar { margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">DC</div>
+        <div>
+          <h1>DeerCamp</h1>
+          <p>Member Setup Wizard</p>
+        </div>
+      </div>
+
+      <div class="rule-card">
+        <strong>Simple by design</strong>
+        This short setup only helps a camp member join DeerCamp, complete a profile, and enter camp. No Steward controls live here.
+      </div>
+
+      <div class="rule-card">
+        <strong>Your role stays member-only</strong>
+        You can update your own profile and contribute memories later. Camp settings, invites, and publishing controls stay with the Steward.
+      </div>
+
+      <div class="step-list" id="stepList">
+        <div class="step active" data-step="0">
+          <div class="step-num">1</div>
+          <div>
+            <strong>Welcome</strong>
+            <div>Accept your DeerCamp invite</div>
+          </div>
+        </div>
+        <div class="step" data-step="1">
+          <div class="step-num">2</div>
+          <div>
+            <strong>Member Profile</strong>
+            <div>How you appear in camp</div>
+          </div>
+        </div>
+        <div class="step" data-step="2">
+          <div class="step-num">3</div>
+          <div>
+            <strong>Finish</strong>
+            <div>Review and enter camp</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 id="wizardTitle">Welcome to DeerCamp</h2>
+          <p id="wizardSubtitle">Accept your invite and complete your member profile.</p>
+        </div>
+        <div class="save-pill" id="savePill">Not saved yet</div>
+      </div>
+
+      <section class="panel">
+        <div class="status-card" style="margin-bottom: 18px;">
+          <strong id="progressStepLabel">Step 1 of 3</strong>
+          <div style="height: 12px; border-radius: 999px; overflow: hidden; background: rgba(69,42,22,0.08); margin-top: 10px;">
+            <div id="progressFill" style="height: 100%; width: 33%; background: linear-gradient(90deg, var(--green), var(--gold));"></div>
+          </div>
+        </div>
+
+        <div class="step-panel active" id="step-0">
+          <h3>Welcome to <span id="campNameWelcome">your DeerCamp</span></h3>
+          <p class="helper">You were invited to join this camp as a <strong>Camp Member</strong>. This quick setup gives DeerCamp the basics it needs to show your member card correctly and get you into camp.</p>
+          <div class="two-grid">
+            <div class="hero-preview" id="campHeroPreview">
+              <div>
+                <div id="campNameHero">Your DeerCamp</div>
+                <small id="campMetaHero">Camp details will appear here</small>
+              </div>
+            </div>
+            <div class="preview">
+              <div class="card">
+                <span class="badge green">Camp Invite</span>
+                <strong id="inviteEmailLabel">Invite ready</strong>
+                <div id="inviteCampCopy">You are joining this camp as a DeerCamp member.</div>
+              </div>
+              <div class="card">
+                <strong>Camp Steward</strong>
+                <div id="stewardNameLabel">Camp Steward</div>
+              </div>
+              <div class="card">
+                <strong>What happens next</strong>
+                <div class="helper" style="margin: 0;">
+                  Add your member profile, review your card, then enter camp. DeerCamp will save your progress as you go.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel" id="step-1">
+          <h3>Member Profile</h3>
+          <p class="helper">This is your member card inside DeerCamp. Only your own profile is edited here.</p>
+          <div class="two-grid">
+            <div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="memberName">Full name</label>
+                  <input id="memberName" placeholder="Bruce Johnson" />
+                </div>
+                <div class="field">
+                  <label for="memberNickname">Nickname</label>
+                  <input id="memberNickname" placeholder="Buckshot" />
+                </div>
+                <div class="field">
+                  <label for="memberEmail">Email</label>
+                  <input id="memberEmail" type="email" placeholder="member@example.com" />
+                </div>
+                <div class="field">
+                  <label for="memberPhone">Phone</label>
+                  <input id="memberPhone" placeholder="Optional" />
+                </div>
+                <div class="field">
+                  <label for="memberYearJoined">Year joined camp</label>
+                  <input id="memberYearJoined" placeholder="2026" />
+                </div>
+                <div class="field">
+                  <label for="memberFavoriteStand">Favorite stand</label>
+                  <input id="memberFavoriteStand" placeholder="North Ridge" />
+                </div>
+                <div class="field">
+                  <label for="memberFavoriteGear">Favorite rifle / bow</label>
+                  <input id="memberFavoriteGear" placeholder=".308 / compound bow" />
+                </div>
+                <div class="field">
+                  <label for="memberSpecialty">Camp specialty</label>
+                  <input id="memberSpecialty" placeholder="Tracking, cooking, stories" />
+                </div>
+                <div class="field span-2">
+                  <label for="memberHarvestHighlight">Harvest highlight</label>
+                  <input id="memberHarvestHighlight" placeholder="Best deer or favorite field moment" />
+                </div>
+                <div class="field span-2">
+                  <label for="memberBestMemory">Best camp memory</label>
+                  <input id="memberBestMemory" placeholder="That one morning when..." />
+                </div>
+                <div class="field span-2">
+                  <label for="memberPhoto">Profile photo URL</label>
+                  <input id="memberPhoto" placeholder="Optional image URL" />
+                  <div class="field-note">You can paste an image URL, or use the upload field below for a local image during setup.</div>
+                </div>
+                <div class="field span-2">
+                  <label for="memberPhotoUpload">Upload profile photo</label>
+                  <input id="memberPhotoUpload" type="file" accept="image/*" />
+                </div>
+                <div class="field span-2">
+                  <label for="memberNote">Short camp note</label>
+                  <textarea id="memberNote" placeholder="Adds field content and helps keep camp traditions alive."></textarea>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="member-card-preview">
+                <div class="avatar" id="memberAvatar">DC</div>
+                <div>
+                  <strong id="previewName">Camp Member</strong>
+                  <div id="previewRoleLine">Camp Member</div>
+                  <div class="pill-row">
+                    <span class="pill" id="previewNickname">Nickname: —</span>
+                    <span class="pill" id="previewYear">Joined: —</span>
+                  </div>
+                  <div class="pill-row">
+                    <span class="pill" id="previewStand">Stand: —</span>
+                    <span class="pill" id="previewGear">Gear: —</span>
+                  </div>
+                </div>
+              </div>
+              <div class="summary-list" style="margin-top: 16px;">
+                <div class="summary-item"><strong>Camp specialty</strong><span id="previewSpecialty">—</span></div>
+                <div class="summary-item"><strong>Harvest highlight</strong><span id="previewHarvest">—</span></div>
+                <div class="summary-item"><strong>Best camp memory</strong><span id="previewMemory">—</span></div>
+                <div class="summary-item"><strong>Camp note</strong><span id="previewNote">Adds field content and helps keep camp traditions alive.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-panel" id="step-2">
+          <h3>Review and finish</h3>
+          <p class="helper">You are joining this DeerCamp as a member. Finish below and DeerCamp will add your profile to the camp roster and dashboard.</p>
+          <div class="three-grid">
+            <div class="card">
+              <span class="badge green">Camp</span>
+              <strong id="reviewCampName">Your DeerCamp</strong>
+              <div id="reviewCampMeta">Camp details</div>
+            </div>
+            <div class="card">
+              <span class="badge">Role</span>
+              <strong>Camp Member</strong>
+              <div>Member-only access. No Steward controls are granted here.</div>
+            </div>
+            <div class="card">
+              <span class="badge">Entry</span>
+              <strong>Finish and Enter Camp</strong>
+              <div>Your profile will be saved into the roster, dashboard, and camp page data.</div>
+            </div>
+          </div>
+
+          <div class="two-grid" style="margin-top: 18px;">
+            <div class="card">
+              <strong>Your member card preview</strong>
+              <div class="member-card-preview" style="margin-top: 12px;">
+                <div class="avatar" id="reviewAvatar">DC</div>
+                <div>
+                  <strong id="reviewName">Camp Member</strong>
+                  <div id="reviewRoleLine">Camp Member</div>
+                  <div class="pill-row">
+                    <span class="pill" id="reviewYear">Joined: —</span>
+                    <span class="pill" id="reviewStand">Stand: —</span>
+                    <span class="pill" id="reviewGear">Gear: —</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <strong>What DeerCamp will do</strong>
+              <div class="summary-list" id="reviewList" style="margin-top: 12px;">
+                <div class="summary-item"><strong>Keep your role as member only</strong><span>No Steward dashboard control is granted through this flow.</span></div>
+                <div class="summary-item"><strong>Save your profile</strong><span>Your details merge into the camp roster and Steward dashboard people list.</span></div>
+                <div class="summary-item"><strong>Enter camp</strong><span>After finish, DeerCamp opens the camp page.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sticky-footer">
+          <div class="footer-left">
+            <button type="button" class="btn btn-secondary hidden" id="backBtn">Back</button>
+            <button type="button" class="btn btn-soft" id="continueLaterBtn">Save + Continue Later</button>
+          </div>
+          <div class="footer-right">
+            <button type="button" class="btn btn-secondary" id="viewCampBtn">View Camp</button>
+            <button type="button" class="btn btn-primary" id="nextBtn">Join Camp</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const CAMP_DATA_KEY = 'campData';
+    const DASHBOARD_KEY = 'deerCampStewardDashboard';
+    const WIZARD_KEY = 'deerCampMemberWizard';
+    const INVITE_KEY = 'deerCampMemberInvite';
+
+    const stepMeta = [
+      { title: 'Welcome to DeerCamp', subtitle: 'Accept your invite and complete your member profile.' },
+      { title: 'Member Profile', subtitle: 'Add the details that should appear on your DeerCamp member card.' },
+      { title: 'Review and Finish', subtitle: 'Confirm your profile and enter camp as a Camp Member.' }
+    ];
+
+    let currentStep = 0;
+    let uploadedPhotoDataUrl = '';
+
+    function parseJSON(value, fallback) {
+      try {
+        return JSON.parse(value);
+      } catch (error) {
+        return fallback;
+      }
+    }
+
+    function slugify(value = '') {
+      return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '') || `member-${Date.now()}`;
+    }
+
+    function initials(name = '') {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean).slice(0, 2);
+      return parts.length ? parts.map(part => part[0]).join('').toUpperCase() : 'DC';
+    }
+
+    function currentTimestampLabel() {
+      return `Saved ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    }
+
+    function uniqueNames(names) {
+      return [...new Set((Array.isArray(names) ? names : []).map(item => String(item || '').trim()).filter(Boolean))];
+    }
+
+    function getCampData() {
+      return parseJSON(localStorage.getItem(CAMP_DATA_KEY) || '{}', {}) || {};
+    }
+
+    function getDashboardData() {
+      return parseJSON(localStorage.getItem(DASHBOARD_KEY) || '{}', {}) || {};
+    }
+
+    function getInviteContext() {
+      const params = new URLSearchParams(window.location.search);
+      const storedInvite = parseJSON(localStorage.getItem(INVITE_KEY) || 'null', null);
+      const dashboard = getDashboardData();
+      const emailParam = String(params.get('email') || '').trim();
+      const campData = getCampData();
+      const people = Array.isArray(dashboard.people) ? dashboard.people : [];
+      const pendingMatch = people.find(person => person.status === 'Invited' && emailParam && String(person.email || '').trim().toLowerCase() === emailParam.toLowerCase());
+
+      return {
+        email: emailParam || storedInvite?.email || pendingMatch?.email || '',
+        name: String(params.get('name') || storedInvite?.name || pendingMatch?.name || '').trim(),
+        campName: String(params.get('camp') || campData.name || campData.campName || dashboard?.camp?.name || 'Your DeerCamp').trim(),
+        stewardName: String(params.get('steward') || campData.stewardName || campData.steward || campData.campSteward || (people.find(person => person.role === 'Camp Steward') || {}).name || 'Camp Steward').trim(),
+        inviteId: String(params.get('inviteId') || storedInvite?.id || pendingMatch?.id || '').trim()
+      };
+    }
+
+    function buildMemberTemplate() {
+      const invite = getInviteContext();
+      return {
+        id: invite.inviteId || `member-${Date.now()}`,
+        name: invite.name || '',
+        role: 'Camp Member',
+        roleLine: 'Camp Member',
+        status: 'Active',
+        email: invite.email || '',
+        phone: '',
+        yearJoined: new Date().getFullYear().toString(),
+        favoriteStand: '',
+        favoriteGear: '',
+        nickname: '',
+        harvestHighlight: '',
+        bestCampMemory: '',
+        specialty: '',
+        note: 'Adds field content and helps keep camp traditions alive.',
+        photo: ''
+      };
+    }
+
+    const defaultState = {
+      step: 0,
+      member: buildMemberTemplate()
+    };
+
+    let state = (() => {
+      const saved = parseJSON(localStorage.getItem(WIZARD_KEY) || 'null', null);
+      const template = buildMemberTemplate();
+      if (!saved || typeof saved !== 'object') return { ...defaultState, member: template };
+      return {
+        step: Number.isInteger(saved.step) ? Math.max(0, Math.min(2, saved.step)) : 0,
+        member: { ...template, ...(saved.member || {}) }
+      };
+    })();
+
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setSavePill(text) {
+      document.getElementById('savePill').textContent = text;
+    }
+
+    function persistState(showSavedLabel = false) {
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
+      if (showSavedLabel) setSavePill(currentTimestampLabel());
+    }
+
+    function setStepList() {
+      document.querySelectorAll('.step').forEach(step => {
+        const index = Number(step.dataset.step);
+        step.classList.toggle('active', index === currentStep);
+        step.classList.toggle('done', index < currentStep);
+      });
+    }
+
+    function updateProgress() {
+      document.getElementById('progressStepLabel').textContent = `Step ${currentStep + 1} of 3`;
+      document.getElementById('progressFill').style.width = `${((currentStep + 1) / 3) * 100}%`;
+      document.getElementById('wizardTitle').textContent = stepMeta[currentStep].title;
+      document.getElementById('wizardSubtitle').textContent = stepMeta[currentStep].subtitle;
+      document.getElementById('backBtn').classList.toggle('hidden', currentStep === 0);
+      document.getElementById('nextBtn').textContent = currentStep === 0 ? 'Join Camp' : currentStep === 1 ? 'Review' : 'Finish and Enter Camp';
+    }
+
+    function showStep(index) {
+      currentStep = Math.max(0, Math.min(2, index));
+      state.step = currentStep;
+      document.querySelectorAll('.step-panel').forEach(panel => panel.classList.toggle('active', panel.id === `step-${currentStep}`));
+      setStepList();
+      updateProgress();
+      persistState(false);
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function fillField(id, value) {
+      const node = document.getElementById(id);
+      if (node) node.value = value || '';
+    }
+
+    function syncFormFromState() {
+      fillField('memberName', state.member.name);
+      fillField('memberNickname', state.member.nickname);
+      fillField('memberEmail', state.member.email);
+      fillField('memberPhone', state.member.phone);
+      fillField('memberYearJoined', state.member.yearJoined);
+      fillField('memberFavoriteStand', state.member.favoriteStand);
+      fillField('memberFavoriteGear', state.member.favoriteGear);
+      fillField('memberSpecialty', state.member.specialty);
+      fillField('memberHarvestHighlight', state.member.harvestHighlight);
+      fillField('memberBestMemory', state.member.bestCampMemory);
+      fillField('memberPhoto', state.member.photo && !state.member.photo.startsWith('data:') ? state.member.photo : '');
+      fillField('memberNote', state.member.note);
+    }
+
+    function syncStateFromForm() {
+      state.member.name = document.getElementById('memberName').value.trim();
+      state.member.nickname = document.getElementById('memberNickname').value.trim();
+      state.member.email = document.getElementById('memberEmail').value.trim();
+      state.member.phone = document.getElementById('memberPhone').value.trim();
+      state.member.yearJoined = document.getElementById('memberYearJoined').value.trim();
+      state.member.favoriteStand = document.getElementById('memberFavoriteStand').value.trim();
+      state.member.favoriteGear = document.getElementById('memberFavoriteGear').value.trim();
+      state.member.specialty = document.getElementById('memberSpecialty').value.trim();
+      state.member.harvestHighlight = document.getElementById('memberHarvestHighlight').value.trim();
+      state.member.bestCampMemory = document.getElementById('memberBestMemory').value.trim();
+      state.member.note = document.getElementById('memberNote').value.trim() || 'Adds field content and helps keep camp traditions alive.';
+      const photoUrl = document.getElementById('memberPhoto').value.trim();
+      state.member.photo = uploadedPhotoDataUrl || photoUrl || state.member.photo || '';
+      state.member.id = slugify(state.member.email || state.member.name || state.member.id || `member-${Date.now()}`);
+      state.member.role = 'Camp Member';
+      state.member.roleLine = 'Camp Member';
+      state.member.status = 'Active';
+    }
+
+    function renderAvatar(targetId, photo, name) {
+      const avatar = document.getElementById(targetId);
+      if (!avatar) return;
+      if (photo) {
+        avatar.innerHTML = `<img src="${photo}" alt="${name || 'Member'}" />`;
+      } else {
+        avatar.textContent = initials(name || 'Camp Member');
+      }
+    }
+
+    function renderCampContext() {
+      const invite = getInviteContext();
+      const campData = getCampData();
+      const dashboard = getDashboardData();
+      const campName = invite.campName || campData.name || campData.campName || dashboard?.camp?.name || 'Your DeerCamp';
+      const city = campData.city || dashboard?.camp?.city || '';
+      const stateCode = campData.state || dashboard?.camp?.state || '';
+      const established = campData.established || dashboard?.camp?.established || '';
+      const metaParts = [city, stateCode].filter(Boolean).join(', ');
+      const campMeta = [metaParts, established ? `Est. ${established}` : ''].filter(Boolean).join(' • ') || 'Camp details will appear here';
+
+      document.getElementById('campNameWelcome').textContent = campName;
+      document.getElementById('campNameHero').textContent = campName;
+      document.getElementById('campMetaHero').textContent = campMeta;
+      document.getElementById('inviteEmailLabel').textContent = state.member.email || invite.email || 'Invite ready';
+      document.getElementById('inviteCampCopy').textContent = `You are joining ${campName} as a DeerCamp member.`;
+      document.getElementById('stewardNameLabel').textContent = invite.stewardName || 'Camp Steward';
+      document.getElementById('reviewCampName').textContent = campName;
+      document.getElementById('reviewCampMeta').textContent = campMeta;
+    }
+
+    function renderProfilePreview() {
+      const name = state.member.name || 'Camp Member';
+      const nickname = state.member.nickname || '—';
+      const yearJoined = state.member.yearJoined || '—';
+      const favoriteStand = state.member.favoriteStand || '—';
+      const favoriteGear = state.member.favoriteGear || '—';
+      const specialty = state.member.specialty || '—';
+      const harvest = state.member.harvestHighlight || '—';
+      const memory = state.member.bestCampMemory || '—';
+      const note = state.member.note || 'Adds field content and helps keep camp traditions alive.';
+      const photo = state.member.photo || '';
+
+      document.getElementById('previewName').textContent = name;
+      document.getElementById('previewRoleLine').textContent = state.member.roleLine || 'Camp Member';
+      document.getElementById('previewNickname').textContent = `Nickname: ${nickname}`;
+      document.getElementById('previewYear').textContent = `Joined: ${yearJoined}`;
+      document.getElementById('previewStand').textContent = `Stand: ${favoriteStand}`;
+      document.getElementById('previewGear').textContent = `Gear: ${favoriteGear}`;
+      document.getElementById('previewSpecialty').textContent = specialty;
+      document.getElementById('previewHarvest').textContent = harvest;
+      document.getElementById('previewMemory').textContent = memory;
+      document.getElementById('previewNote').textContent = note;
+
+      document.getElementById('reviewName').textContent = name;
+      document.getElementById('reviewRoleLine').textContent = state.member.roleLine || 'Camp Member';
+      document.getElementById('reviewYear').textContent = `Joined: ${yearJoined}`;
+      document.getElementById('reviewStand').textContent = `Stand: ${favoriteStand}`;
+      document.getElementById('reviewGear').textContent = `Gear: ${favoriteGear}`;
+
+      renderAvatar('memberAvatar', photo, name);
+      renderAvatar('reviewAvatar', photo, name);
+    }
+
+    function render() {
+      renderCampContext();
+      syncFormFromState();
+      renderProfilePreview();
+    }
+
+    function validateProfileStep() {
+      syncStateFromForm();
+      const missing = [];
+      if (!state.member.name) missing.push('Full name');
+      if (!state.member.email) missing.push('Email');
+      if (!state.member.yearJoined) missing.push('Year joined camp');
+      if (!state.member.favoriteStand) missing.push('Favorite stand');
+      if (!state.member.favoriteGear) missing.push('Favorite rifle / bow');
+      if (!state.member.harvestHighlight) missing.push('Harvest highlight');
+      if (!state.member.bestCampMemory) missing.push('Best camp memory');
+      if (!state.member.specialty) missing.push('Camp specialty');
+
+      if (missing.length) {
+        alert(`Please complete: ${missing.join(', ')}`);
+        return false;
+      }
+      return true;
+    }
+
+    function mergeMemberIntoData() {
+      syncStateFromForm();
+
+      const campData = getCampData();
+      const dashboard = getDashboardData();
+      const member = { ...state.member };
+      const memberEmailLower = String(member.email || '').trim().toLowerCase();
+      const memberNameLower = String(member.name || '').trim().toLowerCase();
+
+      const memberProfiles = Array.isArray(campData.memberProfiles) ? [...campData.memberProfiles] : [];
+      const members = uniqueNames([...(Array.isArray(campData.members) ? campData.members : []), ...(Array.isArray(campData.campMembers) ? campData.campMembers : []), member.name]);
+      const existingMemberIndex = memberProfiles.findIndex(profile => {
+        const profileEmail = String(profile?.email || '').trim().toLowerCase();
+        const profileName = String(profile?.name || '').trim().toLowerCase();
+        return (memberEmailLower && profileEmail === memberEmailLower) || (memberNameLower && profileName === memberNameLower);
+      });
+
+      if (existingMemberIndex >= 0) {
+        memberProfiles[existingMemberIndex] = { ...memberProfiles[existingMemberIndex], ...member, role: 'Camp Member', roleLine: member.roleLine || 'Camp Member', status: 'Active' };
+      } else {
+        memberProfiles.push(member);
+      }
+
+      const updatedCampData = {
+        ...campData,
+        members,
+        campMembers: members,
+        memberProfiles
+      };
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
+
+      const people = Array.isArray(dashboard.people) ? [...dashboard.people] : [];
+      const existingPersonIndex = people.findIndex(person => {
+        const personEmail = String(person?.email || '').trim().toLowerCase();
+        const personName = String(person?.name || '').trim().toLowerCase();
+        return (memberEmailLower && personEmail === memberEmailLower) || (memberNameLower && personName === memberNameLower);
+      });
+
+      const personPayload = {
+        id: member.id,
+        name: member.name,
+        role: 'Camp Member',
+        roleLine: member.roleLine || 'Camp Member',
+        status: 'Active',
+        email: member.email,
+        phone: member.phone,
+        yearJoined: member.yearJoined,
+        favoriteStand: member.favoriteStand,
+        favoriteGear: member.favoriteGear,
+        nickname: member.nickname,
+        harvestHighlight: member.harvestHighlight,
+        bestCampMemory: member.bestCampMemory,
+        specialty: member.specialty,
+        note: member.note,
+        photo: member.photo,
+        responsibilities: Array.isArray(people[existingPersonIndex]?.responsibilities) && people[existingPersonIndex].responsibilities.length
+          ? people[existingPersonIndex].responsibilities
+          : [
+              'Adds content to approved sections by Camp Steward.',
+              'Uploads photos, notes, and optional audio from the field.',
+              'Helps keep camp traditions alive.'
+            ]
+      };
+
+      if (existingPersonIndex >= 0) {
+        people[existingPersonIndex] = { ...people[existingPersonIndex], ...personPayload };
+      } else {
+        people.push(personPayload);
+      }
+
+      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? [...dashboard.pendingInvites] : [];
+      const updatedPendingInvites = pendingInvites.map(invite => {
+        const inviteEmail = String(invite?.email || '').trim().toLowerCase();
+        const inviteName = String(invite?.name || '').trim().toLowerCase();
+        if ((memberEmailLower && inviteEmail === memberEmailLower) || (memberNameLower && inviteName === memberNameLower)) {
+          return { ...invite, status: 'Accepted' };
+        }
+        return invite;
+      });
+
+      const updatedDashboard = {
+        ...dashboard,
+        people,
+        pendingInvites: updatedPendingInvites,
+        lastSaved: currentTimestampLabel()
+      };
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(updatedDashboard));
+      localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true }));
+      localStorage.removeItem(WIZARD_KEY);
+    }
+
+    document.getElementById('viewCampBtn').addEventListener('click', () => {
+      window.location.href = 'camp.html';
+    });
+
+    document.getElementById('continueLaterBtn').addEventListener('click', () => {
+      syncStateFromForm();
+      persistState(true);
+    });
+
+    document.getElementById('backBtn').addEventListener('click', () => {
+      showStep(currentStep - 1);
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', async () => {
+      if (currentStep === 0) {
+        showStep(1);
+        return;
+      }
+
+      if (currentStep === 1) {
+        if (!validateProfileStep()) return;
+        persistState(true);
+        showStep(2);
+        return;
+      }
+
+      if (!validateProfileStep()) {
+        showStep(1);
+        return;
+      }
+
+      mergeMemberIntoData();
+      window.location.href = 'camp.html';
+    });
+
+    const trackedFields = [
+      'memberName',
+      'memberNickname',
+      'memberEmail',
+      'memberPhone',
+      'memberYearJoined',
+      'memberFavoriteStand',
+      'memberFavoriteGear',
+      'memberSpecialty',
+      'memberHarvestHighlight',
+      'memberBestMemory',
+      'memberPhoto',
+      'memberNote'
+    ];
+
+    trackedFields.forEach(id => {
+      const node = document.getElementById(id);
+      if (!node) return;
+      node.addEventListener('input', () => {
+        syncStateFromForm();
+        persistState(true);
+        renderProfilePreview();
+      });
+      node.addEventListener('change', () => {
+        syncStateFromForm();
+        persistState(true);
+        renderProfilePreview();
+      });
+    });
+
+    document.getElementById('memberPhotoUpload').addEventListener('change', async event => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      try {
+        uploadedPhotoDataUrl = await readFileAsDataURL(file);
+        state.member.photo = uploadedPhotoDataUrl;
+        persistState(true);
+        renderProfilePreview();
+      } catch (error) {
+        alert('Profile photo could not be processed.');
+      }
+    });
+
+    render();
+    showStep(state.step || 0);
+  </script>
+</body>
+</html>
