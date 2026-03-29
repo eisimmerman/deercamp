@@ -2215,34 +2215,9 @@
 
   .memories-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 18px;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
     margin-top: 16px;
-    align-items: stretch;
-  }
-
-  @media (max-width: 1440px) {
-    .memories-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 1160px) {
-    .memories-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 860px) {
-    .memories-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 560px) {
-    .memories-grid {
-      grid-template-columns: 1fr;
-    }
   }
 
   .memory-card {
@@ -4278,7 +4253,7 @@ sections.forEach(section => {
   else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="section-helper">Featured camp stories curated by the Steward for the live camp page.</p>
+      <p class="placeholder">curated by Steward, with auto-suggestions based on engagement metrics.</p>
     `;
 
     const grid = document.createElement("div");
@@ -4470,17 +4445,15 @@ sections.forEach(section => {
   }
 
   else if (section.key === "memories") {
-    const memories = normalizedCampMemories.length ? normalizedCampMemories : STARTER_CAMP_MEMORIES;
-    const visibleMemories = memories.slice(0, 10);
-
     container.innerHTML = `
-      <h2>CampMemories / Wall of Fame — Recent Memories</h2>
-      <p class="section-helper">Showing the 10 most recent memory cards. Tap a card to view and hear the story.</p>
+      <h2>CampMemories / Wall of Fame — Annual 3 Winners</h2>
+      <p class="section-helper">Tap a memory card to view and hear the story.</p>
     `;
     const grid = document.createElement("div");
     grid.className = "memories-grid";
 
-    activeMemoryStories = visibleMemories.map(item => normalizeCampMemoryItem(item)).filter(Boolean);
+    const memories = normalizedCampMemories.length ? normalizedCampMemories : STARTER_CAMP_MEMORIES;
+    activeMemoryStories = memories.map(item => normalizeCampMemoryItem(item)).filter(Boolean);
 
     activeMemoryStories.forEach((memory, index) => {
       const card = document.createElement("article");
@@ -5068,44 +5041,16 @@ function buildAutoRecipeObjects(memberNames = []) {
 }
 
 
-function getRecipeMemberNames() {
-  return (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
-}
-
-function recipeTitlesNeedPersonalization(recipes = [], memberNames = []) {
-  if (!Array.isArray(recipes) || !recipes.length || !Array.isArray(memberNames) || !memberNames.length) {
-    return false;
-  }
-
-  const firstNames = memberNames
-    .map(getFirstName)
-    .filter(Boolean)
-    .map(name => name.toLowerCase());
-
-  if (!firstNames.length) return false;
-
-  return recipes.every((recipe) => {
-    const title = String(recipe?.title || "").toLowerCase();
-    if (!title) return true;
-    if (title.includes("'s ")) return false;
-    return !firstNames.some((name) => title.includes(name));
-  });
-}
-
 function getCampRecipes() {
   const recipeSource = Array.isArray(data.recipeObjects) && data.recipeObjects.length
     ? data.recipeObjects
     : (Array.isArray(data.recipes) && data.recipes.length ? data.recipes : []);
 
-  const memberNames = getRecipeMemberNames();
-
   if (recipeSource.length) {
-    if (recipeTitlesNeedPersonalization(recipeSource, memberNames)) {
-      return buildAutoRecipeObjects(memberNames).map((recipe, index) => normalizeCampRecipe(recipe, index));
-    }
     return recipeSource.map((recipe, index) => normalizeCampRecipe(recipe, index));
   }
 
+  const memberNames = (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
   return buildAutoRecipeObjects(memberNames).map((recipe, index) => normalizeCampRecipe(recipe, index));
 }
 
@@ -5304,106 +5249,11 @@ function normalizeCalendarEvents(source) {
     .filter(Boolean);
 }
 
-function normalizeStateCodeFromValue(stateValue = "", lookupStates = {}) {
-  const raw = String(stateValue || "").trim();
-  if (!raw) return "";
-
-  if (/^[A-Za-z]{2}$/.test(raw)) {
-    return raw.toUpperCase();
-  }
-
-  const lowered = raw.toLowerCase();
-  for (const [code, record] of Object.entries(lookupStates || {})) {
-    const stateName = String(record?.stateName || "").trim().toLowerCase();
-    if (stateName && stateName === lowered) return code;
-  }
-
-  return "";
+function buildFallbackEvents() {
+  return [];
 }
 
-function getCalendarSeasonLookupYear() {
-  const siteYear = Number.parseInt(
-    data.siteSeasonLookupYear
-      || (data.siteCreatedAt ? String(new Date(data.siteCreatedAt).getFullYear()) : ""),
-    10
-  );
-
-  if (!Number.isNaN(siteYear) && siteYear > 1900) return siteYear;
-  return new Date().getFullYear();
-}
-
-async function loadOfficialSeasonOpenersForCamp() {
-  try {
-    const response = await fetch(`data/us-state-deer-openers.json?ts=${Date.now()}`, {
-      cache: "no-store"
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    return null;
-  }
-}
-
-function buildOfficialEventsFromStateSchema(stateRecord = {}, yearKey = "") {
-  const seasons = Array.isArray(stateRecord.seasons) ? stateRecord.seasons : [];
-
-  return seasons
-    .map((season) => {
-      const dateKey = normalizeDateKey(season?.date);
-      if (!dateKey) return null;
-      if (yearKey && !String(dateKey).startsWith(`${yearKey}-`)) return null;
-
-      return {
-        date: dateKey,
-        title: String(season.title || season.name || "Season Opener").trim(),
-        description: String(season.description || season.scopeNote || "Official statewide season opener.").trim(),
-        icon: String(season.icon || "").trim(),
-        type: String(season.type || "").trim().toLowerCase()
-      };
-    })
-    .filter(Boolean);
-}
-
-function buildEventsByDateMap(events = []) {
-  return (Array.isArray(events) ? events : []).reduce((acc, event) => {
-    if (!acc[event.date]) acc[event.date] = [];
-    acc[event.date].push(event);
-    return acc;
-  }, {});
-}
-
-function mergeOfficialSeasonFallbackEvents(currentEvents = [], officialEvents = []) {
-  const normalizedCurrent = normalizeCalendarEvents(currentEvents);
-  const requiredTypes = ["archery", "firearm", "muzzleloader"];
-  const existingTypes = new Set(
-    normalizedCurrent
-      .map((event) => `${event.title || ""} ${event.description || ""}`.toLowerCase())
-      .flatMap((text) => requiredTypes.filter((type) => text.includes(type)))
-  );
-
-  const toAdd = officialEvents.filter((event) => {
-    if (!event?.date || !event?.title) return false;
-    const eventType = String(event.type || "").trim().toLowerCase();
-    if (eventType && existingTypes.has(eventType)) return false;
-    return !normalizedCurrent.some((current) => current.date === event.date && String(current.title || "").trim() === String(event.title || "").trim());
-  });
-
-  return normalizedCurrent.concat(toAdd);
-}
-
-async function buildFallbackEvents() {
-  const lookup = await loadOfficialSeasonOpenersForCamp();
-  const stateCode = normalizeStateCodeFromValue(data.state, lookup?.states || {});
-  const yearKey = String(getCalendarSeasonLookupYear());
-
-  if (!lookup || !lookup.states || !stateCode || !lookup.states[stateCode]) {
-    return [];
-  }
-
-  return buildOfficialEventsFromStateSchema(lookup.states[stateCode], yearKey);
-}
-
-let normalizedCalendarEvents = normalizeCalendarEvents(
+const normalizedCalendarEvents = normalizeCalendarEvents(
   data.calendarEvents || data.events || data.campEvents || []
 );
 
@@ -5447,9 +5297,13 @@ function shiftWeekendLabelEventsToWeekend(events) {
     });
 }
 
-let calendarEvents = shiftWeekendLabelEventsToWeekend(normalizedCalendarEvents);
+const calendarEvents = shiftWeekendLabelEventsToWeekend(normalizedCalendarEvents);
 
-let eventsByDate = buildEventsByDateMap(calendarEvents);
+const eventsByDate = calendarEvents.reduce((acc, event) => {
+  if (!acc[event.date]) acc[event.date] = [];
+  acc[event.date].push(event);
+  return acc;
+}, {});
 
 let calendarCursor = new Date();
 calendarCursor = new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(), 1);
@@ -5598,32 +5452,6 @@ function renderCalendar() {
   }
 }
 
-async function hydrateOfficialCalendarEvents() {
-  const fallbackEvents = await buildFallbackEvents();
-  if (!fallbackEvents.length) return;
-
-  const mergedEvents = mergeOfficialSeasonFallbackEvents(normalizedCalendarEvents, fallbackEvents);
-  const mergedShifted = shiftWeekendLabelEventsToWeekend(mergedEvents);
-
-  const changed = JSON.stringify(mergedShifted) !== JSON.stringify(calendarEvents);
-  if (!changed) return;
-
-  normalizedCalendarEvents = mergedEvents;
-  calendarEvents = mergedShifted;
-  eventsByDate = buildEventsByDateMap(calendarEvents);
-
-  if (!(eventsByDate[selectedDateKey] || []).length && calendarEvents.length) {
-    const firstOfficialEvent = parseLocalDate(calendarEvents[0].date);
-    if (firstOfficialEvent) {
-      selectedDateKey = normalizeDateKey(firstOfficialEvent);
-      calendarCursor = new Date(firstOfficialEvent.getFullYear(), firstOfficialEvent.getMonth(), 1);
-    }
-  }
-
-  renderCalendar();
-  renderCalendarEventList(selectedDateKey);
-}
-
 function initCalendar() {
   const prev = document.getElementById("calendarPrev");
   const next = document.getElementById("calendarNext");
@@ -5663,7 +5491,6 @@ function initCalendar() {
 
   renderCalendar();
   renderCalendarEventList(selectedDateKey);
-  hydrateOfficialCalendarEvents();
 }
 
 window.addEventListener("load", () => {
