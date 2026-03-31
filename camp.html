@@ -35,6 +35,26 @@
     max-width: 100%;
   }
 
+  .page,
+  .content-section,
+  .feed-shell,
+  .feed-carousel-shell,
+  .feed-carousel-viewport,
+  .feed-carousel-track,
+  .feed-archive-shell,
+  .feed-archive-list,
+  .deer-drives-grid,
+  .deer-drive-card,
+  .recipes-grid,
+  .calendar-shell,
+  .calendar-side-shell,
+  .calendar-form-grid,
+  .map-preview,
+  .memories-grid {
+    min-width: 0;
+    max-width: 100%;
+  }
+
   :root {
     --camp-header-height: 118px;
   }
@@ -1962,11 +1982,37 @@
 }
 
 .deer-drive-card {
-  padding: 20px;
+  display: grid;
+  gap: 0;
+  width: 100%;
+  padding: 0;
+  border: 1px solid rgba(95, 64, 33, 0.10);
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 249, 240, 0.96) 0%, rgba(247, 238, 223, 0.95) 100%);
-  border: 1px solid rgba(95, 64, 33, 0.10);
   box-shadow: 0 8px 18px rgba(81, 57, 29, 0.10);
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+}
+
+.deer-drive-card-media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #d4c9b5;
+}
+
+.deer-drive-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.deer-drive-card-body {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 20px;
 }
 
 .deer-drive-kicker {
@@ -2496,14 +2542,24 @@
   }
 
   @media (max-width: 720px) {
+    .hero,
+    #heroImage {
+      height: clamp(320px, 62vw, 430px) !important;
+      min-height: clamp(320px, 62vw, 430px) !important;
+    }
+
     .page {
-      padding: 16px 0 34px !important;
+      padding: 16px 12px 40px !important;
+      overflow-x: clip;
     }
 
     .content-section {
-      padding: 16px;
-      border-radius: 18px;
-      margin-inline: 0;
+      width: 100%;
+      max-width: 100%;
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+      padding: 22px 14px;
+      overflow: hidden;
     }
 
     .feed-carousel-shell,
@@ -2512,27 +2568,8 @@
     .calendar-side-shell,
     .calendar-events-panel,
     .calendar-form-panel {
-      padding: 14px;
-      border-radius: 18px;
-    }
-
-    .feed-carousel-header {
-      gap: 12px;
-    }
-
-    .feed-carousel-controls {
-      width: 100%;
-      justify-content: space-between;
-    }
-
-    .feed-carousel-title-row {
-      width: 100%;
-    }
-
-    .hero,
-    #heroImage {
-      height: clamp(320px, 62vw, 430px) !important;
-      min-height: clamp(320px, 62vw, 430px) !important;
+      padding-left: 14px;
+      padding-right: 14px;
     }
 
     .hero-stage {
@@ -2670,6 +2707,14 @@
 
     .recipes-grid {
       grid-template-columns: 1fr !important;
+    }
+
+    .deer-drive-card-media {
+      aspect-ratio: 4 / 3;
+    }
+
+    .deer-drive-card-body {
+      padding: 16px;
     }
 
     .deer-drive-map-shell {
@@ -3410,33 +3455,11 @@ function openDeerDriveModal(drive = {}, index = 0) {
 
   deerDriveModalTitle.textContent = safeDrive;
 
-  const roles = getDriveRoles(drive, driveMemberNames);
-  const drivePlan = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Tap-through drive details for your camp's push route, blockers, and drivers.");
   const driveNote = escapeHtml(pickDriveText(drive && drive.notes, drive && drive.note, drive && drive.mapNote, drive && drive.safetyNote) || "Confirm roles, safe lanes of fire, and direction of push before starting the drive.");
 
   deerDriveModalBody.innerHTML = `
-    <div class="deer-drive-side">
-      <div class="deer-drive-side-block">
-        <h3 class="deer-drive-side-title">Drive Plan</h3>
-        <p class="deer-drive-side-copy">${drivePlan}</p>
-      </div>
-
-      <div class="deer-drive-side-block">
-        <div class="deer-drive-role-group">
-          <div class="deer-drive-role-label">Standers / Posters / Blockers</div>
-          <div class="deer-drive-members">
-            ${roles.standers.map(name => `<span class="deer-drive-member-chip stander">${escapeHtml(name)}</span>`).join("")}
-          </div>
-        </div>
-
-        <div class="deer-drive-role-group">
-          <div class="deer-drive-role-label">Drivers / Pushers</div>
-          <div class="deer-drive-members">
-            ${roles.drivers.map(name => `<span class="deer-drive-member-chip driver">${escapeHtml(name)}</span>`).join("")}
-          </div>
-        </div>
-      </div>
-
+    ${buildDriveMapMarkup(drive, index, driveMemberNames)}
+    <div class="deer-drive-side" style="margin-top:14px;">
       <div class="deer-drive-side-block">
         <div class="deer-drive-role-label">Notes</div>
         <p class="deer-drive-side-copy">${driveNote}</p>
@@ -4190,8 +4213,9 @@ const storyCloseBtn = document.getElementById("storyCloseBtn");
 function buildMenuLinks() {
   if (!menu) return;
   menu.innerHTML = "";
+  buildMenuLinks();
 
-  sections.forEach(section => {
+sections.forEach(section => {
     const link = document.createElement("a");
     link.href = `#${section.key}`;
     link.textContent = section.title;
@@ -5125,12 +5149,19 @@ const renderArchiveFeed = () => {
         drive && drive.displayName
       ) || `Deer Drive ${index + 1}`;
 
-      const preview = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Open this drive to view the plan, blockers, and drivers.");
+      const preview = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Tap to open the full drive image, plan, blockers, and drivers.");
+      const previewVariant = getDriveVariant(index, safeDrive, drive && drive.variant);
 
       card.innerHTML = `
-        <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
-        <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
-        <p class="deer-drive-side-copy">${preview}</p>
+        <div class="deer-drive-card-media">
+          <img src="${escapeHtml(previewVariant.mapImage)}" style="object-position:${escapeHtml(previewVariant.mapPosition)};" alt="${escapeHtml(safeDrive)} mini drive image">
+          <div class="map-preview-ribbon">${escapeHtml(previewVariant.ribbon)}</div>
+        </div>
+        <div class="deer-drive-card-body">
+          <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
+          <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
+          <p class="deer-drive-side-copy">${preview}</p>
+        </div>
       `;
 
       card.addEventListener("click", () => openDeerDriveModal(drive, index));
@@ -5319,8 +5350,6 @@ const renderArchiveFeed = () => {
   content.appendChild(container);
 
 });
-
-buildMenuLinks();
 
 menuToggle?.addEventListener("click", event => {
   event.preventDefault();
