@@ -434,6 +434,19 @@
     const progressPercent = document.getElementById("progressPercent");
     const progressFill = document.getElementById("progressFill");
 
+    function resolveAssetPath(pathValue, assetType = "hero") {
+      const raw = String(pathValue || "").trim();
+      if (!raw) return "";
+      if (/^(https?:|data:|blob:|\/|\.\/|\.\.\/|assets\/)/i.test(raw)) return raw;
+      const looksLikeImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(raw);
+      if (!looksLikeImage) return raw;
+      return `${assetType === "brand" ? "assets/branding" : "assets/heroes"}/${raw.replace(/^\/+/, "")}`;
+    }
+
+    function toSafeCssUrl(pathValue) {
+      return String(pathValue || "").replace(/"/g, '\"');
+    }
+
     function renderStepList() {
       stepList.innerHTML = STEPS.map((step, index) => {
         const cls = index === state.step ? "step active" : index < state.step ? "step done" : "step";
@@ -466,10 +479,11 @@
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
-      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
+      const heroPreviewPath = resolveAssetPath(state.camp.hero, 'hero');
+      document.getElementById('heroPreview').style.backgroundImage = heroPreviewPath ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url("${toSafeCssUrl(heroPreviewPath)}")` : '';
+      document.getElementById('heroPreview').style.backgroundSize = heroPreviewPath ? 'cover' : '';
+      document.getElementById('heroPreview').style.backgroundPosition = heroPreviewPath ? 'center center' : '';
+      document.getElementById('heroPreviewPath').textContent = heroPreviewPath || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -568,9 +582,9 @@
       state.camp.city = document.getElementById('campCity').value.trim();
       state.camp.state = document.getElementById('campState').value.trim();
       state.camp.zip = document.getElementById('campZip').value.trim();
-      state.camp.hero = document.getElementById('campHero').value.trim();
+      state.camp.hero = resolveAssetPath(document.getElementById('campHero').value.trim(), 'hero');
       state.camp.summary = document.getElementById('campSummary').value.trim();
-      state.camp.brand = document.getElementById('campBrand').value.trim();
+      state.camp.brand = resolveAssetPath(document.getElementById('campBrand').value.trim(), 'brand');
       state.camp.accessNote = document.getElementById('campAccess').value.trim();
       state.steward.name = document.getElementById('stewardName').value.trim();
       state.steward.email = document.getElementById('stewardEmail').value.trim();
