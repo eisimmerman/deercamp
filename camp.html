@@ -24,37 +24,6 @@
     overflow: hidden;
   }
 
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
-  }
-
-  img,
-  video {
-    max-width: 100%;
-  }
-
-  .page,
-  .content-section,
-  .feed-shell,
-  .feed-carousel-shell,
-  .feed-carousel-viewport,
-  .feed-carousel-track,
-  .feed-archive-shell,
-  .feed-archive-list,
-  .deer-drives-grid,
-  .deer-drive-card,
-  .recipes-grid,
-  .calendar-shell,
-  .calendar-side-shell,
-  .calendar-form-grid,
-  .map-preview,
-  .memories-grid {
-    min-width: 0;
-    max-width: 100%;
-  }
-
   :root {
     --camp-header-height: 118px;
   }
@@ -1982,37 +1951,11 @@
 }
 
 .deer-drive-card {
-  display: grid;
-  gap: 0;
-  width: 100%;
-  padding: 0;
-  border: 1px solid rgba(95, 64, 33, 0.10);
+  padding: 20px;
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 249, 240, 0.96) 0%, rgba(247, 238, 223, 0.95) 100%);
+  border: 1px solid rgba(95, 64, 33, 0.10);
   box-shadow: 0 8px 18px rgba(81, 57, 29, 0.10);
-  overflow: hidden;
-  cursor: pointer;
-  text-align: left;
-}
-
-.deer-drive-card-media {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  background: #d4c9b5;
-}
-
-.deer-drive-card-media img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.deer-drive-card-body {
-  display: grid;
-  gap: 10px;
-  padding: 18px 20px 20px;
 }
 
 .deer-drive-kicker {
@@ -2548,30 +2491,6 @@
       min-height: clamp(320px, 62vw, 430px) !important;
     }
 
-    .page {
-      padding: 16px 12px 40px !important;
-      overflow-x: clip;
-    }
-
-    .content-section {
-      width: 100%;
-      max-width: 100%;
-      margin-left: 0 !important;
-      margin-right: 0 !important;
-      padding: 22px 14px;
-      overflow: hidden;
-    }
-
-    .feed-carousel-shell,
-    .feed-archive-shell,
-    .calendar-main,
-    .calendar-side-shell,
-    .calendar-events-panel,
-    .calendar-form-panel {
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-
     .hero-stage {
       padding: 18px 12px 22px;
     }
@@ -2610,6 +2529,15 @@
 
     .feed-carousel-track {
       grid-auto-columns: 100%;
+      overflow-x: hidden !important;
+      scroll-snap-type: none !important;
+      touch-action: pan-y pinch-zoom !important;
+      overscroll-behavior-x: none;
+    }
+
+    .feed-card,
+    .feed-card * {
+      touch-action: pan-y pinch-zoom;
     }
 
     .feed-carousel-controls,
@@ -2624,14 +2552,14 @@
     }
 
     .feed-archive-list {
-      display: grid;
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(78vw, 78vw);
-      grid-template-columns: none;
-      overflow-x: auto;
-      scroll-snap-type: x mandatory;
-      scroll-behavior: smooth;
-      padding-bottom: 4px;
+      display: grid !important;
+      grid-template-columns: 1fr !important;
+      grid-auto-flow: row !important;
+      grid-auto-columns: auto !important;
+      overflow-x: visible !important;
+      scroll-snap-type: none !important;
+      scroll-behavior: auto;
+      padding-bottom: 0 !important;
       scrollbar-width: none;
     }
 
@@ -2641,7 +2569,7 @@
 
     .feed-archive-card {
       grid-template-columns: 1fr;
-      scroll-snap-align: start;
+      scroll-snap-align: none !important;
     }
 
     .feed-archive-copy {
@@ -2705,16 +2633,38 @@
       grid-template-columns: 1fr;
     }
 
+    .map-preview {
+      grid-template-columns: 1fr !important;
+      gap: 14px !important;
+    }
+
+    .map-preview-canvas,
+    .map-preview-sidecard {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .map-preview-canvas {
+      min-height: 360px;
+    }
+
+    .map-preview-note {
+      right: 12px;
+      bottom: 12px;
+      width: calc(100% - 24px);
+      font-size: 0.84rem;
+      line-height: 1.35;
+    }
+
+    .map-pin {
+      min-width: 96px;
+      max-width: 48vw;
+      padding: 7px 10px 7px 28px;
+      font-size: 0.8rem;
+    }
+
     .recipes-grid {
       grid-template-columns: 1fr !important;
-    }
-
-    .deer-drive-card-media {
-      aspect-ratio: 4 / 3;
-    }
-
-    .deer-drive-card-body {
-      padding: 16px;
     }
 
     .deer-drive-map-shell {
@@ -2731,14 +2681,43 @@
       min-height: 64px;
     }
 
+    .calendar-form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .calendar-form-actions {
+      margin-top: 6px;
+    }
+
     .memories-grid {
-      grid-template-columns: repeat(2, minmax(220px, 280px));
+      display: grid !important;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(82vw, 82vw);
+      grid-template-columns: none !important;
+      justify-content: start !important;
+      gap: 14px !important;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 6px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-x;
+      scrollbar-width: none;
+    }
+
+    .memories-grid::-webkit-scrollbar {
+      display: none;
+    }
+
+    .memory-card {
+      scroll-snap-align: center;
+      min-height: 320px;
     }
   }
 
   @media (max-width: 560px) {
     .memories-grid {
-      grid-template-columns: minmax(220px, 280px);
+      grid-auto-columns: minmax(84vw, 84vw);
     }
   }
 
@@ -2949,91 +2928,6 @@
   .story-controls button:focus-visible {
     outline: 3px solid rgba(122, 81, 44, 0.28);
     outline-offset: 2px;
-  }
-
-
-
-  @media (max-width: 720px) {
-    html,
-    body {
-      width: 100%;
-      max-width: 100%;
-      overflow-x: clip !important;
-      overscroll-behavior-x: none;
-    }
-
-    body {
-      touch-action: pan-y pinch-zoom;
-    }
-
-    .page {
-      width: 100% !important;
-      max-width: 100vw !important;
-      padding: 16px 12px 36px !important;
-      overflow-x: clip !important;
-    }
-
-    .content-section,
-    .feed-shell,
-    .feed-carousel-shell,
-    .feed-archive-shell,
-    .deer-drives-grid,
-    .deer-drive-card,
-    .recipes-grid,
-    .calendar-shell,
-    .calendar-side-shell,
-    .map-preview,
-    .memories-grid {
-      width: 100% !important;
-      max-width: 100% !important;
-      overflow-x: clip;
-    }
-
-    .camp-members,
-    .feed-carousel-track {
-      touch-action: pan-x;
-      overscroll-behavior-x: contain;
-    }
-
-    .feed-archive-list {
-      display: grid !important;
-      grid-template-columns: 1fr !important;
-      grid-auto-flow: row !important;
-      grid-auto-columns: auto !important;
-      overflow-x: visible !important;
-      scroll-snap-type: none !important;
-      padding-bottom: 0 !important;
-    }
-
-    .feed-archive-card {
-      scroll-snap-align: none !important;
-    }
-
-    .feed-carousel-header,
-    .feed-carousel-controls {
-      align-items: center;
-    }
-
-    .deer-drive-card-media {
-      min-height: 180px;
-      aspect-ratio: 16 / 10;
-    }
-
-    .deer-drive-card-media img,
-    .deer-drive-map-image {
-      object-position: center center !important;
-    }
-
-    .deer-drive-map-shell {
-      min-height: 260px;
-    }
-
-    .deer-drive-node-label {
-      max-width: 62vw;
-      white-space: normal;
-      line-height: 1.15;
-      text-align: left;
-    }
   }
 
 </style>
@@ -3540,11 +3434,33 @@ function openDeerDriveModal(drive = {}, index = 0) {
 
   deerDriveModalTitle.textContent = safeDrive;
 
+  const roles = getDriveRoles(drive, driveMemberNames);
+  const drivePlan = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Tap-through drive details for your camp's push route, blockers, and drivers.");
   const driveNote = escapeHtml(pickDriveText(drive && drive.notes, drive && drive.note, drive && drive.mapNote, drive && drive.safetyNote) || "Confirm roles, safe lanes of fire, and direction of push before starting the drive.");
 
   deerDriveModalBody.innerHTML = `
-    ${buildDriveMapMarkup(drive, index, driveMemberNames)}
-    <div class="deer-drive-side" style="margin-top:14px;">
+    <div class="deer-drive-side">
+      <div class="deer-drive-side-block">
+        <h3 class="deer-drive-side-title">Drive Plan</h3>
+        <p class="deer-drive-side-copy">${drivePlan}</p>
+      </div>
+
+      <div class="deer-drive-side-block">
+        <div class="deer-drive-role-group">
+          <div class="deer-drive-role-label">Standers / Posters / Blockers</div>
+          <div class="deer-drive-members">
+            ${roles.standers.map(name => `<span class="deer-drive-member-chip stander">${escapeHtml(name)}</span>`).join("")}
+          </div>
+        </div>
+
+        <div class="deer-drive-role-group">
+          <div class="deer-drive-role-label">Drivers / Pushers</div>
+          <div class="deer-drive-members">
+            ${roles.drivers.map(name => `<span class="deer-drive-member-chip driver">${escapeHtml(name)}</span>`).join("")}
+          </div>
+        </div>
+      </div>
+
       <div class="deer-drive-side-block">
         <div class="deer-drive-role-label">Notes</div>
         <p class="deer-drive-side-copy">${driveNote}</p>
@@ -4298,32 +4214,20 @@ const storyCloseBtn = document.getElementById("storyCloseBtn");
 function buildMenuLinks() {
   if (!menu) return;
   menu.innerHTML = "";
+  buildMenuLinks();
 
-  sections.forEach(section => {
+sections.forEach(section => {
     const link = document.createElement("a");
     link.href = `#${section.key}`;
     link.textContent = section.title;
     link.addEventListener("click", event => {
       event.preventDefault();
-      scrollToSection(section.key);
+      document.getElementById(section.key)?.scrollIntoView({ behavior: "smooth", block: "start" });
       menu.classList.remove("open");
       menuToggle?.setAttribute("aria-expanded", "false");
     });
     menu.appendChild(link);
   });
-}
-
-function scrollToSection(sectionId) {
-  const target = document.getElementById(sectionId);
-  if (!target) return;
-  const headerOffset = (document.querySelector(".camp-header")?.offsetHeight || 0) + 12;
-  const top = Math.max(0, target.getBoundingClientRect().top + window.scrollY - headerOffset);
-  window.scrollTo({ top, left: 0, behavior: "smooth" });
-}
-
-function forceViewportBounds() {
-  document.documentElement.scrollLeft = 0;
-  document.body.scrollLeft = 0;
 }
 
 function wireAudioFallback(audioEl, candidates = []) {
@@ -4637,9 +4541,8 @@ sections.forEach(section => {
       const maxIndex = Math.max(0, featuredCards.length - getVisibleFeedCards());
       currentFeedIndex = Math.max(0, Math.min(nextIndex, maxIndex));
       const target = featuredCards[currentFeedIndex];
-      if (target && featuredTrack) {
-        const left = Math.max(0, target.offsetLeft - featuredTrack.offsetLeft);
-        featuredTrack.scrollTo({ left, behavior: "smooth" });
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
       }
       syncFeedButtons();
     };
@@ -5247,19 +5150,12 @@ const renderArchiveFeed = () => {
         drive && drive.displayName
       ) || `Deer Drive ${index + 1}`;
 
-      const preview = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Tap to open the full drive image, plan, blockers, and drivers.");
-      const previewVariant = getDriveVariant(index, safeDrive, drive && drive.variant);
+      const preview = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Open this drive to view the plan, blockers, and drivers.");
 
       card.innerHTML = `
-        <div class="deer-drive-card-media">
-          <img src="${escapeHtml(previewVariant.mapImage)}" style="object-position:${escapeHtml(previewVariant.mapPosition)};" alt="${escapeHtml(safeDrive)} mini drive image">
-          <div class="map-preview-ribbon">${escapeHtml(previewVariant.ribbon)}</div>
-        </div>
-        <div class="deer-drive-card-body">
-          <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
-          <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
-          <p class="deer-drive-side-copy">${preview}</p>
-        </div>
+        <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
+        <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
+        <p class="deer-drive-side-copy">${preview}</p>
       `;
 
       card.addEventListener("click", () => openDeerDriveModal(drive, index));
@@ -5306,11 +5202,6 @@ const renderArchiveFeed = () => {
                   <span class="calendar-form-label">Added By</span>
                   <select id="calendarMemberSelect" class="calendar-member-select"></select>
                 </label>
-
-                <div class="calendar-form-actions">
-                  <button id="calendarMemberEventSubmit" class="calendar-form-button" type="submit">Add Event</button>
-                  <div id="calendarMemberEventFeedback" class="calendar-form-feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div>
-                </div>
               </div>
 
               <div class="calendar-form-main">
@@ -5323,6 +5214,11 @@ const renderArchiveFeed = () => {
                   <span class="calendar-form-label">Details</span>
                   <textarea id="calendarMemberEventDetails" class="calendar-form-textarea" placeholder="Last stand/scouting details before bow opener."></textarea>
                 </label>
+
+                <div class="calendar-form-actions">
+                  <button id="calendarMemberEventSubmit" class="calendar-form-button" type="submit">Add Event</button>
+                  <div id="calendarMemberEventFeedback" class="calendar-form-feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div>
+                </div>
               </div>
             </form>
           </div>
@@ -5448,16 +5344,6 @@ const renderArchiveFeed = () => {
   content.appendChild(container);
 
 });
-
-buildMenuLinks();
-syncCampLayout();
-forceViewportBounds();
-window.addEventListener("orientationchange", () => setTimeout(() => {
-  syncCampLayout();
-  forceViewportBounds();
-}, 120));
-window.addEventListener("pageshow", forceViewportBounds);
-window.addEventListener("resize", forceViewportBounds);
 
 menuToggle?.addEventListener("click", event => {
   event.preventDefault();
@@ -5608,6 +5494,29 @@ if (storyModeEl) {
       closeStory();
     }
   });
+}
+
+if (storyModeEl) {
+  let storyTouchStartX = 0;
+  let storyTouchStartY = 0;
+
+  storyModeEl.addEventListener("touchstart", (event) => {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (!touch) return;
+    storyTouchStartX = touch.clientX;
+    storyTouchStartY = touch.clientY;
+  }, { passive: true });
+
+  storyModeEl.addEventListener("touchend", (event) => {
+    const touch = event.changedTouches && event.changedTouches[0];
+    if (!touch) return;
+    const deltaX = touch.clientX - storyTouchStartX;
+    const deltaY = touch.clientY - storyTouchStartY;
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+      if (deltaX < 0) nextStory();
+      else prevStory();
+    }
+  }, { passive: true });
 }
 
 if (storyPrevBtn) {
