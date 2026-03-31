@@ -1951,11 +1951,44 @@
 }
 
 .deer-drive-card {
-  padding: 20px;
+  padding: 14px;
   border-radius: 22px;
   background: linear-gradient(180deg, rgba(255, 249, 240, 0.96) 0%, rgba(247, 238, 223, 0.95) 100%);
   border: 1px solid rgba(95, 64, 33, 0.10);
   box-shadow: 0 8px 18px rgba(81, 57, 29, 0.10);
+  text-align: left;
+}
+
+.deer-drive-card-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #d4c9b5;
+  margin-bottom: 14px;
+}
+
+.deer-drive-card-thumb {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.deer-drive-card-thumb-badge {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(31, 25, 17, 0.72);
+  color: #fff8ef;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .deer-drive-kicker {
@@ -2378,6 +2411,34 @@
 }
 
 
+  @media (max-width: 720px) {
+    html,
+    body {
+      scroll-behavior: auto !important;
+    }
+
+    .feed-carousel-track,
+    .feed-archive-list {
+      scroll-snap-type: none !important;
+    }
+
+    .feed-card,
+    .feed-archive-card,
+    .memory-card {
+      touch-action: pan-y;
+    }
+
+    .deer-drive-card {
+      padding: 12px;
+    }
+
+    .deer-drive-card-thumb-wrap {
+      aspect-ratio: 4 / 3;
+      margin-bottom: 12px;
+    }
+  }
+
+
   .traditions-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2529,15 +2590,6 @@
 
     .feed-carousel-track {
       grid-auto-columns: 100%;
-      overflow-x: hidden !important;
-      scroll-snap-type: none !important;
-      touch-action: pan-y pinch-zoom !important;
-      overscroll-behavior-x: none;
-    }
-
-    .feed-card,
-    .feed-card * {
-      touch-action: pan-y pinch-zoom;
     }
 
     .feed-carousel-controls,
@@ -2552,14 +2604,14 @@
     }
 
     .feed-archive-list {
-      display: grid !important;
-      grid-template-columns: 1fr !important;
-      grid-auto-flow: row !important;
-      grid-auto-columns: auto !important;
-      overflow-x: visible !important;
-      scroll-snap-type: none !important;
-      scroll-behavior: auto;
-      padding-bottom: 0 !important;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(78vw, 78vw);
+      grid-template-columns: none;
+      overflow-x: auto;
+      scroll-snap-type: x mandatory;
+      scroll-behavior: smooth;
+      padding-bottom: 4px;
       scrollbar-width: none;
     }
 
@@ -2569,7 +2621,7 @@
 
     .feed-archive-card {
       grid-template-columns: 1fr;
-      scroll-snap-align: none !important;
+      scroll-snap-align: start;
     }
 
     .feed-archive-copy {
@@ -2633,36 +2685,6 @@
       grid-template-columns: 1fr;
     }
 
-    .map-preview {
-      grid-template-columns: 1fr !important;
-      gap: 14px !important;
-    }
-
-    .map-preview-canvas,
-    .map-preview-sidecard {
-      width: 100%;
-      max-width: 100%;
-    }
-
-    .map-preview-canvas {
-      min-height: 360px;
-    }
-
-    .map-preview-note {
-      right: 12px;
-      bottom: 12px;
-      width: calc(100% - 24px);
-      font-size: 0.84rem;
-      line-height: 1.35;
-    }
-
-    .map-pin {
-      min-width: 96px;
-      max-width: 48vw;
-      padding: 7px 10px 7px 28px;
-      font-size: 0.8rem;
-    }
-
     .recipes-grid {
       grid-template-columns: 1fr !important;
     }
@@ -2681,43 +2703,14 @@
       min-height: 64px;
     }
 
-    .calendar-form-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .calendar-form-actions {
-      margin-top: 6px;
-    }
-
     .memories-grid {
-      display: grid !important;
-      grid-auto-flow: column;
-      grid-auto-columns: minmax(82vw, 82vw);
-      grid-template-columns: none !important;
-      justify-content: start !important;
-      gap: 14px !important;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding-bottom: 6px;
-      scroll-snap-type: x mandatory;
-      -webkit-overflow-scrolling: touch;
-      touch-action: pan-x;
-      scrollbar-width: none;
-    }
-
-    .memories-grid::-webkit-scrollbar {
-      display: none;
-    }
-
-    .memory-card {
-      scroll-snap-align: center;
-      min-height: 320px;
+      grid-template-columns: repeat(2, minmax(220px, 280px));
     }
   }
 
   @media (max-width: 560px) {
     .memories-grid {
-      grid-auto-columns: minmax(84vw, 84vw);
+      grid-template-columns: minmax(220px, 280px);
     }
   }
 
@@ -4211,18 +4204,25 @@ const storyPrevBtn = document.getElementById("storyPrevBtn");
 const storyNextBtn = document.getElementById("storyNextBtn");
 const storyCloseBtn = document.getElementById("storyCloseBtn");
 
+function scrollToSectionById(sectionId) {
+  const target = document.getElementById(sectionId);
+  if (!target) return;
+  const headerHeight = Math.max(96, document.querySelector('.camp-header')?.offsetHeight || 118);
+  const top = Math.max(0, window.scrollY + target.getBoundingClientRect().top - headerHeight - 12);
+  window.scrollTo({ top, behavior: window.innerWidth <= 720 ? "auto" : "smooth" });
+}
+
 function buildMenuLinks() {
   if (!menu) return;
   menu.innerHTML = "";
-  buildMenuLinks();
 
-sections.forEach(section => {
+  sections.filter(section => section.hasContent || section.pinFirst).forEach(section => {
     const link = document.createElement("a");
     link.href = `#${section.key}`;
     link.textContent = section.title;
     link.addEventListener("click", event => {
       event.preventDefault();
-      document.getElementById(section.key)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      scrollToSectionById(section.key);
       menu.classList.remove("open");
       menuToggle?.setAttribute("aria-expanded", "false");
     });
@@ -4541,8 +4541,9 @@ sections.forEach(section => {
       const maxIndex = Math.max(0, featuredCards.length - getVisibleFeedCards());
       currentFeedIndex = Math.max(0, Math.min(nextIndex, maxIndex));
       const target = featuredCards[currentFeedIndex];
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
+      if (target && featuredTrack) {
+        const left = Math.max(0, target.offsetLeft - featuredTrack.offsetLeft);
+        featuredTrack.scrollTo({ left, behavior: window.innerWidth <= 720 ? "auto" : "smooth" });
       }
       syncFeedButtons();
     };
@@ -5149,10 +5150,15 @@ const renderArchiveFeed = () => {
         drive && drive.label,
         drive && drive.displayName
       ) || `Deer Drive ${index + 1}`;
+      const variant = getDriveVariant(index, safeDrive, drive && drive.variant);
 
       const preview = escapeHtml(pickDriveText(drive && drive.plan, drive && drive.overview, drive && drive.description, drive && drive.summary) || "Open this drive to view the plan, blockers, and drivers.");
 
       card.innerHTML = `
+        <div class="deer-drive-card-thumb-wrap">
+          <img src="${escapeHtml(variant.mapImage)}" class="deer-drive-card-thumb" style="object-position:${escapeHtml(variant.mapPosition)};" alt="${escapeHtml(safeDrive)} preview map">
+          <div class="deer-drive-card-thumb-badge">Tap to open</div>
+        </div>
         <div class="deer-drive-kicker">Deer Drive ${index + 1}</div>
         <div class="deer-drive-name">${escapeHtml(safeDrive)}</div>
         <p class="deer-drive-side-copy">${preview}</p>
@@ -5202,6 +5208,11 @@ const renderArchiveFeed = () => {
                   <span class="calendar-form-label">Added By</span>
                   <select id="calendarMemberSelect" class="calendar-member-select"></select>
                 </label>
+
+                <div class="calendar-form-actions">
+                  <button id="calendarMemberEventSubmit" class="calendar-form-button" type="submit">Add Event</button>
+                  <div id="calendarMemberEventFeedback" class="calendar-form-feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div>
+                </div>
               </div>
 
               <div class="calendar-form-main">
@@ -5214,11 +5225,6 @@ const renderArchiveFeed = () => {
                   <span class="calendar-form-label">Details</span>
                   <textarea id="calendarMemberEventDetails" class="calendar-form-textarea" placeholder="Last stand/scouting details before bow opener."></textarea>
                 </label>
-
-                <div class="calendar-form-actions">
-                  <button id="calendarMemberEventSubmit" class="calendar-form-button" type="submit">Add Event</button>
-                  <div id="calendarMemberEventFeedback" class="calendar-form-feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div>
-                </div>
               </div>
             </form>
           </div>
@@ -5345,6 +5351,9 @@ const renderArchiveFeed = () => {
 
 });
 
+buildMenuLinks();
+
+
 menuToggle?.addEventListener("click", event => {
   event.preventDefault();
   event.stopPropagation();
@@ -5353,6 +5362,7 @@ menuToggle?.addEventListener("click", event => {
 });
 
 document.addEventListener("click", event => {
+  if (!menu || !menuToggle) return;
   if (!menu.contains(event.target) && !menuToggle.contains(event.target)) {
     menu.classList.remove("open");
     menuToggle.setAttribute("aria-expanded", "false");
@@ -5494,29 +5504,6 @@ if (storyModeEl) {
       closeStory();
     }
   });
-}
-
-if (storyModeEl) {
-  let storyTouchStartX = 0;
-  let storyTouchStartY = 0;
-
-  storyModeEl.addEventListener("touchstart", (event) => {
-    const touch = event.changedTouches && event.changedTouches[0];
-    if (!touch) return;
-    storyTouchStartX = touch.clientX;
-    storyTouchStartY = touch.clientY;
-  }, { passive: true });
-
-  storyModeEl.addEventListener("touchend", (event) => {
-    const touch = event.changedTouches && event.changedTouches[0];
-    if (!touch) return;
-    const deltaX = touch.clientX - storyTouchStartX;
-    const deltaY = touch.clientY - storyTouchStartY;
-    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
-      if (deltaX < 0) nextStory();
-      else prevStory();
-    }
-  }, { passive: true });
 }
 
 if (storyPrevBtn) {
