@@ -699,8 +699,13 @@
       member: buildMemberTemplate()
     };
 
+    const savedWizardState = parseJSON(localStorage.getItem(WIZARD_KEY) || 'null', null);
+    const savedResumeStep = savedWizardState && typeof savedWizardState === 'object' && Number.isInteger(savedWizardState.step)
+      ? Math.max(0, Math.min(2, savedWizardState.step))
+      : 0;
+
     let state = (() => {
-      const saved = parseJSON(localStorage.getItem(WIZARD_KEY) || 'null', null);
+      const saved = savedWizardState;
       const template = buildMemberTemplate();
       if (!saved || typeof saved !== 'object') return { ...defaultState, member: template };
       return {
@@ -744,13 +749,14 @@
       document.getElementById('nextBtn').textContent = currentStep === 0 ? 'Join Camp' : currentStep === 1 ? 'Review' : 'Finish and Enter Camp';
     }
 
-    function showStep(index) {
+    function showStep(index, options = {}) {
+      const shouldPersist = options.persist !== false;
       currentStep = Math.max(0, Math.min(2, index));
       state.step = currentStep;
       document.querySelectorAll('.step-panel').forEach(panel => panel.classList.toggle('active', panel.id === `step-${currentStep}`));
       setStepList();
       updateProgress();
-      persistState(false);
+      if (shouldPersist) persistState(false);
       render();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -1062,8 +1068,12 @@
       }
     });
 
+    if (savedResumeStep > 0) {
+      setSavePill('Saved locally');
+    }
+
     render();
-    showStep(state.step || 0);
+    showStep(0, { persist: false });
   </script>
 </body>
 </html>

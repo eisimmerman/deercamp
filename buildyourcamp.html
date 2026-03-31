@@ -394,6 +394,10 @@
     const campData = safeParse(CAMP_DATA_KEY, {});
     const dashboardState = safeParse(DASHBOARD_KEY, {});
     const wizardState = safeParse(WIZARD_KEY, {});
+    const savedResumeStep = Number.isInteger(wizardState.step)
+      ? Math.max(1, Math.min(STEPS.length - 1, wizardState.step))
+      : 0;
+    const hasSavedProgress = savedResumeStep > 0;
 
     const state = {
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
@@ -437,7 +441,8 @@
       }).join("");
     }
 
-    function showStep(index) {
+    function showStep(index, options = {}) {
+      const shouldPersist = options.persist !== false;
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = STEPS[state.step].title;
@@ -452,7 +457,7 @@
       progressFill.style.width = `${pct}%`;
       renderStepList();
       if (state.step === 5) renderReview();
-      persist(false);
+      if (shouldPersist) persist(false);
     }
 
     function syncCampProfilePreview() {
@@ -709,6 +714,10 @@
       window.location.href = 'steward-dashboard.html';
     }
 
+    const continueSavedBtn = document.getElementById('continueSavedBtn');
+    continueSavedBtn.disabled = !hasSavedProgress;
+    continueSavedBtn.textContent = hasSavedProgress ? 'Continue Where I Left Off' : 'No Saved Progress Yet';
+
     document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
     document.getElementById('campProfileStepForm').addEventListener('change', queuePersist);
     document.getElementById('memberAddForm').addEventListener('submit', (event) => {
@@ -724,7 +733,7 @@
     });
 
     document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
-    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
+    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, savedResumeStep || state.step || 1)));
     document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
     document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
     document.getElementById('nextBtn').addEventListener('click', () => {
@@ -741,8 +750,7 @@
 
     fillForms();
     renderStepList();
-    showStep(state.step);
-    persist(false);
+    showStep(0, { persist: false });
   </script>
 </body>
 </html>
