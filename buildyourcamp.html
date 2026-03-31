@@ -280,7 +280,7 @@
       <section class="panel step-panel" id="step-1">
         <h3>CampProfile</h3>
         <p class="helper">Lock the public identity of your camp first. This should map directly into the CampProfile tab in the Steward Dashboard.</p>
-        <p class="guided-form-note">Start with the highlighted field. As each field is completed, DeerCamp highlights the next one.</p>
+        <p class="guided-form-note">Start with the highlighted field. As each field is completed, DeerCamp highlights the next one. Use Tab key to move between fields.</p>
         <div class="two-grid">
           <form class="form-grid" id="campProfileStepForm">
             <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text" /></div>
@@ -415,6 +415,74 @@
       alabama:'AL', alaska:'AK', arizona:'AZ', arkansas:'AR', california:'CA', colorado:'CO', connecticut:'CT', delaware:'DE', florida:'FL', georgia:'GA', hawaii:'HI', idaho:'ID', illinois:'IL', indiana:'IN', iowa:'IA', kansas:'KS', kentucky:'KY', louisiana:'LA', maine:'ME', maryland:'MD', massachusetts:'MA', michigan:'MI', minnesota:'MN', mississippi:'MS', missouri:'MO', montana:'MT', nebraska:'NE', nevada:'NV', 'new hampshire':'NH', 'new jersey':'NJ', 'new mexico':'NM', 'new york':'NY', 'north carolina':'NC', 'north dakota':'ND', ohio:'OH', oklahoma:'OK', oregon:'OR', pennsylvania:'PA', 'rhode island':'RI', 'south carolina':'SC', 'south dakota':'SD', tennessee:'TN', texas:'TX', utah:'UT', vermont:'VT', virginia:'VA', washington:'WA', 'west virginia':'WV', wisconsin:'WI', wyoming:'WY', 'district of columbia':'DC'
     };
 
+    const DEFAULT_BRAND_PATH = 'assets/branding/deer-track.png';
+    const DEFAULT_HERO_FALLBACK = 'assets/heroes/MN-deer-camp.jpg';
+
+    function readLinkPrefillParams() {
+      const params = new URLSearchParams(window.location.search);
+      const pick = (...keys) => {
+        for (const key of keys) {
+          const value = params.get(key);
+          if (value && String(value).trim()) return String(value).trim();
+        }
+        return '';
+      };
+      return {
+        name: pick('campName', 'name'),
+        established: pick('established', 'est'),
+        city: pick('city'),
+        state: pick('state'),
+        zip: pick('zip'),
+        hero: pick('hero', 'heroPath'),
+        brand: pick('brand', 'brandPath', 'branding'),
+        summary: pick('summary', 'about'),
+        accessNote: pick('access', 'accessNote'),
+        stewardName: pick('steward', 'stewardName'),
+        stewardEmail: pick('stewardEmail', 'email')
+      };
+    }
+
+    function hasLinkPrefill(prefill = {}) {
+      return Object.values(prefill).some((value) => String(value || '').trim());
+    }
+
+    function isAutoHeroPath(value = '') {
+      const clean = String(value || '').trim();
+      if (!clean) return true;
+      if (clean === DEFAULT_HERO_FALLBACK) return true;
+      return /^assets\/heroes\/[A-Z]{2}-deer-camp\.jpg$/i.test(clean);
+    }
+
+    function imagePathExists(path) {
+      return new Promise((resolve) => {
+        const clean = String(path || '').trim();
+        if (!clean) {
+          resolve(false);
+          return;
+        }
+        const probe = new Image();
+        probe.onload = () => resolve(true);
+        probe.onerror = () => resolve(false);
+        probe.src = clean;
+      });
+    }
+
+    async function getDefaultHeroPathForState(stateValue = '') {
+      const stateCode = normalizeState(stateValue);
+      const candidates = [];
+      if (stateCode) candidates.push(`assets/heroes/${stateCode}-deer-camp.jpg`);
+      candidates.push(DEFAULT_HERO_FALLBACK);
+
+      const checked = new Set();
+      for (const candidate of candidates) {
+        if (!candidate || checked.has(candidate)) continue;
+        checked.add(candidate);
+        if (await imagePathExists(candidate)) return candidate;
+      }
+
+      return candidates[candidates.length - 1] || '';
+    }
+
     function normalizeState(value = '') {
       const trimmed = String(value || '').trim();
       if (!trimmed) return '';
@@ -470,6 +538,31 @@
       }
     }
 
+    async function applyLocationMediaDefaults({ forceHero = false, forceBrand = false } = {}) {
+      const heroInput = document.getElementById('campHero');
+      const brandInput = document.getElementById('campBrand');
+      const stateInput = document.getElementById('campState');
+      if (!heroInput || !brandInput || !stateInput) return;
+
+      const stateCode = normalizeState(stateInput.value || state.camp.state);
+      const shouldSetBrand = forceBrand || !String(brandInput.value || '').trim();
+      if (shouldSetBrand) {
+        brandInput.value = DEFAULT_BRAND_PATH;
+        state.camp.brand = DEFAULT_BRAND_PATH;
+      }
+
+      const heroLooksAutomatic = isAutoHeroPath(heroInput.value);
+      if (stateCode && (forceHero || !String(heroInput.value || '').trim() || heroLooksAutomatic)) {
+        const defaultHeroPath = await getDefaultHeroPathForState(stateCode);
+        if (defaultHeroPath) {
+          heroInput.value = defaultHeroPath;
+          state.camp.hero = defaultHeroPath;
+        }
+      }
+
+      syncCampProfilePreview();
+    }
+
     function debounce(fn, wait = 450) {
       let timeoutId;
       return (...args) => {
@@ -522,6 +615,8 @@
     const dashboardState = safeParse(DASHBOARD_KEY, {});
     const wizardState = safeParse(WIZARD_KEY, {});
 
+    const linkPrefill = readLinkPrefillParams();
+
     const state = {
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
       camp: {
@@ -548,6 +643,21 @@
       starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
       autosavedAt: wizardState.autosavedAt || ""
     };
+
+    if (hasLinkPrefill(linkPrefill)) {
+      if (linkPrefill.name) state.camp.name = linkPrefill.name;
+      if (linkPrefill.established) state.camp.established = linkPrefill.established;
+      if (linkPrefill.city) state.camp.city = linkPrefill.city;
+      if (linkPrefill.state) state.camp.state = linkPrefill.state;
+      if (linkPrefill.zip) state.camp.zip = linkPrefill.zip;
+      if (linkPrefill.hero) state.camp.hero = linkPrefill.hero;
+      if (linkPrefill.brand) state.camp.brand = linkPrefill.brand;
+      if (linkPrefill.summary) state.camp.summary = linkPrefill.summary;
+      if (linkPrefill.accessNote) state.camp.accessNote = linkPrefill.accessNote;
+      if (linkPrefill.stewardName) state.steward.name = linkPrefill.stewardName;
+      if (linkPrefill.stewardEmail) state.steward.email = linkPrefill.stewardEmail;
+      state.step = 0;
+    }
 
     const stepList = document.getElementById("stepList");
     const wizardTitle = document.getElementById("wizardTitle");
@@ -961,21 +1071,42 @@
     });
     document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
     document.getElementById('openDashboardBtn').addEventListener('click', () => { persist(true); window.location.href = 'steward-dashboard.html'; });
-    const queueZipAutofill = debounce(() => { autofillZip(false); }, 500);
+    const queueZipAutofill = debounce(async () => {
+      await autofillZip(false);
+      await applyLocationMediaDefaults({ forceHero: false, forceBrand: false });
+      queuePersist();
+    }, 500);
     document.getElementById('campCity').addEventListener('input', () => { queuePersist(); queueZipAutofill(); });
     document.getElementById('campState').addEventListener('input', () => { queuePersist(); queueZipAutofill(); });
-    document.getElementById('campState').addEventListener('blur', () => { autofillZip(false); });
-    document.getElementById('campState').addEventListener('change', () => { autofillZip(true); });
+    document.getElementById('campState').addEventListener('blur', async () => { await autofillZip(false); await applyLocationMediaDefaults({ forceHero: false, forceBrand: false }); queuePersist(); });
+    document.getElementById('campState').addEventListener('change', async () => { await autofillZip(true); await applyLocationMediaDefaults({ forceHero: true, forceBrand: true }); queuePersist(); });
+    document.getElementById('campHero').addEventListener('blur', async () => {
+      if (!document.getElementById('campHero').value.trim()) {
+        await applyLocationMediaDefaults({ forceHero: true, forceBrand: false });
+        queuePersist();
+      }
+    });
+    document.getElementById('campBrand').addEventListener('blur', async () => {
+      if (!document.getElementById('campBrand').value.trim()) {
+        await applyLocationMediaDefaults({ forceHero: false, forceBrand: true });
+        queuePersist();
+      }
+    });
     document.getElementById('campZip').addEventListener('input', queuePersist);
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
 
     fillForms();
     bindGuidedForms();
-    autofillZip(false);
-    renderStepList();
-    showStep(state.step);
-    persist(false);
+    Promise.resolve()
+      .then(() => applyLocationMediaDefaults({ forceHero: false, forceBrand: false }))
+      .then(() => autofillZip(false))
+      .then(() => applyLocationMediaDefaults({ forceHero: false, forceBrand: false }))
+      .finally(() => {
+        renderStepList();
+        showStep(state.step);
+        persist(false);
+      });
   </script>
 </body>
 </html>
