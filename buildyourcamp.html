@@ -257,7 +257,7 @@
             <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text" placeholder="1999" /></div>
             <div class="field"><label for="campCity">City</label><input id="campCity" type="text" placeholder="Eau Claire" /></div>
             <div class="field"><label for="campState">State</label><input id="campState" type="text" placeholder="WI" /></div>
-            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text" placeholder="54701" /></div>
+            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text" placeholder="54701" /><div class="field-note" id="zipStatus"></div></div>
             <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text" placeholder="assets/heroes/MN-deer-camp.jpg" /></div>
             <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary" placeholder="What makes this camp unique, who it is for, and what the season means here."></textarea></div>
             <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text" placeholder="assets/branding/deer-track.png" /></div>
@@ -381,6 +381,103 @@
       return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     }
 
+    const STATE_NAME_TO_CODE = {
+      alabama:'AL', alaska:'AK', arizona:'AZ', arkansas:'AR', california:'CA', colorado:'CO', connecticut:'CT', delaware:'DE', florida:'FL', georgia:'GA', hawaii:'HI', idaho:'ID', illinois:'IL', indiana:'IN', iowa:'IA', kansas:'KS', kentucky:'KY', louisiana:'LA', maine:'ME', maryland:'MD', massachusetts:'MA', michigan:'MI', minnesota:'MN', mississippi:'MS', missouri:'MO', montana:'MT', nebraska:'NE', nevada:'NV', 'new hampshire':'NH', 'new jersey':'NJ', 'new mexico':'NM', 'new york':'NY', 'north carolina':'NC', 'north dakota':'ND', ohio:'OH', oklahoma:'OK', oregon:'OR', pennsylvania:'PA', 'rhode island':'RI', 'south carolina':'SC', 'south dakota':'SD', tennessee:'TN', texas:'TX', utah:'UT', vermont:'VT', virginia:'VA', washington:'WA', 'west virginia':'WV', wisconsin:'WI', wyoming:'WY', 'district of columbia':'DC'
+    };
+
+    function normalizeState(value = '') {
+      const trimmed = String(value || '').trim();
+      if (!trimmed) return '';
+      if (trimmed.length === 2) return trimmed.toUpperCase();
+      return STATE_NAME_TO_CODE[trimmed.toLowerCase()] || '';
+    }
+
+    function getZipCodesFromResponse(data) {
+      const codes = new Set();
+      if (data && typeof data['post code'] === 'string') codes.add(data['post code']);
+      if (data && Array.isArray(data.places)) {
+        data.places.forEach((place) => {
+          if (place && typeof place['post code'] === 'string') codes.add(place['post code']);
+        });
+      }
+      return Array.from(codes).filter(Boolean);
+    }
+
+    async function fetchZipCodesForCityState(city, stateCode) {
+      const endpoint = `https://api.zippopotam.us/us/${stateCode}/${encodeURIComponent(city)}`;
+      const response = await fetch(endpoint, { method: 'GET', headers: { Accept: 'application/json' } });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return getZipCodesFromResponse(data);
+    }
+
+    async function autofillZip(forceReplace = false) {
+      const cityInput = document.getElementById('campCity');
+      const stateInput = document.getElementById('campState');
+      const zipInput = document.getElementById('campZip');
+      const zipStatus = document.getElementById('zipStatus');
+      if (!cityInput || !stateInput || !zipInput || !zipStatus) return;
+
+      const city = cityInput.value.trim();
+      const stateCode = normalizeState(stateInput.value);
+      zipStatus.textContent = '';
+
+      if (!city || !stateCode) return;
+      if (zipInput.value.trim() && !forceReplace) return;
+
+      try {
+        const zips = await fetchZipCodesForCityState(city, stateCode);
+        if (zips.length) {
+          zipInput.value = zips[0];
+          state.camp.zip = zips[0];
+          zipStatus.textContent = zips.length > 1 ? `Loaded ${zips[0]} from ${city}, ${stateCode}.` : `Loaded ${zips[0]} from ${city}, ${stateCode}.`;
+          syncCampProfilePreview();
+          return;
+        }
+        zipStatus.textContent = `No ZIP was found automatically for ${city}, ${stateCode}.`;
+      } catch (error) {
+        zipStatus.textContent = 'ZIP auto-fill is unavailable right now.';
+      }
+    }
+
+    function debounce(fn, wait = 450) {
+      let timeoutId;
+      return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), wait);
+      };
+    }
+
+    function deriveCampIdFromWizard(camp = {}) {
+      const parts = [camp.name, camp.city, normalizeState(camp.state), camp.zip].map((item) => String(item || '').trim()).filter(Boolean);
+      return slugify(parts.join('-')) || `deercamp-${Date.now()}`;
+    }
+
+    function incrementCreatedCampCounter(campId) {
+      const COUNTER_KEY = 'deercamp.createdCount';
+      const IDS_KEY = 'deercamp.createdCampIds';
+      try {
+        const cleanCampId = String(campId || '').trim();
+        const storedIds = JSON.parse(localStorage.getItem(IDS_KEY) || '[]');
+        const ids = Array.isArray(storedIds) ? storedIds.filter(Boolean) : [];
+        if (cleanCampId && !ids.includes(cleanCampId)) {
+          ids.push(cleanCampId);
+          localStorage.setItem(IDS_KEY, JSON.stringify(ids));
+          localStorage.setItem(COUNTER_KEY, String(ids.length));
+          return;
+        }
+        if (!cleanCampId) {
+          const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10);
+          const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+          localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+        }
+      } catch (error) {
+        const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || '0', 10);
+        const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+        localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+      }
+    }
+
     function uniquePeople(people = []) {
       const seen = new Set();
       return people.filter(person => {
@@ -394,10 +491,6 @@
     const campData = safeParse(CAMP_DATA_KEY, {});
     const dashboardState = safeParse(DASHBOARD_KEY, {});
     const wizardState = safeParse(WIZARD_KEY, {});
-    const savedResumeStep = Number.isInteger(wizardState.step)
-      ? Math.max(1, Math.min(STEPS.length - 1, wizardState.step))
-      : 0;
-    const hasSavedProgress = savedResumeStep > 0;
 
     const state = {
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
@@ -434,19 +527,6 @@
     const progressPercent = document.getElementById("progressPercent");
     const progressFill = document.getElementById("progressFill");
 
-    function resolveAssetPath(pathValue, assetType = "hero") {
-      const raw = String(pathValue || "").trim();
-      if (!raw) return "";
-      if (/^(https?:|data:|blob:|\/|\.\/|\.\.\/|assets\/)/i.test(raw)) return raw;
-      const looksLikeImage = /\.(png|jpe?g|webp|gif|svg)$/i.test(raw);
-      if (!looksLikeImage) return raw;
-      return `${assetType === "brand" ? "assets/branding" : "assets/heroes"}/${raw.replace(/^\/+/, "")}`;
-    }
-
-    function toSafeCssUrl(pathValue) {
-      return String(pathValue || "").replace(/"/g, '\"');
-    }
-
     function renderStepList() {
       stepList.innerHTML = STEPS.map((step, index) => {
         const cls = index === state.step ? "step active" : index < state.step ? "step done" : "step";
@@ -454,14 +534,17 @@
       }).join("");
     }
 
-    function showStep(index, options = {}) {
-      const shouldPersist = options.persist !== false;
+    function showStep(index) {
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = STEPS[state.step].title;
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
+      const openDashboardBtn = document.getElementById('openDashboardBtn');
+      if (openDashboardBtn) {
+        openDashboardBtn.style.display = state.step === STEPS.length - 1 ? 'none' : '';
+      }
       const totalFlowSteps = STEPS.length;
       const currentStepNumber = state.step + 1;
       const pct = Math.round((currentStepNumber / totalFlowSteps) * 100);
@@ -470,7 +553,7 @@
       progressFill.style.width = `${pct}%`;
       renderStepList();
       if (state.step === 5) renderReview();
-      if (shouldPersist) persist(false);
+      persist(false);
     }
 
     function syncCampProfilePreview() {
@@ -479,11 +562,10 @@
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      const heroPreviewPath = resolveAssetPath(state.camp.hero, 'hero');
-      document.getElementById('heroPreview').style.backgroundImage = heroPreviewPath ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url("${toSafeCssUrl(heroPreviewPath)}")` : '';
-      document.getElementById('heroPreview').style.backgroundSize = heroPreviewPath ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = heroPreviewPath ? 'center center' : '';
-      document.getElementById('heroPreviewPath').textContent = heroPreviewPath || 'No hero path yet';
+      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
+      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
+      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
+      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -582,9 +664,9 @@
       state.camp.city = document.getElementById('campCity').value.trim();
       state.camp.state = document.getElementById('campState').value.trim();
       state.camp.zip = document.getElementById('campZip').value.trim();
-      state.camp.hero = resolveAssetPath(document.getElementById('campHero').value.trim(), 'hero');
+      state.camp.hero = document.getElementById('campHero').value.trim();
       state.camp.summary = document.getElementById('campSummary').value.trim();
-      state.camp.brand = resolveAssetPath(document.getElementById('campBrand').value.trim(), 'brand');
+      state.camp.brand = document.getElementById('campBrand').value.trim();
       state.camp.accessNote = document.getElementById('campAccess').value.trim();
       state.steward.name = document.getElementById('stewardName').value.trim();
       state.steward.email = document.getElementById('stewardEmail').value.trim();
@@ -625,6 +707,7 @@
     function mergeAndLaunch() {
       applyDomToState();
       const nextCampData = Object.assign({}, campData);
+      nextCampData.campId = nextCampData.campId || deriveCampIdFromWizard(state.camp);
       nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
       nextCampData.campName = nextCampData.name;
       nextCampData.city = state.camp.city || campData.city || '';
@@ -723,14 +806,11 @@
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
+      localStorage.setItem('deercamp.activeCampId', nextCampData.campId);
       incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
       localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, { autosavedAt: currentTimestampLabel() })));
       window.location.href = 'steward-dashboard.html';
     }
-
-    const continueSavedBtn = document.getElementById('continueSavedBtn');
-    continueSavedBtn.disabled = !hasSavedProgress;
-    continueSavedBtn.textContent = hasSavedProgress ? 'Continue Where I Left Off' : 'No Saved Progress Yet';
 
     document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
     document.getElementById('campProfileStepForm').addEventListener('change', queuePersist);
@@ -747,7 +827,7 @@
     });
 
     document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
-    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, savedResumeStep || state.step || 1)));
+    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
     document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
     document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
     document.getElementById('nextBtn').addEventListener('click', () => {
@@ -758,13 +838,21 @@
       }
     });
     document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
-    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
+    document.getElementById('openDashboardBtn').addEventListener('click', () => { persist(true); window.location.href = 'steward-dashboard.html'; });
+    const queueZipAutofill = debounce(() => { autofillZip(false); }, 500);
+    document.getElementById('campCity').addEventListener('input', () => { queuePersist(); queueZipAutofill(); });
+    document.getElementById('campState').addEventListener('input', () => { queuePersist(); queueZipAutofill(); });
+    document.getElementById('campState').addEventListener('blur', () => { autofillZip(false); });
+    document.getElementById('campState').addEventListener('change', () => { autofillZip(true); });
+    document.getElementById('campZip').addEventListener('input', queuePersist);
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
 
     fillForms();
+    autofillZip(false);
     renderStepList();
-    showStep(0, { persist: false });
+    showStep(state.step);
+    persist(false);
   </script>
 </body>
 </html>
