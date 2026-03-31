@@ -3075,6 +3075,17 @@ function normalizeCampRecipe(item, index = 0) {
 
 
     const dashboardAttentionSelections = new Set();
+    const guidedAttentionState = {
+      active: false,
+      actionKey: "",
+      tab: ""
+    };
+
+    function clearGuidedAttentionState() {
+      guidedAttentionState.active = false;
+      guidedAttentionState.actionKey = "";
+      guidedAttentionState.tab = "";
+    }
 
     function resolveDashboardAssetPath(pathValue, assetType = "hero") {
       const raw = String(pathValue || "").trim();
@@ -3129,6 +3140,54 @@ function normalizeCampRecipe(item, index = 0) {
         });
       });
       syncHighlightedFastActions();
+    }
+
+
+    function getActionLabelByKey(actionKey) {
+      const labelEl = document.querySelector(`.action-tile[data-action-key="${actionKey}"] strong`);
+      return labelEl ? labelEl.textContent.trim() : "the next setup step";
+    }
+
+    function getVisibleAttentionActionKeys() {
+      return Array.from(document.querySelectorAll("#attentionList [data-attention-action]"))
+        .map((input) => input.dataset.attentionAction)
+        .filter(Boolean);
+    }
+
+    function completeGuidedAttention(actionKeys, completionLabel) {
+      const acceptedKeys = Array.isArray(actionKeys) ? actionKeys : [actionKeys];
+      if (!guidedAttentionState.active || !acceptedKeys.includes(guidedAttentionState.actionKey)) {
+        return false;
+      }
+
+      const completedKey = guidedAttentionState.actionKey;
+      dashboardAttentionSelections.delete(completedKey);
+      clearGuidedAttentionState();
+      showTab("dashboard");
+
+      window.setTimeout(() => {
+        const remainingKeys = getVisibleAttentionActionKeys().filter((key) => key !== completedKey);
+        dashboardAttentionSelections.clear();
+        const nextKey = remainingKeys[0] || "";
+        if (nextKey) dashboardAttentionSelections.add(nextKey);
+        renderDashboardHome();
+        syncHighlightedFastActions();
+
+        const attentionPanel = document.getElementById("attentionList")?.closest(".panel");
+        if (attentionPanel) {
+          attentionPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+
+        const remainingCount = getVisibleAttentionActionKeys().length;
+        if (remainingCount) {
+          const nextLabel = getActionLabelByKey(nextKey);
+          showToast(`${completionLabel} saved. ${remainingCount} item${remainingCount === 1 ? "" : "s"} still need setup. Next recommended step: ${nextLabel}.`);
+        } else {
+          showToast(`${completionLabel} saved. Your remaining setup items are clear.`);
+        }
+      }, 80);
+
+      return true;
     }
 
     function renderCampProfile() {
@@ -4016,7 +4075,9 @@ function normalizeCampRecipe(item, index = 0) {
       if (!person) return;
       person.status = "Active";
       saveState(true);
-      showToast(`${person.name} is now active.`);
+      if (!completeGuidedAttention(["membership-invite", "membership-roster"], "Membership")) {
+        showToast(`${person.name} is now active.`);
+      }
     }
 
     function removeMember(id) {
@@ -4024,7 +4085,9 @@ function normalizeCampRecipe(item, index = 0) {
       if (!person) return;
       person.status = "Removed";
       saveState(true);
-      showToast(`${person.name} was marked as removed.`);
+      if (!completeGuidedAttention(["membership-invite", "membership-roster"], "Membership")) {
+        showToast(`${person.name} was marked as removed.`);
+      }
     }
 
 
@@ -4105,11 +4168,25 @@ function normalizeCampRecipe(item, index = 0) {
     window.showTab = showTab;
 
     document.querySelectorAll(".nav-link[data-tab]").forEach(button => {
-      button.addEventListener("click", () => showTab(button.dataset.tab));
+      button.addEventListener("click", () => {
+        clearGuidedAttentionState();
+        showTab(button.dataset.tab);
+      });
     });
 
     document.querySelectorAll(".action-tile[data-jump]").forEach(button => {
-      button.addEventListener("click", () => showTab(button.dataset.jump));
+      button.addEventListener("click", () => {
+        const actionKey = button.dataset.actionKey || "";
+        const isGuidedLaunch = actionKey && dashboardAttentionSelections.has(actionKey);
+        if (isGuidedLaunch) {
+          guidedAttentionState.active = true;
+          guidedAttentionState.actionKey = actionKey;
+          guidedAttentionState.tab = button.dataset.jump || "";
+        } else {
+          clearGuidedAttentionState();
+        }
+        showTab(button.dataset.jump);
+      });
     });
     syncHighlightedFastActions();
 
@@ -4173,8 +4250,10 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.people.push(newMember);
       event.target.reset();
       saveState(true);
-      showToast(`${name} added to camp roster.`);
-      showTab("membership");
+      if (!completeGuidedAttention(["membership-invite", "membership-roster"], "Membership")) {
+        showToast(`${name} added to camp roster.`);
+        showTab("membership");
+      }
     });
 
     document.getElementById("saveProfileBtn").addEventListener("click", () => {
@@ -4215,7 +4294,9 @@ function normalizeCampRecipe(item, index = 0) {
       applyRosterGovernance();
       saveState(true);
       closeProfileDrawer();
-      showToast(`${person.name}'s profile was updated.`);
+      if (!completeGuidedAttention("profiles-finish", "Member Profiles")) {
+        showToast(`${person.name}'s profile was updated.`);
+      }
     });
 
     document.getElementById("closeDrawerBtn").addEventListener("click", closeProfileDrawer);
@@ -4245,8 +4326,10 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.traditions.push(normalizeTradition({ label, group, description, url }));
       event.target.reset();
       saveState(true);
-      showToast(`${label} added to CampTraditions.`);
-      showTab("traditions");
+      if (!completeGuidedAttention("traditions-manage", "CampTraditions")) {
+        showToast(`${label} added to CampTraditions.`);
+        showTab("traditions");
+      }
     });
 
     document.getElementById("saveTraditionBtn").addEventListener("click", () => {
@@ -4261,8 +4344,10 @@ function normalizeCampRecipe(item, index = 0) {
 
       saveState(true);
       closeTraditionDrawer();
-      showToast(`${tradition.label} was updated.`);
-      showTab("traditions");
+      if (!completeGuidedAttention("traditions-manage", "CampTraditions")) {
+        showToast(`${tradition.label} was updated.`);
+        showTab("traditions");
+      }
     });
 
     document.getElementById("closeTraditionDrawerBtn").addEventListener("click", closeTraditionDrawer);
@@ -4279,8 +4364,10 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.campCards.push(normalizeCampCard({ title, source, image, caption, story }, dashboardState.campCards.length));
       event.target.reset();
       saveState(true);
-      showToast(`${title} added to CampCards.`);
-      showTab("campcards");
+      if (!completeGuidedAttention("campcards-manage", "CampCards")) {
+        showToast(`${title} added to CampCards.`);
+        showTab("campcards");
+      }
     });
 
     document.getElementById("saveCampCardBtn").addEventListener("click", () => {
@@ -4296,8 +4383,10 @@ function normalizeCampRecipe(item, index = 0) {
 
       saveState(true);
       closeCampCardDrawer();
-      showToast(`${card.title} was updated.`);
-      showTab("campcards");
+      if (!completeGuidedAttention("campcards-manage", "CampCards")) {
+        showToast(`${card.title} was updated.`);
+        showTab("campcards");
+      }
     });
 
 
@@ -4323,8 +4412,10 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.campRecipes.push(normalizeCampRecipe({ title, meal, sourceTitle, subtitle, time, serves, difficulty, equipment, description, ingredients, steps, serving, tips }, dashboardState.campRecipes.length));
       event.target.reset();
       saveState(true);
-      showToast(`${title} added to CampRecipes.`);
-      showTab("camprecipes");
+      if (!completeGuidedAttention("camprecipes-manage", "CampRecipes")) {
+        showToast(`${title} added to CampRecipes.`);
+        showTab("camprecipes");
+      }
     });
 
     document.getElementById("saveCampRecipeBtn").addEventListener("click", () => {
@@ -4348,8 +4439,10 @@ function normalizeCampRecipe(item, index = 0) {
 
       saveState(true);
       closeCampRecipeDrawer();
-      showToast(`${recipe.title} was updated.`);
-      showTab("camprecipes");
+      if (!completeGuidedAttention("camprecipes-manage", "CampRecipes")) {
+        showToast(`${recipe.title} was updated.`);
+        showTab("camprecipes");
+      }
     });
 
     document.getElementById("closeCampRecipeDrawerBtn").addEventListener("click", closeCampRecipeDrawer);
@@ -4378,6 +4471,7 @@ function normalizeCampRecipe(item, index = 0) {
       const existingIndex = id
         ? dashboardState.calendarEvents.findIndex(item => item.id === id)
         : -1;
+      let guidedCompleted = false;
 
       if (existingIndex > -1) {
         dashboardState.calendarEvents[existingIndex] = {
@@ -4386,15 +4480,23 @@ function normalizeCampRecipe(item, index = 0) {
           id
         };
         saveState(true);
-        showToast(`${normalized.title} updated.`);
+        guidedCompleted = completeGuidedAttention("calendar-manage", "CampCalendar");
+        if (!guidedCompleted) {
+          showToast(`${normalized.title} updated.`);
+        }
       } else {
         dashboardState.calendarEvents.push(normalized);
         saveState(true);
-        showToast(`${normalized.title} added to CampCalendar.`);
+        guidedCompleted = completeGuidedAttention("calendar-manage", "CampCalendar");
+        if (!guidedCompleted) {
+          showToast(`${normalized.title} added to CampCalendar.`);
+        }
       }
 
       resetCalendarForm();
-      showTab("calendar");
+      if (!guidedCompleted) {
+        showTab("calendar");
+      }
     });
 
     document.getElementById("resetCalendarBtn")?.addEventListener("click", resetCalendarForm);
@@ -4424,6 +4526,7 @@ function normalizeCampRecipe(item, index = 0) {
       const existingIndex = id
         ? dashboardState.campStands.findIndex(item => item.id === id)
         : -1;
+      let guidedCompleted = false;
 
       if (existingIndex > -1) {
         dashboardState.campStands[existingIndex] = {
@@ -4432,15 +4535,23 @@ function normalizeCampRecipe(item, index = 0) {
           id
         };
         saveState(true);
-        showToast(`${normalized.name} updated.`);
+        guidedCompleted = completeGuidedAttention("stands-manage", "CampStands");
+        if (!guidedCompleted) {
+          showToast(`${normalized.name} updated.`);
+        }
       } else {
         dashboardState.campStands.push(normalized);
         saveState(true);
-        showToast(`${normalized.name} added to CampStands.`);
+        guidedCompleted = completeGuidedAttention("stands-manage", "CampStands");
+        if (!guidedCompleted) {
+          showToast(`${normalized.name} added to CampStands.`);
+        }
       }
 
       resetStandForm();
-      showTab("stands");
+      if (!guidedCompleted) {
+        showTab("stands");
+      }
     });
 
     document.getElementById("resetStandBtn")?.addEventListener("click", resetStandForm);
@@ -4508,8 +4619,10 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.campMemories.push(normalizeCampMemory({ title, category, winner, year, image, audio, caption, story }, dashboardState.campMemories.length));
       event.target.reset();
       saveState(true);
-      showToast(`${title} added to CampMemories.`);
-      showTab("campmemories");
+      if (!completeGuidedAttention("campmemories-manage", "CampMemories")) {
+        showToast(`${title} added to CampMemories.`);
+        showTab("campmemories");
+      }
     });
 
     document.getElementById("saveCampMemoryBtn").addEventListener("click", () => {
@@ -4528,8 +4641,10 @@ function normalizeCampRecipe(item, index = 0) {
 
       saveState(true);
       closeCampMemoryDrawer();
-      showToast(`${memory.title} was updated.`);
-      showTab("campmemories");
+      if (!completeGuidedAttention("campmemories-manage", "CampMemories")) {
+        showToast(`${memory.title} was updated.`);
+        showTab("campmemories");
+      }
     });
 
     document.getElementById("closeCampMemoryDrawerBtn").addEventListener("click", closeCampMemoryDrawer);
@@ -4546,28 +4661,53 @@ function normalizeCampRecipe(item, index = 0) {
       const notes = document.getElementById("driveNotes").value.trim();
       const rosterNames = dashboardState.people.filter(person => person.status !== "Removed").map(person => person.name);
 
+      let guidedCompleted = false;
       if (id) {
         const drive = (dashboardState.deerDrives || []).find(entry => entry.id === id);
         if (!drive) return;
         Object.assign(drive, normalizeDrive({ id, name, variant, plan, standers, drivers, notes }, 0, rosterNames));
         saveState(true);
-        showToast(`${name} updated.`);
+        guidedCompleted = completeGuidedAttention("deerdrives-manage", "CampDeerDrives");
+        if (!guidedCompleted) {
+          showToast(`${name} updated.`);
+        }
       } else {
         const drive = normalizeDrive({ id: slugify(`${name}-${Date.now()}`), name, variant, plan, standers, drivers, notes }, (dashboardState.deerDrives || []).length, rosterNames);
         if (!Array.isArray(dashboardState.deerDrives)) dashboardState.deerDrives = [];
         dashboardState.deerDrives.push(drive);
         saveState(true);
-        showToast(`${name} added to CampDeerDrives.`);
+        guidedCompleted = completeGuidedAttention("deerdrives-manage", "CampDeerDrives");
+        if (!guidedCompleted) {
+          showToast(`${name} added to CampDeerDrives.`);
+        }
       }
 
       resetDriveForm();
-      showTab("deerdrives");
+      if (!guidedCompleted) {
+        showTab("deerdrives");
+      }
     });
 
     document.getElementById("resetDriveBtn")?.addEventListener("click", resetDriveForm);
 
     document.getElementById("saveAllBtn").addEventListener("click", () => {
       saveState(true);
+      if (completeGuidedAttention([
+        "campprofile-edit",
+        "campfeed-manage",
+        "traditions-manage",
+        "campcards-manage",
+        "campmemories-manage",
+        "camprecipes-manage",
+        "calendar-manage",
+        "stands-manage",
+        "deerdrives-manage",
+        "membership-invite",
+        "membership-roster",
+        "profiles-finish"
+      ], tabMeta[document.querySelector('.tab-panel.active')?.id?.replace('tab-', '') || 'dashboard']?.title || 'Section')) {
+        return;
+      }
     });
 
     document.getElementById("viewCampPageBtn").addEventListener("click", () => {
