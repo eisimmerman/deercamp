@@ -1525,6 +1525,17 @@ async function updateSeasonOpenerStatus() {
   statusEl.classList.remove("is-warning");
 }
 
+const ZIP_OVERRIDE_BY_CITY_STATE = {
+  "wi|neillsville": ["54456"],
+  "wi|neilsville": ["54456"]
+};
+
+function getZipOverride(city, stateCode) {
+  if (!city || !stateCode) return [];
+  const key = `${String(stateCode).trim().toLowerCase()}|${String(city).trim().toLowerCase()}`;
+  return Array.isArray(ZIP_OVERRIDE_BY_CITY_STATE[key]) ? ZIP_OVERRIDE_BY_CITY_STATE[key] : [];
+}
+
 function debounce(fn, wait = 500) {
   let timeoutId;
   return (...args) => {
@@ -1591,10 +1602,17 @@ async function autofillZip(forceReplace = false) {
   zipStatus.textContent = "Looking up ZIP...";
 
   try {
-    let postalCodes = await fetchZipCodesForCityState(city, stateCode);
+    let postalCodes = getZipOverride(city, stateCode);
+
+    if (!postalCodes.length) {
+      postalCodes = await fetchZipCodesForCityState(city, stateCode);
+    }
 
     if (!postalCodes.length && city.includes(".")) {
-      postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
+      postalCodes = getZipOverride(city.replace(/\./g, ""), stateCode);
+      if (!postalCodes.length) {
+        postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
+      }
     }
 
     if (!postalCodes.length) {
