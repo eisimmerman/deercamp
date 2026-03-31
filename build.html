@@ -1703,6 +1703,35 @@ document.getElementById("campTraditionsCustom").addEventListener("input", update
 updateTraditionBuilderStatus();
 renderRecipePreview();
 
+
+function incrementCreatedCampCounter(campId) {
+  const COUNTER_KEY = "deercamp.createdCount";
+  const IDS_KEY = "deercamp.createdCampIds";
+
+  try {
+    const cleanCampId = String(campId || "").trim();
+    const storedIds = JSON.parse(localStorage.getItem(IDS_KEY) || "[]");
+    const ids = Array.isArray(storedIds) ? storedIds.filter(Boolean) : [];
+
+    if (cleanCampId && !ids.includes(cleanCampId)) {
+      ids.push(cleanCampId);
+      localStorage.setItem(IDS_KEY, JSON.stringify(ids));
+      localStorage.setItem(COUNTER_KEY, String(ids.length));
+      return;
+    }
+
+    if (!cleanCampId) {
+      const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
+      const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+      localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+    }
+  } catch (error) {
+    const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
+    const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+    localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+  }
+}
+
 document.getElementById("campForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
@@ -1795,6 +1824,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   localStorage.setItem("campData", JSON.stringify(campData));
   localStorage.setItem("deercamp.activeCampId", campId);
+  incrementCreatedCampCounter(campId);
   window.location.href = "camp.html";
 });
 </script>

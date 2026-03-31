@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   let events = [];
   let currentDate = new Date();
+  const DASHBOARD_KEY = "deerCampStewardDashboard";
+  const MEMBER_INVITE_KEY = "deerCampMemberInvite";
+  let memberEventFeedback = null;
 
   function getCampData() {
     try {
@@ -19,6 +22,162 @@ document.addEventListener("DOMContentLoaded", async () => {
       return {};
     }
   }
+
+  function getDashboardData() {
+    try {
+      return JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function getMemberInvite() {
+    try {
+      return JSON.parse(localStorage.getItem(MEMBER_INVITE_KEY)) || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function getMemberEventDefaultName() {
+    const invite = getMemberInvite();
+    if (invite && invite.accepted && invite.name) return String(invite.name).trim();
+    const campData = getCampData();
+    const profiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+    const activeMember = profiles.find((profile) => String(profile?.role || '').trim() === 'Camp Member' && String(profile?.status || 'Active').trim() !== 'Removed');
+    return String(activeMember?.name || '').trim();
+  }
+
+  function setMemberEventFeedback(message, isWarning = false) {
+    if (!memberEventFeedback) return;
+    memberEventFeedback.textContent = message;
+    memberEventFeedback.dataset.state = isWarning ? 'warning' : 'success';
+  }
+
+  function normalizeMemberCalendarEvent(event, fallbackIndex = 0) {
+    if (!event || !event.date || !(event.name || event.title)) return null;
+    const normalizedName = String(event.name || event.title).trim();
+    if (!normalizedName) return null;
+    return {
+      id: event.id || `calendar-event-${fallbackIndex}`,
+      title: event.title || normalizedName,
+      name: normalizedName,
+      date: String(event.date).trim(),
+      type: event.type || 'camp',
+      member: String(event.member || '').trim(),
+      icon: String(event.icon || '').trim(),
+      description: String(event.description || '').trim(),
+      source: String(event.source || '').trim(),
+      status: String(event.status || 'Active').trim() || 'Active'
+    };
+  }
+
+  function saveMemberCalendarEvent(payload) {
+    const campData = getCampData();
+    const dashboard = getDashboardData();
+    const nextCampEvents = Array.isArray(campData.calendarEvents) ? [...campData.calendarEvents] : [];
+    const normalized = normalizeMemberCalendarEvent(payload, nextCampEvents.length);
+    if (!normalized) return null;
+
+    nextCampEvents.push(normalized);
+    nextCampEvents.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.name || '').localeCompare(String(b.name || '')));
+    localStorage.setItem(CAMP_DATA_KEY, JSON.stringify({ ...campData, calendarEvents: nextCampEvents }));
+
+    const dashboardEvents = Array.isArray(dashboard.calendarEvents) ? [...dashboard.calendarEvents] : [];
+    dashboardEvents.push(normalized);
+    dashboardEvents.sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) || String(a.title || a.name || '').localeCompare(String(b.title || b.name || '')));
+    localStorage.setItem(DASHBOARD_KEY, JSON.stringify({ ...dashboard, calendarEvents: dashboardEvents, lastSaved: new Date().toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) }));
+    return normalized;
+  }
+
+  function renderMemberCalendarForm() {
+    const hostPanel = eventList.closest('.calendar-events-panel') || eventList.parentElement;
+    if (!hostPanel || document.getElementById('memberCalendarForm')) return;
+
+    const defaultName = getMemberEventDefaultName();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'calendar-member-form-wrap';
+    wrapper.innerHTML = `
+      <div class="calendar-member-form">
+        <strong>Add a camp event</strong>
+        <p>Members can add a calendar entry for setup days, meals, work weekends, and other camp events.</p>
+        <form id="memberCalendarForm" class="calendar-member-form-grid">
+          <label>
+            <span>Date</span>
+            <input id="memberCalendarDate" type="date" required />
+          </label>
+          <label>
+            <span>Added by</span>
+            <input id="memberCalendarMember" type="text" placeholder="Camp Member" value="${defaultName.replace(/"/g, '&quot;')}" />
+          </label>
+          <label class="calendar-member-form-span-2">
+            <span>Event title</span>
+            <input id="memberCalendarTitle" type="text" placeholder="Final Setup" required />
+          </label>
+          <label class="calendar-member-form-span-2">
+            <span>Details</span>
+            <textarea id="memberCalendarDescription" rows="3" placeholder="Last stand/scouting details before bow opener."></textarea>
+          </label>
+          <div class="calendar-member-form-actions calendar-member-form-span-2">
+            <button type="submit">Add Member Event</button>
+          </div>
+        </form>
+        <div id="memberCalendarFeedback" class="calendar-member-feedback">New events save into this camp's calendar immediately.</div>
+      </div>
+    `;
+    hostPanel.appendChild(wrapper);
+    memberEventFeedback = wrapper.querySelector('#memberCalendarFeedback');
+    const form = wrapper.querySelector('#memberCalendarForm');
+    const dateInput = wrapper.querySelector('#memberCalendarDate');
+    if (dateInput) dateInput.value = formatDateKey(new Date());
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const date = wrapper.querySelector('#memberCalendarDate').value;
+      const member = wrapper.querySelector('#memberCalendarMember').value.trim();
+      const title = wrapper.querySelector('#memberCalendarTitle').value.trim();
+      const description = wrapper.querySelector('#memberCalendarDescription').value.trim();
+
+      if (!date || !title) {
+        setMemberEventFeedback('Add a date and event title before saving.', true);
+        return;
+      }
+
+      const saved = saveMemberCalendarEvent({
+        id: `member-event-${Date.now()}`,
+        date,
+        title,
+        name: title,
+        member,
+        icon: '📝',
+        type: 'camp',
+        description,
+        source: member ? `Added by ${member}` : 'Added by Camp Member',
+        status: 'Active'
+      });
+
+      if (!saved) {
+        setMemberEventFeedback('This event could not be saved.', true);
+        return;
+      }
+
+      events = (Array.isArray(getCampData().calendarEvents) ? getCampData().calendarEvents : [])
+        .filter((item) => item && item.date && (item.name || item.title))
+        .map((item, index) => normalizeMemberCalendarEvent(item, index))
+        .filter(Boolean);
+
+      currentDate = new Date(`${saved.date}T00:00:00`);
+      renderCalendar();
+      renderEventList(saved.date);
+      wrapper.querySelector('#memberCalendarTitle').value = '';
+      wrapper.querySelector('#memberCalendarDescription').value = '';
+      if (!wrapper.querySelector('#memberCalendarMember').value.trim()) {
+        wrapper.querySelector('#memberCalendarMember').value = getMemberEventDefaultName();
+      }
+      setMemberEventFeedback(`${saved.title} was added to CampCalendar for ${humanDate(saved.date)}.`);
+    });
+  }
+
 
   function formatDateKey(date) {
     const year = date.getFullYear();
@@ -170,6 +329,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     renderCalendar();
+    renderMemberCalendarForm();
   }
 
   loadEvents();

@@ -70,11 +70,17 @@
       height: 56px;
       display: grid;
       place-items: center;
+      padding: 8px;
       background: rgba(106,68,39,0.1);
       border-radius: 16px;
-      font-weight: 800;
-      color: var(--brown-deep);
-      font-size: 1.15rem;
+      overflow: hidden;
+    }
+
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
     }
 
     .brand h1 { margin: 0; font-size: 1.2rem; }
@@ -216,6 +222,9 @@
       border-radius: 18px;
       overflow: hidden;
       background: linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28));
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: cover;
       display: grid;
       place-items: center;
       color: #fff;
@@ -343,7 +352,7 @@
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">DC</div>
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="Deer track icon" onerror="this.src='assets/branding/deer-track.png'" /></div>
         <div>
           <h1>DeerCamp</h1>
           <p>Member Setup Wizard</p>
@@ -617,6 +626,18 @@
       return parts.length ? parts.map(part => part[0]).join('').toUpperCase() : 'DC';
     }
 
+    function normalizeInviteEmail(value = '') {
+      const clean = String(value || '').trim();
+      return /\.cm$/i.test(clean) ? clean.replace(/\.cm$/i, '.com') : clean;
+    }
+
+    function resolveCampHeroPath(value = '') {
+      const clean = String(value || '').trim();
+      if (!clean) return '';
+      if (/^(data:|https?:\/\/|assets\/)/i.test(clean)) return clean;
+      return `assets/heroes/${clean}`;
+    }
+
     function currentTimestampLabel() {
       return `Saved ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
     }
@@ -643,7 +664,7 @@
       const pendingMatch = people.find(person => person.status === 'Invited' && emailParam && String(person.email || '').trim().toLowerCase() === emailParam.toLowerCase());
 
       return {
-        email: emailParam || storedInvite?.email || pendingMatch?.email || '',
+        email: normalizeInviteEmail(emailParam || storedInvite?.email || pendingMatch?.email || ''),
         name: String(params.get('name') || storedInvite?.name || pendingMatch?.name || '').trim(),
         campName: String(params.get('camp') || campData.name || campData.campName || dashboard?.camp?.name || 'Your DeerCamp').trim(),
         stewardName: String(params.get('steward') || campData.stewardName || campData.steward || campData.campSteward || (people.find(person => person.role === 'Camp Steward') || {}).name || 'Camp Steward').trim(),
@@ -659,7 +680,7 @@
         role: 'Camp Member',
         roleLine: 'Camp Member',
         status: 'Active',
-        email: invite.email || '',
+        email: normalizeInviteEmail(invite.email || ''),
         phone: '',
         yearJoined: new Date().getFullYear().toString(),
         favoriteStand: '',
@@ -742,7 +763,7 @@
     function syncFormFromState() {
       fillField('memberName', state.member.name);
       fillField('memberNickname', state.member.nickname);
-      fillField('memberEmail', state.member.email);
+      fillField('memberEmail', normalizeInviteEmail(state.member.email));
       fillField('memberPhone', state.member.phone);
       fillField('memberYearJoined', state.member.yearJoined);
       fillField('memberFavoriteStand', state.member.favoriteStand);
@@ -757,7 +778,7 @@
     function syncStateFromForm() {
       state.member.name = document.getElementById('memberName').value.trim();
       state.member.nickname = document.getElementById('memberNickname').value.trim();
-      state.member.email = document.getElementById('memberEmail').value.trim();
+      state.member.email = normalizeInviteEmail(document.getElementById('memberEmail').value.trim());
       state.member.phone = document.getElementById('memberPhone').value.trim();
       state.member.yearJoined = document.getElementById('memberYearJoined').value.trim();
       state.member.favoriteStand = document.getElementById('memberFavoriteStand').value.trim();
@@ -794,15 +815,24 @@
       const established = campData.established || dashboard?.camp?.established || '';
       const metaParts = [city, stateCode].filter(Boolean).join(', ');
       const campMeta = [metaParts, established ? `Est. ${established}` : ''].filter(Boolean).join(' • ') || 'Camp details will appear here';
+      const inviteEmail = normalizeInviteEmail(state.member.email || invite.email || 'Invite ready');
+      const heroPath = resolveCampHeroPath(campData.hero || campData.campHero || dashboard?.camp?.hero || '');
+      const heroPreview = document.getElementById('campHeroPreview');
 
       document.getElementById('campNameWelcome').textContent = campName;
       document.getElementById('campNameHero').textContent = campName;
       document.getElementById('campMetaHero').textContent = campMeta;
-      document.getElementById('inviteEmailLabel').textContent = state.member.email || invite.email || 'Invite ready';
+      document.getElementById('inviteEmailLabel').textContent = inviteEmail;
       document.getElementById('inviteCampCopy').textContent = `You are joining ${campName} as a DeerCamp member.`;
       document.getElementById('stewardNameLabel').textContent = invite.stewardName || 'Camp Steward';
       document.getElementById('reviewCampName').textContent = campName;
       document.getElementById('reviewCampMeta').textContent = campMeta;
+
+      if (heroPreview) {
+        heroPreview.style.backgroundImage = heroPath
+          ? `linear-gradient(180deg, rgba(106,68,39,0.26), rgba(69,42,22,0.34)), url('${heroPath.replace(/'/g, "\'")}')`
+          : 'linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28))';
+      }
     }
 
     function renderProfilePreview() {

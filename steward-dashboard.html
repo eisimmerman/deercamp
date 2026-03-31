@@ -797,7 +797,7 @@
   <div class="dashboard-shell">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark"><img src="assets/images/buck-deer-icon.png" alt="Whitetail buck icon" class="brand-buck-icon" /></div>
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="Deer track icon" class="brand-buck-icon" /></div>
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Dashboard</p>
@@ -2022,6 +2022,7 @@
       "Adds field content through DeerCamp app",
       "Adds content to approved sections by Camp Steward",
       "Adds comments to CampFeed posts",
+      "Adds camp calendar events for setup days, meals, weekends, and reminders",
       "Uploads photos, notes, and optional audio from the field",
       "Contributes memories, recipes, deer drive participation, and story ideas"
     ];
@@ -2207,6 +2208,42 @@
 
     function buildRoleLine(role) {
       return role === "Camp Steward" ? "Camp administrator" : "Invited camp contributor";
+    }
+
+    function enforceSingleSteward(people = []) {
+      const normalizedPeople = (Array.isArray(people) ? people : []).map(normalizeProfile);
+      if (!normalizedPeople.length) return normalizedPeople;
+
+      let keeper = normalizedPeople.find(person => person.role === "Camp Steward" && person.status !== "Removed")
+        || normalizedPeople.find(person => person.role === "Camp Steward")
+        || normalizedPeople.find(person => person.status !== "Removed")
+        || normalizedPeople[0];
+
+      normalizedPeople.forEach(person => {
+        const isKeeper = keeper && person.id === keeper.id;
+        if (isKeeper) {
+          person.role = "Camp Steward";
+          person.roleLine = buildRoleLine("Camp Steward");
+          person.status = "Active";
+          person.responsibilities = [...defaultStewardResponsibilities];
+          return;
+        }
+
+        if (person.role === "Camp Steward") {
+          person.role = "Camp Member";
+        }
+
+        if (!String(person.roleLine || "").trim() || /camp administrator/i.test(person.roleLine)) {
+          person.roleLine = buildRoleLine("Camp Member");
+        }
+        person.responsibilities = [...defaultMemberContributions];
+      });
+
+      return normalizedPeople;
+    }
+
+    function applyRosterGovernance() {
+      dashboardState.people = enforceSingleSteward(dashboardState.people);
     }
 
     function normalizeProfile(profile) {
@@ -2703,6 +2740,7 @@ function normalizeCampRecipe(item, index = 0) {
 
     sanitizeLocalStorageDriveData();
     let dashboardState = deriveDashboardData();
+    applyRosterGovernance();
     dashboardState.deerDrives = Array.isArray(dashboardState.deerDrives)
       ? dashboardState.deerDrives.map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)))
       : ["North Field", "South Field"].map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)));
@@ -2714,6 +2752,7 @@ function normalizeCampRecipe(item, index = 0) {
     dashboardState.campStands = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : [];
     dashboardState.camp.feedQueued = Number(dashboardState.camp.feedQueued || 0);
     dashboardState.camp.feedSynced = Number(dashboardState.camp.feedSynced || 0);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
     syncCampDataFromDashboard();
 
     function syncCampDataFromDashboard() {
@@ -2905,6 +2944,7 @@ function normalizeCampRecipe(item, index = 0) {
     }
 
     function saveState(showMessage = false) {
+      applyRosterGovernance();
       dashboardState.lastSaved = currentTimestampLabel();
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
       syncCampDataFromDashboard();
@@ -2929,7 +2969,9 @@ function normalizeCampRecipe(item, index = 0) {
     }
 
     function getSteward() {
-      return dashboardState.people.find(person => person.role === "Camp Steward") || dashboardState.people[0];
+      return dashboardState.people.find(person => person.role === "Camp Steward" && person.status !== "Removed")
+        || dashboardState.people.find(person => person.role === "Camp Steward")
+        || dashboardState.people[0];
     }
 
     function setTopbar(tab) {
@@ -3797,11 +3839,16 @@ function normalizeCampRecipe(item, index = 0) {
     function openProfileDrawer(id) {
       const person = dashboardState.people.find(entry => entry.id === id);
       if (!person) return;
+      const steward = getSteward();
+      const isPrimarySteward = steward && steward.id === person.id;
+      const roleSelect = document.getElementById("profileRole");
+      const statusSelect = document.getElementById("profileStatus");
+
       document.getElementById("profileId").value = person.id;
       document.getElementById("profileName").value = person.name;
-      document.getElementById("profileRole").value = person.role;
-      document.getElementById("profileRoleLine").value = person.roleLine;
-      document.getElementById("profileStatus").value = person.status;
+      document.getElementById("profileRole").value = isPrimarySteward ? "Camp Steward" : "Camp Member";
+      document.getElementById("profileRoleLine").value = isPrimarySteward ? buildRoleLine("Camp Steward") : (person.roleLine || buildRoleLine("Camp Member"));
+      document.getElementById("profileStatus").value = isPrimarySteward ? "Active" : person.status;
       document.getElementById("profileEmail").value = person.email || "";
       document.getElementById("profileJoined").value = person.yearJoined || "";
       document.getElementById("profileStand").value = person.favoriteStand || "";
@@ -3812,7 +3859,23 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("profileMemory").value = person.bestCampMemory || "";
       document.getElementById("profileNote").value = person.note || "";
       document.getElementById("drawerTitle").textContent = `Edit ${person.name}`;
-      document.getElementById("drawerSubtitle").textContent = `${person.role} • ${person.roleLine}`;
+      document.getElementById("drawerSubtitle").textContent = isPrimarySteward
+        ? "Camp Steward • DeerCamp v1 keeps one active primary steward."
+        : "Camp Member • DeerCamp v1 keeps one active primary steward.";
+
+      if (roleSelect) {
+        Array.from(roleSelect.options).forEach(option => {
+          if (option.value === "Camp Steward") option.disabled = !isPrimarySteward;
+          if (option.value === "Camp Member") option.disabled = isPrimarySteward;
+        });
+      }
+
+      if (statusSelect) {
+        Array.from(statusSelect.options).forEach(option => {
+          if (option.value !== "Active") option.disabled = isPrimarySteward;
+        });
+      }
+
       document.getElementById("drawerBackdrop").classList.add("open");
       document.getElementById("profileDrawer").classList.add("open");
       document.getElementById("profileDrawer").setAttribute("aria-hidden", "false");
@@ -3996,10 +4059,18 @@ function normalizeCampRecipe(item, index = 0) {
       const person = dashboardState.people.find(entry => entry.id === id);
       if (!person) return;
 
+      const steward = getSteward();
+      const isPrimarySteward = steward && steward.id === person.id;
+      const requestedRole = document.getElementById("profileRole").value;
+      const requestedStatus = document.getElementById("profileStatus").value;
+
       person.name = document.getElementById("profileName").value.trim() || person.name;
-      person.role = document.getElementById("profileRole").value;
+      person.role = isPrimarySteward ? "Camp Steward" : "Camp Member";
       person.roleLine = document.getElementById("profileRoleLine").value.trim() || buildRoleLine(person.role);
-      person.status = document.getElementById("profileStatus").value;
+      if (!isPrimarySteward && /camp administrator/i.test(person.roleLine)) {
+        person.roleLine = buildRoleLine("Camp Member");
+      }
+      person.status = isPrimarySteward ? "Active" : requestedStatus;
       person.email = document.getElementById("profileEmail").value.trim();
       person.yearJoined = document.getElementById("profileJoined").value.trim();
       person.favoriteStand = document.getElementById("profileStand").value.trim();
@@ -4011,6 +4082,14 @@ function normalizeCampRecipe(item, index = 0) {
       person.note = document.getElementById("profileNote").value.trim();
       person.responsibilities = person.role === "Camp Steward" ? [...defaultStewardResponsibilities] : [...defaultMemberContributions];
 
+      if (!isPrimarySteward && requestedRole === "Camp Steward") {
+        showToast("DeerCamp v1 allows one active Camp Steward. Additional people stay Camp Members.");
+      }
+      if (isPrimarySteward && requestedStatus !== "Active") {
+        showToast("The primary Camp Steward stays active in DeerCamp v1. Transfer comes later.");
+      }
+
+      applyRosterGovernance();
       saveState(true);
       closeProfileDrawer();
       showToast(`${person.name}'s profile was updated.`);
