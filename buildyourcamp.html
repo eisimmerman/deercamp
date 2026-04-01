@@ -538,6 +538,10 @@
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
+      const footerOpenDashboardBtn = document.getElementById('openDashboardBtn');
+      if (footerOpenDashboardBtn) {
+        footerOpenDashboardBtn.style.display = state.step === STEPS.length - 1 ? 'none' : '';
+      }
       const totalFlowSteps = STEPS.length;
       const currentStepNumber = state.step + 1;
       const pct = Math.round((currentStepNumber / totalFlowSteps) * 100);
@@ -704,7 +708,10 @@
 
     function mergeAndLaunch() {
       applyDomToState();
+      const resolvedCampId = String(state.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
+      state.campId = resolvedCampId;
       const nextCampData = Object.assign({}, campData);
+      nextCampData.campId = resolvedCampId;
       nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
       nextCampData.campName = nextCampData.name;
       nextCampData.city = state.camp.city || campData.city || '';
