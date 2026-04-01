@@ -426,6 +426,14 @@
       </div>
 
       <div class="form-row">
+        <label>Steward Email</label>
+        <div>
+          <input id="campStewardEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
+          <div class="field-helper">Used to send the DeerCamp welcome email and setup link.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
         <label>Camp Members</label>
         <div>
           <input id="campMembers" placeholder="separate names with commas">
@@ -1361,6 +1369,105 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
+const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
+
+function splitFullName(value = "") {
+  const clean = String(value || "").trim().replace(/\s+/g, " ");
+  if (!clean) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const parts = clean.split(" ");
+  const firstName = parts.shift() || "";
+  const lastName = parts.join(" ");
+  return { firstName, lastName };
+}
+
+function getFirstNonEmptyQueryValue(params, keys = []) {
+  for (const key of keys) {
+    const value = params.get(key);
+    if (value && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function applyPrefillValuesFromUrl() {
+  const params = new URLSearchParams(window.location.search || "");
+  if (!Array.from(params.keys()).length) return;
+
+  const stewardNameFromParts = [
+    getFirstNonEmptyQueryValue(params, ["stewardFirstName"]),
+    getFirstNonEmptyQueryValue(params, ["stewardLastName"])
+  ].filter(Boolean).join(" ").trim();
+
+  const fieldMappings = [
+    { id: "campName", keys: ["campName"] },
+    { id: "campCity", keys: ["campCity", "city"] },
+    { id: "campState", keys: ["campState", "state"] },
+    { id: "campZip", keys: ["campZip", "zip"] },
+    { id: "campYear", keys: ["campYear", "established"] },
+    { id: "campSteward", keys: ["campSteward", "stewardName"] },
+    { id: "campStewardEmail", keys: ["campStewardEmail", "stewardEmail", "email"] },
+    { id: "campMembers", keys: ["campMembers"] },
+    { id: "campTraditionsCustom", keys: ["campTraditionsCustom"] },
+    { id: "campDeerDrives", keys: ["campDeerDrives"] }
+  ];
+
+  fieldMappings.forEach(({ id, keys }) => {
+    const input = document.getElementById(id);
+    if (!input || String(input.value || "").trim()) return;
+
+    const value = getFirstNonEmptyQueryValue(params, keys);
+    if (value) {
+      input.value = value;
+    }
+  });
+
+  const stewardInput = document.getElementById("campSteward");
+  if (stewardInput && !String(stewardInput.value || "").trim() && stewardNameFromParts) {
+    stewardInput.value = stewardNameFromParts;
+  }
+
+  const signFile = getFirstNonEmptyQueryValue(params, ["campImageSelect", "heroTemplate"]);
+  if (signFile && SIGN_LIBRARY_BY_FILE[signFile]) {
+    heroSelect.value = signFile;
+    resolvedSelectHero = signFile;
+    lastAutoSelectedSignFile = signFile;
+  }
+}
+
+async function triggerStewardWelcomeEmail(payload = {}) {
+  const stewardEmail = String(payload.stewardEmail || "").trim();
+  if (!stewardEmail) {
+    return { ok: false, skipped: true, reason: "missing-steward-email" };
+  }
+
+  const response = await fetch(WELCOME_EMAIL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    keepalive: true,
+    body: JSON.stringify(payload)
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = {};
+  }
+
+  if (!response.ok || data.ok === false) {
+    const message = data.error || `Welcome email request failed (${response.status}).`;
+    throw new Error(message);
+  }
+
+  return data;
+}
+
 
 const OFFICIAL_DEER_SEASON_OPENERS_URLS = [
   "data/us-state-deer-openers.json",
@@ -1709,6 +1816,7 @@ heroSelect.addEventListener("change", () => {
   previewSelectedHero();
 });
 heroUploadInput.addEventListener("change", previewUploadedHero);
+applyPrefillValuesFromUrl();
 previewSelectedHero();
 applySuggestedSignFromState({ force: true });
 updateSeasonOpenerStatus();
@@ -1758,6 +1866,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const year = document.getElementById("campYear").value.trim();
 
   const stewardName = document.getElementById("campSteward").value.trim();
+  const stewardEmail = document.getElementById("campStewardEmail").value.trim();
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
   const members = [stewardName, ...campMembers].filter(Boolean);
 
@@ -1817,6 +1926,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     heroTemplate: selectedSign.file,
     heroTemplateLabel: selectedSign.label,
     stewardName,
+    stewardEmail,
     campMembers,
     members,
     memberProfiles,
@@ -1843,6 +1953,56 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
   }
   incrementCreatedCampCounter(campId);
+
+  const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
+  const welcomePayload = {
+    campName: name,
+    city,
+    state: normalizeState(state) || state,
+    zip,
+    campYear: year,
+    stewardName,
+    stewardFirstName,
+    stewardLastName,
+    stewardEmail,
+    campMembers: campMembers.join(", "),
+    campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
+    campDeerDrives: deerDrives.join(", "),
+    heroTemplate: selectedSign.file,
+    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
+    send: true
+  };
+
+  if (stewardEmail) {
+    try {
+      const welcomeResult = await Promise.race([
+        triggerStewardWelcomeEmail(welcomePayload),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Welcome email timed out.")), 3500))
+      ]);
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+        ok: true,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        subject: welcomeResult?.subject || "",
+        setupLink: welcomeResult?.setupLink || ""
+      }));
+    } catch (error) {
+      console.error("Steward welcome email failed:", error);
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+        ok: false,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        error: error.message || "Welcome email failed."
+      }));
+    }
+  } else {
+    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+      ok: false,
+      sentAt: new Date().toISOString(),
+      error: "No steward email provided."
+    }));
+  }
+
   window.location.href = buildCampUrl("camp.html", campId);
 });
 </script>
