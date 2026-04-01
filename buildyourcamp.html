@@ -430,35 +430,41 @@
     const legacyCampData = safeParse(CAMP_DATA_KEY, {});
     const legacyDashboardState = safeParse(DASHBOARD_KEY, {});
     const legacyWizardState = safeParse(WIZARD_KEY, {});
-    const initialCampId = String(
-      getCampIdFromUrl() ||
-      legacyWizardState.campId ||
-      localStorage.getItem(ACTIVE_CAMP_KEY) ||
-      legacyCampData.campId ||
-      legacyDashboardState.camp?.campId ||
-      ""
-    ).trim();
+    const urlCampId = String(getCampIdFromUrl() || "").trim();
+    const initialCampId = urlCampId;
+    const hasMatchedCampId = Boolean(initialCampId);
 
-    const scopedCampData = safeParseScopedRecord(initialCampId, "campData", {});
-    const scopedDashboardState = safeParseScopedRecord(initialCampId, "dashboard", {});
-    const scopedWizardState = safeParseScopedRecord(initialCampId, "wizard", {});
+    const scopedCampData = hasMatchedCampId ? safeParseScopedRecord(initialCampId, "campData", {}) : {};
+    const scopedDashboardState = hasMatchedCampId ? safeParseScopedRecord(initialCampId, "dashboard", {}) : {};
+    const scopedWizardState = hasMatchedCampId ? safeParseScopedRecord(initialCampId, "wizard", {}) : {};
 
-    if (initialCampId) {
+    if (hasMatchedCampId) {
       localStorage.setItem(ACTIVE_CAMP_KEY, initialCampId);
-      if (!hasScopedData(scopedCampData) && hasScopedData(legacyCampData)) {
+
+      const legacyCampMatches = String(legacyCampData.campId || "").trim() === initialCampId;
+      const legacyDashboardMatches = String(legacyDashboardState.camp?.campId || "").trim() === initialCampId;
+      const legacyWizardMatches = String(legacyWizardState.campId || "").trim() === initialCampId;
+
+      if (!hasScopedData(scopedCampData) && legacyCampMatches && hasScopedData(legacyCampData)) {
         persistScopedRecord(initialCampId, "campData", legacyCampData);
       }
-      if (!hasScopedData(scopedDashboardState) && hasScopedData(legacyDashboardState)) {
+      if (!hasScopedData(scopedDashboardState) && legacyDashboardMatches && hasScopedData(legacyDashboardState)) {
         persistScopedRecord(initialCampId, "dashboard", legacyDashboardState);
       }
-      if (!hasScopedData(scopedWizardState) && hasScopedData(legacyWizardState)) {
+      if (!hasScopedData(scopedWizardState) && legacyWizardMatches && hasScopedData(legacyWizardState)) {
         persistScopedRecord(initialCampId, "wizard", legacyWizardState);
       }
     }
 
-    const campData = hasScopedData(scopedCampData) ? scopedCampData : legacyCampData;
-    const dashboardState = hasScopedData(scopedDashboardState) ? scopedDashboardState : legacyDashboardState;
-    const wizardState = hasScopedData(scopedWizardState) ? scopedWizardState : legacyWizardState;
+    const campData = hasMatchedCampId
+      ? (hasScopedData(scopedCampData) ? safeParseScopedRecord(initialCampId, "campData", {}) : {})
+      : {};
+    const dashboardState = hasMatchedCampId
+      ? (hasScopedData(scopedDashboardState) ? safeParseScopedRecord(initialCampId, "dashboard", {}) : {})
+      : {};
+    const wizardState = hasMatchedCampId
+      ? (hasScopedData(scopedWizardState) ? safeParseScopedRecord(initialCampId, "wizard", {}) : {})
+      : {};
 
     const state = {
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
