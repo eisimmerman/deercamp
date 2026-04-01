@@ -625,6 +625,20 @@ function deriveCampIdFromBuilder(values = {}) {
   return slugifyCampId(parts.join("-")) || "ourdeercamp";
 }
 
+const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+
+function buildCampUrl(path, campId) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+}
+
+function campScopeKey(campId, suffix) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+}
+
+
 const STARTER_FEED_ENTRIES = [
   {
     title: "Three Does in the Shooting Lane",
@@ -1525,17 +1539,6 @@ async function updateSeasonOpenerStatus() {
   statusEl.classList.remove("is-warning");
 }
 
-const ZIP_OVERRIDE_BY_CITY_STATE = {
-  "wi|neillsville": ["54456"],
-  "wi|neilsville": ["54456"]
-};
-
-function getZipOverride(city, stateCode) {
-  if (!city || !stateCode) return [];
-  const key = `${String(stateCode).trim().toLowerCase()}|${String(city).trim().toLowerCase()}`;
-  return Array.isArray(ZIP_OVERRIDE_BY_CITY_STATE[key]) ? ZIP_OVERRIDE_BY_CITY_STATE[key] : [];
-}
-
 function debounce(fn, wait = 500) {
   let timeoutId;
   return (...args) => {
@@ -1602,17 +1605,10 @@ async function autofillZip(forceReplace = false) {
   zipStatus.textContent = "Looking up ZIP...";
 
   try {
-    let postalCodes = getZipOverride(city, stateCode);
-
-    if (!postalCodes.length) {
-      postalCodes = await fetchZipCodesForCityState(city, stateCode);
-    }
+    let postalCodes = await fetchZipCodesForCityState(city, stateCode);
 
     if (!postalCodes.length && city.includes(".")) {
-      postalCodes = getZipOverride(city.replace(/\./g, ""), stateCode);
-      if (!postalCodes.length) {
-        postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
-      }
+      postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
     }
 
     if (!postalCodes.length) {
@@ -1841,9 +1837,13 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   };
 
   localStorage.setItem("campData", JSON.stringify(campData));
-  localStorage.setItem("deercamp.activeCampId", campId);
+  localStorage.setItem(ACTIVE_CAMP_KEY, campId);
+  const scopedCampDataKey = campScopeKey(campId, "campData");
+  if (scopedCampDataKey) {
+    localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
+  }
   incrementCreatedCampCounter(campId);
-  window.location.href = "camp.html";
+  window.location.href = buildCampUrl("camp.html", campId);
 });
 </script>
 </body>

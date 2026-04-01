@@ -2893,8 +2893,38 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const firestoreDb = getFirestore(firebaseApp);
 
-const data = JSON.parse(localStorage.getItem("campData")) || {};
-const activeCampId = String(data.campId || "ourdeercamp").trim() || "ourdeercamp";
+const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+const CAMP_DATA_KEY = "campData";
+const DASHBOARD_KEY = "deerCampStewardDashboard";
+const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+
+function getCampIdFromUrl() {
+  try {
+    return String(new URLSearchParams(window.location.search).get("campId") || "").trim();
+  } catch (error) {
+    return "";
+  }
+}
+
+function campScopeKey(campId, suffix) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+}
+
+function safeParseJson(raw, fallback = {}) {
+  try { return JSON.parse(raw || JSON.stringify(fallback)) || fallback; }
+  catch { return fallback; }
+}
+
+const legacyCampData = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+const scopedOrActiveCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || legacyCampData.campId || "ourdeercamp").trim() || "ourdeercamp";
+const scopedCampData = safeParseJson(localStorage.getItem(campScopeKey(scopedOrActiveCampId, "campData")), {});
+const data = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
+const activeCampId = String(data.campId || scopedOrActiveCampId || "ourdeercamp").trim() || "ourdeercamp";
+localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+if (!Object.keys(scopedCampData).length && Object.keys(data || {}).length) {
+  localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(Object.assign({}, data, { campId: activeCampId })));
+}
 const FEED_COMMENTS_KEY = `deerCampFeedComments:${activeCampId}`;
 const defaultTraditionLinks = {
   "Arnold Bar & Grill Buck Pool": "https://maps.app.goo.gl/DhaxcRFTHt9ysVHz5"
@@ -3567,7 +3597,7 @@ function getCurrentCommentAuthor() {
   try {
     const memberWizard = JSON.parse(localStorage.getItem('deerCampMemberWizard') || 'null') || {};
     const invite = JSON.parse(localStorage.getItem('deerCampMemberInvite') || 'null') || {};
-    const dashboard = JSON.parse(localStorage.getItem('deerCampStewardDashboard') || 'null') || {};
+    const dashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId, 'dashboard')), null) || safeParseJson(localStorage.getItem(DASHBOARD_KEY), null) || {};
     const savedName = String(memberWizard?.member?.name || invite?.name || '').trim();
     if (savedName) return savedName;
     const activeMember = (Array.isArray(dashboard.people) ? dashboard.people : []).find(person => String(person?.status || '').toLowerCase() === 'active' && String(person?.role || '').toLowerCase() !== 'camp steward');
@@ -3830,9 +3860,7 @@ function getCampFeedEntries() {
   ];
 
   const baseEntries = Array.isArray(data.feedEntries) && data.feedEntries.length
-    ? data.feedEntries
-        .map((entry, index) => normalizeFeedEntry(entry, index))
-        .sort((a, b) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0))
+    ? data.feedEntries.map((entry, index) => normalizeFeedEntry(entry, index))
     : [];
 
   const maxLength = Math.max(curatedDefaults.length, baseEntries.length);
@@ -4158,24 +4186,6 @@ sections.forEach(section => {
       if (/buck|doe|spike|roadside sighting|sighting/.test(haystack)) return "buck";
       if (/campfire|coffee|camp life|cabin|tradition|story/.test(haystack)) return "camp-life";
       return "field-note";
-    };
-
-
-    const isGenericFeedTitle = value => {
-      const normalized = String(value || "").trim().toLowerCase();
-      return !normalized || normalized === "field memory" || normalized === "camp memory" || normalized === "untitled";
-    };
-
-    const deriveFeedTitleFromContent = item => {
-      const sourceText = [item.caption, item.details, item.story, item.body, item.transcript, item.note]
-        .map(value => String(value || "").replace(/\s+/g, " ").trim())
-        .find(Boolean) || "";
-      if (!sourceText) return "Field Memory";
-      const firstSentence = sourceText.split(/(?<=[.!?])\s+/)[0].trim();
-      const candidate = firstSentence || sourceText;
-      if (candidate.length <= 54) return candidate;
-      const words = candidate.split(/\s+/).filter(Boolean).slice(0, 7);
-      return `${words.join(" ")}${words.length ? "…" : ""}`;
     };
 
     const buildSearchBlob = entry => {
@@ -4605,38 +4615,7 @@ const renderArchiveFeed = () => {
       renderFeedModal(filteredEntries[activeModalIndex]);
     };
 
-    const persistLiveFeedEntries = entries => {
-      if (!Array.isArray(entries) || !entries.length) return;
-      try {
-        const safeEntries = entries.map(entry => ({
-          id: entry.id,
-          title: entry.title,
-          kicker: entry.kicker,
-          meta: entry.meta,
-          body: entry.body,
-          image: entry.image,
-          imageFit: entry.imageFit,
-          audio: entry.audio,
-          tags: Array.isArray(entry.tags) ? [...entry.tags] : [],
-          mediaType: entry.mediaType,
-          category: entry.category,
-          author: entry.author || "",
-          standName: entry.standName || "",
-          createdAtMs: Number(entry.createdAtMs || Date.now())
-        }));
-        const currentCampData = JSON.parse(localStorage.getItem("campData") || "{}") || {};
-        currentCampData.feedEntries = safeEntries;
-        localStorage.setItem("campData", JSON.stringify(currentCampData));
-        data.feedEntries = safeEntries;
-      } catch (error) {
-        console.warn("Unable to persist live CampFeed entries", error);
-      }
-    };
-
     const refreshFeedUI = liveEntries => {
-      if (Array.isArray(liveEntries) && liveEntries.length) {
-        persistLiveFeedEntries(liveEntries);
-      }
       allFeedEntries = combineFeedEntries(liveEntries, fallbackFeedEntries);
       if (feedRecentCount) {
         feedRecentCount.textContent = `Showing ${formatFeedCount(Math.min(3, allFeedEntries.length))} of ${formatFeedCount(allFeedEntries.length)}`;
@@ -4653,12 +4632,9 @@ const renderArchiveFeed = () => {
       const authorName = String(item.authorName || item.author || "DeerCamp Member").trim();
       const tagList = Array.isArray(item.tags) ? item.tags : [item.category, item.mediaType].filter(Boolean);
 
-      const rawTitle = String(item.title || "Field Memory").trim();
-      const displayTitle = isGenericFeedTitle(rawTitle) ? deriveFeedTitleFromContent(item) : rawTitle;
-
       return decorateFeedEntry(normalizeFeedEntry({
         id: docSnap.id,
-        title: displayTitle,
+        title: String(item.title || "Field Memory").trim(),
         kicker: item.kicker || "DeerCamp Global Feed",
         meta: [authorName, createdDate ? createdDate.toLocaleString() : "Published from DeerCamp App"].filter(Boolean).join(" • "),
         body: String(item.caption || item.details || item.story || "Published from DeerCamp App.").trim(),
@@ -6145,13 +6121,17 @@ function persistCalendarEvents() {
   })).filter(event => event.date && event.title);
 
   data.calendarEvents = storedEvents;
-  localStorage.setItem("campData", JSON.stringify(data));
+  data.campId = activeCampId;
+  localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+  localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(data));
+  localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 
   try {
-    const dashboard = JSON.parse(localStorage.getItem("deerCampStewardDashboard") || "null");
+    const dashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId, "dashboard")), null) || safeParseJson(localStorage.getItem(DASHBOARD_KEY), null);
     if (dashboard && typeof dashboard === "object") {
       dashboard.calendarEvents = storedEvents;
-      localStorage.setItem("deerCampStewardDashboard", JSON.stringify(dashboard));
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard));
+      localStorage.setItem(campScopeKey(activeCampId, "dashboard"), JSON.stringify(dashboard));
     }
   } catch (error) {
     // ignore storage issues
