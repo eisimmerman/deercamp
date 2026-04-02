@@ -3440,30 +3440,43 @@ function buildHeaderMembers() {
 
 buildHeaderMembers();
 
-let heroPath = data.hero || "";
-
-if (!heroPath) {
-  heroPath = "assets/heroes/MN-deer-camp.jpg";
-}
-
-if (
-  !heroPath.startsWith("data:") &&
-  !heroPath.startsWith("assets/") &&
-  !heroPath.startsWith("http")
-) {
-  heroPath = "assets/heroes/" + heroPath;
-}
-
+const DEFAULT_HERO_PATH = "assets/heroes/MN-deer-camp.jpg";
 const heroElement = document.getElementById("heroImage");
 const heroMainImage = document.getElementById("heroMainImage");
 
-heroElement.style.setProperty("--hero-image", `url('${heroPath}')`);
-heroMainImage.src = heroPath;
-heroMainImage.alt = (data.name || "DeerCamp") + " hero";
-heroMainImage.addEventListener("error", () => {
-  heroMainImage.src = "assets/heroes/MN-deer-camp.jpg";
-  heroElement.style.setProperty("--hero-image", "url('assets/heroes/MN-deer-camp.jpg')");
-});
+function normalizeHeroPath(rawPath) {
+  let nextPath = String(rawPath || "").trim();
+  if (!nextPath) return DEFAULT_HERO_PATH;
+  if (nextPath.startsWith("data:") || nextPath.startsWith("assets/") || nextPath.startsWith("http")) {
+    return nextPath;
+  }
+  return `assets/heroes/${nextPath.replace(/^\/+/, "")}`;
+}
+
+function applyHeroImage(path, allowFallback = true) {
+  const resolvedPath = normalizeHeroPath(path);
+  heroElement.style.setProperty("--hero-image", `url('${resolvedPath}')`);
+  heroMainImage.alt = `${data.name || "DeerCamp"} hero`;
+  heroMainImage.onerror = null;
+  heroMainImage.onload = () => {
+    heroMainImage.style.visibility = "visible";
+    heroMainImage.style.opacity = "1";
+  };
+  heroMainImage.onerror = () => {
+    if (allowFallback && resolvedPath !== DEFAULT_HERO_PATH) {
+      applyHeroImage(DEFAULT_HERO_PATH, false);
+      return;
+    }
+    heroElement.style.setProperty("--hero-image", "none");
+    heroMainImage.removeAttribute("src");
+    heroMainImage.alt = `${data.name || "DeerCamp"} hero unavailable`;
+    heroMainImage.style.visibility = "hidden";
+    heroMainImage.style.opacity = "0";
+  };
+  heroMainImage.src = resolvedPath;
+}
+
+applyHeroImage(data.hero || DEFAULT_HERO_PATH);
 
 const STARTER_CAMP_MEMORIES = [
   {
@@ -5371,11 +5384,14 @@ const renderArchiveFeed = () => {
           meal: String(container.querySelector('#campContentRecipeMeal')?.value || 'Dinner').trim(),
           time: String(container.querySelector('#campContentRecipeTime')?.value || '').trim(),
           serves: String(container.querySelector('#campContentRecipeServes')?.value || '').trim(),
-          ingredients: String(container.querySelector('#campContentRecipeIngredients')?.value || '').split(/?
+          ingredients: String(container.querySelector('#campContentRecipeIngredients')?.value || '').split(/
+?
 /).map(v => v.trim()).filter(Boolean),
-          steps: String(container.querySelector('#campContentRecipeSteps')?.value || '').split(/?
+          steps: String(container.querySelector('#campContentRecipeSteps')?.value || '').split(/
+?
 /).map(v => v.trim()).filter(Boolean),
-          serving: String(container.querySelector('#campContentRecipeServing')?.value || '').split(/?
+          serving: String(container.querySelector('#campContentRecipeServing')?.value || '').split(/
+?
 /).map(v => v.trim()).filter(Boolean),
           status: 'Pending Review',
           createdAtMs: Date.now()
