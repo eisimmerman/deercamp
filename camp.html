@@ -3385,7 +3385,22 @@ const normalizedCampMemories = getCampMemoriesSource()
   .map((item, index) => normalizeCampMemoryItem(item, index))
   .filter(Boolean);
 
-const normalizedCampCards = (Array.isArray(data.campCards) ? data.campCards : [])
+function getActiveCampCardsSource() {
+  const scheduled = data.campCardsRotation && typeof data.campCardsRotation === "object"
+    ? data.campCardsRotation
+    : null;
+
+  if (scheduled && Array.isArray(scheduled.cards) && scheduled.cards.length) {
+    const expiresAtMs = Date.parse(String(scheduled.expiresAt || ""));
+    if (!Number.isNaN(expiresAtMs) && Date.now() <= expiresAtMs) {
+      return scheduled.cards;
+    }
+  }
+
+  return Array.isArray(data.campCards) ? data.campCards : [];
+}
+
+const normalizedCampCards = getActiveCampCardsSource()
   .map((item, index) => normalizeCampCardItem(item, index))
   .filter(Boolean);
 
@@ -4736,7 +4751,7 @@ const renderArchiveFeed = () => {
   else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="placeholder">Steward-curated camp highlights featuring standout moments, meals, stories, and traditions.</p>
+      <p class="placeholder">Look here for camp highlights—member-added moments, recipes, traditions, and more—hand-picked by the Steward and shown in a rotating presentation.</p>
     `;
 
     const grid = document.createElement("div");
