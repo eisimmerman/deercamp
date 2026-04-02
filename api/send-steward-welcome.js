@@ -6,13 +6,16 @@ const {
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
-    return res.status(405).json({ error: 'Method not allowed. Use POST.' });
+    return res.status(405).json({ ok: false, error: 'Method not allowed. Use POST.' });
   }
 
   try {
-    const payload = req.body || {};
-    const emailPayload = await composeStewardWelcomeEmail(payload);
+    const payload =
+      typeof req.body === 'string'
+        ? JSON.parse(req.body || '{}')
+        : (req.body || {});
 
+    const emailPayload = await composeStewardWelcomeEmail(payload);
     const shouldSend = String(payload.send ?? 'true').toLowerCase() !== 'false';
 
     if (!shouldSend) {
@@ -36,9 +39,16 @@ module.exports = async function handler(req, res) {
       resend: sendResult,
     });
   } catch (error) {
+    console.error('send-steward-welcome failed', {
+      message: error?.message || 'Unknown error',
+      stack: error?.stack || '',
+      bodyType: typeof req.body,
+      hasBody: Boolean(req.body),
+    });
+
     return res.status(400).json({
       ok: false,
-      error: error.message || 'Failed to send Steward welcome email.',
+      error: error?.message || 'Failed to send Steward welcome email.',
     });
   }
 };
