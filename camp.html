@@ -1944,6 +1944,28 @@
     font-weight: 700;
   }
 
+  .content-submission-panel {
+    display: none;
+    gap: 14px;
+    align-content: start;
+  }
+
+  .content-submission-panel.is-active {
+    display: grid;
+  }
+
+  .content-submission-inline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  @media (max-width: 980px) {
+    .content-submission-inline-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
 .deer-drives-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -3926,6 +3948,7 @@ const rawSections = [
   { key: "deerdrives", title: "CampDeerDrives", hasContent: deerDrives.length > 0 },
   { key: "recipes", title: "CampRecipes", hasContent: true },
   { key: "calendar", title: "CampCalendar", hasContent: true },
+  { key: "contentsubmission", title: "CampContent Submission", hasContent: true },
   { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
   { key: "memories", title: "CampMemories / Wall of Fame", hasContent: true },
   { key: "map", title: "CampStands", hasContent: true }
@@ -4939,6 +4962,136 @@ const renderArchiveFeed = () => {
                 </label>
               </div>
             </form>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  else if (section.key === "contentsubmission") {
+    container.innerHTML = `
+      <h2>CampContent Submission</h2>
+      <p class="section-helper">One shared form for member-added CampRecipes, CampTraditions, and CampCalendar events.</p>
+      <div class="calendar-shell">
+        <div class="calendar-form-panel">
+          <h4 class="calendar-form-title">Submit Camp Content</h4>
+          <p class="calendar-form-copy">Choose your name, choose a section, and send one clean suggestion into camp.</p>
+
+          <form id="campContentSubmissionForm" class="calendar-form-grid">
+            <div class="calendar-form-side">
+              <label class="calendar-form-row">
+                <span class="calendar-form-label">Submitted By</span>
+                <select id="contentSubmissionMember" class="calendar-member-select"></select>
+              </label>
+
+              <label class="calendar-form-row">
+                <span class="calendar-form-label">Section</span>
+                <select id="contentSubmissionType" class="calendar-member-select">
+                  <option value="recipe">CampRecipe</option>
+                  <option value="tradition">CampTradition</option>
+                  <option value="event">CampCalendar / Event</option>
+                </select>
+              </label>
+
+              <div class="calendar-form-actions">
+                <button id="campContentSubmissionSubmit" class="calendar-form-button" type="submit">Submit to Camp</button>
+                <div id="campContentSubmissionFeedback" class="calendar-form-feedback">Pick your section, fill in the details, and send it to camp.</div>
+              </div>
+            </div>
+
+            <div class="calendar-form-main">
+              <div id="contentSubmissionPanelRecipe" class="content-submission-panel is-active">
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Recipe Title</span>
+                  <input id="contentRecipeTitle" class="calendar-form-input" type="text" placeholder="Bruce's Bombastic Backstraps">
+                </label>
+
+                <div class="content-submission-inline-grid">
+                  <label class="calendar-form-row">
+                    <span class="calendar-form-label">Time</span>
+                    <input id="contentRecipeTime" class="calendar-form-input" type="text" placeholder="30 min">
+                  </label>
+                  <label class="calendar-form-row">
+                    <span class="calendar-form-label">Serves</span>
+                    <input id="contentRecipeServes" class="calendar-form-input" type="text" placeholder="6">
+                  </label>
+                  <label class="calendar-form-row">
+                    <span class="calendar-form-label">Difficulty</span>
+                    <input id="contentRecipeDifficulty" class="calendar-form-input" type="text" placeholder="Easy">
+                  </label>
+                </div>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Short Description</span>
+                  <textarea id="contentRecipeDescription" class="calendar-form-textarea" placeholder="The camp-table version of a favorite deer recipe."></textarea>
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Ingredients (one per line)</span>
+                  <textarea id="contentRecipeIngredients" class="calendar-form-textarea" placeholder="2 lbs backstrap
+1 cup flour
+Salt and pepper"></textarea>
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Steps (one per line)</span>
+                  <textarea id="contentRecipeSteps" class="calendar-form-textarea" placeholder="Slice the meat
+Season well
+Cook in cast iron until done"></textarea>
+                </label>
+              </div>
+
+              <div id="contentSubmissionPanelTradition" class="content-submission-panel">
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Tradition Title</span>
+                  <input id="contentTraditionTitle" class="calendar-form-input" type="text" placeholder="Opening Morning Coffee">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Group</span>
+                  <input id="contentTraditionGroup" class="calendar-form-input" type="text" placeholder="Opening Camp">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Description</span>
+                  <textarea id="contentTraditionDescription" class="calendar-form-textarea" placeholder="The quiet coffee ritual before first light that starts every season right."></textarea>
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Optional Link</span>
+                  <input id="contentTraditionUrl" class="calendar-form-input" type="url" placeholder="https://...">
+                </label>
+              </div>
+
+              <div id="contentSubmissionPanelEvent" class="content-submission-panel">
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Event Date</span>
+                  <input id="contentEventDate" class="calendar-form-input" type="date">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Event Title</span>
+                  <input id="contentEventTitle" class="calendar-form-input" type="text" placeholder="Final Setup Weekend">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Details</span>
+                  <textarea id="contentEventDescription" class="calendar-form-textarea" placeholder="Last camp cleanup, stand checks, and meal prep before opener."></textarea>
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Icon / Emoji</span>
+                  <input id="contentEventIcon" class="calendar-form-input" type="text" placeholder="🦌">
+                </label>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="calendar-events-panel">
+          <h4 class="calendar-panel-title">Recent Camp Submissions</h4>
+          <div id="contentSubmissionRecentList" class="calendar-event-list">
+            <p class="calendar-empty-note">No member submissions yet. New recipes, traditions, and events will appear here first.</p>
           </div>
         </div>
       </div>
@@ -6419,11 +6572,351 @@ function initCalendar() {
   updateCalendarFormSelectionDisplay();
 }
 
+let contentSubmissions = Array.isArray(data.contentSubmissions)
+  ? data.contentSubmissions.slice().filter(item => item && typeof item === "object")
+  : [];
+
+function persistScopedCampData() {
+  data.campId = activeCampId;
+  data.contentSubmissions = contentSubmissions;
+  localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+  localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(data));
+  localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+
+  try {
+    const dashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId, "dashboard")), null)
+      || safeParseJson(localStorage.getItem(DASHBOARD_KEY), null)
+      || {};
+    if (dashboard && typeof dashboard === "object") {
+      dashboard.traditions = Array.isArray(data.traditions) ? data.traditions : [];
+      dashboard.recipeObjects = Array.isArray(data.recipeObjects) ? data.recipeObjects : [];
+      dashboard.calendarEvents = Array.isArray(data.calendarEvents) ? data.calendarEvents : [];
+      dashboard.contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions : [];
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard));
+      localStorage.setItem(campScopeKey(activeCampId, "dashboard"), JSON.stringify(dashboard));
+    }
+  } catch (error) {
+    // ignore storage sync issues
+  }
+}
+
+function splitSubmissionLines(value) {
+  return String(value || "")
+    .split(/\r?\n/)
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function setContentSubmissionPanel(type) {
+  const panels = {
+    recipe: document.getElementById("contentSubmissionPanelRecipe"),
+    tradition: document.getElementById("contentSubmissionPanelTradition"),
+    event: document.getElementById("contentSubmissionPanelEvent")
+  };
+
+  Object.entries(panels).forEach(([key, panel]) => {
+    if (!panel) return;
+    panel.classList.toggle("is-active", key === type);
+  });
+}
+
+function setContentSubmissionFeedback(message, isError = false) {
+  const feedback = document.getElementById("campContentSubmissionFeedback");
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.classList.toggle("is-error", Boolean(isError));
+}
+
+function populateContentSubmissionMemberSelect() {
+  const select = document.getElementById("contentSubmissionMember");
+  if (!select) return;
+
+  const previousValue = select.value;
+  const rosterNames = (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
+  select.innerHTML = "";
+
+  if (!rosterNames.length) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No camp members yet";
+    select.appendChild(option);
+    return;
+  }
+
+  rosterNames.forEach(name => {
+    const option = document.createElement("option");
+    option.value = name;
+    option.textContent = name;
+    select.appendChild(option);
+  });
+
+  select.value = rosterNames.includes(previousValue) ? previousValue : rosterNames[0];
+}
+
+function buildSubmissionCard(item) {
+  const card = document.createElement("div");
+  card.className = "calendar-event-item";
+
+  const title = document.createElement("p");
+  title.className = "calendar-event-title";
+  title.textContent = item.title || "Camp Submission";
+
+  const meta = document.createElement("p");
+  meta.className = "calendar-event-meta";
+  const typeLabel = item.type === "event" ? "CampCalendar / Event" : (item.type === "tradition" ? "CampTradition" : "CampRecipe");
+  const createdText = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Just now";
+  meta.textContent = `${typeLabel} • ${item.member || "Camp Member"} • ${createdText}`;
+
+  const desc = document.createElement("p");
+  desc.className = "calendar-event-desc";
+  desc.textContent = item.summary || "New member-submitted content waiting in camp.";
+
+  card.appendChild(title);
+  card.appendChild(meta);
+  card.appendChild(desc);
+  return card;
+}
+
+function renderContentSubmissionRecentList() {
+  const list = document.getElementById("contentSubmissionRecentList");
+  if (!list) return;
+
+  const items = Array.isArray(contentSubmissions)
+    ? contentSubmissions.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 6)
+    : [];
+
+  list.innerHTML = "";
+
+  if (!items.length) {
+    list.innerHTML = '<p class="calendar-empty-note">No member submissions yet. New recipes, traditions, and events will appear here first.</p>';
+    return;
+  }
+
+  items.forEach(item => list.appendChild(buildSubmissionCard(item)));
+}
+
+function appendTraditionCardToGrid(item) {
+  const traditionsGrid = document.getElementById("traditionsGrid");
+  if (!traditionsGrid || !item) return;
+
+  const card = document.createElement("article");
+  card.className = "tradition-card";
+  const safeTitle = escapeHtml(item.label || "Camp Tradition");
+  const safeDescription = escapeHtml(item.description || "A camp ritual that helps define this deer camp.");
+  const safeGroup = escapeHtml(item.group || "Camp Traditions");
+  card.innerHTML = `
+    <div class="tradition-card-group">${safeGroup}</div>
+    <h3 class="tradition-card-title">${safeTitle}</h3>
+    <p class="tradition-card-description">${safeDescription}</p>
+  `;
+
+  if (item.url) {
+    const link = document.createElement("a");
+    link.className = "tradition-card-link";
+    link.href = item.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open related tradition link";
+    card.appendChild(link);
+  }
+
+  traditionsGrid.appendChild(card);
+}
+
+function initCampContentSubmissionForm() {
+  populateContentSubmissionMemberSelect();
+  renderContentSubmissionRecentList();
+
+  const form = document.getElementById("campContentSubmissionForm");
+  const memberSelect = document.getElementById("contentSubmissionMember");
+  const typeSelect = document.getElementById("contentSubmissionType");
+
+  if (!form || !memberSelect || !typeSelect) return;
+
+  setContentSubmissionPanel(typeSelect.value || "recipe");
+
+  typeSelect.addEventListener("change", () => {
+    setContentSubmissionPanel(typeSelect.value || "recipe");
+  });
+
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    populateContentSubmissionMemberSelect();
+
+    const member = String(memberSelect.value || "").trim();
+    const type = String(typeSelect.value || "recipe").trim();
+
+    if (!member) {
+      setContentSubmissionFeedback("Choose who is submitting this content from the camp roster.", true);
+      memberSelect.focus();
+      return;
+    }
+
+    if (type === "recipe") {
+      const titleInput = document.getElementById("contentRecipeTitle");
+      const descriptionInput = document.getElementById("contentRecipeDescription");
+      const timeInput = document.getElementById("contentRecipeTime");
+      const servesInput = document.getElementById("contentRecipeServes");
+      const difficultyInput = document.getElementById("contentRecipeDifficulty");
+      const ingredientsInput = document.getElementById("contentRecipeIngredients");
+      const stepsInput = document.getElementById("contentRecipeSteps");
+
+      const title = String(titleInput.value || "").trim();
+      const description = String(descriptionInput.value || "").trim();
+      const time = String(timeInput.value || "").trim() || "—";
+      const serves = String(servesInput.value || "").trim() || "—";
+      const difficulty = String(difficultyInput.value || "").trim() || "—";
+      const ingredients = splitSubmissionLines(ingredientsInput.value);
+      const steps = splitSubmissionLines(stepsInput.value);
+
+      if (!title) {
+        setContentSubmissionFeedback("Add a recipe title before submitting.", true);
+        titleInput.focus();
+        return;
+      }
+
+      const nextRecipes = (Array.isArray(data.recipeObjects) && data.recipeObjects.length
+        ? data.recipeObjects.slice()
+        : getCampRecipes().map(recipe => ({ ...recipe })));
+
+      nextRecipes.push({
+        subtitle: `${member}'s Recipe`,
+        title,
+        description: description || "Member-submitted camp recipe.",
+        time,
+        serves,
+        difficulty,
+        ingredients: ingredients.length ? ingredients : ["Add ingredients later."],
+        steps: steps.length ? steps : ["Add steps later."],
+        serving: [`Submitted by ${member}`],
+        tips: ["Member suggestion from the camp page."]
+      });
+
+      data.recipeObjects = nextRecipes;
+      contentSubmissions.unshift({
+        type: "recipe",
+        member,
+        title,
+        summary: description || `Recipe submitted by ${member}.`,
+        createdAt: new Date().toISOString()
+      });
+
+      persistScopedCampData();
+      renderCompactRecipes();
+      renderContentSubmissionRecentList();
+      setContentSubmissionFeedback(`${title} was added to camp as a submitted recipe.`);
+      form.reset();
+      populateContentSubmissionMemberSelect();
+      typeSelect.value = "recipe";
+      setContentSubmissionPanel("recipe");
+      return;
+    }
+
+    if (type === "tradition") {
+      const titleInput = document.getElementById("contentTraditionTitle");
+      const groupInput = document.getElementById("contentTraditionGroup");
+      const descriptionInput = document.getElementById("contentTraditionDescription");
+      const urlInput = document.getElementById("contentTraditionUrl");
+
+      const label = String(titleInput.value || "").trim();
+      const group = String(groupInput.value || "").trim() || "Camp Traditions";
+      const description = String(descriptionInput.value || "").trim();
+      const url = String(urlInput.value || "").trim();
+
+      if (!label) {
+        setContentSubmissionFeedback("Add a tradition title before submitting.", true);
+        titleInput.focus();
+        return;
+      }
+
+      const nextTraditions = (Array.isArray(data.traditions) && data.traditions.length
+        ? data.traditions.slice()
+        : normalizedTraditions.map(item => ({ ...item })));
+
+      const tradition = { label, group, description: description || "Member-submitted camp tradition.", url };
+      nextTraditions.push(tradition);
+      data.traditions = nextTraditions;
+      contentSubmissions.unshift({
+        type: "tradition",
+        member,
+        title: label,
+        summary: description || `Tradition submitted by ${member}.`,
+        createdAt: new Date().toISOString()
+      });
+
+      persistScopedCampData();
+      appendTraditionCardToGrid(tradition);
+      renderContentSubmissionRecentList();
+      setContentSubmissionFeedback(`${label} was added to camp as a submitted tradition.`);
+      form.reset();
+      populateContentSubmissionMemberSelect();
+      typeSelect.value = "recipe";
+      setContentSubmissionPanel("recipe");
+      return;
+    }
+
+    const dateInput = document.getElementById("contentEventDate");
+    const titleInput = document.getElementById("contentEventTitle");
+    const descriptionInput = document.getElementById("contentEventDescription");
+    const iconInput = document.getElementById("contentEventIcon");
+
+    const date = normalizeDateKey(dateInput.value);
+    const title = String(titleInput.value || "").trim();
+    const description = String(descriptionInput.value || "").trim();
+    const icon = String(iconInput.value || "").trim();
+
+    if (!date) {
+      setContentSubmissionFeedback("Choose an event date before submitting.", true);
+      dateInput.focus();
+      return;
+    }
+
+    if (!title) {
+      setContentSubmissionFeedback("Add an event title before submitting.", true);
+      titleInput.focus();
+      return;
+    }
+
+    const nextEvents = [
+      ...calendarEvents,
+      { date, title, member, description, icon }
+    ].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return String(a.title || "").localeCompare(String(b.title || ""));
+    });
+
+    updateCalendarEvents(nextEvents);
+    persistCalendarEvents();
+    contentSubmissions.unshift({
+      type: "event",
+      member,
+      title,
+      summary: `${formatCalendarHumanDate(date)} • ${description || "Camp event submitted."}`,
+      createdAt: new Date().toISOString()
+    });
+    persistScopedCampData();
+    selectedDateKey = date;
+    renderCalendar();
+    renderCalendarEventList(date);
+    updateCalendarFormSelectionDisplay();
+    renderContentSubmissionRecentList();
+    setContentSubmissionFeedback(`${title} was added to CampCalendar for ${formatCalendarHumanDate(date)}.`);
+    form.reset();
+    populateContentSubmissionMemberSelect();
+    typeSelect.value = "recipe";
+    setContentSubmissionPanel("recipe");
+  });
+}
+
+
 window.addEventListener("load", async () => {
   syncCampLayout();
   renderCompactRecipes();
   initCalendar();
   initCalendarMemberForm();
+  initCampContentSubmissionForm();
   await loadOfficialSeasonEvents();
   populateCalendarMemberSelect();
   renderCalendarEventList(selectedDateKey);
