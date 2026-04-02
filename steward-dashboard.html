@@ -557,6 +557,13 @@
       gap: 14px;
     }
 
+    .campcard-starter-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      align-items: stretch;
+    }
+
     .starter-card .btn {
       margin-top: 12px;
     }
@@ -728,6 +735,7 @@
     @media (max-width: 1200px) {
       .stats-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .campcard-starter-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
     }
 
     .drive-grid { display: grid; gap: 16px; }
@@ -820,6 +828,10 @@
       .drive-roles-preview, .drive-meta-grid { grid-template-columns: 1fr; }
     }
 
+    @media (max-width: 980px) {
+      .campcard-starter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
     @media (max-width: 720px) {
       .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .form-grid { grid-template-columns: 1fr; }
@@ -828,6 +840,7 @@
       .topbar-actions .btn { flex: 1 1 auto; }
       .person-card { grid-template-columns: 56px 1fr; }
       .person-card > .row-actions { grid-column: 1 / -1; }
+      .campcard-starter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
   </style>
 </head>
@@ -960,11 +973,6 @@
                   <label for="campProfileZip">Zip</label>
                   <input id="campProfileZip" type="text" placeholder="54701" />
                 </div>
-
-                <div class="field">
-                  <label for="campProfileMemberAccessCode">Member Access Code</label>
-                  <input id="campProfileMemberAccessCode" type="text" placeholder="deercamp" />
-                </div>
                 <div class="field">
                   <label for="campProfileAccessNote">Access / Rules Note</label>
                   <input id="campProfileAccessNote" type="text" placeholder="Gate locked after dark. Text steward before bringing guests." />
@@ -1009,7 +1017,6 @@
                   <div><span>Hero</span><span id="campProfilePreviewHero">No hero image path yet.</span></div>
                   <div><span>Branding</span><span id="campProfilePreviewBrand">No branding image path yet.</span></div>
                   <div><span>Access Note</span><span id="campProfilePreviewAccess">No access note yet.</span></div>
-                  <div><span>Member Access Code</span><span id="campProfilePreviewMemberAccessCode">No access code set.</span></div>
                 </div>
               </div>
             </div>
@@ -1466,53 +1473,49 @@
 
       <section class="tab-panel" id="tab-campcards">
         <div class="stack">
-          <div class="panel">
-            <h3>Featured CampCards</h3>
-            <p class="helper">Think of this as your Daily/Weekly Wall of Fame. Pick up to four highlights from CampFeed memories, CampTraditions, CampRecipes, and CampCalendar entries, then keep the set fresh as camp activity rolls in.</p>
-            <div class="list-stack" id="campCardsList"></div>
-          </div>
+          <div class="two-grid">
+            <div class="panel">
+              <h3>Featured CampCards</h3>
+              <p class="helper">curated by Steward, with auto-suggestions based on engagement metrics.</p>
+              <div class="list-stack" id="campCardsList"></div>
+            </div>
 
-          <div class="panel">
-            <h3>Member Submission Gallery</h3>
-            <p class="helper">This is the curator gallery. Recipes, traditions, and calendar/event ideas sent from the camp page land here so the Steward can feature them in CampCards or move them into their home section.</p>
-            <div class="list-stack" id="contentSubmissionGallery"></div>
+            <div class="panel">
+              <h3>Add Custom CampCard</h3>
+              <p class="helper">Create a featured story manually. Add an image path now, or swap in a better image later when your app pipeline is connected.</p>
+              <form id="customCampCardForm" class="form-grid">
+                <div class="field">
+                  <label for="customCampCardTitle">Card Title</label>
+                  <input id="customCampCardTitle" type="text" placeholder="Opening Morning Coffee" required />
+                </div>
+                <div class="field">
+                  <label for="customCampCardSource">Source / Member</label>
+                  <input id="customCampCardSource" type="text" placeholder="Camp Steward" />
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardImage">Image Path</label>
+                  <input id="customCampCardImage" type="text" placeholder="campcards/images/opening-morning.jpg" />
+                  <div class="field-note">Use a local asset path for now. The public camp page will render this image directly.</div>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardCaption">Caption</label>
+                  <textarea id="customCampCardCaption" placeholder="Strong coffee, quiet voices, and the last few minutes before everyone disappears into the timber."></textarea>
+                </div>
+                <div class="field span-2">
+                  <label for="customCampCardStory">Story / Details</label>
+                  <textarea id="customCampCardStory" placeholder="Use this for the longer story text you want to preserve for later app or modal use."></textarea>
+                </div>
+                <div class="field span-2">
+                  <button class="btn btn-primary" type="submit">Add CampCard</button>
+                </div>
+              </form>
+            </div>
           </div>
 
           <div class="panel">
             <h3>Suggested CampCard Starters</h3>
-            <p class="helper">Use these starters only when you need a first version fast. Once members are submitting content, the gallery above should become the main source.</p>
+            <p class="helper">These starter cards give you a clean first version today. Later, app engagement can feed true auto-suggestions.</p>
             <div class="campcard-starter-grid" id="campCardStarterGrid"></div>
-          </div>
-
-          <div class="panel">
-            <h3>Optional Manual CampCard</h3>
-            <p class="helper">Use this only when you want to feature something that does not already exist in CampFeed, CampTraditions, CampRecipes, CampCalendar, or the Member Submission Gallery.</p>
-            <form id="customCampCardForm" class="form-grid">
-              <div class="field">
-                <label for="customCampCardTitle">Card Title</label>
-                <input id="customCampCardTitle" type="text" placeholder="Opening Morning Coffee" required />
-              </div>
-              <div class="field">
-                <label for="customCampCardSource">Source / Member</label>
-                <input id="customCampCardSource" type="text" placeholder="Camp Steward" />
-              </div>
-              <div class="field span-2">
-                <label for="customCampCardImage">Image Path</label>
-                <input id="customCampCardImage" type="text" placeholder="campcards/images/opening-morning.jpg" />
-                <div class="field-note">Use a local asset path for now. The public camp page will render this image directly.</div>
-              </div>
-              <div class="field span-2">
-                <label for="customCampCardCaption">Caption</label>
-                <textarea id="customCampCardCaption" placeholder="Strong coffee, quiet voices, and the last few minutes before everyone disappears into the timber."></textarea>
-              </div>
-              <div class="field span-2">
-                <label for="customCampCardStory">Story / Details</label>
-                <textarea id="customCampCardStory" placeholder="Use this for the longer story text you want to preserve for later app or modal use."></textarea>
-              </div>
-              <div class="field span-2">
-                <button class="btn btn-primary" type="submit">Add CampCard</button>
-              </div>
-            </form>
           </div>
         </div>
       </section>
@@ -2460,36 +2463,6 @@
 
 
 
-
-    function normalizeContentSubmission(item, index = 0) {
-      if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-      const type = String(item.type || item.section || item.category || "recipe").trim().toLowerCase();
-      const createdAtMs = Number(item.createdAtMs || item.createdAt || Date.now()) || Date.now();
-      const title = String(item.title || item.label || item.name || (type === "calendar" ? "Camp Event" : type === "tradition" ? "Camp Tradition" : "Camp Recipe")).trim();
-      return {
-        id: item.id || slugify(`${title}-${index}-${Math.random().toString(36).slice(2, 7)}`) || `content-submission-${index + 1}`,
-        type,
-        title: title || "Camp Content Submission",
-        addedBy: String(item.addedBy || item.member || item.author || "Camp Member").trim() || "Camp Member",
-        description: String(item.description || item.caption || item.body || item.details || "").trim(),
-        story: String(item.story || item.details || "").trim(),
-        group: String(item.group || item.categoryGroup || "").trim(),
-        link: String(item.link || item.url || "").trim(),
-        date: normalizeDateKey(item.date || item.eventDate || ""),
-        icon: String(item.icon || "").trim(),
-        meal: String(item.meal || (type === "recipe" ? "Dinner" : "")).trim(),
-        time: String(item.time || "").trim(),
-        serves: String(item.serves || "").trim(),
-        difficulty: String(item.difficulty || "").trim(),
-        ingredients: Array.isArray(item.ingredients) ? item.ingredients.filter(Boolean) : [],
-        steps: Array.isArray(item.steps) ? item.steps.filter(Boolean) : [],
-        serving: Array.isArray(item.serving) ? item.serving.filter(Boolean) : [],
-        tips: Array.isArray(item.tips) ? item.tips.filter(Boolean) : [],
-        status: String(item.status || "Pending Review").trim() || "Pending Review",
-        createdAtMs
-      };
-    }
-
     function normalizeCampCard(item, index = 0) {
       if (!item) return null;
       if (typeof item === "string") {
@@ -2805,7 +2778,6 @@ function normalizeCampRecipe(item, index = 0) {
           hero: campData.hero || "",
           brandImage: campData.brandImage || campData.brandingImage || "",
           accessNote: campData.accessNote || "",
-          memberAccessCode: campData.memberAccessCode || campData.contentAccessCode || campData.campAccessCode || "deercamp",
           feedSourceMode: campData.feedSourceMode || "app",
           feedModeration: campData.feedModeration || "review",
           feedOfflinePolicy: campData.feedOfflinePolicy || "Save locally at camp, queue uploads automatically, and sync when a connection becomes available.",
@@ -2818,7 +2790,6 @@ function normalizeCampRecipe(item, index = 0) {
         campCards,
         campMemories,
         campRecipes,
-        contentSubmissions: (Array.isArray(campData.campContentSubmissions) ? campData.campContentSubmissions : []).map((item, index) => normalizeContentSubmission(item, index)).filter(Boolean),
         calendarEvents: campCalendarEvents,
         lastSaved: ""
       };
@@ -2834,7 +2805,6 @@ function normalizeCampRecipe(item, index = 0) {
     dashboardState.campCards = Array.isArray(dashboardState.campCards) ? dashboardState.campCards : STARTER_CAMP_CARDS.map(normalizeCampCard).filter(Boolean);
     dashboardState.campMemories = Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : STARTER_CAMP_MEMORIES.map(normalizeCampMemory).filter(Boolean);
     dashboardState.campRecipes = Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : STARTER_CAMP_RECIPES.map(normalizeCampRecipe).filter(Boolean);
-    dashboardState.contentSubmissions = Array.isArray(dashboardState.contentSubmissions) ? dashboardState.contentSubmissions.map(normalizeContentSubmission).filter(Boolean) : [];
     dashboardState.calendarEvents = Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents.map(normalizeCalendarEvent).filter(Boolean) : [];
     dashboardState.campStands = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : [];
     dashboardState.camp.feedQueued = Number(dashboardState.camp.feedQueued || 0);
@@ -3001,9 +2971,6 @@ function normalizeCampRecipe(item, index = 0) {
         brandImage: dashboardState.camp.brandImage || campData.brandImage || campData.brandingImage || "",
         brandingImage: dashboardState.camp.brandImage || campData.brandingImage || campData.brandImage || "",
         accessNote: dashboardState.camp.accessNote || campData.accessNote || "",
-        memberAccessCode: dashboardState.camp.memberAccessCode || campData.memberAccessCode || campData.contentAccessCode || campData.campAccessCode || "deercamp",
-        contentAccessCode: dashboardState.camp.memberAccessCode || campData.contentAccessCode || campData.memberAccessCode || campData.campAccessCode || "deercamp",
-        campAccessCode: dashboardState.camp.memberAccessCode || campData.campAccessCode || campData.memberAccessCode || campData.contentAccessCode || "deercamp",
         feedSourceMode: dashboardState.camp.feedSourceMode || campData.feedSourceMode || "app",
         feedModeration: dashboardState.camp.feedModeration || campData.feedModeration || "review",
         feedOfflinePolicy: dashboardState.camp.feedOfflinePolicy || campData.feedOfflinePolicy || "",
@@ -3027,8 +2994,7 @@ function normalizeCampRecipe(item, index = 0) {
         campEvents: syncedCalendarEvents,
         recipeObjects: syncedCampRecipes,
         recipes: syncedCampRecipes,
-        recipeNames: syncedCampRecipes.map(item => item.title),
-        campContentSubmissions: (Array.isArray(dashboardState.contentSubmissions) ? dashboardState.contentSubmissions : []).map(item => ({ ...item }))
+        recipeNames: syncedCampRecipes.map(item => item.title)
       };
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
@@ -3204,8 +3170,6 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("campProfilePreviewHero").textContent = heroPreviewPath || "No hero image path yet.";
       document.getElementById("campProfilePreviewBrand").textContent = resolveDashboardAssetPath(camp.brandImage, "brand") || "No branding image path yet.";
       document.getElementById("campProfilePreviewAccess").textContent = camp.accessNote || "No access note yet.";
-      const memberAccessPreview = document.getElementById("campProfilePreviewMemberAccessCode");
-      if (memberAccessPreview) memberAccessPreview.textContent = camp.memberAccessCode || "No access code set.";
       const heroFrame = document.getElementById("campProfilePreviewHeroFrame");
       const heroNote = document.getElementById("campProfilePreviewHeroNote");
       if (heroFrame && heroNote) {
@@ -3586,94 +3550,13 @@ function normalizeCampRecipe(item, index = 0) {
       }
     }
 
-
-    function addSubmissionToCampCards(index) {
-      const submission = (dashboardState.contentSubmissions || [])[index];
-      if (!submission) return;
-      const card = normalizeCampCard({
-        title: submission.title,
-        source: `${submission.addedBy} • ${submission.type}`,
-        image: "",
-        caption: submission.description || submission.story || `Submitted from Camp${submission.type}.`,
-        story: submission.story || submission.description || ""
-      }, dashboardState.campCards.length);
-      dashboardState.campCards.push(card);
-      saveState(true);
-      showToast(`${submission.title} added to CampCards.`);
-      showTab("campcards");
-    }
-
-    function approveSubmissionIntoSection(index) {
-      const submission = (dashboardState.contentSubmissions || [])[index];
-      if (!submission) return;
-      if (submission.type === "recipe") {
-        dashboardState.campRecipes.push(normalizeCampRecipe({
-          title: submission.title,
-          meal: submission.meal || "Dinner",
-          subtitle: `${submission.meal || "Dinner"} • ${submission.addedBy}`,
-          description: submission.description || "Camp recipe submission.",
-          time: submission.time || "30 min",
-          serves: submission.serves || "4",
-          difficulty: submission.difficulty || "Easy",
-          ingredients: submission.ingredients || [],
-          steps: submission.steps || [],
-          serving: submission.serving || [],
-          tips: submission.tips || []
-        }, dashboardState.campRecipes.length));
-        submission.status = "Approved to CampRecipes";
-      } else if (submission.type === "tradition") {
-        dashboardState.traditions.push(normalizeTradition({
-          label: submission.title,
-          description: submission.description || "Camp tradition submission.",
-          group: submission.group || "Camp Traditions",
-          url: submission.link || ""
-        }));
-        submission.status = "Approved to CampTraditions";
-      } else if (submission.type === "calendar") {
-        dashboardState.calendarEvents.push(normalizeCalendarEvent({
-          date: submission.date,
-          title: submission.title,
-          member: submission.addedBy,
-          description: submission.description || "",
-          icon: submission.icon || ""
-        }, dashboardState.calendarEvents.length));
-        submission.status = "Added to CampCalendar";
-      }
-      saveState(true);
-      showToast(`${submission.title} was moved into its camp section.`);
-      showTab("campcards");
-    }
-
-    function renderSubmissionGallery() {
-      const wrap = document.getElementById("contentSubmissionGallery");
-      if (!wrap) return;
-      const submissions = (Array.isArray(dashboardState.contentSubmissions) ? dashboardState.contentSubmissions : []).filter(Boolean);
-      if (!submissions.length) {
-        wrap.innerHTML = `<div class="empty-state">No member submissions yet. When members use the camp page submission form, their recipes, traditions, and events will land here.</div>`;
-        return;
-      }
-      wrap.innerHTML = submissions.map((item, index) => `
-        <div class="campcard-admin-card">
-          <div class="campcard-admin-meta">
-            <strong>${item.title}</strong>
-            <div class="campcard-admin-source">${item.addedBy} • ${item.type} • ${item.status}</div>
-            <p class="campcard-admin-caption">${item.description || item.story || "Member submission waiting for Steward review."}</p>
-          </div>
-          <div class="campcard-admin-actions">
-            <button class="btn btn-primary" type="button" onclick="addSubmissionToCampCards(${index})">Add to CampCards</button>
-            <button class="btn btn-secondary" type="button" onclick="approveSubmissionIntoSection(${index})">Move to ${item.type === "calendar" ? "CampCalendar" : item.type === "tradition" ? "CampTraditions" : "CampRecipes"}</button>
-          </div>
-        </div>
-      `).join("");
-    }
-
     function renderCampCards() {
       const list = document.getElementById("campCardsList");
       const starters = document.getElementById("campCardStarterGrid");
       const activeCards = Array.isArray(dashboardState.campCards) ? dashboardState.campCards : [];
 
       if (!activeCards.length) {
-        list.innerHTML = `<div class="empty-state"><div>No CampCards are live yet.</div><button class="btn btn-primary" type="button" onclick="showTab('campcards')">Build your first featured set</button></div>`;
+        list.innerHTML = `<div class="empty-state"><div>No CampCards yet.</div><button class="btn btn-primary" type="button" onclick="showTab('campcards')">Add a featured story</button></div>`;
       } else {
         list.innerHTML = activeCards.map((card, index) => `
           <div class="campcard-admin-card">
@@ -4076,7 +3959,6 @@ function normalizeCampRecipe(item, index = 0) {
       renderCampCalendar();
       renderTraditions();
       renderCampCards();
-      renderSubmissionGallery();
       renderCampMemories();
       renderCampRecipes();
     }
@@ -4219,8 +4101,6 @@ function normalizeCampRecipe(item, index = 0) {
     window.removeMember = removeMember;
     window.openTraditionDrawer = openTraditionDrawer;
     window.addStarterTradition = addStarterTradition;
-    window.addSubmissionToCampCards = addSubmissionToCampCards;
-    window.approveSubmissionIntoSection = approveSubmissionIntoSection;
     window.moveTradition = moveTradition;
     window.removeTradition = removeTradition;
     window.openCampCardDrawer = openCampCardDrawer;
