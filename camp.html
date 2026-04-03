@@ -303,9 +303,14 @@
 
   .campcard {
     overflow: hidden;
+    border: 0;
     border-radius: 24px;
     background: rgba(255, 248, 237, 0.76);
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    width: 100%;
   }
 
   .campcard img {
@@ -3374,6 +3379,56 @@ function normalizeCampCardItem(item, index = 0) {
   return null;
 }
 
+function normalizeCampCardTitleKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const CAMP_CARD_MEDIA_OVERRIDES = {
+  [normalizeCampCardTitleKey("Packers & Burgers Night")]: {
+    image: "campcards/images/packers-burgers.png",
+    audio: "campcards/audio/packers-burgers.mp3",
+    source: "Camp Steward",
+    caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early.",
+    story: "A featured camp story preserved by the Steward for the CampCards section."
+  },
+  [normalizeCampCardTitleKey("Campfire Card Games")]: {
+    image: "campcards/images/campcard-card-game.png",
+    source: "Member Submission • Steward Pick",
+    caption: "A member-submitted camp night the Steward chose to highlight — cards, laughter, and late-night cabin competition.",
+    story: "A member-submitted camp moment the Steward picked out to highlight as a featured DeerCamp story."
+  },
+  [normalizeCampCardTitleKey("Mavis' Swiss Style Venison Steaks")]: {
+    image: "campcards/images/mavis-swiss-style-venison-steaks.png",
+    source: "Member Submission • Steward Pick",
+    caption: "Butter-knife soft venison steaks in a creamy gravy sauce.",
+    story: "A member-submitted CampRecipe the Steward chose to highlight in CampCards."
+  },
+  [normalizeCampCardTitleKey("First Buck Blood Cross")]: {
+    image: "campcards/images/first-buck-blood-cross.png",
+    source: "Member Submission • Steward Pick",
+    caption: "A first legal buck tradition marked with a small blood cross — a rite of passage the Steward chose to preserve.",
+    story: "A member-submitted CampTradition the Steward chose to preserve as a featured camp story."
+  }
+};
+
+function resolveCampCardEntry(entry = {}, index = 0, fallback = {}) {
+  const override = CAMP_CARD_MEDIA_OVERRIDES[normalizeCampCardTitleKey(entry.title || fallback.title || "")] || {};
+  return {
+    id: entry.id || fallback.id || `campcard-${index + 1}`,
+    title: String(entry.title || fallback.title || `CampCard ${index + 1}`).trim(),
+    source: String(entry.source || override.source || fallback.source || "Camp Steward").trim(),
+    image: String(entry.image || override.image || fallback.image || "").trim(),
+    audio: String(entry.audio || override.audio || fallback.audio || "").trim(),
+    caption: String(entry.caption || override.caption || fallback.caption || "Featured camp story.").trim(),
+    story: String(entry.story || override.story || fallback.story || "").trim()
+  };
+}
+
 
 function normalizeCampMemoryItem(item, index = 0) {
   if (!item) return null;
@@ -3431,62 +3486,6 @@ const normalizedCampMemories = getCampMemoriesSource()
 const normalizedCampCards = (Array.isArray(data.campCards) ? data.campCards : [])
   .map((item, index) => normalizeCampCardItem(item, index))
   .filter(Boolean);
-
-const CAMP_CARD_DEFAULTS = [
-  {
-    title: "Packers & Burgers Night",
-    source: "Camp Steward",
-    image: "campcards/images/packers-burgers.png",
-    audio: "campcards/audio/packers-burgers.mp3",
-    caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early.",
-    story: "A featured camp story preserved by the Steward for the CampCards section."
-  },
-  {
-    title: "Campfire Card Games",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/campcard-card-game.png",
-    audio: "",
-    caption: "A member-submitted camp night the Steward chose to highlight — cards, laughter, and late-night cabin competition.",
-    story: "A member-submitted camp tradition highlighted by the Steward for CampCards."
-  },
-  {
-    title: "Mavis' Swiss Style Venison Steaks",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/mavis-swiss-style-venison-steaks.png",
-    audio: "",
-    caption: "Butter-knife soft venison steaks in a creamy gravy sauce.",
-    story: "A member-submitted camp recipe highlighted by the Steward for CampCards."
-  },
-  {
-    title: "First Buck Blood Cross",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/first-buck-blood-cross.png",
-    audio: "",
-    caption: "A first legal buck tradition marked with a small blood cross — a rite of passage the Steward chose to preserve.",
-    story: "A member-submitted camp tradition highlighted by the Steward for CampCards."
-  }
-];
-
-const CAMP_CARD_DEFAULTS_BY_TITLE = Object.fromEntries(
-  CAMP_CARD_DEFAULTS.map(card => [String(card.title || "").trim().toLowerCase(), card])
-);
-
-function enrichCampCard(entry, index = 0) {
-  const fallback = CAMP_CARD_DEFAULTS[index] || CAMP_CARD_DEFAULTS[0];
-  const titleKey = String(entry?.title || "").trim().toLowerCase();
-  const titleMatch = CAMP_CARD_DEFAULTS_BY_TITLE[titleKey] || null;
-  const defaults = titleMatch || fallback || {};
-
-  return {
-    id: entry?.id || defaults.id || `campcard-${index + 1}`,
-    title: entry?.title || defaults.title || `CampCard ${index + 1}`,
-    source: entry?.source || defaults.source || "Camp Steward",
-    image: entry?.image || defaults.image || "",
-    audio: entry?.audio || defaults.audio || "",
-    caption: entry?.caption || defaults.caption || "Featured camp story.",
-    story: entry?.story || defaults.story || ""
-  };
-}
 
 
 function normalizeTraditionItem(item) {
@@ -4025,7 +4024,6 @@ const memoryModalEl = document.getElementById("memoryModal");
 const memoryModalImgEl = document.getElementById("memoryModalImg");
 const memoryAudioEl = document.getElementById("memoryAudio");
 const closeMemoryImageModalBtn = document.getElementById("closeMemoryImageModal");
-if (memoryAudioEl) memoryAudioEl.style.display = "none";
 const storyModeEl = document.getElementById("storyMode");
 const storyImageEl = document.getElementById("storyImage");
 const storyAudioEl = document.getElementById("storyAudio");
@@ -4845,54 +4843,58 @@ const renderArchiveFeed = () => {
     const grid = document.createElement("div");
     grid.className = "campcards-grid";
 
-    const cards = (normalizedCampCards.length ? normalizedCampCards : CAMP_CARD_DEFAULTS)
-      .slice(0, 4)
-      .map((entry, index) => enrichCampCard(entry, index));
+    const defaultCards = [
+      {
+        title: "Packers & Burgers Night",
+        source: "Camp Steward",
+        image: "campcards/images/packers-burgers.png",
+        audio: "campcards/audio/packers-burgers.mp3",
+        caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early.",
+        story: "A featured camp story preserved by the Steward for the CampCards section."
+      },
+      {
+        title: "Campfire Card Games",
+        source: "Member Submission • Steward Pick",
+        image: "campcards/images/campcard-card-game.png",
+        caption: "A member-submitted camp night the Steward chose to highlight — cards, laughter, and late-night cabin competition.",
+        story: "A member-submitted camp moment the Steward picked out to highlight as a featured DeerCamp story."
+      },
+      {
+        title: "Mavis' Swiss Style Venison Steaks",
+        source: "Member Submission • Steward Pick",
+        image: "campcards/images/mavis-swiss-style-venison-steaks.png",
+        caption: "Butter-knife soft venison steaks in a creamy gravy sauce.",
+        story: "A member-submitted CampRecipe the Steward chose to highlight in CampCards."
+      },
+      {
+        title: "First Buck Blood Cross",
+        source: "Member Submission • Steward Pick",
+        image: "campcards/images/first-buck-blood-cross.png",
+        caption: "A first legal buck tradition marked with a small blood cross — a rite of passage the Steward chose to preserve.",
+        story: "A member-submitted CampTradition the Steward chose to preserve as a featured camp story."
+      }
+    ];
+
+    const cards = (normalizedCampCards.length ? normalizedCampCards : defaultCards)
+      .map((entry, index) => resolveCampCardEntry(entry, index, defaultCards[index % defaultCards.length] || {}));
 
     cards.forEach((entry, index) => {
-      const card = document.createElement("div");
+      const card = document.createElement("button");
+      card.type = "button";
       card.className = "campcard";
-      card.setAttribute("role", "button");
-      card.setAttribute("tabindex", "0");
-      card.setAttribute("aria-label", `${entry.title || `CampCard ${index + 1}`} — tap to expand view`);
+      card.setAttribute("aria-label", `${entry.title || `CampCard ${index + 1}`} — expand view`);
 
       const img = document.createElement("img");
-      img.src = entry.image || "";
+      img.src = entry.image || defaultCards[index % defaultCards.length].image || "";
       img.alt = entry.title || "Camp card";
       img.loading = "lazy";
       img.addEventListener("error", () => {
+        const fallbackImage = defaultCards[index % defaultCards.length]?.image || "";
+        if (img.src !== fallbackImage && fallbackImage) {
+          img.src = fallbackImage;
+          return;
+        }
         img.style.display = "none";
-      });
-
-      const openCardView = () => {
-        if (memoryModalEl && memoryModalImgEl) {
-          memoryModalImgEl.src = entry.image || "";
-          memoryModalImgEl.alt = entry.title || "Camp card image";
-          memoryModalEl.classList.add("open");
-          memoryModalEl.setAttribute("aria-hidden", "false");
-          document.body.classList.add("modal-open");
-        }
-
-        if (memoryAudioEl) {
-          memoryAudioEl.pause();
-          memoryAudioEl.currentTime = 0;
-          if (entry.audio) {
-            memoryAudioEl.src = entry.audio;
-            memoryAudioEl.style.display = "";
-          } else {
-            memoryAudioEl.removeAttribute("src");
-            memoryAudioEl.style.display = "none";
-          }
-          memoryAudioEl.load();
-        }
-      };
-
-      card.addEventListener("click", openCardView);
-      card.addEventListener("keydown", event => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          openCardView();
-        }
       });
 
       const body = document.createElement("div");
@@ -4914,10 +4916,9 @@ const renderArchiveFeed = () => {
       body.appendChild(title);
       body.appendChild(copy);
 
-      if (entry.image) {
-        card.appendChild(img);
-      }
+      card.appendChild(img);
       card.appendChild(body);
+      card.addEventListener("click", () => openCampCardModal(entry, index, defaultCards[index % defaultCards.length] || {}));
       grid.appendChild(card);
     });
 
@@ -5407,6 +5408,44 @@ function closeStory() {
   }
 }
 
+function openCampCardModal(entry = {}, index = 0, fallback = {}) {
+  const resolved = resolveCampCardEntry(entry, index, fallback);
+
+  if (memoryModalImgEl) {
+    memoryModalImgEl.style.display = resolved.image ? "block" : "none";
+    if (resolved.image) {
+      memoryModalImgEl.src = resolved.image;
+      memoryModalImgEl.alt = resolved.title || "Camp card image";
+      memoryModalImgEl.onerror = () => {
+        memoryModalImgEl.style.display = "none";
+      };
+    } else {
+      memoryModalImgEl.removeAttribute("src");
+      memoryModalImgEl.alt = resolved.title || "Camp card image";
+    }
+  }
+
+  if (memoryAudioEl) {
+    memoryAudioEl.pause();
+    memoryAudioEl.currentTime = 0;
+    if (resolved.audio) {
+      memoryAudioEl.style.display = "block";
+      memoryAudioEl.src = resolved.audio;
+      memoryAudioEl.load();
+    } else {
+      memoryAudioEl.style.display = "none";
+      memoryAudioEl.removeAttribute("src");
+      memoryAudioEl.load();
+    }
+  }
+
+  if (memoryModalEl) {
+    memoryModalEl.classList.add("open");
+    memoryModalEl.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+  }
+}
+
 function closeMemoryCard() {
   if (memoryModalEl) {
     memoryModalEl.classList.remove("open");
@@ -5418,7 +5457,6 @@ function closeMemoryCard() {
     memoryAudioEl.pause();
     memoryAudioEl.currentTime = 0;
     memoryAudioEl.removeAttribute("src");
-    memoryAudioEl.style.display = "none";
     memoryAudioEl.load();
   }
 
