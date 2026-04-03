@@ -359,6 +359,62 @@
     const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
     const CAMP_SCOPE_PREFIX = "deercamp.camps.";
 
+    const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
+
+    function splitFullName(value = "") {
+      const clean = String(value || "").trim().replace(/\s+/g, " ");
+      if (!clean) {
+        return { firstName: "", lastName: "" };
+      }
+
+      const parts = clean.split(" ");
+      const firstName = parts.shift() || "";
+      const lastName = parts.join(" ");
+      return { firstName, lastName };
+    }
+
+    function deriveCampIdFromWizard(camp = {}) {
+      const parts = [
+        camp.name,
+        camp.city,
+        camp.state,
+        camp.zip
+      ].map(item => String(item || "").trim()).filter(Boolean);
+
+      return slugify(parts.join("-")) || "ourdeercamp";
+    }
+
+    async function triggerStewardFlowEmail(payload = {}) {
+      const stewardEmail = String(payload.stewardEmail || payload.campStewardEmail || payload.email || payload.to || "").trim();
+      if (!stewardEmail) {
+        return { ok: false, skipped: true, reason: "missing-steward-email" };
+      }
+
+      const response = await fetch(WELCOME_EMAIL_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        keepalive: true,
+        body: JSON.stringify(payload)
+      });
+
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (error) {
+        data = {};
+      }
+
+      if (!response.ok || data.ok === false) {
+        const message = data.error || `Steward email request failed (${response.status}).`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+
     function getCampIdFromUrl() {
       try {
         return String(new URLSearchParams(window.location.search).get("campId") || "").trim();
@@ -674,63 +730,53 @@
       applyDomToState();
       state.autosavedAt = currentTimestampLabel();
       localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
-      const resolvedCampId = String(state.campId || campData.campId || dashboardState.camp?.campId || initialCampId || "").trim();
+      const resolvedCampId = String(state.campId || campData.campId || dashboardState.camp?.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
       if (resolvedCampId) {
+        state.campId = resolvedCampId;
         localStorage.setItem(ACTIVE_CAMP_KEY, resolvedCampId);
         persistScopedRecord(resolvedCampId, "wizard", Object.assign({}, state, { campId: resolvedCampId }));
       }
       savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
     }
 
-    let autosaveTimer = null;
-    function queuePersist() {
-      clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(() => persist(true), 280);
+
+    function getReturnEmailStatus(campId) {
+      return safeParseScopedRecord(campId, "stewardReturnLinkEmail", {});
     }
 
-    function fillForms() {
-      document.getElementById('campName').value = state.camp.name || '';
-      document.getElementById('campEstablished').value = state.camp.established || '';
-      document.getElementById('campCity').value = state.camp.city || '';
-      document.getElementById('campState').value = state.camp.state || '';
-      document.getElementById('campZip').value = state.camp.zip || '';
-      document.getElementById('campHero').value = state.camp.hero || '';
-      document.getElementById('campSummary').value = state.camp.summary || '';
-      document.getElementById('campBrand').value = state.camp.brand || '';
-      document.getElementById('campAccess').value = state.camp.accessNote || '';
-      document.getElementById('stewardName').value = state.steward.name || '';
-      document.getElementById('stewardEmail').value = state.steward.email || '';
-      syncCampProfilePreview();
-      renderMemberList();
-      renderSectionToggles();
-      renderStarterToggles();
+    function persistReturnEmailStatus(campId, value) {
+      if (!campId) return;
+      persistScopedRecord(campId, "stewardReturnLinkEmail", value);
+      localStorage.setItem("deercamp.lastReturnLinkEmail", JSON.stringify(value));
     }
 
-    function mergeAndLaunch() {
+    function buildMergedLaunchState() {
       applyDomToState();
       const resolvedCampId = String(state.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
       state.campId = resolvedCampId;
-      const nextCampData = Object.assign({}, campData);
+      const latestCampData = safeParse(CAMP_DATA_KEY, {});
+      const nextCampData = Object.assign({}, latestCampData, campData);
       nextCampData.campId = resolvedCampId;
-      nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
+      nextCampData.name = state.camp.name || latestCampData.name || campData.name || 'DeerCamp';
       nextCampData.campName = nextCampData.name;
-      nextCampData.city = state.camp.city || campData.city || '';
-      nextCampData.state = state.camp.state || campData.state || '';
-      nextCampData.zip = state.camp.zip || campData.zip || '';
-      nextCampData.established = state.camp.established || campData.established || '';
-      nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || campData.location || '';
-      nextCampData.summary = state.camp.summary || campData.summary || campData.about || '';
+      nextCampData.city = state.camp.city || latestCampData.city || campData.city || '';
+      nextCampData.state = state.camp.state || latestCampData.state || campData.state || '';
+      nextCampData.zip = state.camp.zip || latestCampData.zip || campData.zip || '';
+      nextCampData.established = state.camp.established || latestCampData.established || campData.established || '';
+      nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || latestCampData.location || campData.location || '';
+      nextCampData.summary = state.camp.summary || latestCampData.summary || latestCampData.about || campData.summary || campData.about || '';
       nextCampData.about = nextCampData.summary;
-      nextCampData.hero = state.camp.hero || campData.hero || '';
-      nextCampData.brandImage = state.camp.brand || campData.brandImage || campData.brandingImage || '';
+      nextCampData.hero = state.camp.hero || latestCampData.hero || campData.hero || '';
+      nextCampData.brandImage = state.camp.brand || latestCampData.brandImage || latestCampData.brandingImage || campData.brandImage || campData.brandingImage || '';
       nextCampData.brandingImage = nextCampData.brandImage;
-      nextCampData.accessNote = state.camp.accessNote || campData.accessNote || '';
+      nextCampData.accessNote = state.camp.accessNote || latestCampData.accessNote || campData.accessNote || '';
       nextCampData.feedSourceMode = 'app';
       nextCampData.feedModeration = 'review';
       nextCampData.feedOfflinePolicy = 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.';
-      nextCampData.stewardName = state.steward.name || campData.stewardName || '';
-      nextCampData.steward = state.steward.name || campData.steward || '';
-      nextCampData.campSteward = state.steward.name || campData.campSteward || '';
+      nextCampData.stewardName = state.steward.name || latestCampData.stewardName || campData.stewardName || '';
+      nextCampData.stewardEmail = state.steward.email || latestCampData.stewardEmail || campData.stewardEmail || '';
+      nextCampData.steward = state.steward.name || latestCampData.steward || campData.steward || '';
+      nextCampData.campSteward = state.steward.name || latestCampData.campSteward || campData.campSteward || '';
 
       const existingProfiles = Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles.slice() : [];
       const stewardProfile = existingProfiles.find(profile => String(profile.role || '').toLowerCase() === 'camp steward') || {
@@ -809,15 +855,127 @@
         lastSaved: currentTimestampLabel()
       });
 
+      return { resolvedCampId, nextCampData, nextDashboard };
+    }
+
+    function syncMergedWizardState() {
+      const { resolvedCampId, nextCampData, nextDashboard } = buildMergedLaunchState();
+      const savedAt = currentTimestampLabel();
+      const nextWizardState = Object.assign({}, state, {
+        campId: resolvedCampId,
+        autosavedAt: savedAt
+      });
+
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
       localStorage.setItem(ACTIVE_CAMP_KEY, nextCampData.campId);
       persistScopedRecord(nextCampData.campId, "campData", nextCampData);
       persistScopedRecord(nextCampData.campId, "dashboard", nextDashboard);
-      persistScopedRecord(nextCampData.campId, "wizard", Object.assign({}, state, { campId: nextCampData.campId, autosavedAt: currentTimestampLabel() }));
+      persistScopedRecord(nextCampData.campId, "wizard", nextWizardState);
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(nextWizardState));
       incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, { campId: nextCampData.campId, autosavedAt: currentTimestampLabel() })));
-      window.location.href = buildCampUrl('steward-dashboard.html', nextCampData.campId);
+
+      savePill.textContent = `Progress saved • ${savedAt}`;
+      return { resolvedCampId, nextCampData, nextDashboard, savedAt };
+    }
+
+    function buildReturnLinkEmailPayload(resolvedCampId, nextCampData) {
+      const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(nextCampData.stewardName || state.steward.name || "");
+      return {
+        campId: resolvedCampId,
+        emailVariant: "return-link",
+        returnPath: "steward-dashboard.html",
+        campName: nextCampData.name || "DeerCamp",
+        city: nextCampData.city || "",
+        state: nextCampData.state || "",
+        zip: nextCampData.zip || "",
+        stewardName: nextCampData.stewardName || state.steward.name || "",
+        stewardFirstName,
+        stewardLastName,
+        stewardEmail: nextCampData.stewardEmail || state.steward.email || "",
+        campDescription: nextCampData.location || nextCampData.summary || nextCampData.name || "DeerCamp",
+        send: true
+      };
+    }
+
+    async function sendReturnLinkEmailIfNeeded(reason = "wizard-progress") {
+      const { resolvedCampId, nextCampData } = syncMergedWizardState();
+      const stewardEmail = String(nextCampData.stewardEmail || state.steward.email || "").trim();
+      if (!resolvedCampId || !stewardEmail) {
+        return { ok: false, skipped: true, reason: !resolvedCampId ? "missing-camp-id" : "missing-steward-email", resolvedCampId, nextCampData };
+      }
+
+      const existingStatus = getReturnEmailStatus(resolvedCampId);
+      if (existingStatus && existingStatus.ok) {
+        return Object.assign({ skipped: true, reason: "already-sent", resolvedCampId, nextCampData }, existingStatus);
+      }
+
+      const payload = buildReturnLinkEmailPayload(resolvedCampId, nextCampData);
+
+      try {
+        const emailResult = await Promise.race([
+          triggerStewardFlowEmail(payload),
+          new Promise((_, reject) => setTimeout(() => reject(new Error("Return link email timed out.")), 3500))
+        ]);
+
+        const status = {
+          ok: true,
+          variant: "return-link",
+          reason,
+          campId: resolvedCampId,
+          sentAt: new Date().toISOString(),
+          to: stewardEmail,
+          subject: emailResult?.subject || "",
+          setupLink: emailResult?.setupLink || ""
+        };
+
+        persistReturnEmailStatus(resolvedCampId, status);
+        return Object.assign({ resolvedCampId, nextCampData }, status);
+      } catch (error) {
+        const status = {
+          ok: false,
+          variant: "return-link",
+          reason,
+          campId: resolvedCampId,
+          sentAt: new Date().toISOString(),
+          to: stewardEmail,
+          error: error?.message || "Return link email failed."
+        };
+
+        persistReturnEmailStatus(resolvedCampId, status);
+        return Object.assign({ resolvedCampId, nextCampData }, status);
+      }
+    }
+
+    let autosaveTimer = null;
+    function queuePersist() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => persist(true), 280);
+    }
+
+    function fillForms() {
+      document.getElementById('campName').value = state.camp.name || '';
+      document.getElementById('campEstablished').value = state.camp.established || '';
+      document.getElementById('campCity').value = state.camp.city || '';
+      document.getElementById('campState').value = state.camp.state || '';
+      document.getElementById('campZip').value = state.camp.zip || '';
+      document.getElementById('campHero').value = state.camp.hero || '';
+      document.getElementById('campSummary').value = state.camp.summary || '';
+      document.getElementById('campBrand').value = state.camp.brand || '';
+      document.getElementById('campAccess').value = state.camp.accessNote || '';
+      document.getElementById('stewardName').value = state.steward.name || '';
+      document.getElementById('stewardEmail').value = state.steward.email || '';
+      syncCampProfilePreview();
+      renderMemberList();
+      renderSectionToggles();
+      renderStarterToggles();
+    }
+
+    
+    async function mergeAndLaunch() {
+      const { resolvedCampId } = syncMergedWizardState();
+      await sendReturnLinkEmailIfNeeded("wizard-launch");
+      window.location.href = buildCampUrl('steward-dashboard.html', resolvedCampId);
     }
 
     document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
@@ -836,7 +994,10 @@
 
     document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
     document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
-    document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
+    document.getElementById('openDashboardStartBtn').addEventListener('click', async () => {
+      const emailState = await sendReturnLinkEmailIfNeeded("open-dashboard-from-wizard");
+      window.location.href = buildCampUrl('steward-dashboard.html', emailState.resolvedCampId || state.campId || initialCampId || deriveCampIdFromWizard(state.camp));
+    });
     document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
     document.getElementById('nextBtn').addEventListener('click', () => {
       if (state.step === STEPS.length - 1) {
@@ -845,8 +1006,21 @@
         showStep(state.step + 1);
       }
     });
-    document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
-    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
+    document.getElementById('continueLaterBtn').addEventListener('click', async () => {
+      persist(true);
+      const emailState = await sendReturnLinkEmailIfNeeded("save-and-continue-later");
+      if (emailState?.ok) {
+        savePill.textContent = 'Progress saved • Steward return link emailed';
+      } else if (emailState?.skipped && emailState.reason === 'already-sent') {
+        savePill.textContent = 'Progress saved • Return link already sent';
+      } else if (emailState && emailState.ok === false) {
+        savePill.textContent = 'Progress saved • Return link email needs attention';
+      }
+    });
+    document.getElementById('openDashboardBtn').addEventListener('click', async () => {
+      const emailState = await sendReturnLinkEmailIfNeeded("open-dashboard");
+      window.location.href = buildCampUrl('steward-dashboard.html', emailState.resolvedCampId || state.campId || initialCampId || deriveCampIdFromWizard(state.camp));
+    });
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
 

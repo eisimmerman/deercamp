@@ -2230,6 +2230,9 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
   const welcomePayload = {
+    campId,
+    emailVariant: "starter",
+    setupPath: "buildyourcamp.html",
     campName: name,
     city,
     state: normalizeState(state) || state,
@@ -2258,6 +2261,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
       welcomeEmailDelivered = true;
       localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
         ok: true,
+        variant: "starter",
+        campId,
         sentAt: new Date().toISOString(),
         to: stewardEmail,
         subject: welcomeResult?.subject || "",
@@ -2267,6 +2272,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
       console.error("Steward welcome email failed:", error);
       localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
         ok: false,
+        variant: "starter",
+        campId,
         sentAt: new Date().toISOString(),
         to: stewardEmail,
         error: error.message || "Welcome email failed."
@@ -2275,12 +2282,14 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   } else {
     localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
       ok: false,
+      variant: "starter",
+      campId,
       sentAt: new Date().toISOString(),
       error: "No steward email provided."
     }));
   }
 
-  const continueUrl = buildCampUrl("camp.html", campId);
+  const continueUrl = buildCampUrl("buildyourcamp.html", campId);
   openBuilderSuccessState({
     continueUrl,
     stewardEmail,
