@@ -317,6 +317,127 @@
     font-weight: 700;
   }
 
+  .builder-success-backdrop,
+  .share-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(24, 17, 12, 0.56);
+    z-index: 1200;
+  }
+
+  .builder-success-backdrop[hidden],
+  .share-modal-backdrop[hidden] {
+    display: none !important;
+  }
+
+  .builder-success-card,
+  .share-modal-card {
+    width: min(100%, 560px);
+    border-radius: 24px;
+    background: #f6f0e6;
+    border: 1px solid rgba(69, 42, 22, 0.12);
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+    padding: 28px 24px;
+    color: #2f1f12;
+  }
+
+  .builder-success-kicker,
+  .share-modal-kicker {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(47, 93, 58, 0.10);
+    color: #2f5d3a;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .builder-success-card h2,
+  .share-modal-card h2 {
+    margin: 14px 0 10px;
+    font-size: clamp(1.5rem, 2.2vw, 2rem);
+    line-height: 1.1;
+    color: #2f1f12;
+  }
+
+  .builder-success-card p,
+  .share-modal-card p {
+    margin: 0 0 16px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #5f4327;
+  }
+
+  .builder-success-actions,
+  .share-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .builder-success-actions .build-btn,
+  .share-modal-actions .build-btn {
+    margin: 0;
+    width: auto;
+    min-width: 210px;
+  }
+
+  .share-modal-actions .build-btn.is-secondary,
+  .builder-success-actions .build-btn.is-secondary {
+    background: #ffffff;
+    color: #5f4327;
+    border: 1px solid rgba(98, 72, 44, 0.16);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  .share-channel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+  }
+
+  .share-channel-btn {
+    width: 100%;
+    margin: 0;
+  }
+
+  .share-modal-status {
+    margin-top: 14px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: #5f4327;
+    min-height: 1.3em;
+  }
+
+  @media (max-width: 640px) {
+    .builder-success-card,
+    .share-modal-card {
+      padding: 22px 18px;
+      border-radius: 20px;
+    }
+
+    .builder-success-actions .build-btn,
+    .share-modal-actions .build-btn,
+    .share-channel-btn {
+      width: 100%;
+      min-width: 0;
+    }
+
+    .share-channel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+
 </style>
 </head>
 
@@ -477,6 +598,37 @@
   </form>
 
 </div>
+
+<div class="builder-success-backdrop" id="builderSuccessBackdrop" hidden>
+  <div class="builder-success-card" role="dialog" aria-modal="true" aria-labelledby="builderSuccessTitle">
+    <div class="builder-success-kicker">Camp Started</div>
+    <h2 id="builderSuccessTitle">Your DeerCamp is started for the Steward.</h2>
+    <p id="builderSuccessMessage">We saved your camp and sent the Steward a welcome email with a setup link.</p>
+    <div class="builder-success-actions">
+      <button type="button" class="build-btn" id="builderContinueBtn">Continue Building Your DeerCamp</button>
+      <button type="button" class="build-btn is-secondary" id="builderShareBtn">Share DeerCamp</button>
+    </div>
+  </div>
+</div>
+
+<div class="share-modal-backdrop" id="shareModalBackdrop" hidden>
+  <div class="share-modal-card" role="dialog" aria-modal="true" aria-labelledby="shareModalTitle">
+    <div class="share-modal-kicker">Share DeerCamp</div>
+    <h2 id="shareModalTitle">Share DeerCamp with your crew.</h2>
+    <p>Point them to DeerCamp so they can build their own camp in minutes.</p>
+    <div class="share-channel-grid">
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareNativeBtn">Share...</button>
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareEmailBtn">Email</button>
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareTextBtn">Text Message</button>
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareFacebookBtn">Facebook</button>
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareCopyBtn">Copy Link</button>
+      <button type="button" class="build-btn is-secondary share-channel-btn" id="shareCloseBtn">Close</button>
+    </div>
+    <div class="share-modal-status" id="shareModalStatus"></div>
+  </div>
+</div>
+
+
 
 <script>
 function readFileAsDataURL(file) {
@@ -1369,6 +1521,128 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
+
+const SHARE_DEERCAMP_URL = "https://ourdeercamp.com";
+const SHARE_DEERCAMP_TITLE = "DeerCamp";
+const SHARE_DEERCAMP_TEXT = "Build your own DeerCamp in minutes and get your camp set up fast.";
+
+const builderSuccessBackdrop = document.getElementById("builderSuccessBackdrop");
+const builderSuccessMessage = document.getElementById("builderSuccessMessage");
+const builderContinueBtn = document.getElementById("builderContinueBtn");
+const builderShareBtn = document.getElementById("builderShareBtn");
+
+const shareModalBackdrop = document.getElementById("shareModalBackdrop");
+const shareModalStatus = document.getElementById("shareModalStatus");
+const shareNativeBtn = document.getElementById("shareNativeBtn");
+const shareEmailBtn = document.getElementById("shareEmailBtn");
+const shareTextBtn = document.getElementById("shareTextBtn");
+const shareFacebookBtn = document.getElementById("shareFacebookBtn");
+const shareCopyBtn = document.getElementById("shareCopyBtn");
+const shareCloseBtn = document.getElementById("shareCloseBtn");
+
+let pendingBuilderContinueUrl = "";
+
+function setShareModalStatus(message = "") {
+  if (shareModalStatus) {
+    shareModalStatus.textContent = message;
+  }
+}
+
+function openShareModal() {
+  if (!shareModalBackdrop) return;
+  setShareModalStatus("");
+  shareModalBackdrop.hidden = false;
+}
+
+function closeShareModal() {
+  if (!shareModalBackdrop) return;
+  shareModalBackdrop.hidden = true;
+  setShareModalStatus("");
+}
+
+function openBuilderSuccessState({ continueUrl, stewardEmail, emailSent }) {
+  pendingBuilderContinueUrl = continueUrl || "";
+  if (builderSuccessMessage) {
+    builderSuccessMessage.textContent = emailSent
+      ? `We saved your camp and sent ${stewardEmail || "the Steward"} a welcome email with a setup link.`
+      : `We saved your camp. Continue into DeerCamp now, and the Steward can keep building from there.`;
+  }
+  if (builderSuccessBackdrop) {
+    builderSuccessBackdrop.hidden = false;
+  }
+}
+
+function closeBuilderSuccessState() {
+  if (builderSuccessBackdrop) {
+    builderSuccessBackdrop.hidden = true;
+  }
+}
+
+async function handleNativeShare() {
+  if (!navigator.share) return;
+  try {
+    await navigator.share({
+      title: SHARE_DEERCAMP_TITLE,
+      text: SHARE_DEERCAMP_TEXT,
+      url: SHARE_DEERCAMP_URL
+    });
+    setShareModalStatus("Thanks for sharing DeerCamp.");
+  } catch (error) {
+    if (error && error.name !== "AbortError") {
+      setShareModalStatus("Share could not be completed on this device.");
+    }
+  }
+}
+
+function buildMailtoLink() {
+  const subject = encodeURIComponent("Check out DeerCamp");
+  const body = encodeURIComponent(`${SHARE_DEERCAMP_TEXT}\n\n${SHARE_DEERCAMP_URL}`);
+  return `mailto:?subject=${subject}&body=${body}`;
+}
+
+function buildSmsLink() {
+  const body = encodeURIComponent(`${SHARE_DEERCAMP_TEXT} ${SHARE_DEERCAMP_URL}`);
+  return `sms:?&body=${body}`;
+}
+
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(SHARE_DEERCAMP_URL);
+    setShareModalStatus("Link copied: https://ourdeercamp.com");
+  } catch (error) {
+    setShareModalStatus("Could not copy the link on this device.");
+  }
+}
+
+if (!navigator.share && shareNativeBtn) {
+  shareNativeBtn.style.display = "none";
+}
+
+shareNativeBtn?.addEventListener("click", handleNativeShare);
+shareEmailBtn?.addEventListener("click", () => {
+  window.location.href = buildMailtoLink();
+});
+shareTextBtn?.addEventListener("click", () => {
+  window.location.href = buildSmsLink();
+});
+shareFacebookBtn?.addEventListener("click", () => {
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SHARE_DEERCAMP_URL)}`, "_blank", "noopener,noreferrer");
+});
+shareCopyBtn?.addEventListener("click", copyShareLink);
+shareCloseBtn?.addEventListener("click", closeShareModal);
+shareModalBackdrop?.addEventListener("click", (event) => {
+  if (event.target === shareModalBackdrop) {
+    closeShareModal();
+  }
+});
+builderShareBtn?.addEventListener("click", openShareModal);
+builderContinueBtn?.addEventListener("click", () => {
+  if (pendingBuilderContinueUrl) {
+    window.location.href = pendingBuilderContinueUrl;
+  }
+});
+
+
 const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
 
 function splitFullName(value = "") {
@@ -1973,12 +2247,15 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     send: true
   };
 
+  let welcomeEmailDelivered = false;
+
   if (stewardEmail) {
     try {
       const welcomeResult = await Promise.race([
         triggerStewardWelcomeEmail(welcomePayload),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Welcome email timed out.")), 3500))
       ]);
+      welcomeEmailDelivered = true;
       localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
         ok: true,
         sentAt: new Date().toISOString(),
@@ -2003,7 +2280,12 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }));
   }
 
-  window.location.href = buildCampUrl("camp.html", campId);
+  const continueUrl = buildCampUrl("camp.html", campId);
+  openBuilderSuccessState({
+    continueUrl,
+    stewardEmail,
+    emailSent: welcomeEmailDelivered
+  });
 });
 </script>
 </body>
