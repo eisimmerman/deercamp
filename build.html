@@ -641,16 +641,29 @@ function buildCampUrl(path, campId) {
   return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
 }
 
-function buildBuilderResumeUrl(path, campId, campName) {
+function buildBuilderResumeUrl(path, payload = {}) {
   const url = new URL(path, window.location.href);
-  const cleanCampId = String(campId || "").trim();
-  const cleanCampName = String(campName || "").trim();
-  if (cleanCampId) {
-    url.searchParams.set("campId", cleanCampId);
-  }
-  if (cleanCampName) {
-    url.searchParams.set("campName", cleanCampName);
-  }
+  const appendIfPresent = (key, value) => {
+    const cleanValue = String(value || "").trim();
+    if (cleanValue) {
+      url.searchParams.set(key, cleanValue);
+    }
+  };
+
+  appendIfPresent("campId", payload.campId);
+  appendIfPresent("campName", payload.campName);
+  appendIfPresent("campCity", payload.campCity || payload.city);
+  appendIfPresent("campState", payload.campState || payload.state);
+  appendIfPresent("campZip", payload.campZip || payload.zip);
+  appendIfPresent("campYear", payload.campYear || payload.established);
+  appendIfPresent("campSteward", payload.campSteward || payload.stewardName);
+  appendIfPresent("campStewardEmail", payload.campStewardEmail || payload.stewardEmail || payload.email);
+  appendIfPresent("campMembers", payload.campMembers);
+  appendIfPresent("campTraditionsCustom", payload.campTraditionsCustom);
+  appendIfPresent("campDeerDrives", payload.campDeerDrives);
+  appendIfPresent("heroTemplate", payload.heroTemplate);
+  appendIfPresent("campDescription", payload.campDescription);
+
   const query = url.searchParams.toString();
   return `${url.pathname}${query ? `?${query}` : ""}`;
 }
@@ -1969,21 +1982,43 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
-  const welcomePayload = {
+  const handoffPayload = {
+    campId,
     campName: name,
-    city,
-    state: normalizeState(state) || state,
-    zip,
+    campCity: city,
+    campState: normalizeState(state) || state,
+    campZip: zip,
     campYear: year,
-    stewardName,
-    stewardFirstName,
-    stewardLastName,
-    stewardEmail,
+    campSteward: stewardName,
+    campStewardEmail: stewardEmail,
     campMembers: campMembers.join(", "),
     campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
     campDeerDrives: deerDrives.join(", "),
     heroTemplate: selectedSign.file,
-    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
+    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp")
+  };
+
+  const welcomePayload = {
+    campId,
+    campName: name,
+    campCity: city,
+    city,
+    campState: normalizeState(state) || state,
+    state: normalizeState(state) || state,
+    campZip: zip,
+    zip,
+    campYear: year,
+    campSteward: stewardName,
+    stewardName,
+    stewardFirstName,
+    stewardLastName,
+    campStewardEmail: stewardEmail,
+    stewardEmail,
+    campMembers: handoffPayload.campMembers,
+    campTraditionsCustom: handoffPayload.campTraditionsCustom,
+    campDeerDrives: handoffPayload.campDeerDrives,
+    heroTemplate: selectedSign.file,
+    campDescription: handoffPayload.campDescription,
     send: true
   };
 
@@ -2017,7 +2052,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }));
   }
 
-  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", campId, name);
+  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", handoffPayload);
 });
 </script>
 </body>
