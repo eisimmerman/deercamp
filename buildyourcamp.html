@@ -408,7 +408,7 @@
     <main class="main">
       <div class="topbar">
         <div style="flex:1 1 auto; min-width:0;">
-          <h2 id="wizardTitle">Build Your DeerCamp</h2>
+          <h2 id="wizardTitle">Continue Building Your DeerCamp</h2>
           <p id="wizardSubtitle">Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.</p>
           <div class="progress-wrap">
             <div class="progress-meta">
@@ -557,6 +557,7 @@
 
 
     const SHARE_DEERCAMP_URL = "https://ourdeercamp.com";
+    const SAVE_CONTINUE_LATER_API = "/api/send-steward-welcome";
 
     function normalizeStateCode(value = "") {
       const raw = String(value || "").trim();
@@ -574,6 +575,17 @@
         .split(",")
         .map(item => item.trim())
         .filter(Boolean);
+    }
+
+    function getWizardHeading() {
+      const campName = String(state?.camp?.name || "").trim();
+      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
+    }
+
+    function syncWizardHeading() {
+      if (wizardTitle) {
+        wizardTitle.textContent = getWizardHeading();
+      }
     }
 
     function buildStewardNameFromParams(params) {
@@ -804,6 +816,124 @@
       catch { return fallback; }
     }
 
+    function getStoredStewardProfileEmail(profiles = []) {
+      const items = Array.isArray(profiles) ? profiles : [];
+      const match = items.find(profile => String(profile.role || '').trim().toLowerCase() === 'camp steward');
+      return String(match?.email || '').trim();
+    }
+
+    function getStoredStewardProfileName(profiles = []) {
+      const items = Array.isArray(profiles) ? profiles : [];
+      const match = items.find(profile => String(profile.role || '').trim().toLowerCase() === 'camp steward');
+      return String(match?.name || '').trim();
+    }
+
+    function getPreferredStewardName() {
+      return String(
+        state.steward.name ||
+        campData.stewardName ||
+        campData.steward ||
+        dashboardState.camp?.stewardName ||
+        getStoredStewardProfileName(campData.memberProfiles) ||
+        getStoredStewardProfileName(dashboardState.people) ||
+        prefill.stewardName ||
+        ''
+      ).trim();
+    }
+
+    function getPreferredStewardEmail() {
+      return String(
+        state.steward.email ||
+        campData.stewardEmail ||
+        dashboardState.camp?.stewardEmail ||
+        getStoredStewardProfileEmail(campData.memberProfiles) ||
+        getStoredStewardProfileEmail(dashboardState.people) ||
+        prefill.stewardEmail ||
+        ''
+      ).trim();
+    }
+
+    function syncPersistentStewardContact() {
+      const resolvedCampId = String(state.campId || campData.campId || dashboardState.camp?.campId || initialCampId || '').trim();
+      if (!resolvedCampId) return;
+
+      const stewardName = getPreferredStewardName();
+      const stewardEmail = getPreferredStewardEmail();
+
+      const scopedCampRecord = Object.assign({}, safeParseScopedRecord(resolvedCampId, 'campData', {}));
+      scopedCampRecord.campId = resolvedCampId;
+      if (stewardName) {
+        scopedCampRecord.stewardName = stewardName;
+        scopedCampRecord.steward = stewardName;
+        scopedCampRecord.campSteward = stewardName;
+      }
+      if (stewardEmail) {
+        scopedCampRecord.stewardEmail = stewardEmail;
+        scopedCampRecord.campStewardEmail = stewardEmail;
+      }
+
+      const profiles = Array.isArray(scopedCampRecord.memberProfiles) ? scopedCampRecord.memberProfiles.slice() : [];
+      const stewardIndex = profiles.findIndex(profile => String(profile.role || '').trim().toLowerCase() === 'camp steward');
+      if (stewardIndex >= 0) {
+        profiles[stewardIndex] = Object.assign({}, profiles[stewardIndex], {
+          name: stewardName || profiles[stewardIndex].name || 'Camp Steward',
+          email: stewardEmail || profiles[stewardIndex].email || '',
+          role: 'Camp Steward',
+          roleLine: profiles[stewardIndex].roleLine || 'Camp administrator',
+          status: profiles[stewardIndex].status || 'Active'
+        });
+      } else if (stewardName || stewardEmail) {
+        profiles.unshift({
+          id: 'steward',
+          name: stewardName || 'Camp Steward',
+          email: stewardEmail || '',
+          role: 'Camp Steward',
+          roleLine: 'Camp administrator',
+          status: 'Active'
+        });
+      }
+      if (profiles.length) {
+        scopedCampRecord.memberProfiles = profiles;
+      }
+
+      persistScopedRecord(resolvedCampId, 'campData', scopedCampRecord);
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(Object.assign({}, campData, scopedCampRecord)));
+
+      const scopedDashboardRecord = Object.assign({}, safeParseScopedRecord(resolvedCampId, 'dashboard', {}));
+      scopedDashboardRecord.camp = Object.assign({}, scopedDashboardRecord.camp || {}, {
+        campId: resolvedCampId,
+        stewardName: stewardName || scopedDashboardRecord.camp?.stewardName || '',
+        stewardEmail: stewardEmail || scopedDashboardRecord.camp?.stewardEmail || ''
+      });
+
+      const dashboardPeople = Array.isArray(scopedDashboardRecord.people) ? scopedDashboardRecord.people.slice() : [];
+      const dashboardStewardIndex = dashboardPeople.findIndex(profile => String(profile.role || '').trim().toLowerCase() === 'camp steward');
+      if (dashboardStewardIndex >= 0) {
+        dashboardPeople[dashboardStewardIndex] = Object.assign({}, dashboardPeople[dashboardStewardIndex], {
+          name: stewardName || dashboardPeople[dashboardStewardIndex].name || 'Camp Steward',
+          email: stewardEmail || dashboardPeople[dashboardStewardIndex].email || '',
+          role: 'Camp Steward',
+          roleLine: dashboardPeople[dashboardStewardIndex].roleLine || 'Camp administrator',
+          status: dashboardPeople[dashboardStewardIndex].status || 'Active'
+        });
+      } else if (stewardName || stewardEmail) {
+        dashboardPeople.unshift({
+          id: 'steward',
+          name: stewardName || 'Camp Steward',
+          email: stewardEmail || '',
+          role: 'Camp Steward',
+          roleLine: 'Camp administrator',
+          status: 'Active'
+        });
+      }
+      if (dashboardPeople.length) {
+        scopedDashboardRecord.people = dashboardPeople;
+      }
+
+      persistScopedRecord(resolvedCampId, 'dashboard', scopedDashboardRecord);
+      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(Object.assign({}, dashboardState, scopedDashboardRecord)));
+    }
+
     function slugify(value = "") {
       return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     }
@@ -882,8 +1012,8 @@
         accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
       },
       steward: {
-        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? prefill.stewardName ?? "",
-        email: wizardState.steward?.email ?? campData.stewardEmail ?? prefill.stewardEmail ?? ""
+        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? dashboardState.camp?.stewardName ?? prefill.stewardName ?? "",
+        email: wizardState.steward?.email ?? campData.stewardEmail ?? dashboardState.camp?.stewardEmail ?? prefill.stewardEmail ?? ""
       },
       members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
         ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
@@ -918,7 +1048,7 @@
     function showStep(index) {
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
-      wizardTitle.textContent = STEPS[state.step].title;
+      syncWizardHeading();
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
@@ -945,6 +1075,7 @@
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
+      syncWizardHeading();
       document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
       document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
       document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
@@ -1099,6 +1230,7 @@
         localStorage.setItem(ACTIVE_CAMP_KEY, resolvedCampId);
         persistScopedRecord(resolvedCampId, "wizard", Object.assign({}, state, { campId: resolvedCampId }));
       }
+      syncPersistentStewardContact();
       savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
     }
 
@@ -1106,6 +1238,67 @@
     function queuePersist() {
       clearTimeout(autosaveTimer);
       autosaveTimer = setTimeout(() => persist(true), 280);
+    }
+
+    async function sendContinueLaterEmail() {
+      const stewardEmail = getPreferredStewardEmail();
+      const stewardName = getPreferredStewardName();
+      const resolvedCampId = String(state.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
+      state.campId = resolvedCampId;
+      syncPersistentStewardContact();
+
+      if (!stewardEmail) {
+        savePill.textContent = 'Saved locally • Add steward email to receive a resume link';
+        return { ok: false, skipped: true, reason: 'missing-steward-email' };
+      }
+
+      try {
+        const response = await fetch(SAVE_CONTINUE_LATER_API, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            send: true,
+            emailVariant: 'return-link',
+            campId: resolvedCampId,
+            campName: state.camp.name || '',
+            campCity: state.camp.city || '',
+            campState: state.camp.state || '',
+            campZip: state.camp.zip || '',
+            campYear: state.camp.established || '',
+            campSteward: stewardName,
+            campStewardEmail: stewardEmail,
+            steward: {
+              name: stewardName,
+              email: stewardEmail
+            },
+            camp: {
+              campId: resolvedCampId,
+              name: state.camp.name || '',
+              city: state.camp.city || '',
+              state: state.camp.state || '',
+              zip: state.camp.zip || '',
+              established: state.camp.established || '',
+              stewardName,
+              stewardEmail
+            },
+            setupPath: 'buildyourcamp.html'
+          })
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || result.ok === false) {
+          throw new Error(result.error || 'Unable to send resume email.');
+        }
+
+        savePill.textContent = 'Saved locally • Resume email sent';
+        return { ok: true, result };
+      } catch (error) {
+        console.error('Continue later email failed', error);
+        savePill.textContent = 'Saved locally • Resume email not sent';
+        return { ok: false, error };
+      }
     }
 
     function fillForms() {
@@ -1225,6 +1418,8 @@
           hero: nextCampData.hero,
           brandImage: nextCampData.brandImage,
           accessNote: nextCampData.accessNote,
+          stewardName: nextCampData.stewardName || '',
+          stewardEmail: nextCampData.stewardEmail || '',
           feedSourceMode: 'app',
           feedModeration: 'review',
           feedOfflinePolicy: 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.',
@@ -1271,7 +1466,16 @@
         showStep(state.step + 1);
       }
     });
-    document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
+    document.getElementById('continueLaterBtn').addEventListener('click', async () => {
+      const button = document.getElementById('continueLaterBtn');
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Saving...';
+      persist(true);
+      await sendContinueLaterEmail();
+      button.disabled = false;
+      button.textContent = originalLabel;
+    });
     document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);

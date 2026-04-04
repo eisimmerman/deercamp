@@ -646,6 +646,13 @@ function campScopeKey(campId, suffix) {
   return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
 }
 
+function safeParseLocalStorage(key, fallback = {}) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)) || fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
 
 const STARTER_FEED_ENTRIES = [
   {
@@ -1927,6 +1934,14 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     heroTemplateLabel: selectedSign.label,
     stewardName,
     stewardEmail,
+    campSteward: stewardName,
+    campStewardEmail: stewardEmail,
+    primaryStewardName: stewardName,
+    primaryStewardEmail: stewardEmail,
+    steward: {
+      name: stewardName,
+      email: stewardEmail
+    },
     campMembers,
     members,
     memberProfiles,
@@ -1952,19 +1967,83 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   if (scopedCampDataKey) {
     localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
   }
+
+  const existingDashboardState = safeParseLocalStorage("deerCampStewardDashboard", {});
+  const dashboardState = {
+    ...existingDashboardState,
+    camp: {
+      ...(existingDashboardState.camp || {}),
+      campId,
+      name,
+      city,
+      state: normalizeState(state) || state,
+      zip,
+      established: year,
+      location,
+      hero,
+      brandImage: heroUploadInput.files.length > 0 ? "" : buildHeroAssetPath(selectedSign.file),
+      stewardName,
+      stewardEmail,
+      campSteward: stewardName,
+      campStewardEmail: stewardEmail,
+      primaryStewardName: stewardName,
+      primaryStewardEmail: stewardEmail
+    },
+    people: memberProfiles,
+    lastSaved: new Date().toISOString()
+  };
+  localStorage.setItem("deerCampStewardDashboard", JSON.stringify(dashboardState));
+  const scopedDashboardKey = campScopeKey(campId, "dashboard");
+  if (scopedDashboardKey) {
+    localStorage.setItem(scopedDashboardKey, JSON.stringify(dashboardState));
+  }
+
+  const scopedWizardSeed = {
+    campId,
+    camp: {
+      name,
+      established: year,
+      city,
+      state: normalizeState(state) || state,
+      zip,
+      summary: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
+      hero: heroUploadInput.files.length > 0 ? hero : buildHeroAssetPath(selectedSign.file),
+      brand: heroUploadInput.files.length > 0 ? "" : buildHeroAssetPath(selectedSign.file),
+      accessNote: ""
+    },
+    steward: {
+      name: stewardName,
+      email: stewardEmail
+    },
+    members: campMembers.map((memberName) => ({ name: memberName, email: "", status: "Invited" })),
+    autosavedAt: new Date().toISOString(),
+    prefill: {
+      traditions: traditions.map((item) => item.label).filter(Boolean),
+      deerDrives: [...deerDrives],
+      heroTemplate: selectedSign.file
+    }
+  };
+  const scopedWizardKey = campScopeKey(campId, "wizard");
+  if (scopedWizardKey) {
+    localStorage.setItem(scopedWizardKey, JSON.stringify(scopedWizardSeed));
+  }
+
   incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
   const welcomePayload = {
+    campId,
     campName: name,
     city,
     state: normalizeState(state) || state,
     zip,
     campYear: year,
     stewardName,
+    campSteward: stewardName,
     stewardFirstName,
     stewardLastName,
     stewardEmail,
+    campStewardEmail: stewardEmail,
     campMembers: campMembers.join(", "),
     campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
     campDeerDrives: deerDrives.join(", "),
@@ -1979,28 +2058,43 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
         triggerStewardWelcomeEmail(welcomePayload),
         new Promise((_, reject) => setTimeout(() => reject(new Error("Welcome email timed out.")), 3500))
       ]);
-      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+      const lastWelcomeEmail = {
         ok: true,
         sentAt: new Date().toISOString(),
         to: stewardEmail,
         subject: welcomeResult?.subject || "",
         setupLink: welcomeResult?.setupLink || ""
-      }));
+      };
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify(lastWelcomeEmail));
+      const scopedWelcomeEmailKey = campScopeKey(campId, "lastWelcomeEmail");
+      if (scopedWelcomeEmailKey) {
+        localStorage.setItem(scopedWelcomeEmailKey, JSON.stringify(lastWelcomeEmail));
+      }
     } catch (error) {
       console.error("Steward welcome email failed:", error);
-      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+      const lastWelcomeEmail = {
         ok: false,
         sentAt: new Date().toISOString(),
         to: stewardEmail,
         error: error.message || "Welcome email failed."
-      }));
+      };
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify(lastWelcomeEmail));
+      const scopedWelcomeEmailKey = campScopeKey(campId, "lastWelcomeEmail");
+      if (scopedWelcomeEmailKey) {
+        localStorage.setItem(scopedWelcomeEmailKey, JSON.stringify(lastWelcomeEmail));
+      }
     }
   } else {
-    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+    const lastWelcomeEmail = {
       ok: false,
       sentAt: new Date().toISOString(),
       error: "No steward email provided."
-    }));
+    };
+    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify(lastWelcomeEmail));
+    const scopedWelcomeEmailKey = campScopeKey(campId, "lastWelcomeEmail");
+    if (scopedWelcomeEmailKey) {
+      localStorage.setItem(scopedWelcomeEmailKey, JSON.stringify(lastWelcomeEmail));
+    }
   }
 
   window.location.href = buildCampUrl("buildyourcamp.html", campId);
