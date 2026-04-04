@@ -2016,6 +2016,32 @@
     const STORAGE_KEY = "deerCampStewardDashboard";
     const CAMP_DATA_KEY = "campData";
 
+    const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+    const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+
+    function getCampIdFromUrl() {
+      try {
+        return String(new URLSearchParams(window.location.search).get("campId") || "").trim();
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function campScopeKey(campId, suffix) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+    }
+
+    function safeParseStoredJson(raw, fallback = {}) {
+      try { return JSON.parse(raw || JSON.stringify(fallback)) || fallback; }
+      catch { return fallback; }
+    }
+
+    const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || "").trim();
+    const scopedDashboardStorageKey = campScopeKey(activeCampId, "dashboard");
+    const scopedCampDataStorageKey = campScopeKey(activeCampId, "campData");
+
+
     const defaultStewardResponsibilities = [
       "Creates and manages the camp",
       "Adds and removes camp members",
@@ -2743,7 +2769,7 @@ function normalizeCampRecipe(item, index = 0) {
     }
 
     function deriveDashboardData() {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) || localStorage.getItem(STORAGE_KEY) : localStorage.getItem(STORAGE_KEY);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -2776,15 +2802,15 @@ function normalizeCampRecipe(item, index = 0) {
 
       let campData = {};
       try {
-        campData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
+        campData = safeParseStoredJson((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}", {});
       } catch (error) {
         campData = {};
       }
 
-      const campName = campData.name || campData.campName || "Big Buck Camp";
-      const city = campData.city || "Eau Claire";
-      const state = campData.state || "WI";
-      const established = campData.established || campData.year || "1999";
+      const campName = campData.name || campData.campName || "DeerCamp";
+      const city = campData.city || "";
+      const state = campData.state || "";
+      const established = campData.established || campData.year || "";
 
       const sourceProfiles = Array.isArray(campData.memberProfiles) && campData.memberProfiles.length
         ? campData.memberProfiles
@@ -2889,7 +2915,8 @@ function normalizeCampRecipe(item, index = 0) {
           feedSourceMode: campData.feedSourceMode || "app",
           feedModeration: campData.feedModeration || "review",
           feedOfflinePolicy: campData.feedOfflinePolicy || "Save locally at camp, queue uploads automatically, and sync when a connection becomes available.",
-          slug: slugify(campName) || "big-buck-camp"
+          slug: slugify(campName) || "deercamp",
+          campId: activeCampId || campData.campId || slugify([campName, city, state, campData.zip || ""].filter(Boolean).join("-")) || "ourdeercamp"
         },
         people,
         campStands,
@@ -2923,7 +2950,7 @@ function normalizeCampRecipe(item, index = 0) {
     function syncCampDataFromDashboard() {
       let campData = {};
       try {
-        campData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
+        campData = safeParseStoredJson((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}", {});
       } catch (error) {
         campData = {};
       }
@@ -3064,6 +3091,10 @@ function normalizeCampRecipe(item, index = 0) {
         };
       });
 
+      const currentCampId = String(dashboardState.camp.campId || activeCampId || campData.campId || slugify([dashboardState.camp.name, dashboardState.camp.city, dashboardState.camp.state, dashboardState.camp.zip].filter(Boolean).join("-")) || "ourdeercamp").trim();
+      dashboardState.camp.campId = currentCampId;
+      localStorage.setItem(ACTIVE_CAMP_KEY, currentCampId);
+
       const updatedCampData = {
         ...campData,
         name: dashboardState.camp.name || campData.name || "DeerCamp",
@@ -3106,12 +3137,25 @@ function normalizeCampRecipe(item, index = 0) {
       };
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
+      const nextScopedCampDataKey = campScopeKey(currentCampId, "campData");
+      const nextScopedDashboardKey = campScopeKey(currentCampId, "dashboard");
+      if (nextScopedCampDataKey) localStorage.setItem(nextScopedCampDataKey, JSON.stringify(updatedCampData));
+      if (nextScopedDashboardKey) localStorage.setItem(nextScopedDashboardKey, JSON.stringify(dashboardState));
     }
 
     function saveState(showMessage = false) {
       applyRosterGovernance();
       dashboardState.lastSaved = currentTimestampLabel();
+      const currentCampId = String(dashboardState.camp.campId || activeCampId || "").trim();
+      if (currentCampId) {
+        dashboardState.camp.campId = currentCampId;
+        localStorage.setItem(ACTIVE_CAMP_KEY, currentCampId);
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+      if (currentCampId) {
+        const nextScopedDashboardKey = campScopeKey(currentCampId, "dashboard");
+        if (nextScopedDashboardKey) localStorage.setItem(nextScopedDashboardKey, JSON.stringify(dashboardState));
+      }
       syncCampDataFromDashboard();
       if (showMessage) showToast("Steward dashboard autosaved locally and synced into camp data.");
       render();

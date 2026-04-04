@@ -325,6 +325,59 @@
       min-height:1.2em;
     }
 
+    
+    .member-edit-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 18, 12, 0.32);
+      backdrop-filter: blur(1.5px);
+      z-index: 1400;
+    }
+    .member-edit-modal-backdrop.open { display: block; }
+    .member-edit-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1410;
+      padding: 22px;
+      align-items: center;
+      justify-content: center;
+    }
+    .member-edit-modal.open { display: flex !important; }
+    .member-edit-modal-card {
+      width: min(520px, 100%);
+      border-radius: 22px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+      position: relative;
+    }
+    .member-edit-modal-header h3 { margin: 0 0 6px; }
+    .member-edit-modal-header p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .member-edit-modal-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 36px;
+      height: 36px;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.08);
+      font-size: 1.4rem;
+      cursor: pointer;
+    }
+    .member-edit-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+
     @media (max-width: 980px) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
@@ -404,7 +457,7 @@
             <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text" /></div>
             <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text" /></div>
             <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary"></textarea></div>
-            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text" /></div>
+            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text" readonly /><div class="field-note"><strong>Carried over from your 5-minute build.</strong> You can change this later from the Steward Dashboard if needed.</div></div>
             <div class="field span-2"><label for="campAccess">Access / Rules Note</label><textarea id="campAccess"></textarea></div>
           </form>
           <div class="preview">
@@ -825,7 +878,7 @@
         zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? prefill.zip ?? "",
         summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? prefill.campDescription ?? "",
         hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? prefill.heroPath ?? "",
-        brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? "",
+        brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? prefill.heroPath ?? "",
         accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
       },
       steward: {
@@ -922,17 +975,51 @@
       persist();
     };
 
-    window.editWizardMember = function(index) {
+    
+    let activeMemberEditIndex = null;
+
+    function openMemberEditModal(index) {
       const member = state.members[index];
       if (!member) return;
-      const nextName = window.prompt('Edit member name', member.name || '');
-      if (nextName === null) return;
-      const nextEmail = window.prompt('Edit member email', member.email || '');
-      state.members[index] = Object.assign({}, member, { name: String(nextName || '').trim(), email: String(nextEmail || '').trim() });
+      activeMemberEditIndex = index;
+      document.getElementById('memberEditName').value = member.name || '';
+      document.getElementById('memberEditEmail').value = member.email || '';
+      document.getElementById('memberEditModal').classList.add('open');
+      document.getElementById('memberEditModalBackdrop').classList.add('open');
+      document.getElementById('memberEditModal').setAttribute('aria-hidden', 'false');
+      document.body.classList.add('modal-open');
+      setTimeout(() => document.getElementById('memberEditEmail').focus(), 0);
+    }
+
+    function closeMemberEditModal() {
+      activeMemberEditIndex = null;
+      document.getElementById('memberEditModal').classList.remove('open');
+      document.getElementById('memberEditModalBackdrop').classList.remove('open');
+      document.getElementById('memberEditModal').setAttribute('aria-hidden', 'true');
+      document.body.classList.remove('modal-open');
+    }
+
+    function saveMemberEditModal() {
+      if (activeMemberEditIndex === null) return;
+      const current = state.members[activeMemberEditIndex];
+      if (!current) return closeMemberEditModal();
+      const nextName = document.getElementById('memberEditName').value.trim();
+      const nextEmail = document.getElementById('memberEditEmail').value.trim();
+      if (!nextName) {
+        document.getElementById('memberEditName').focus();
+        return;
+      }
+      state.members[activeMemberEditIndex] = Object.assign({}, current, { name: nextName, email: nextEmail });
       state.members = uniquePeople(state.members.filter(item => String(item.name || '').trim()));
       renderMemberList();
       persist();
+      closeMemberEditModal();
+    }
+
+    window.editWizardMember = function(index) {
+      openMemberEditModal(index);
     };
+
 
     function renderSectionToggles() {
       document.getElementById('sectionToggleGrid').innerHTML = SECTIONS.map(item => `
@@ -1188,6 +1275,15 @@
     document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
+
+    document.getElementById('closeMemberEditModal').addEventListener('click', closeMemberEditModal);
+    document.getElementById('cancelMemberEditBtn').addEventListener('click', closeMemberEditModal);
+    document.getElementById('saveMemberEditBtn').addEventListener('click', saveMemberEditModal);
+    document.getElementById('memberEditModalBackdrop').addEventListener('click', closeMemberEditModal);
+    document.getElementById('memberEditModal').addEventListener('click', (event) => {
+      if (event.target === document.getElementById('memberEditModal')) closeMemberEditModal();
+    });
+
     document.getElementById('campState').addEventListener('blur', () => {
       document.getElementById('campState').value = normalizeStateCode(document.getElementById('campState').value);
       queuePersist();
@@ -1209,5 +1305,25 @@
     showStep(state.step);
     persist(false);
   </script>
+
+  <div id="memberEditModalBackdrop" class="member-edit-modal-backdrop"></div>
+  <div id="memberEditModal" class="member-edit-modal" aria-hidden="true">
+    <div class="member-edit-modal-card">
+      <button id="closeMemberEditModal" class="member-edit-modal-close" type="button" aria-label="Close member editor">×</button>
+      <div class="member-edit-modal-header">
+        <h3>Edit member</h3>
+        <p>Update both the member name and email here so the roster stays complete before you launch into the Steward Dashboard.</p>
+      </div>
+      <div class="form-grid">
+        <div class="field"><label for="memberEditName">Member Name</label><input id="memberEditName" type="text" /></div>
+        <div class="field"><label for="memberEditEmail">Email</label><input id="memberEditEmail" type="email" /></div>
+      </div>
+      <div class="member-edit-modal-actions">
+        <button class="btn btn-secondary" id="cancelMemberEditBtn" type="button">Cancel</button>
+        <button class="btn btn-primary" id="saveMemberEditBtn" type="button">Save Member</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
