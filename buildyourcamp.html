@@ -408,7 +408,7 @@
     <main class="main">
       <div class="topbar">
         <div style="flex:1 1 auto; min-width:0;">
-          <h2 id="wizardTitle">Build Your DeerCamp</h2>
+          <h2 id="wizardTitle">Continue Building Your DeerCamp</h2>
           <p id="wizardSubtitle">Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.</p>
           <div class="progress-wrap">
             <div class="progress-meta">
@@ -595,6 +595,32 @@
         .split(",")
         .map(item => item.trim())
         .filter(Boolean);
+    }
+
+    function getFirstFilledValue(...values) {
+      for (const value of values) {
+        const clean = String(value ?? "").trim();
+        if (clean && clean.toLowerCase() !== "deercamp" && clean.toLowerCase() !== "build your deercamp") {
+          return clean;
+        }
+      }
+      return "";
+    }
+
+    function getResolvedCampName() {
+      return getFirstFilledValue(
+        state?.camp?.name,
+        wizardState?.camp?.name,
+        dashboardState?.camp?.name,
+        campData?.name,
+        campData?.campName,
+        prefill?.campName
+      );
+    }
+
+    function getWizardHeading() {
+      const campName = getResolvedCampName();
+      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
     }
 
     function buildStewardNameFromParams(params) {
@@ -892,19 +918,19 @@
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
       campId: String(wizardState.campId || campData.campId || dashboardState.camp?.campId || initialCampId || "").trim(),
       camp: {
-        name: wizardState.camp?.name ?? dashboardState.camp?.name ?? campData.name ?? campData.campName ?? prefill.campName ?? "DeerCamp",
-        established: wizardState.camp?.established ?? dashboardState.camp?.established ?? campData.established ?? prefill.campYear ?? "",
-        city: wizardState.camp?.city ?? dashboardState.camp?.city ?? campData.city ?? prefill.city ?? "",
-        state: wizardState.camp?.state ?? dashboardState.camp?.state ?? campData.state ?? prefill.state ?? "",
-        zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? prefill.zip ?? "",
-        summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? prefill.campDescription ?? "",
-        hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? prefill.heroPath ?? "",
-        brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? prefill.heroPath ?? "",
-        accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
+        name: getFirstFilledValue(wizardState.camp?.name, dashboardState.camp?.name, campData.name, campData.campName, prefill.campName) || "DeerCamp",
+        established: getFirstFilledValue(wizardState.camp?.established, dashboardState.camp?.established, campData.established, prefill.campYear),
+        city: getFirstFilledValue(wizardState.camp?.city, dashboardState.camp?.city, campData.city, prefill.city),
+        state: getFirstFilledValue(wizardState.camp?.state, dashboardState.camp?.state, campData.state, prefill.state),
+        zip: getFirstFilledValue(wizardState.camp?.zip, dashboardState.camp?.zip, campData.zip, prefill.zip),
+        summary: getFirstFilledValue(wizardState.camp?.summary, dashboardState.camp?.summary, campData.summary, campData.about, prefill.campDescription),
+        hero: getFirstFilledValue(wizardState.camp?.hero, dashboardState.camp?.hero, campData.hero, prefill.heroPath),
+        brand: getFirstFilledValue(wizardState.camp?.brand, dashboardState.camp?.brandImage, campData.brandImage, campData.brandingImage, prefill.heroPath),
+        accessNote: getFirstFilledValue(wizardState.camp?.accessNote, dashboardState.camp?.accessNote, campData.accessNote)
       },
       steward: {
-        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? prefill.stewardName ?? "",
-        email: wizardState.steward?.email ?? campData.stewardEmail ?? prefill.stewardEmail ?? ""
+        name: getFirstFilledValue(wizardState.steward?.name, campData.stewardName, campData.steward, prefill.stewardName),
+        email: getFirstFilledValue(wizardState.steward?.email, campData.stewardEmail, prefill.stewardEmail)
       },
       members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
         ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
@@ -939,7 +965,7 @@
     function showStep(index) {
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
-      wizardTitle.textContent = STEPS[state.step].title;
+      wizardTitle.textContent = getWizardHeading();
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
@@ -960,6 +986,7 @@
 
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
+      wizardTitle.textContent = getWizardHeading();
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
