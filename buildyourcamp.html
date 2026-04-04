@@ -212,10 +212,123 @@
     .toggle-recommendation { display:flex; gap:8px; flex-wrap:wrap; }
     .toggle-card .helper-copy { margin:0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
     .switch-label { font-size:0.84rem; font-weight:700; color: var(--muted); }
+
+    .prefill-summary-card {
+      margin: 16px 0 0;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(73,102,71,0.10), rgba(73,102,71,0.04));
+      border: 1px solid rgba(73,102,71,0.12);
+      color: var(--ink);
+    }
+    .prefill-summary-card strong { display:block; margin-bottom:6px; }
+    .prefill-summary-list {
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .prefill-chip {
+      display:inline-flex;
+      align-items:center;
+      min-height:30px;
+      padding:6px 11px;
+      border-radius:999px;
+      background: rgba(255,255,255,0.72);
+      color: var(--brown-deep);
+      font-size:0.84rem;
+      font-weight:700;
+    }
+
+    .share-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 18, 12, 0.48);
+      backdrop-filter: blur(2px);
+      z-index: 1200;
+    }
+    .share-modal-backdrop.open { display:block; }
+    .share-modal {
+      display:none;
+      position: fixed;
+      inset: 0;
+      z-index: 1210;
+      padding: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+    .share-modal.open { display:flex; }
+    .share-modal-card {
+      width:min(560px, 100%);
+      background: var(--panel);
+      border:1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      position: relative;
+    }
+    .share-modal-card h3 { margin:0 44px 8px 0; }
+    .share-modal-card p { margin:0 0 16px; color: var(--muted); line-height:1.5; }
+    .share-modal-close {
+      position:absolute;
+      top:12px;
+      right:12px;
+      width:36px;
+      height:36px;
+      border:0;
+      border-radius:999px;
+      background: rgba(0,0,0,0.08);
+      cursor:pointer;
+      font-size:1.4rem;
+    }
+    .share-grid {
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .share-action {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:48px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      border:1px solid rgba(69,42,22,0.12);
+      background: rgba(255,255,255,0.72);
+      color: var(--brown-deep);
+      text-decoration:none;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .share-copy-row {
+      display:grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap:10px;
+      margin-top: 14px;
+    }
+    .share-copy-input {
+      width:100%;
+      min-height:46px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border:1px solid rgba(69,42,22,0.14);
+      background:#fff;
+      color:var(--ink);
+      font:inherit;
+    }
+    .share-feedback {
+      margin-top:10px;
+      color: var(--green);
+      font-weight:700;
+      min-height:1.2em;
+    }
+
     @media (max-width: 980px) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
-      .two-grid, .three-grid, .form-grid { grid-template-columns: 1fr; }
+      .two-grid, .three-grid, .form-grid, .share-grid { grid-template-columns: 1fr; }
       .field.span-2 { grid-column: auto; }
     }
   </style>
@@ -252,7 +365,10 @@
             <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
           </div>
         </div>
-        <div class="save-pill" id="savePill">Autosaved locally</div>
+        <div class="topbar-actions">
+          <div class="save-pill" id="savePill">Autosaved locally</div>
+          <button class="btn btn-secondary" id="shareDeerCampBtn" type="button">Share DeerCamp</button>
+        </div>
       </div>
 
       <section class="panel step-panel active" id="step-0">
@@ -263,10 +379,16 @@
           <div class="card"><strong>Run my camp</strong><span>When you finish here, DeerCamp takes you into the Steward Dashboard command center.</span></div>
           <div class="card"><strong>Do no harm</strong><span>Existing steward work stays in place unless you intentionally change it.</span></div>
         </div>
+        <div id="prefillSummaryCard" class="prefill-summary-card" style="display:none;">
+          <strong>Starter details loaded from your 5-minute DeerCamp builder</strong>
+          <div id="prefillSummaryText">We pulled your original camp details into this wizard.</div>
+          <div id="prefillSummaryList" class="prefill-summary-list"></div>
+        </div>
         <div class="welcome-actions">
           <button class="btn btn-primary is-pulsing" id="startSetupBtn" type="button">Start Setup</button>
           <button class="btn btn-secondary" id="continueSavedBtn" type="button">Continue Where I Left Off</button>
           <button class="btn btn-soft" id="openDashboardStartBtn" type="button">Open Dashboard Instead</button>
+          <button class="btn btn-soft" id="welcomeShareBtn" type="button">Share DeerCamp</button>
         </div>
       </section>
 
@@ -352,6 +474,27 @@
     </main>
   </div>
 
+
+  <div id="shareModalBackdrop" class="share-modal-backdrop"></div>
+  <div id="shareModal" class="share-modal" aria-hidden="true">
+    <div class="share-modal-card">
+      <button id="closeShareModal" class="share-modal-close" type="button" aria-label="Close share modal">×</button>
+      <h3>Share DeerCamp</h3>
+      <p>Share the DeerCamp home page so friends can start their own camp in minutes.</p>
+      <div class="share-grid">
+        <a id="shareByEmail" class="share-action" href="#" target="_blank" rel="noopener">Gmail / Email</a>
+        <a id="shareByText" class="share-action" href="#">Text Message</a>
+        <a id="shareByFacebook" class="share-action" href="#" target="_blank" rel="noopener">Facebook</a>
+        <button id="nativeShareBtn" class="share-action" type="button">More Options</button>
+      </div>
+      <div class="share-copy-row">
+        <input id="shareLinkInput" class="share-copy-input" type="text" readonly value="https://ourdeercamp.com" />
+        <button id="copyShareLinkBtn" class="btn btn-primary" type="button">Copy Link</button>
+      </div>
+      <div id="shareFeedback" class="share-feedback"></div>
+    </div>
+  </div>
+
   <script>
     const CAMP_DATA_KEY = "campData";
     const DASHBOARD_KEY = "deerCampStewardDashboard";
@@ -359,61 +502,188 @@
     const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
     const CAMP_SCOPE_PREFIX = "deercamp.camps.";
 
-    const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
 
-    function splitFullName(value = "") {
-      const clean = String(value || "").trim().replace(/\s+/g, " ");
-      if (!clean) {
-        return { firstName: "", lastName: "" };
-      }
+    const SHARE_DEERCAMP_URL = "https://ourdeercamp.com";
 
-      const parts = clean.split(" ");
-      const firstName = parts.shift() || "";
-      const lastName = parts.join(" ");
-      return { firstName, lastName };
+    function normalizeStateCode(value = "") {
+      const raw = String(value || "").trim();
+      return raw.length === 2 ? raw.toUpperCase() : raw;
     }
+
+    function titleCaseWords(value = "") {
+      return String(value || "")
+        .toLowerCase()
+        .replace(/\b\w/g, char => char.toUpperCase());
+    }
+
+    function parseCommaList(value = "") {
+      return String(value || "")
+        .split(",")
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+
+    function buildStewardNameFromParams(params) {
+      const direct = String(params.get("campSteward") || params.get("stewardName") || "").trim();
+      if (direct) return direct;
+      const first = String(params.get("stewardFirstName") || "").trim();
+      const last = String(params.get("stewardLastName") || "").trim();
+      return [first, last].filter(Boolean).join(" ").trim();
+    }
+
+    function resolveHeroTemplatePath(value = "") {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      if (raw.startsWith("assets/") || raw.startsWith("http://") || raw.startsWith("https://") || raw.startsWith("data:") || raw.startsWith("/")) {
+        return raw;
+      }
+      return `assets/heroes/${raw}`;
+    }
+
+    function getPrefillFromUrl() {
+      const params = new URLSearchParams(window.location.search || "");
+      const campMembers = parseCommaList(params.get("campMembers") || "");
+      const traditions = parseCommaList(params.get("campTraditionsCustom") || "");
+      const deerDrives = parseCommaList(params.get("campDeerDrives") || "");
+      const heroTemplate = String(params.get("heroTemplate") || params.get("campImageSelect") || "").trim();
+
+      return {
+        campId: String(params.get("campId") || "").trim(),
+        campName: String(params.get("campName") || "").trim(),
+        city: String(params.get("campCity") || params.get("city") || "").trim(),
+        state: normalizeStateCode(params.get("campState") || params.get("state") || ""),
+        zip: String(params.get("campZip") || params.get("zip") || "").trim(),
+        campYear: String(params.get("campYear") || params.get("established") || "").trim(),
+        stewardName: buildStewardNameFromParams(params),
+        stewardEmail: String(params.get("campStewardEmail") || params.get("stewardEmail") || params.get("email") || "").trim(),
+        campMembers,
+        traditions,
+        deerDrives,
+        heroTemplate,
+        heroPath: resolveHeroTemplatePath(heroTemplate),
+        campDescription: String(params.get("campDescription") || "").trim()
+      };
+    }
+
+    const prefill = getPrefillFromUrl();
 
     function deriveCampIdFromWizard(camp = {}) {
-      const parts = [
-        camp.name,
-        camp.city,
-        camp.state,
-        camp.zip
-      ].map(item => String(item || "").trim()).filter(Boolean);
-
-      return slugify(parts.join("-")) || "ourdeercamp";
+      const parts = [camp.name, camp.city, camp.state, camp.zip]
+        .map(item => String(item || "").trim())
+        .filter(Boolean);
+      const slug = String(parts.join("-")).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+      return slug || "deercamp";
     }
 
-    async function triggerStewardFlowEmail(payload = {}) {
-      const stewardEmail = String(payload.stewardEmail || payload.campStewardEmail || payload.email || payload.to || "").trim();
-      if (!stewardEmail) {
-        return { ok: false, skipped: true, reason: "missing-steward-email" };
+    function incrementCreatedCampCounter(campId) {
+      const COUNTER_KEY = "deercamp.createdCount";
+      const IDS_KEY = "deercamp.createdCampIds";
+      try {
+        const cleanCampId = String(campId || "").trim();
+        const storedIds = JSON.parse(localStorage.getItem(IDS_KEY) || "[]");
+        const ids = Array.isArray(storedIds) ? storedIds.filter(Boolean) : [];
+        if (cleanCampId && !ids.includes(cleanCampId)) {
+          ids.push(cleanCampId);
+          localStorage.setItem(IDS_KEY, JSON.stringify(ids));
+          localStorage.setItem(COUNTER_KEY, String(ids.length));
+          return;
+        }
+      } catch (error) {}
+    }
+
+    function buildPrefillTraditions(items = []) {
+      return (Array.isArray(items) ? items : []).map(label => ({
+        label,
+        group: "Camp Traditions",
+        description: "Imported from the 5-minute DeerCamp builder."
+      }));
+    }
+
+    function renderPrefillSummary(prefillState) {
+      const card = document.getElementById("prefillSummaryCard");
+      const text = document.getElementById("prefillSummaryText");
+      const list = document.getElementById("prefillSummaryList");
+      if (!card || !text || !list) return;
+
+      const chips = [];
+      if (prefillState.campYear) chips.push(`Est. ${prefillState.campYear}`);
+      if (prefillState.campMembers?.length) chips.push(`${prefillState.campMembers.length} member${prefillState.campMembers.length === 1 ? "" : "s"}`);
+      if (prefillState.traditions?.length) chips.push(`${prefillState.traditions.length} tradition${prefillState.traditions.length === 1 ? "" : "s"}`);
+      if (prefillState.deerDrives?.length) chips.push(`${prefillState.deerDrives.length} deer drive${prefillState.deerDrives.length === 1 ? "" : "s"}`);
+      if (prefillState.heroTemplate) chips.push(titleCaseWords(prefillState.heroTemplate.replace(/[-_]/g, " ").replace(/\.png$/i, "")));
+
+      const hasPrefill = Boolean(prefillState.campName || prefillState.city || prefillState.state || prefillState.stewardName || chips.length);
+      if (!hasPrefill) {
+        card.style.display = "none";
+        return;
       }
 
-      const response = await fetch(WELCOME_EMAIL_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        keepalive: true,
-        body: JSON.stringify(payload)
+      const location = [prefillState.city ? titleCaseWords(prefillState.city) : "", prefillState.state || ""].filter(Boolean).join(", ");
+      text.textContent = location
+        ? `We pulled your original starter form into this wizard for ${location}.`
+        : "We pulled your original starter form into this wizard so you can keep building without retyping everything.";
+
+      list.innerHTML = chips.map(item => `<span class="prefill-chip">${item}</span>`).join("");
+      card.style.display = "block";
+    }
+
+    function configureShareModal() {
+      const backdrop = document.getElementById("shareModalBackdrop");
+      const modal = document.getElementById("shareModal");
+      const closeBtn = document.getElementById("closeShareModal");
+      const openButtons = [document.getElementById("shareDeerCampBtn"), document.getElementById("welcomeShareBtn")].filter(Boolean);
+      const copyBtn = document.getElementById("copyShareLinkBtn");
+      const nativeBtn = document.getElementById("nativeShareBtn");
+      const input = document.getElementById("shareLinkInput");
+      const feedback = document.getElementById("shareFeedback");
+      const emailLink = document.getElementById("shareByEmail");
+      const textLink = document.getElementById("shareByText");
+      const facebookLink = document.getElementById("shareByFacebook");
+
+      input.value = SHARE_DEERCAMP_URL;
+      const shareText = "Start your own DeerCamp in 5 minutes";
+      emailLink.href = `mailto:?subject=${encodeURIComponent("Check out DeerCamp")}&body=${encodeURIComponent(`${shareText}\n\n${SHARE_DEERCAMP_URL}`)}`;
+      textLink.href = `sms:?body=${encodeURIComponent(`${shareText} ${SHARE_DEERCAMP_URL}`)}`;
+      facebookLink.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(SHARE_DEERCAMP_URL)}`;
+
+      function openModal() {
+        modal.classList.add("open");
+        backdrop.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        feedback.textContent = "";
+      }
+      function closeModal() {
+        modal.classList.remove("open");
+        backdrop.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+
+      openButtons.forEach(btn => btn.addEventListener("click", openModal));
+      closeBtn.addEventListener("click", closeModal);
+      backdrop.addEventListener("click", closeModal);
+
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(SHARE_DEERCAMP_URL);
+          feedback.textContent = "Link copied.";
+        } catch (error) {
+          input.select();
+          document.execCommand("copy");
+          feedback.textContent = "Link copied.";
+        }
       });
 
-      let data = {};
-      try {
-        data = await response.json();
-      } catch (error) {
-        data = {};
-      }
-
-      if (!response.ok || data.ok === false) {
-        const message = data.error || `Steward email request failed (${response.status}).`;
-        throw new Error(message);
-      }
-
-      return data;
+      nativeBtn.addEventListener("click", async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: "DeerCamp", text: shareText, url: SHARE_DEERCAMP_URL });
+            feedback.textContent = "Shared.";
+          } catch (error) {}
+        } else {
+          feedback.textContent = "Use the copy, email, text, or Facebook options above.";
+        }
+      });
     }
-
 
     function getCampIdFromUrl() {
       try {
@@ -509,7 +779,7 @@
     const legacyDashboardState = safeParse(DASHBOARD_KEY, {});
     const legacyWizardState = safeParse(WIZARD_KEY, {});
     const urlCampId = String(getCampIdFromUrl() || "").trim();
-    const initialCampId = urlCampId;
+    const initialCampId = urlCampId || prefill.campId || "";
     const hasMatchedCampId = Boolean(initialCampId);
 
     const scopedCampData = hasMatchedCampId ? safeParseScopedRecord(initialCampId, "campData", {}) : {};
@@ -548,28 +818,33 @@
       step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
       campId: String(wizardState.campId || campData.campId || dashboardState.camp?.campId || initialCampId || "").trim(),
       camp: {
-        name: wizardState.camp?.name ?? dashboardState.camp?.name ?? campData.name ?? campData.campName ?? "DeerCamp",
-        established: wizardState.camp?.established ?? dashboardState.camp?.established ?? campData.established ?? "",
-        city: wizardState.camp?.city ?? dashboardState.camp?.city ?? campData.city ?? "",
-        state: wizardState.camp?.state ?? dashboardState.camp?.state ?? campData.state ?? "",
-        zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? "",
-        summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? "",
-        hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? "",
+        name: wizardState.camp?.name ?? dashboardState.camp?.name ?? campData.name ?? campData.campName ?? prefill.campName ?? "DeerCamp",
+        established: wizardState.camp?.established ?? dashboardState.camp?.established ?? campData.established ?? prefill.campYear ?? "",
+        city: wizardState.camp?.city ?? dashboardState.camp?.city ?? campData.city ?? prefill.city ?? "",
+        state: wizardState.camp?.state ?? dashboardState.camp?.state ?? campData.state ?? prefill.state ?? "",
+        zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? prefill.zip ?? "",
+        summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? prefill.campDescription ?? "",
+        hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? prefill.heroPath ?? "",
         brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? "",
         accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
       },
       steward: {
-        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? "",
-        email: wizardState.steward?.email ?? ""
+        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? prefill.stewardName ?? "",
+        email: wizardState.steward?.email ?? campData.stewardEmail ?? prefill.stewardEmail ?? ""
       },
       members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
         ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
         : (Array.isArray(campData.memberProfiles)
           ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : [])))),
+          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Active" })) : []))))),
       sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
       starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
-      autosavedAt: wizardState.autosavedAt || ""
+      autosavedAt: wizardState.autosavedAt || "",
+      prefill: {
+        traditions: Array.isArray(prefill.traditions) ? prefill.traditions.slice() : [],
+        deerDrives: Array.isArray(prefill.deerDrives) ? prefill.deerDrives.slice() : [],
+        heroTemplate: prefill.heroTemplate || ""
+      }
     };
 
     const stepList = document.getElementById("stepList");
@@ -611,7 +886,9 @@
 
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
-      const meta = [ [state.camp.city, state.camp.state].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
+      const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
+      const displayState = normalizeStateCode(state.camp.state);
+      const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
@@ -715,7 +992,7 @@
       state.camp.name = document.getElementById('campName').value.trim();
       state.camp.established = document.getElementById('campEstablished').value.trim();
       state.camp.city = document.getElementById('campCity').value.trim();
-      state.camp.state = document.getElementById('campState').value.trim();
+      state.camp.state = normalizeStateCode(document.getElementById('campState').value.trim());
       state.camp.zip = document.getElementById('campZip').value.trim();
       state.camp.hero = document.getElementById('campHero').value.trim();
       state.camp.summary = document.getElementById('campSummary').value.trim();
@@ -730,53 +1007,66 @@
       applyDomToState();
       state.autosavedAt = currentTimestampLabel();
       localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
-      const resolvedCampId = String(state.campId || campData.campId || dashboardState.camp?.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
+      const resolvedCampId = String(state.campId || campData.campId || dashboardState.camp?.campId || initialCampId || "").trim();
       if (resolvedCampId) {
-        state.campId = resolvedCampId;
         localStorage.setItem(ACTIVE_CAMP_KEY, resolvedCampId);
         persistScopedRecord(resolvedCampId, "wizard", Object.assign({}, state, { campId: resolvedCampId }));
       }
       savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
     }
 
-
-    function getReturnEmailStatus(campId) {
-      return safeParseScopedRecord(campId, "stewardReturnLinkEmail", {});
+    let autosaveTimer = null;
+    function queuePersist() {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(() => persist(true), 280);
     }
 
-    function persistReturnEmailStatus(campId, value) {
-      if (!campId) return;
-      persistScopedRecord(campId, "stewardReturnLinkEmail", value);
-      localStorage.setItem("deercamp.lastReturnLinkEmail", JSON.stringify(value));
+    function fillForms() {
+      document.getElementById('campName').value = state.camp.name || '';
+      document.getElementById('campEstablished').value = state.camp.established || '';
+      document.getElementById('campCity').value = state.camp.city || '';
+      document.getElementById('campState').value = normalizeStateCode(state.camp.state || '');
+      document.getElementById('campZip').value = state.camp.zip || '';
+      document.getElementById('campHero').value = state.camp.hero || '';
+      document.getElementById('campSummary').value = state.camp.summary || '';
+      document.getElementById('campBrand').value = state.camp.brand || '';
+      document.getElementById('campAccess').value = state.camp.accessNote || '';
+      document.getElementById('stewardName').value = state.steward.name || '';
+      document.getElementById('stewardEmail').value = state.steward.email || '';
+      syncCampProfilePreview();
+      renderMemberList();
+      renderSectionToggles();
+      renderStarterToggles();
     }
 
-    function buildMergedLaunchState() {
+    function mergeAndLaunch() {
       applyDomToState();
       const resolvedCampId = String(state.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
       state.campId = resolvedCampId;
-      const latestCampData = safeParse(CAMP_DATA_KEY, {});
-      const nextCampData = Object.assign({}, latestCampData, campData);
+      const nextCampData = Object.assign({}, campData);
       nextCampData.campId = resolvedCampId;
-      nextCampData.name = state.camp.name || latestCampData.name || campData.name || 'DeerCamp';
+      nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
       nextCampData.campName = nextCampData.name;
-      nextCampData.city = state.camp.city || latestCampData.city || campData.city || '';
-      nextCampData.state = state.camp.state || latestCampData.state || campData.state || '';
-      nextCampData.zip = state.camp.zip || latestCampData.zip || campData.zip || '';
-      nextCampData.established = state.camp.established || latestCampData.established || campData.established || '';
-      nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || latestCampData.location || campData.location || '';
-      nextCampData.summary = state.camp.summary || latestCampData.summary || latestCampData.about || campData.summary || campData.about || '';
+      nextCampData.city = state.camp.city || campData.city || '';
+      nextCampData.state = normalizeStateCode(state.camp.state || campData.state || '');
+      nextCampData.zip = state.camp.zip || campData.zip || '';
+      nextCampData.established = state.camp.established || campData.established || '';
+      nextCampData.location = [state.camp.city, normalizeStateCode(state.camp.state)].filter(Boolean).join(', ') || campData.location || '';
+      nextCampData.summary = state.camp.summary || campData.summary || campData.about || '';
       nextCampData.about = nextCampData.summary;
-      nextCampData.hero = state.camp.hero || latestCampData.hero || campData.hero || '';
-      nextCampData.brandImage = state.camp.brand || latestCampData.brandImage || latestCampData.brandingImage || campData.brandImage || campData.brandingImage || '';
+      nextCampData.hero = state.camp.hero || campData.hero || resolveHeroTemplatePath(state.prefill.heroTemplate) || '';
+      nextCampData.brandImage = state.camp.brand || campData.brandImage || campData.brandingImage || '';
       nextCampData.brandingImage = nextCampData.brandImage;
-      nextCampData.accessNote = state.camp.accessNote || latestCampData.accessNote || campData.accessNote || '';
+      nextCampData.accessNote = state.camp.accessNote || campData.accessNote || '';
+      nextCampData.heroTemplate = state.prefill.heroTemplate || nextCampData.heroTemplate || '';
+      nextCampData.stewardEmail = state.steward.email || campData.stewardEmail || '';
+      nextCampData.deerDrives = Array.isArray(nextCampData.deerDrives) && nextCampData.deerDrives.length ? nextCampData.deerDrives : (Array.isArray(state.prefill.deerDrives) ? state.prefill.deerDrives.slice() : []);
       nextCampData.feedSourceMode = 'app';
       nextCampData.feedModeration = 'review';
       nextCampData.feedOfflinePolicy = 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.';
-      nextCampData.stewardName = state.steward.name || latestCampData.stewardName || campData.stewardName || '';
-      nextCampData.stewardEmail = state.steward.email || latestCampData.stewardEmail || campData.stewardEmail || '';
-      nextCampData.steward = state.steward.name || latestCampData.steward || campData.steward || '';
-      nextCampData.campSteward = state.steward.name || latestCampData.campSteward || campData.campSteward || '';
+      nextCampData.stewardName = state.steward.name || campData.stewardName || '';
+      nextCampData.steward = state.steward.name || campData.steward || '';
+      nextCampData.campSteward = state.steward.name || campData.campSteward || '';
 
       const existingProfiles = Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles.slice() : [];
       const stewardProfile = existingProfiles.find(profile => String(profile.role || '').toLowerCase() === 'camp steward') || {
@@ -811,6 +1101,9 @@
       nextCampData.members = nextCampData.memberProfiles.filter(profile => String(profile.role || '').toLowerCase() !== 'camp steward' && String(profile.status || '').toLowerCase() !== 'removed').map(profile => profile.name);
       nextCampData.campMembers = nextCampData.members.slice();
 
+      if ((!Array.isArray(nextCampData.traditions) || !nextCampData.traditions.length) && state.prefill.traditions.length) {
+        nextCampData.traditions = buildPrefillTraditions(state.prefill.traditions);
+      }
       if (state.starters.traditions && (!Array.isArray(nextCampData.traditions) || !nextCampData.traditions.length)) {
         nextCampData.traditions = [
           { label: 'Pre-Opener Campfire Meal', group: 'Opening Camp', description: 'The meal that marks the true start of camp.' },
@@ -855,127 +1148,15 @@
         lastSaved: currentTimestampLabel()
       });
 
-      return { resolvedCampId, nextCampData, nextDashboard };
-    }
-
-    function syncMergedWizardState() {
-      const { resolvedCampId, nextCampData, nextDashboard } = buildMergedLaunchState();
-      const savedAt = currentTimestampLabel();
-      const nextWizardState = Object.assign({}, state, {
-        campId: resolvedCampId,
-        autosavedAt: savedAt
-      });
-
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
       localStorage.setItem(ACTIVE_CAMP_KEY, nextCampData.campId);
       persistScopedRecord(nextCampData.campId, "campData", nextCampData);
       persistScopedRecord(nextCampData.campId, "dashboard", nextDashboard);
-      persistScopedRecord(nextCampData.campId, "wizard", nextWizardState);
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(nextWizardState));
+      persistScopedRecord(nextCampData.campId, "wizard", Object.assign({}, state, { campId: nextCampData.campId, autosavedAt: currentTimestampLabel() }));
       incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
-
-      savePill.textContent = `Progress saved • ${savedAt}`;
-      return { resolvedCampId, nextCampData, nextDashboard, savedAt };
-    }
-
-    function buildReturnLinkEmailPayload(resolvedCampId, nextCampData) {
-      const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(nextCampData.stewardName || state.steward.name || "");
-      return {
-        campId: resolvedCampId,
-        emailVariant: "return-link",
-        returnPath: "steward-dashboard.html",
-        campName: nextCampData.name || "DeerCamp",
-        city: nextCampData.city || "",
-        state: nextCampData.state || "",
-        zip: nextCampData.zip || "",
-        stewardName: nextCampData.stewardName || state.steward.name || "",
-        stewardFirstName,
-        stewardLastName,
-        stewardEmail: nextCampData.stewardEmail || state.steward.email || "",
-        campDescription: nextCampData.location || nextCampData.summary || nextCampData.name || "DeerCamp",
-        send: true
-      };
-    }
-
-    async function sendReturnLinkEmailIfNeeded(reason = "wizard-progress") {
-      const { resolvedCampId, nextCampData } = syncMergedWizardState();
-      const stewardEmail = String(nextCampData.stewardEmail || state.steward.email || "").trim();
-      if (!resolvedCampId || !stewardEmail) {
-        return { ok: false, skipped: true, reason: !resolvedCampId ? "missing-camp-id" : "missing-steward-email", resolvedCampId, nextCampData };
-      }
-
-      const existingStatus = getReturnEmailStatus(resolvedCampId);
-      if (existingStatus && existingStatus.ok) {
-        return Object.assign({ skipped: true, reason: "already-sent", resolvedCampId, nextCampData }, existingStatus);
-      }
-
-      const payload = buildReturnLinkEmailPayload(resolvedCampId, nextCampData);
-
-      try {
-        const emailResult = await Promise.race([
-          triggerStewardFlowEmail(payload),
-          new Promise((_, reject) => setTimeout(() => reject(new Error("Return link email timed out.")), 3500))
-        ]);
-
-        const status = {
-          ok: true,
-          variant: "return-link",
-          reason,
-          campId: resolvedCampId,
-          sentAt: new Date().toISOString(),
-          to: stewardEmail,
-          subject: emailResult?.subject || "",
-          setupLink: emailResult?.setupLink || ""
-        };
-
-        persistReturnEmailStatus(resolvedCampId, status);
-        return Object.assign({ resolvedCampId, nextCampData }, status);
-      } catch (error) {
-        const status = {
-          ok: false,
-          variant: "return-link",
-          reason,
-          campId: resolvedCampId,
-          sentAt: new Date().toISOString(),
-          to: stewardEmail,
-          error: error?.message || "Return link email failed."
-        };
-
-        persistReturnEmailStatus(resolvedCampId, status);
-        return Object.assign({ resolvedCampId, nextCampData }, status);
-      }
-    }
-
-    let autosaveTimer = null;
-    function queuePersist() {
-      clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(() => persist(true), 280);
-    }
-
-    function fillForms() {
-      document.getElementById('campName').value = state.camp.name || '';
-      document.getElementById('campEstablished').value = state.camp.established || '';
-      document.getElementById('campCity').value = state.camp.city || '';
-      document.getElementById('campState').value = state.camp.state || '';
-      document.getElementById('campZip').value = state.camp.zip || '';
-      document.getElementById('campHero').value = state.camp.hero || '';
-      document.getElementById('campSummary').value = state.camp.summary || '';
-      document.getElementById('campBrand').value = state.camp.brand || '';
-      document.getElementById('campAccess').value = state.camp.accessNote || '';
-      document.getElementById('stewardName').value = state.steward.name || '';
-      document.getElementById('stewardEmail').value = state.steward.email || '';
-      syncCampProfilePreview();
-      renderMemberList();
-      renderSectionToggles();
-      renderStarterToggles();
-    }
-
-    
-    async function mergeAndLaunch() {
-      const { resolvedCampId } = syncMergedWizardState();
-      await sendReturnLinkEmailIfNeeded("wizard-launch");
-      window.location.href = buildCampUrl('steward-dashboard.html', resolvedCampId);
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, { campId: nextCampData.campId, autosavedAt: currentTimestampLabel() })));
+      window.location.href = buildCampUrl('steward-dashboard.html', nextCampData.campId);
     }
 
     document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
@@ -994,10 +1175,7 @@
 
     document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
     document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
-    document.getElementById('openDashboardStartBtn').addEventListener('click', async () => {
-      const emailState = await sendReturnLinkEmailIfNeeded("open-dashboard-from-wizard");
-      window.location.href = buildCampUrl('steward-dashboard.html', emailState.resolvedCampId || state.campId || initialCampId || deriveCampIdFromWizard(state.camp));
-    });
+    document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
     document.getElementById('nextBtn').addEventListener('click', () => {
       if (state.step === STEPS.length - 1) {
@@ -1006,26 +1184,28 @@
         showStep(state.step + 1);
       }
     });
-    document.getElementById('continueLaterBtn').addEventListener('click', async () => {
-      persist(true);
-      const emailState = await sendReturnLinkEmailIfNeeded("save-and-continue-later");
-      if (emailState?.ok) {
-        savePill.textContent = 'Progress saved • Steward return link emailed';
-      } else if (emailState?.skipped && emailState.reason === 'already-sent') {
-        savePill.textContent = 'Progress saved • Return link already sent';
-      } else if (emailState && emailState.ok === false) {
-        savePill.textContent = 'Progress saved • Return link email needs attention';
-      }
-    });
-    document.getElementById('openDashboardBtn').addEventListener('click', async () => {
-      const emailState = await sendReturnLinkEmailIfNeeded("open-dashboard");
-      window.location.href = buildCampUrl('steward-dashboard.html', emailState.resolvedCampId || state.campId || initialCampId || deriveCampIdFromWizard(state.camp));
-    });
+    document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
+    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
+    document.getElementById('campState').addEventListener('blur', () => {
+      document.getElementById('campState').value = normalizeStateCode(document.getElementById('campState').value);
+      queuePersist();
+    });
 
     fillForms();
     renderStepList();
+    renderPrefillSummary({
+      campName: state.camp.name,
+      city: state.camp.city,
+      state: state.camp.state,
+      campYear: state.camp.established,
+      campMembers: state.members.map(item => item.name).filter(Boolean),
+      traditions: state.prefill.traditions,
+      deerDrives: state.prefill.deerDrives,
+      heroTemplate: state.prefill.heroTemplate
+    });
+    configureShareModal();
     showStep(state.step);
     persist(false);
   </script>

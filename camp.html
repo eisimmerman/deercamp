@@ -2971,6 +2971,12 @@ function toTitleCase(value = "") {
     .replace(/\b\w/g, char => char.toUpperCase());
 }
 
+function formatStateDisplay(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.length === 2 ? raw.toUpperCase() : toTitleCase(raw);
+}
+
 function syncCampLayout() {
   const header = document.querySelector(".camp-header");
   const headerHeight = header ? header.offsetHeight : 0;
@@ -2986,7 +2992,7 @@ const zip = (data.zip || "").trim();
 const legacyLocation = (data.location || "").trim();
 
 const cleanCity = city ? toTitleCase(city) : "";
-const cleanState = state ? toTitleCase(state) : "";
+const cleanState = state ? formatStateDisplay(state) : "";
 
 let formattedLocation = "";
 
@@ -3353,8 +3359,6 @@ function normalizeCampCardItem(item, index = 0) {
       title: clean,
       source: "Camp Steward",
       image: "",
-      modalImage: "",
-      audio: "",
       caption: "Featured camp story.",
       story: ""
     };
@@ -3366,8 +3370,6 @@ function normalizeCampCardItem(item, index = 0) {
       title: String(item.title || item.label || item.name || `CampCard ${index + 1}`).trim(),
       source: String(item.source || item.member || item.author || "Camp Steward").trim(),
       image: String(item.image || item.img || "").trim(),
-      modalImage: String(item.modalImage || item.popupImage || item.detailImage || item.expandedImage || item.imageModal || "").trim(),
-      audio: String(item.audio || item.voice || item.audioPath || "").trim(),
       caption: String(item.caption || item.description || item.body || "Featured camp story.").trim(),
       story: String(item.story || item.details || item.text || "").trim()
     };
@@ -3433,70 +3435,6 @@ const normalizedCampMemories = getCampMemoriesSource()
 const normalizedCampCards = (Array.isArray(data.campCards) ? data.campCards : [])
   .map((item, index) => normalizeCampCardItem(item, index))
   .filter(Boolean);
-
-
-const FINAL_CAMP_CARD_LIBRARY = {
-  "more does on winter trail": {
-    title: "More Does on Winter Trail",
-    source: "Field Memory • Steward Pick",
-    image: "campcards/images/more-does.jpg",
-    modalImage: "campcards/images/more-does.jpg",
-    audio: "campcards/audio/brittney-more-does.mp3",
-    caption: "A field memory capture the Steward chose to highlight after a quiet snowy walk produced one more winter sighting."
-  },
-  "packers & burgers night": {
-    title: "More Does on Winter Trail",
-    source: "Field Memory • Steward Pick",
-    image: "campcards/images/more-does.jpg",
-    modalImage: "campcards/images/more-does.jpg",
-    audio: "campcards/audio/brittney-more-does.mp3",
-    caption: "A field memory capture the Steward chose to highlight after a quiet snowy walk produced one more winter sighting."
-  },
-  "campfire card games": {
-    title: "Campfire Card Games",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/campcard-card-game.png",
-    modalImage: "campcards/images/campcard-card-game.png",
-    audio: "",
-    caption: "A member-submitted camp night the Steward chose to highlight — cards, laughter, and late-night cabin competition."
-  },
-  "mavis' swiss style venison steaks": {
-    title: "Mavis' Swiss Style Venison Steaks",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/mavis-swiss-style-venison-steaks.png",
-    modalImage: "campcards/images/mavis-swiss-style-venison-steaks-modal.png",
-    audio: "",
-    caption: "Butter-knife soft venison steaks in a creamy gravy sauce."
-  },
-  "first buck blood cross": {
-    title: "First Buck Blood Cross",
-    source: "Member Submission • Steward Pick",
-    image: "campcards/images/first-buck-blood-cross.png",
-    modalImage: "campcards/images/first-buck-blood-cross.png",
-    audio: "",
-    caption: "A first legal buck tradition marked with a small blood cross — a rite of passage the Steward chose to preserve."
-  }
-};
-
-function getCampCardOverride(entry = {}, index = 0) {
-  const titleKey = String(entry.title || "").trim().toLowerCase();
-  if (FINAL_CAMP_CARD_LIBRARY[titleKey]) {
-    return FINAL_CAMP_CARD_LIBRARY[titleKey];
-  }
-  if (index === 0 && !titleKey) {
-    return FINAL_CAMP_CARD_LIBRARY["more does on winter trail"];
-  }
-  return null;
-}
-
-function resolveCampCardEntry(entry = {}, index = 0) {
-  const override = getCampCardOverride(entry, index);
-  const merged = override ? { ...entry, ...override } : { ...entry };
-  if (!merged.modalImage) merged.modalImage = merged.image || "";
-  if (!merged.audio) merged.audio = "";
-  return merged;
-}
-
 
 
 function normalizeTraditionItem(item) {
@@ -4848,21 +4786,20 @@ const renderArchiveFeed = () => {
   else if (section.key === "campcards") {
     container.innerHTML = `
       <h2>CampCards</h2>
-      <p class="placeholder">Steward-curated camp highlights featuring standout moments, meals, stories, and traditions. Tap a card to expand view.</p>
+      <p class="placeholder">Steward-curated camp highlights featuring standout moments, meals, stories, and traditions.</p>
     `;
 
     const grid = document.createElement("div");
     grid.className = "campcards-grid";
 
     const defaultCards = [
-      resolveCampCardEntry({ title: "More Does on Winter Trail" }, 0),
-      resolveCampCardEntry({ title: "Campfire Card Games" }, 1),
-      resolveCampCardEntry({ title: "Mavis' Swiss Style Venison Steaks" }, 2),
-      resolveCampCardEntry({ title: "First Buck Blood Cross" }, 3)
+      { title: "Packers & Burgers Night", source: "Camp Steward", image: "campcards/images/packers-burgers.png", caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early." },
+      { title: "First Coffee at Camp", source: "Camp Steward", image: "campcards/images/first-coffee.png", caption: "The first mug of camp coffee before daylight and before the woods wake up." },
+      { title: "Campfire Camaraderie", source: "Camp Steward", image: "campcards/images/campfire-camaraderie.png", caption: "Stories, laughter, and the kind of campfire talk that becomes tradition." },
+      { title: "Fall Scouting Loop", source: "Camp Steward", image: "campcards/images/fall-scouting.png", caption: "An evening scouting walk that sets the tone for the whole season." }
     ];
 
-    const cards = (normalizedCampCards.length ? normalizedCampCards : defaultCards)
-      .map((entry, index) => resolveCampCardEntry(entry, index));
+    const cards = normalizedCampCards.length ? normalizedCampCards : defaultCards;
 
     cards.forEach((entry, index) => {
       const card = document.createElement("div");
@@ -4871,14 +4808,10 @@ const renderArchiveFeed = () => {
       const img = document.createElement("img");
       img.src = entry.image || defaultCards[index % defaultCards.length].image;
       img.alt = entry.title || "Camp card";
-      img.addEventListener("error", () => {
-        img.style.visibility = "hidden";
-      });
-
-      const openCardModal = () => {
+      img.addEventListener("click", () => {
         if (memoryModalEl && memoryModalImgEl) {
-          memoryModalImgEl.src = entry.modalImage || entry.image || img.src;
-          memoryModalImgEl.alt = entry.title || img.alt || "Camp card image";
+          memoryModalImgEl.src = img.src;
+          memoryModalImgEl.alt = img.alt || "Camp memory image";
           memoryModalEl.classList.add("open");
           memoryModalEl.setAttribute("aria-hidden", "false");
           document.body.classList.add("modal-open");
@@ -4888,20 +4821,8 @@ const renderArchiveFeed = () => {
           memoryAudioEl.pause();
           memoryAudioEl.currentTime = 0;
           memoryAudioEl.removeAttribute("src");
-          if (entry.audio) {
-            memoryAudioEl.src = entry.audio;
-            memoryAudioEl.style.display = "";
-          } else {
-            memoryAudioEl.style.display = "none";
-          }
           memoryAudioEl.load();
         }
-      };
-
-      card.addEventListener("click", openCardModal);
-      img.addEventListener("click", (event) => {
-        event.stopPropagation();
-        openCardModal();
       });
 
       const body = document.createElement("div");
@@ -4930,6 +4851,7 @@ const renderArchiveFeed = () => {
 
     container.appendChild(grid);
   }
+
   else if (section.key === "members") {
     container.innerHTML = `
       <h2>CampMembers</h2>
@@ -5424,7 +5346,6 @@ function closeMemoryCard() {
     memoryAudioEl.pause();
     memoryAudioEl.currentTime = 0;
     memoryAudioEl.removeAttribute("src");
-    memoryAudioEl.style.display = "";
     memoryAudioEl.load();
   }
 

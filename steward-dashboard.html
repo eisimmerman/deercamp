@@ -200,6 +200,91 @@
 
     .topbar-actions { display: flex; gap: 10px; flex-wrap: wrap; }
 
+    .share-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(24, 18, 12, 0.48);
+      backdrop-filter: blur(2px);
+      z-index: 1200;
+    }
+    .share-modal-backdrop.open { display:block; }
+    .share-modal {
+      display:none;
+      position: fixed;
+      inset: 0;
+      z-index: 1210;
+      padding: 24px;
+      align-items: center;
+      justify-content: center;
+    }
+    .share-modal.open { display:flex; }
+    .share-modal-card {
+      width:min(560px, 100%);
+      background: var(--panel);
+      border:1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      position: relative;
+    }
+    .share-modal-card h3 { margin:0 44px 8px 0; }
+    .share-modal-card p { margin:0 0 16px; color: var(--muted); line-height:1.5; }
+    .share-modal-close {
+      position:absolute;
+      top:12px;
+      right:12px;
+      width:36px;
+      height:36px;
+      border:0;
+      border-radius:999px;
+      background: rgba(0,0,0,0.08);
+      cursor:pointer;
+      font-size:1.4rem;
+    }
+    .share-grid {
+      display:grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .share-action {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:48px;
+      padding: 10px 14px;
+      border-radius: 16px;
+      border:1px solid rgba(69,42,22,0.12);
+      background: rgba(255,255,255,0.72);
+      color: var(--brown-deep);
+      text-decoration:none;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .share-copy-row {
+      display:grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap:10px;
+      margin-top: 14px;
+    }
+    .share-copy-input {
+      width:100%;
+      min-height:46px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border:1px solid rgba(69,42,22,0.14);
+      background:#fff;
+      color:var(--ink);
+      font:inherit;
+    }
+    .share-feedback {
+      margin-top:10px;
+      color: var(--green);
+      font-weight:700;
+      min-height:1.2em;
+    }
+
     .btn {
       display: inline-flex;
       align-items: center;
@@ -890,6 +975,7 @@
         </div>
         <div class="topbar-actions">
           <button class="btn btn-secondary" id="viewCampPageBtn">View Camp Page</button>
+          <button class="btn btn-secondary" id="shareDeerCampBtn">Share DeerCamp</button>
           <button class="btn btn-primary" id="saveAllBtn">Save Changes</button>
         </div>
       </div>
@@ -1188,6 +1274,7 @@
             <div class="panel">
               <h3 id="calendarPanelTitle">Add / Edit Calendar Event</h3>
               <p class="helper" id="calendarPanelSubtitle">These events publish directly to the live CampCalendar section.</p>
+              <p class="helper" style="margin-top:-4px;">Use <strong>Save Calendar Event</strong> for each event you add or edit. The header <strong>Save Changes</strong> button is your full-dashboard save when you want a clear checkpoint.</p>
 
               <form id="calendarForm" class="form-grid">
                 <input type="hidden" id="calendarEventId" />
@@ -1904,6 +1991,27 @@
 
   <div class="toast" id="toast"></div>
 
+
+  <div id="dashboardShareModalBackdrop" class="share-modal-backdrop"></div>
+  <div id="dashboardShareModal" class="share-modal" aria-hidden="true">
+    <div class="share-modal-card">
+      <button id="closeDashboardShareModal" class="share-modal-close" type="button" aria-label="Close share modal">×</button>
+      <h3>Share DeerCamp</h3>
+      <p>Share the DeerCamp home page so friends can start their own camp in minutes.</p>
+      <div class="share-grid">
+        <a id="dashboardShareByEmail" class="share-action" href="#" target="_blank" rel="noopener">Gmail / Email</a>
+        <a id="dashboardShareByText" class="share-action" href="#">Text Message</a>
+        <a id="dashboardShareByFacebook" class="share-action" href="#" target="_blank" rel="noopener">Facebook</a>
+        <button id="dashboardNativeShareBtn" class="share-action" type="button">More Options</button>
+      </div>
+      <div class="share-copy-row">
+        <input id="dashboardShareLinkInput" class="share-copy-input" type="text" readonly value="https://ourdeercamp.com" />
+        <button id="dashboardCopyShareLinkBtn" class="btn btn-primary" type="button">Copy Link</button>
+      </div>
+      <div id="dashboardShareFeedback" class="share-feedback"></div>
+    </div>
+  </div>
+
   <script>
     const STORAGE_KEY = "deerCampStewardDashboard";
     const CAMP_DATA_KEY = "campData";
@@ -1937,9 +2045,9 @@
 
     const STARTER_CAMP_CARDS = [
       { title: "Packers & Burgers Night", source: "Camp Steward", image: "campcards/images/packers-burgers.png", caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early.", story: "A featured camp story preserved by the Steward for the CampCards section." },
-      { title: "Campfire Card Games", source: "Member Submission • Steward Pick", image: "campcards/images/campcard-card-game.png", caption: "A member-submitted camp night the Steward chose to highlight — cards, laughter, and late-night cabin competition.", story: "A member-submitted camp moment the Steward selected to feature in CampCards." },
-      { title: "Mavis' Swiss Style Venison Steaks", source: "Member Submission • Steward Pick", image: "campcards/images/mavis-swiss-style-venison-steaks.png", caption: "Butter-knife soft venison steaks in a creamy gravy sauce.", story: "A member-submitted CampRecipe the Steward selected to feature in CampCards." },
-      { title: "First Buck Blood Cross", source: "Member Submission • Steward Pick", image: "campcards/images/first-buck-blood-cross.png", caption: "A first legal buck tradition marked with a small blood cross — a rite of passage the Steward chose to preserve.", story: "A member-submitted CampTradition the Steward selected to feature in CampCards." }
+      { title: "First Coffee at Camp", source: "Camp Steward", image: "campcards/images/first-coffee.png", caption: "The first mug of camp coffee before daylight and before the woods wake up.", story: "A featured camp story preserved by the Steward for the CampCards section." },
+      { title: "Campfire Camaraderie", source: "Camp Steward", image: "campcards/images/campfire-camaraderie.png", caption: "Stories, laughter, and the kind of campfire talk that becomes tradition.", story: "A featured camp story preserved by the Steward for the CampCards section." },
+      { title: "Fall Scouting Loop", source: "Camp Steward", image: "campcards/images/fall-scouting.png", caption: "An evening scouting walk that sets the tone for the whole season.", story: "A featured camp story preserved by the Steward for the CampCards section." }
     ];
 
 
@@ -4589,6 +4697,7 @@ function normalizeCampRecipe(item, index = 0) {
 
     resetCalendarForm();
     resetStandForm();
+    configureDashboardShareModal();
     render();
   </script>
 </body>
