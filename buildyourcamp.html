@@ -75,6 +75,12 @@
     }
     .brand h1 { margin: 0; font-size: 1.2rem; }
     .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    .brand-welcome {
+      margin-top: 6px !important;
+      color: var(--brown-deep) !important;
+      font-size: 0.98rem !important;
+      font-weight: 700;
+    }
     .rule-card {
       margin-bottom: 18px;
       padding: 14px;
@@ -394,6 +400,7 @@
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Onboarding Wizard</p>
+          <p id="sidebarWelcomeText" class="brand-welcome">Welcome Steward</p>
         </div>
       </div>
 
@@ -622,6 +629,24 @@
       const campName = getResolvedCampName();
       return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
     }
+    function getStewardFirstName() {
+      const fullName = getFirstFilledValue(
+        state?.steward?.name,
+        wizardState?.steward?.name,
+        campData?.stewardName,
+        campData?.steward,
+        prefill?.stewardName
+      );
+      const first = String(fullName || "").trim().split(/\s+/).filter(Boolean)[0] || "";
+      return first || "Steward";
+    }
+
+    function syncSidebarWelcome() {
+      const welcomeNode = document.getElementById("sidebarWelcomeText");
+      if (!welcomeNode) return;
+      welcomeNode.textContent = `Welcome ${getStewardFirstName()}`;
+    }
+
 
     function buildStewardNameFromParams(params) {
       const direct = String(params.get("campSteward") || params.get("stewardName") || "").trim();
@@ -1084,6 +1109,7 @@
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = getWizardHeading();
+      syncSidebarWelcome();
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
@@ -1105,6 +1131,7 @@
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
       wizardTitle.textContent = getWizardHeading();
+      syncSidebarWelcome();
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
