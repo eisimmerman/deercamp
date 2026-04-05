@@ -1110,10 +1110,13 @@
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
-      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
+      const resolvedHeroPath = resolveHeroTemplatePath(state.camp.hero || '');
+      const heroPreview = document.getElementById('heroPreview');
+      heroPreview.style.backgroundImage = resolvedHeroPath ? `linear-gradient(180deg, rgba(69,42,22,0.14), rgba(69,42,22,0.30)), url('${resolvedHeroPath}')` : '';
+      heroPreview.style.backgroundSize = resolvedHeroPath ? 'cover' : '';
+      heroPreview.style.backgroundPosition = resolvedHeroPath ? 'center 18%' : '';
+      heroPreview.style.backgroundRepeat = resolvedHeroPath ? 'no-repeat' : '';
+      document.getElementById('heroPreviewPath').textContent = resolvedHeroPath || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -1246,7 +1249,7 @@
       state.camp.city = document.getElementById('campCity').value.trim();
       state.camp.state = normalizeStateCode(document.getElementById('campState').value.trim());
       state.camp.zip = document.getElementById('campZip').value.trim();
-      state.camp.hero = document.getElementById('campHero').value.trim();
+      state.camp.hero = resolveHeroTemplatePath(document.getElementById('campHero').value.trim());
       state.camp.summary = document.getElementById('campSummary').value.trim();
       state.camp.brand = document.getElementById('campBrand').value.trim();
       state.camp.accessNote = document.getElementById('campAccess').value.trim();
@@ -1279,7 +1282,7 @@
       document.getElementById('campCity').value = state.camp.city || '';
       document.getElementById('campState').value = normalizeStateCode(state.camp.state || '');
       document.getElementById('campZip').value = state.camp.zip || '';
-      document.getElementById('campHero').value = state.camp.hero || '';
+      document.getElementById('campHero').value = resolveHeroTemplatePath(state.camp.hero || '');
       document.getElementById('campSummary').value = state.camp.summary || '';
       document.getElementById('campBrand').value = state.camp.brand || '';
       document.getElementById('campAccess').value = state.camp.accessNote || '';
