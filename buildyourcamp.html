@@ -75,6 +75,12 @@
     }
     .brand h1 { margin: 0; font-size: 1.2rem; }
     .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    .brand-welcome {
+      margin-top: 6px !important;
+      color: var(--brown-deep) !important;
+      font-size: 0.98rem !important;
+      font-weight: 700;
+    }
     .rule-card {
       margin-bottom: 18px;
       padding: 14px;
@@ -394,6 +400,7 @@
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Onboarding Wizard</p>
+          <p id="sidebarWelcomeText" class="brand-welcome">Welcome Steward</p>
         </div>
       </div>
 
@@ -620,8 +627,26 @@
 
     function getWizardHeading() {
       const campName = getResolvedCampName();
-      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
+      return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
     }
+    function getStewardFirstName() {
+      const fullName = getFirstFilledValue(
+        state?.steward?.name,
+        wizardState?.steward?.name,
+        campData?.stewardName,
+        campData?.steward,
+        prefill?.stewardName
+      );
+      const first = String(fullName || "").trim().split(/\s+/).filter(Boolean)[0] || "";
+      return first || "Steward";
+    }
+
+    function syncSidebarWelcome() {
+      const welcomeNode = document.getElementById("sidebarWelcomeText");
+      if (!welcomeNode) return;
+      welcomeNode.textContent = `Welcome ${getStewardFirstName()}`;
+    }
+
 
     function buildStewardNameFromParams(params) {
       const direct = String(params.get("campSteward") || params.get("stewardName") || "").trim();
@@ -1090,6 +1115,7 @@
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = getWizardHeading();
+      syncSidebarWelcome();
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
@@ -1111,16 +1137,20 @@
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
       wizardTitle.textContent = getWizardHeading();
+      syncSidebarWelcome();
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
-      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
+      const resolvedHeroPath = resolveHeroTemplatePath(state.camp.hero || '');
+      const heroPreview = document.getElementById('heroPreview');
+      heroPreview.style.backgroundImage = resolvedHeroPath ? `linear-gradient(180deg, rgba(69,42,22,0.14), rgba(69,42,22,0.30)), url('${resolvedHeroPath}')` : '';
+      heroPreview.style.backgroundSize = resolvedHeroPath ? 'cover' : '';
+      heroPreview.style.backgroundPosition = resolvedHeroPath ? 'center 18%' : '';
+      heroPreview.style.backgroundRepeat = resolvedHeroPath ? 'no-repeat' : '';
+      document.getElementById('heroPreviewPath').textContent = resolvedHeroPath || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -1253,7 +1283,7 @@
       state.camp.city = document.getElementById('campCity').value.trim();
       state.camp.state = normalizeStateCode(document.getElementById('campState').value.trim());
       state.camp.zip = document.getElementById('campZip').value.trim();
-      state.camp.hero = document.getElementById('campHero').value.trim();
+      state.camp.hero = resolveHeroTemplatePath(document.getElementById('campHero').value.trim());
       state.camp.summary = document.getElementById('campSummary').value.trim();
       state.camp.brand = document.getElementById('campBrand').value.trim();
       state.camp.accessNote = document.getElementById('campAccess').value.trim();
@@ -1286,12 +1316,13 @@
       document.getElementById('campCity').value = state.camp.city || '';
       document.getElementById('campState').value = normalizeStateCode(state.camp.state || '');
       document.getElementById('campZip').value = state.camp.zip || '';
-      document.getElementById('campHero').value = state.camp.hero || '';
+      document.getElementById('campHero').value = resolveHeroTemplatePath(state.camp.hero || '');
       document.getElementById('campSummary').value = state.camp.summary || '';
       document.getElementById('campBrand').value = state.camp.brand || '';
       document.getElementById('campAccess').value = state.camp.accessNote || '';
       document.getElementById('stewardName').value = state.steward.name || '';
       document.getElementById('stewardEmail').value = state.steward.email || '';
+      syncSidebarWelcome();
       syncCampProfilePreview();
       renderMemberList();
       renderSectionToggles();
