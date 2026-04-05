@@ -641,29 +641,16 @@ function buildCampUrl(path, campId) {
   return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
 }
 
-function buildBuilderResumeUrl(path, payload = {}) {
+function buildBuilderResumeUrl(path, campId, campName) {
   const url = new URL(path, window.location.href);
-  const appendIfPresent = (key, value) => {
-    const cleanValue = String(value || "").trim();
-    if (cleanValue) {
-      url.searchParams.set(key, cleanValue);
-    }
-  };
-
-  appendIfPresent("campId", payload.campId);
-  appendIfPresent("campName", payload.campName);
-  appendIfPresent("campCity", payload.campCity || payload.city);
-  appendIfPresent("campState", payload.campState || payload.state);
-  appendIfPresent("campZip", payload.campZip || payload.zip);
-  appendIfPresent("campYear", payload.campYear || payload.established);
-  appendIfPresent("campSteward", payload.campSteward || payload.stewardName);
-  appendIfPresent("campStewardEmail", payload.campStewardEmail || payload.stewardEmail || payload.email);
-  appendIfPresent("campMembers", payload.campMembers);
-  appendIfPresent("campTraditionsCustom", payload.campTraditionsCustom);
-  appendIfPresent("campDeerDrives", payload.campDeerDrives);
-  appendIfPresent("heroTemplate", payload.heroTemplate);
-  appendIfPresent("campDescription", payload.campDescription);
-
+  const cleanCampId = String(campId || "").trim();
+  const cleanCampName = String(campName || "").trim();
+  if (cleanCampId) {
+    url.searchParams.set("campId", cleanCampId);
+  }
+  if (cleanCampName) {
+    url.searchParams.set("campName", cleanCampName);
+  }
   const query = url.searchParams.toString();
   return `${url.pathname}${query ? `?${query}` : ""}`;
 }
@@ -806,6 +793,7 @@ function buildDefaultMemberProfile(name, role = "Camp Member") {
     role,
     roleTitle: isSteward ? "Camp administrator" : "Camp Member",
     responsibilities: isSteward ? [...STEWARD_RESPONSIBILITIES] : [...MEMBER_RESPONSIBILITIES],
+    status: isSteward ? "Active" : "Invited",
     yearJoined: "—",
     favoriteStand: "—",
     favoriteGear: "—",
@@ -1982,43 +1970,21 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
-  const handoffPayload = {
-    campId,
+  const welcomePayload = {
     campName: name,
-    campCity: city,
-    campState: normalizeState(state) || state,
-    campZip: zip,
+    city,
+    state: normalizeState(state) || state,
+    zip,
     campYear: year,
-    campSteward: stewardName,
-    campStewardEmail: stewardEmail,
+    stewardName,
+    stewardFirstName,
+    stewardLastName,
+    stewardEmail,
     campMembers: campMembers.join(", "),
     campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
     campDeerDrives: deerDrives.join(", "),
     heroTemplate: selectedSign.file,
-    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp")
-  };
-
-  const welcomePayload = {
-    campId,
-    campName: name,
-    campCity: city,
-    city,
-    campState: normalizeState(state) || state,
-    state: normalizeState(state) || state,
-    campZip: zip,
-    zip,
-    campYear: year,
-    campSteward: stewardName,
-    stewardName,
-    stewardFirstName,
-    stewardLastName,
-    campStewardEmail: stewardEmail,
-    stewardEmail,
-    campMembers: handoffPayload.campMembers,
-    campTraditionsCustom: handoffPayload.campTraditionsCustom,
-    campDeerDrives: handoffPayload.campDeerDrives,
-    heroTemplate: selectedSign.file,
-    campDescription: handoffPayload.campDescription,
+    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
     send: true
   };
 
@@ -2052,7 +2018,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }));
   }
 
-  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", handoffPayload);
+  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", campId, name);
 });
 </script>
 </body>
