@@ -2963,7 +2963,11 @@ function normalizeCampRecipe(item, index = 0) {
     dashboardState.campStands = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : [];
     dashboardState.camp.feedQueued = Number(dashboardState.camp.feedQueued || 0);
     dashboardState.camp.feedSynced = Number(dashboardState.camp.feedSynced || 0);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+    if (!activeCampId) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+    } else if (scopedDashboardStorageKey) {
+      localStorage.setItem(scopedDashboardStorageKey, JSON.stringify(dashboardState));
+    }
     syncCampDataFromDashboard();
 
     function syncCampDataFromDashboard() {
@@ -3174,8 +3178,9 @@ function normalizeCampRecipe(item, index = 0) {
         dashboardState.camp.campId = currentCampId;
         localStorage.setItem(ACTIVE_CAMP_KEY, currentCampId);
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
-      if (currentCampId) {
+      if (!currentCampId) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+      } else {
         const nextScopedDashboardKey = campScopeKey(currentCampId, "dashboard");
         if (nextScopedDashboardKey) localStorage.setItem(nextScopedDashboardKey, JSON.stringify(dashboardState));
       }
@@ -3381,11 +3386,7 @@ function normalizeCampRecipe(item, index = 0) {
       const needsSetupCount = statuses.filter(item => item.state === "Needs Setup" || item.state === "Empty").length;
       const incompleteProfiles = activePeople.filter(person => !isProfileComplete(person)).length;
       const recentlySaved = wasSavedRecently(dashboardState.lastSaved);
-      const setupIncomplete = Boolean(
-        needsSetupCount ||
-        pendingPeople.length ||
-        incompleteProfiles
-      );
+      const setupIncomplete = Boolean(needsSetupCount || pendingPeople.length || incompleteProfiles);
       const setupComplete = !setupIncomplete;
 
       document.getElementById("statActiveMembers").textContent = activePeople.length;
@@ -3404,14 +3405,14 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("readinessSectionsSub").textContent = needsSetupCount ? `${needsSetupCount} section${needsSetupCount === 1 ? "" : "s"} still need setup or content.` : "Core camp sections look launch-ready.";
 
       const attentionList = document.getElementById("attentionList");
-      const attentionPanel = attentionList?.closest(".panel");
-      const attentionTitle = attentionPanel?.querySelector("h3");
-      const attentionHelper = attentionPanel?.querySelector(".helper");
+      const attentionPanel = attentionList.closest(".panel");
+      const attentionTitle = attentionPanel.querySelector("h3");
+      const attentionHelper = attentionPanel.querySelector(".helper");
 
       const items = [];
       if (setupIncomplete) {
-        if (attentionTitle) attentionTitle.textContent = "Finish your camp setup";
-        if (attentionHelper) attentionHelper.textContent = "Complete any remaining profile, member, or section details to prepare your camp for launch.";
+        attentionTitle.textContent = "Finish your camp setup";
+        attentionHelper.textContent = "Complete any remaining profile, member, or section details to prepare your camp for launch.";
 
         if (campProfileStatus?.state !== "Live") {
           items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
@@ -3422,6 +3423,7 @@ function normalizeCampRecipe(item, index = 0) {
         if (incompleteProfiles) {
           items.push(buildAttentionItem(`${incompleteProfiles} incomplete active profile${incompleteProfiles > 1 ? "s" : ""}`, "Finish joined year, favorite stand, gear, and memory details for better public popups.", "profiles-finish"));
         }
+
         const actionKeyBySection = {
           campfeed: "campfeed-manage",
           stands: "stands-manage",
@@ -3436,18 +3438,19 @@ function normalizeCampRecipe(item, index = 0) {
           items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
         });
       } else if (recentlySaved) {
-        if (attentionTitle) attentionTitle.textContent = "Changes saved";
-        if (attentionHelper) attentionHelper.textContent = "Your updates are in place. Tap View Camp Page to review the live camp experience.";
+        attentionTitle.textContent = "Changes saved";
+        attentionHelper.textContent = "Your updates are in place. Tap View Camp Page to review the live camp experience.";
         items.push(`<div class="summary-item"><strong>Changes saved</strong><span>Your updates are in place. Tap <strong>View Camp Page</strong> to review the live camp experience.</span></div>`);
       } else if (setupComplete) {
-        if (attentionTitle) attentionTitle.textContent = "Your DeerCamp is ready to review";
-        if (attentionHelper) attentionHelper.textContent = "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.";
+        attentionTitle.textContent = "Your DeerCamp is ready to review";
+        attentionHelper.textContent = "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.";
         items.push(`<div class="summary-item"><strong>Your DeerCamp is ready to review</strong><span>The main camp sections now have content. Save your changes, then tap <strong>View Camp Page</strong> to see how your DeerCamp looks live.</span></div>`);
       }
 
       if (!items.length) {
         items.push(`<div class="summary-item"><strong>Finish your camp setup</strong><span>Complete any remaining profile, member, or section details to prepare your camp for launch.</span></div>`);
       }
+
       attentionList.innerHTML = items.join("");
       bindAttentionChecklist();
 
