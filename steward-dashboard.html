@@ -1000,7 +1000,7 @@
           <div class="split-grid">
             <div class="panel">
               <h3>What needs your attention</h3>
-              <p class="helper">Check a box below to highlight the matching Fast Action to complete it.</p>
+              <p class="helper" id="dashboardAttentionHelper">Check a box below to highlight the matching Fast Action to complete it.</p>
               <div class="summary-list" id="attentionList"></div>
             </div>
 
@@ -2793,6 +2793,7 @@ function normalizeCampRecipe(item, index = 0) {
               .map(normalizeStand)
               .filter(Boolean);
             parsed.lastSaved = parsed.lastSaved || "";
+            parsed.lastSavedAt = parsed.lastSavedAt || 0;
             return parsed;
           }
         } catch (error) {
@@ -2926,7 +2927,8 @@ function normalizeCampRecipe(item, index = 0) {
         campMemories,
         campRecipes,
         calendarEvents: campCalendarEvents,
-        lastSaved: ""
+        lastSaved: "",
+        lastSavedAt: 0
       };
     }
 
@@ -3146,6 +3148,7 @@ function normalizeCampRecipe(item, index = 0) {
     function saveState(showMessage = false) {
       applyRosterGovernance();
       dashboardState.lastSaved = currentTimestampLabel();
+      dashboardState.lastSavedAt = Date.now();
       const currentCampId = String(dashboardState.camp.campId || activeCampId || "").trim();
       if (currentCampId) {
         dashboardState.camp.campId = currentCampId;
@@ -3349,6 +3352,43 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("campFeedSyncSub").textContent = synced ? "These represent the feed items already synced into the live camp experience." : "Once synced, CampFeed should read from the backend source of truth.";
     }
 
+    function getDashboardSetupState(statuses, campProfileStatus, pendingPeople, incompleteProfiles) {
+      const incompleteSectionStatuses = statuses.filter(item => item.state === "Needs Setup" || item.state === "Empty");
+      const hasIncompleteSetup = Boolean(
+        campProfileStatus?.state !== "Live" ||
+        pendingPeople.length ||
+        incompleteProfiles ||
+        incompleteSectionStatuses.length
+      );
+      if (hasIncompleteSetup) return "incomplete";
+
+      const lastSavedAt = Number(dashboardState.lastSavedAt || 0);
+      const isRecentlySaved = lastSavedAt && (Date.now() - lastSavedAt) <= (10 * 60 * 1000);
+      return isRecentlySaved ? "recently-saved" : "complete";
+    }
+
+    function getDashboardGuidanceCopy(setupState) {
+      if (setupState === "recently-saved") {
+        return {
+          title: "Changes saved",
+          detail: "Your updates are in place. Tap View Camp Page to review the live camp experience.",
+          helper: "Your latest updates are saved. Use View Camp Page to review the live camp experience.",
+        };
+      }
+      if (setupState === "complete") {
+        return {
+          title: "Your DeerCamp is ready to review",
+          detail: "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.",
+          helper: "Your launch basics are in place. Save your changes, then use View Camp Page to review the live camp experience.",
+        };
+      }
+      return {
+        title: "Finish your camp setup",
+        detail: "Complete any remaining profile, member, or section details to prepare your camp for launch.",
+        helper: "Check a box below to highlight the matching Fast Action to complete it.",
+      };
+    }
+
     function renderDashboardHome() {
       const activePeople = dashboardState.people.filter(person => person.status === "Active");
       const pendingPeople = dashboardState.people.filter(person => person.status === "Invited");
@@ -3373,37 +3413,47 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("readinessSectionsSub").textContent = needsSetupCount ? `${needsSetupCount} section${needsSetupCount === 1 ? "" : "s"} still need setup or content.` : "Core camp sections look launch-ready.";
 
       const attentionList = document.getElementById("attentionList");
-      const items = [];
-      if (campProfileStatus?.state !== "Live") {
-        items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
-      }
-      if (pendingPeople.length) {
-        items.push(buildAttentionItem(`${pendingPeople.length} pending invite${pendingPeople.length > 1 ? "s" : ""}`, "Follow up with invited members or activate them after they join.", "membership-invite"));
-      }
+      const attentionHelper = document.getElementById("dashboardAttentionHelper");
       const incompleteProfiles = activePeople.filter(person => !isProfileComplete(person)).length;
-      if (incompleteProfiles) {
-        items.push(buildAttentionItem(`${incompleteProfiles} incomplete active profile${incompleteProfiles > 1 ? "s" : ""}`, "Finish joined year, favorite stand, gear, and memory details for better public popups.", "profiles-finish"));
+      const setupState = getDashboardSetupState(statuses, campProfileStatus, pendingPeople, incompleteProfiles);
+      const guidance = getDashboardGuidanceCopy(setupState);
+      if (attentionHelper) attentionHelper.textContent = guidance.helper;
+
+      const items = [];
+
+      if (setupState === "incomplete") {
+        items.push(`<div class="summary-item"><strong>${guidance.title}</strong><span>${guidance.detail}</span></div>`);
+
+        if (campProfileStatus?.state !== "Live") {
+          items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
+        }
+        if (pendingPeople.length) {
+          items.push(buildAttentionItem(`${pendingPeople.length} pending invite${pendingPeople.length > 1 ? "s" : ""}`, "Follow up with invited members or activate them after they join.", "membership-invite"));
+        }
+        if (incompleteProfiles) {
+          items.push(buildAttentionItem(`${incompleteProfiles} incomplete active profile${incompleteProfiles > 1 ? "s" : ""}`, "Finish joined year, favorite stand, gear, and memory details for better public popups.", "profiles-finish"));
+        }
+        const actionKeyBySection = {
+          campfeed: "campfeed-manage",
+          stands: "stands-manage",
+          deerdrives: "deerdrives-manage",
+          calendar: "calendar-manage",
+          campcards: "campcards-manage",
+          campmemories: "campmemories-manage",
+          camprecipes: "camprecipes-manage",
+          traditions: "traditions-manage"
+        };
+        statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0,4).forEach(item => {
+          items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
+        });
+        const feedStatus = statuses.find(item => item.key === "campfeed");
+        if (feedStatus && feedStatus.state !== "Live") {
+          items.push(buildAttentionItem("CampFeed sync model", feedStatus.detail, "campfeed-manage"));
+        }
+      } else {
+        items.push(`<div class="summary-item"><strong>${guidance.title}</strong><span>${guidance.detail}</span></div>`);
       }
-      const actionKeyBySection = {
-        campfeed: "campfeed-manage",
-        stands: "stands-manage",
-        deerdrives: "deerdrives-manage",
-        calendar: "calendar-manage",
-        campcards: "campcards-manage",
-        campmemories: "campmemories-manage",
-        camprecipes: "camprecipes-manage",
-        traditions: "traditions-manage"
-      };
-      statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0,4).forEach(item => {
-        items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
-      });
-      const feedStatus = statuses.find(item => item.key === "campfeed");
-      if (feedStatus) {
-        items.push(buildAttentionItem("CampFeed sync model", feedStatus.detail, "campfeed-manage"));
-      }
-      if (!items.length) {
-        items.push(`<div class="summary-item"><strong>Launch basics look good</strong><span>CampProfile, membership, and key sections are in a healthy state. Use Fast Actions for final polish.</span></div>`);
-      }
+
       attentionList.innerHTML = items.join("");
       bindAttentionChecklist();
 
