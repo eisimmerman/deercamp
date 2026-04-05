@@ -620,7 +620,7 @@
 
     function getWizardHeading() {
       const campName = getResolvedCampName();
-      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
+      return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
     }
 
     function buildStewardNameFromParams(params) {
@@ -739,8 +739,6 @@
       return signFile ? `assets/heroes/${signFile}` : "";
     }
 
-    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
-
     function getPrefillFromUrl() {
       const params = new URLSearchParams(window.location.search || "");
       const campMembers = parseCommaList(params.get("campMembers") || "");
@@ -767,6 +765,7 @@
     }
 
     const prefill = getPrefillFromUrl();
+    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
 
     function deriveCampIdFromWizard(camp = {}) {
       const parts = [camp.name, camp.city, camp.state, camp.zip]
@@ -1055,7 +1054,7 @@
         : (Array.isArray(campData.memberProfiles)
           ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
           : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Active" })) : []))))),
-      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), (campData.enabledSections && typeof campData.enabledSections === "object" ? campData.enabledSections : {}), (dashboardState.camp?.enabledSections && typeof dashboardState.camp.enabledSections === "object" ? dashboardState.camp.enabledSections : {}), wizardState.sections || {}),
+      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
       starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
       autosavedAt: wizardState.autosavedAt || "",
       prefill: {
@@ -1317,9 +1316,6 @@
       nextCampData.feedSourceMode = 'app';
       nextCampData.feedModeration = 'review';
       nextCampData.feedOfflinePolicy = 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.';
-      nextCampData.enabledSections = Object.assign({}, state.sections);
-      nextCampData.publishState = String(campData.publishState || dashboardState.camp?.publishState || 'private').trim().toLowerCase() === 'public' ? 'public' : 'private';
-      nextCampData.isPublic = nextCampData.publishState === 'public';
       nextCampData.stewardName = state.steward.name || campData.stewardName || '';
       nextCampData.steward = state.steward.name || campData.steward || '';
       nextCampData.campSteward = state.steward.name || campData.campSteward || '';
@@ -1397,19 +1393,10 @@
           feedSourceMode: 'app',
           feedModeration: 'review',
           feedOfflinePolicy: 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.',
-          enabledSections: Object.assign({}, state.sections),
-          publishState: nextCampData.publishState || 'private',
           slug: slugify(nextCampData.name) || 'deercamp',
           campId: nextCampData.campId
         },
         people: nextCampData.memberProfiles,
-        deerDrives: Array.isArray(nextCampData.deerDrives) ? nextCampData.deerDrives.slice() : [],
-        traditions: Array.isArray(nextCampData.traditions) ? nextCampData.traditions.slice() : [],
-        campCards: Array.isArray(nextCampData.campCards) ? nextCampData.campCards.slice() : [],
-        campMemories: Array.isArray(nextCampData.memories) ? nextCampData.memories.slice() : (Array.isArray(nextCampData.wallOfFame) ? nextCampData.wallOfFame.slice() : []),
-        campRecipes: Array.isArray(nextCampData.recipeObjects) ? nextCampData.recipeObjects.slice() : (Array.isArray(nextCampData.recipes) ? nextCampData.recipes.slice() : []),
-        calendarEvents: Array.isArray(nextCampData.calendarEvents) ? nextCampData.calendarEvents.slice() : [],
-        campStands: Array.isArray(nextCampData.campStands) ? nextCampData.campStands.slice() : (Array.isArray(nextCampData.stands) ? nextCampData.stands.slice() : []),
         lastSaved: currentTimestampLabel()
       });
 
