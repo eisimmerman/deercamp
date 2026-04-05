@@ -641,16 +641,27 @@ function buildCampUrl(path, campId) {
   return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
 }
 
-function buildBuilderResumeUrl(path, campId, campName) {
+function buildBuilderResumeUrl(path, payload = {}) {
   const url = new URL(path, window.location.href);
-  const cleanCampId = String(campId || "").trim();
-  const cleanCampName = String(campName || "").trim();
-  if (cleanCampId) {
-    url.searchParams.set("campId", cleanCampId);
-  }
-  if (cleanCampName) {
-    url.searchParams.set("campName", cleanCampName);
-  }
+  const entries = [
+    ["campId", payload.campId],
+    ["campName", payload.campName],
+    ["campCity", payload.city],
+    ["campState", payload.state],
+    ["campZip", payload.zip],
+    ["campYear", payload.campYear],
+    ["campSteward", payload.stewardName],
+    ["campStewardEmail", payload.stewardEmail],
+    ["campMembers", payload.campMembers],
+    ["campTraditionsCustom", payload.campTraditionsCustom],
+    ["campDeerDrives", payload.campDeerDrives],
+    ["heroTemplate", payload.heroTemplate],
+    ["campDescription", payload.campDescription]
+  ];
+  entries.forEach(([key, value]) => {
+    const clean = String(value || "").trim();
+    if (clean) url.searchParams.set(key, clean);
+  });
   const query = url.searchParams.toString();
   return `${url.pathname}${query ? `?${query}` : ""}`;
 }
@@ -793,7 +804,6 @@ function buildDefaultMemberProfile(name, role = "Camp Member") {
     role,
     roleTitle: isSteward ? "Camp administrator" : "Camp Member",
     responsibilities: isSteward ? [...STEWARD_RESPONSIBILITIES] : [...MEMBER_RESPONSIBILITIES],
-    status: isSteward ? "Active" : "Invited",
     yearJoined: "—",
     favoriteStand: "—",
     favoriteGear: "—",
@@ -1971,6 +1981,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
   const welcomePayload = {
+    campId,
     campName: name,
     city,
     state: normalizeState(state) || state,
@@ -2018,7 +2029,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }));
   }
 
-  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", campId, name);
+  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", welcomePayload);
 });
 </script>
 </body>
