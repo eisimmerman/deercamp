@@ -423,6 +423,57 @@
     .field.span-2 { grid-column: 1 / -1; }
     .field-note { font-size: 0.82rem; color: var(--muted); }
 
+    .publish-switch {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      width: fit-content;
+      max-width: 100%;
+    }
+
+    .publish-switch input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .publish-switch-track {
+      position: relative;
+      width: 62px;
+      height: 34px;
+      border-radius: 999px;
+      background: rgba(69,42,22,0.16);
+      flex: 0 0 auto;
+      transition: background 0.18s ease;
+    }
+
+    .publish-switch-thumb {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 26px;
+      height: 26px;
+      border-radius: 999px;
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.18);
+      transition: transform 0.18s ease;
+    }
+
+    .publish-switch input:checked + .publish-switch-track {
+      background: rgba(73,102,71,0.7);
+    }
+
+    .publish-switch input:checked + .publish-switch-track .publish-switch-thumb {
+      transform: translateX(28px);
+    }
+
+    .publish-switch-copy {
+      color: var(--brown-deep);
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
     .person-card {
       display: grid;
       grid-template-columns: 64px 1fr auto;
@@ -974,6 +1025,7 @@
           <p id="topbarSubtitle">Steward control center for camp members, invites, and profile details.</p>
         </div>
         <div class="topbar-actions">
+          <button class="btn btn-soft" id="dashboardBackBtn" type="button" style="display:none;">Back</button>
           <button class="btn btn-secondary" id="viewCampPageBtn">View Camp Page</button>
           <button class="btn btn-secondary" id="shareDeerCampBtn">Share DeerCamp</button>
           <button class="btn btn-primary" id="saveAllBtn">Save Changes</button>
@@ -1074,6 +1126,15 @@
                 <div class="field span-2">
                   <label for="campProfileBrand">Camp Sign / Branding Image Path</label>
                   <input id="campProfileBrand" type="text" placeholder="assets/branding/deer-track.png" />
+                </div>
+                <div class="field span-2">
+                  <label for="campProfilePublishToggle">Camp Visibility</label>
+                  <label class="publish-switch" for="campProfilePublishToggle">
+                    <input id="campProfilePublishToggle" type="checkbox" />
+                    <span class="publish-switch-track"><span class="publish-switch-thumb"></span></span>
+                    <span id="campProfilePublishLabel" class="publish-switch-copy">Private — shared links send people to DeerCamp home until you make this camp public.</span>
+                  </label>
+                  <div class="field-note"><strong>Private</strong> keeps share links pointed to DeerCamp home. Switch to <strong>Public</strong> when you want shared links to open this camp’s unique public page.</div>
                 </div>
                 <div class="field span-2">
                   <div class="field-note">Autosaves while you type. Existing steward work is respected and not replaced unless you edit it.</div>
@@ -2040,7 +2101,35 @@
     const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || "").trim();
     const scopedDashboardStorageKey = campScopeKey(activeCampId, "dashboard");
     const scopedCampDataStorageKey = campScopeKey(activeCampId, "campData");
+    const HOME_PAGE_URL = "https://ourdeercamp.com/index.html";
 
+    function buildCampUrl(path, campId) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+    }
+
+    function normalizePublishState(value = "") {
+      return String(value || "").trim().toLowerCase() === "public" ? "public" : "private";
+    }
+
+    function getResolvedDashboardCampId() {
+      return String(dashboardState?.camp?.campId || activeCampId || "").trim();
+    }
+
+    function getDashboardShareUrl() {
+      const publishState = normalizePublishState(dashboardState?.camp?.publishState || "private");
+      const currentCampId = getResolvedDashboardCampId();
+      if (publishState === "public" && currentCampId) {
+        return new URL(buildCampUrl("camp.html", currentCampId), window.location.href).href;
+      }
+      return HOME_PAGE_URL;
+    }
+
+    function getDashboardShareDescription() {
+      return normalizePublishState(dashboardState?.camp?.publishState || "private") === "public"
+        ? "This camp is public. Shared links open this camp’s unique public page."
+        : "This camp is private. Shared links point people to DeerCamp home until the Steward switches the camp to Public.";
+    }
 
     const defaultStewardResponsibilities = [
       "Creates and manages the camp",
@@ -2286,19 +2375,6 @@
     function currentTimestampLabel() {
       return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     }
-    function parseSavedTimestamp(value = "") {
-      const raw = String(value || "").trim();
-      if (!raw || raw === "Not yet") return null;
-      const parsed = new Date(raw);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-
-    function wasSavedRecently(value = "", windowMinutes = 15) {
-      const savedAt = parseSavedTimestamp(value);
-      if (!savedAt) return false;
-      return (Date.now() - savedAt.getTime()) <= windowMinutes * 60 * 1000;
-    }
-
 
     function normalizeDateKey(value) {
       if (!value) return "";
@@ -2744,7 +2820,6 @@ function normalizeCampRecipe(item, index = 0) {
 
     function sanitizeLocalStorageDriveData() {
       try {
-        if (activeCampId) return;
         const rawCampData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
         const rawDashboardData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
 
@@ -2783,9 +2858,7 @@ function normalizeCampRecipe(item, index = 0) {
     }
 
     function deriveDashboardData() {
-      const saved = activeCampId
-        ? (scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) : null)
-        : (scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) || localStorage.getItem(STORAGE_KEY) : localStorage.getItem(STORAGE_KEY));
+      const saved = scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) || localStorage.getItem(STORAGE_KEY) : localStorage.getItem(STORAGE_KEY);
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -2818,11 +2891,7 @@ function normalizeCampRecipe(item, index = 0) {
 
       let campData = {};
       try {
-        campData = safeParseStoredJson(
-          activeCampId
-            ? ((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || "{}")
-            : (((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}"))
-        , {});
+        campData = safeParseStoredJson((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}", {});
       } catch (error) {
         campData = {};
       }
@@ -2935,6 +3004,8 @@ function normalizeCampRecipe(item, index = 0) {
           feedSourceMode: campData.feedSourceMode || "app",
           feedModeration: campData.feedModeration || "review",
           feedOfflinePolicy: campData.feedOfflinePolicy || "Save locally at camp, queue uploads automatically, and sync when a connection becomes available.",
+          enabledSections: campData.enabledSections && typeof campData.enabledSections === "object" ? { ...campData.enabledSections } : { campfeed: true, stands: true, deerdrives: true, calendar: true, campcards: true, campmemories: true, camprecipes: true, traditions: true },
+          publishState: normalizePublishState(campData.publishState || campData.visibility || "private"),
           slug: slugify(campName) || "deercamp",
           campId: activeCampId || campData.campId || slugify([campName, city, state, campData.zip || ""].filter(Boolean).join("-")) || "ourdeercamp"
         },
@@ -2957,28 +3028,22 @@ function normalizeCampRecipe(item, index = 0) {
       ? dashboardState.deerDrives.map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)))
       : ["North Field", "South Field"].map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)));
     dashboardState.traditions = Array.isArray(dashboardState.traditions) ? dashboardState.traditions : [];
-    dashboardState.campCards = Array.isArray(dashboardState.campCards) ? dashboardState.campCards : STARTER_CAMP_CARDS.map(normalizeCampCard).filter(Boolean);
-    dashboardState.campMemories = Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : STARTER_CAMP_MEMORIES.map(normalizeCampMemory).filter(Boolean);
-    dashboardState.campRecipes = Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : STARTER_CAMP_RECIPES.map(normalizeCampRecipe).filter(Boolean);
-    dashboardState.calendarEvents = Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents.map(normalizeCalendarEvent).filter(Boolean) : [];
-    dashboardState.campStands = Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : [];
+    dashboardState.campCards = dashboardState.camp.enabledSections?.campcards === false ? [] : (Array.isArray(dashboardState.campCards) ? dashboardState.campCards : STARTER_CAMP_CARDS.map(normalizeCampCard).filter(Boolean));
+    dashboardState.campMemories = dashboardState.camp.enabledSections?.campmemories === false ? [] : (Array.isArray(dashboardState.campMemories) ? dashboardState.campMemories : STARTER_CAMP_MEMORIES.map(normalizeCampMemory).filter(Boolean));
+    dashboardState.campRecipes = dashboardState.camp.enabledSections?.camprecipes === false ? [] : (Array.isArray(dashboardState.campRecipes) ? dashboardState.campRecipes : STARTER_CAMP_RECIPES.map(normalizeCampRecipe).filter(Boolean));
+    dashboardState.calendarEvents = dashboardState.camp.enabledSections?.calendar === false ? [] : (Array.isArray(dashboardState.calendarEvents) ? dashboardState.calendarEvents.map(normalizeCalendarEvent).filter(Boolean) : []);
+    dashboardState.campStands = dashboardState.camp.enabledSections?.stands === false ? [] : (Array.isArray(dashboardState.campStands) ? dashboardState.campStands.map(normalizeStand).filter(Boolean) : []);
     dashboardState.camp.feedQueued = Number(dashboardState.camp.feedQueued || 0);
     dashboardState.camp.feedSynced = Number(dashboardState.camp.feedSynced || 0);
-    if (!activeCampId) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
-    } else if (scopedDashboardStorageKey) {
-      localStorage.setItem(scopedDashboardStorageKey, JSON.stringify(dashboardState));
-    }
+    dashboardState.camp.enabledSections = Object.assign({ campfeed: true, stands: true, deerdrives: true, calendar: true, campcards: true, campmemories: true, camprecipes: true, traditions: true }, dashboardState.camp.enabledSections || {});
+    dashboardState.camp.publishState = normalizePublishState(dashboardState.camp.publishState || "private");
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
     syncCampDataFromDashboard();
 
     function syncCampDataFromDashboard() {
       let campData = {};
       try {
-        campData = safeParseStoredJson(
-          activeCampId
-            ? ((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || "{}")
-            : (((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}"))
-        , {});
+        campData = safeParseStoredJson((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}", {});
       } catch (error) {
         campData = {};
       }
@@ -3141,6 +3206,9 @@ function normalizeCampRecipe(item, index = 0) {
         feedSourceMode: dashboardState.camp.feedSourceMode || campData.feedSourceMode || "app",
         feedModeration: dashboardState.camp.feedModeration || campData.feedModeration || "review",
         feedOfflinePolicy: dashboardState.camp.feedOfflinePolicy || campData.feedOfflinePolicy || "",
+        enabledSections: Object.assign({}, dashboardState.camp.enabledSections || campData.enabledSections || {}),
+        publishState: normalizePublishState(dashboardState.camp.publishState || campData.publishState || "private"),
+        isPublic: normalizePublishState(dashboardState.camp.publishState || campData.publishState || "private") === "public",
         stewardName: steward?.name || campData.stewardName || campData.steward || "",
         steward: steward?.name || campData.steward || campData.stewardName || "",
         campSteward: steward?.name || campData.campSteward || campData.stewardName || "",
@@ -3179,9 +3247,8 @@ function normalizeCampRecipe(item, index = 0) {
         dashboardState.camp.campId = currentCampId;
         localStorage.setItem(ACTIVE_CAMP_KEY, currentCampId);
       }
-      if (!currentCampId) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
-      } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(dashboardState));
+      if (currentCampId) {
         const nextScopedDashboardKey = campScopeKey(currentCampId, "dashboard");
         if (nextScopedDashboardKey) localStorage.setItem(nextScopedDashboardKey, JSON.stringify(dashboardState));
       }
@@ -3212,22 +3279,49 @@ function normalizeCampRecipe(item, index = 0) {
         || dashboardState.people[0];
     }
 
+    let currentTab = "dashboard";
+    const tabHistory = [];
+
+    function updateDashboardBackButton() {
+      const backBtn = document.getElementById("dashboardBackBtn");
+      if (!backBtn) return;
+      backBtn.style.display = currentTab === "dashboard" ? "none" : "";
+    }
+
     function setTopbar(tab) {
       document.getElementById("topbarTitle").textContent = tabMeta[tab].title;
       document.getElementById("topbarSubtitle").textContent = tabMeta[tab].subtitle;
+      updateDashboardBackButton();
     }
 
-    function showTab(tabName) {
-      document.querySelectorAll(".nav-link[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === tabName));
-      document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === `tab-${tabName}`));
-      setTopbar(tabName);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    function showTab(tabName, options = {}) {
+      const nextTab = tabMeta[tabName] ? tabName : "dashboard";
+      const shouldRecordHistory = options.recordHistory !== false;
+      if (shouldRecordHistory && currentTab && currentTab !== nextTab) {
+        tabHistory.push(currentTab);
+      }
+      currentTab = nextTab;
+      document.querySelectorAll(".nav-link[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === nextTab));
+      document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === `tab-${nextTab}`));
+      setTopbar(nextTab);
+      if (options.scroll !== false) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    }
+
+    function goBackTab() {
+      const previous = tabHistory.pop() || "dashboard";
+      showTab(previous, { recordHistory: false });
     }
 
     function renderSidebar() {
       const camp = dashboardState.camp;
       document.getElementById("sidebarCampName").textContent = camp.name;
       document.getElementById("sidebarCampMeta").textContent = `${camp.location || [camp.city, camp.state].filter(Boolean).join(", ") || "Camp location"} • Est. ${camp.established || "—"}`;
+    }
+
+    function isSectionEnabled(key) {
+      return dashboardState?.camp?.enabledSections?.[key] !== false;
     }
 
     function getSectionStatuses() {
@@ -3242,28 +3336,28 @@ function normalizeCampRecipe(item, index = 0) {
       statuses.push({ key: "campProfile", label: "CampProfile", state: campProfileReady ? "Live" : "Needs Setup", detail: campProfileReady ? "Camp identity is ready for public display." : "Add summary, location, and hero details." });
 
       const traditionsCount = (dashboardState.traditions || []).length;
-      statuses.push({ key: "traditions", label: "CampTraditions", state: traditionsCount ? "Starter Content Loaded" : "Needs Setup", detail: traditionsCount ? `${traditionsCount} tradition${traditionsCount === 1 ? "" : "s"} saved.` : "Add starter or custom traditions." });
+      statuses.push({ key: "traditions", label: "CampTraditions", state: !isSectionEnabled("traditions") ? "Hidden" : (traditionsCount ? "Starter Content Loaded" : "Needs Setup"), detail: !isSectionEnabled("traditions") ? "Section is turned off for this camp." : (traditionsCount ? `${traditionsCount} tradition${traditionsCount === 1 ? "" : "s"} saved.` : "Add starter or custom traditions.") });
 
       const cardsCount = (dashboardState.campCards || []).filter(item => item.status !== "Removed").length;
-      statuses.push({ key: "campcards", label: "CampCards", state: cardsCount ? "Starter Content Loaded" : "Needs Setup", detail: cardsCount ? `${cardsCount} featured stor${cardsCount === 1 ? "y" : "ies"} ready.` : "Curate featured stories for the public page." });
+      statuses.push({ key: "campcards", label: "CampCards", state: !isSectionEnabled("campcards") ? "Hidden" : (cardsCount ? "Starter Content Loaded" : "Needs Setup"), detail: !isSectionEnabled("campcards") ? "Section is turned off for this camp." : (cardsCount ? `${cardsCount} featured stor${cardsCount === 1 ? "y" : "ies"} ready.` : "Curate featured stories for the public page.") });
 
       const memoriesCount = (dashboardState.campMemories || []).filter(item => item.status !== "Removed").length;
-      statuses.push({ key: "campmemories", label: "CampMemories", state: memoriesCount ? "Starter Content Loaded" : "Needs Setup", detail: memoriesCount ? `${memoriesCount} memory card${memoriesCount === 1 ? "" : "s"} saved.` : "Add wall-of-fame winners or legacy memories." });
+      statuses.push({ key: "campmemories", label: "CampMemories", state: !isSectionEnabled("campmemories") ? "Hidden" : (memoriesCount ? "Starter Content Loaded" : "Needs Setup"), detail: !isSectionEnabled("campmemories") ? "Section is turned off for this camp." : (memoriesCount ? `${memoriesCount} memory card${memoriesCount === 1 ? "" : "s"} saved.` : "Add wall-of-fame winners or legacy memories.") });
 
       const recipesCount = (dashboardState.campRecipes || []).filter(item => item.status !== "Removed").length;
-      statuses.push({ key: "camprecipes", label: "CampRecipes", state: recipesCount ? "Starter Content Loaded" : "Needs Setup", detail: recipesCount ? `${recipesCount} recipe${recipesCount === 1 ? "" : "s"} active.` : "Add camp recipes so the section feels alive." });
+      statuses.push({ key: "camprecipes", label: "CampRecipes", state: !isSectionEnabled("camprecipes") ? "Hidden" : (recipesCount ? "Starter Content Loaded" : "Needs Setup"), detail: !isSectionEnabled("camprecipes") ? "Section is turned off for this camp." : (recipesCount ? `${recipesCount} recipe${recipesCount === 1 ? "" : "s"} active.` : "Add camp recipes so the section feels alive.") });
 
       const standsCount = (dashboardState.campStands || []).filter(item => item.status !== "Removed").length;
-      statuses.push({ key: "stands", label: "CampStands", state: standsCount ? "Live" : "Needs Setup", detail: standsCount ? `${standsCount} stand${standsCount === 1 ? "" : "s"} configured.` : "Build out the stand map before season starts." });
+      statuses.push({ key: "stands", label: "CampStands", state: !isSectionEnabled("stands") ? "Hidden" : (standsCount ? "Live" : "Needs Setup"), detail: !isSectionEnabled("stands") ? "Section is turned off for this camp." : (standsCount ? `${standsCount} stand${standsCount === 1 ? "" : "s"} configured.` : "Build out the stand map before season starts.") });
 
       const driveCount = (dashboardState.deerDrives || []).length;
-      statuses.push({ key: "deerdrives", label: "CampDeerDrives", state: driveCount ? "Live" : "Needs Setup", detail: driveCount ? `${driveCount} drive plan${driveCount === 1 ? "" : "s"} configured.` : "Set deer drives from the finished stand map." });
+      statuses.push({ key: "deerdrives", label: "CampDeerDrives", state: !isSectionEnabled("deerdrives") ? "Hidden" : (driveCount ? "Live" : "Needs Setup"), detail: !isSectionEnabled("deerdrives") ? "Section is turned off for this camp." : (driveCount ? `${driveCount} drive plan${driveCount === 1 ? "" : "s"} configured.` : "Set deer drives from the finished stand map.") });
 
       const calendarCount = (dashboardState.calendarEvents || []).filter(item => item.status !== "Removed").length;
-      statuses.push({ key: "calendar", label: "CampCalendar", state: calendarCount ? "Live" : "Needs Setup", detail: calendarCount ? `${calendarCount} calendar event${calendarCount === 1 ? "" : "s"} saved.` : "Add opener dates, weekends, and meals." });
+      statuses.push({ key: "calendar", label: "CampCalendar", state: !isSectionEnabled("calendar") ? "Hidden" : (calendarCount ? "Live" : "Needs Setup"), detail: !isSectionEnabled("calendar") ? "Section is turned off for this camp." : (calendarCount ? `${calendarCount} calendar event${calendarCount === 1 ? "" : "s"} saved.` : "Add opener dates, weekends, and meals.") });
 
       const feedMode = dashboardState.camp.feedSourceMode || "app";
-      statuses.push({ key: "campfeed", label: "CampFeed", state: feedMode === "app" || feedMode === "hybrid" ? "Live" : "Needs Setup", detail: feedMode === "app" || feedMode === "hybrid" ? `Source mode: ${feedMode === "app" ? "DeerCamp App" : "App + local queue"}.` : "Wire the app sync policy before ship." });
+      statuses.push({ key: "campfeed", label: "CampFeed", state: !isSectionEnabled("campfeed") ? "Hidden" : (feedMode === "app" || feedMode === "hybrid" ? "Live" : "Needs Setup"), detail: !isSectionEnabled("campfeed") ? "Section is turned off for this camp." : (feedMode === "app" || feedMode === "hybrid" ? `Source mode: ${feedMode === "app" ? "DeerCamp App" : "App + local queue"}.` : "Wire the app sync policy before ship.") });
       return statuses;
     }
 
@@ -3342,6 +3436,15 @@ function normalizeCampRecipe(item, index = 0) {
         const el = document.getElementById(id);
         if (el && el.value !== value) el.value = value;
       });
+      const publishToggle = document.getElementById("campProfilePublishToggle");
+      const publishLabel = document.getElementById("campProfilePublishLabel");
+      const publishState = normalizePublishState(camp.publishState || "private");
+      if (publishToggle) publishToggle.checked = publishState === "public";
+      if (publishLabel) {
+        publishLabel.textContent = publishState === "public"
+          ? "Public — shared links open this camp’s unique public page."
+          : "Private — shared links send people to DeerCamp home until you make this camp public.";
+      }
       document.getElementById("campProfilePreviewAvatar").textContent = initialsFromName(camp.name || "DeerCamp");
       document.getElementById("campProfilePreviewName").textContent = camp.name || "DeerCamp";
       const meta = [ [camp.city, camp.state].filter(Boolean).join(", "), camp.zip, camp.established ? `Est. ${camp.established}` : ""].filter(Boolean).join(" • ");
@@ -3385,10 +3488,6 @@ function normalizeCampRecipe(item, index = 0) {
       const statuses = getSectionStatuses();
       const liveCount = statuses.filter(item => item.state === "Live" || item.state === "Starter Content Loaded").length;
       const needsSetupCount = statuses.filter(item => item.state === "Needs Setup" || item.state === "Empty").length;
-      const incompleteProfiles = activePeople.filter(person => !isProfileComplete(person)).length;
-      const recentlySaved = wasSavedRecently(dashboardState.lastSaved);
-      const setupIncomplete = Boolean(needsSetupCount || pendingPeople.length || incompleteProfiles);
-      const setupComplete = !setupIncomplete;
 
       document.getElementById("statActiveMembers").textContent = activePeople.length;
       document.getElementById("statPendingInvites").textContent = pendingPeople.length;
@@ -3406,52 +3505,37 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("readinessSectionsSub").textContent = needsSetupCount ? `${needsSetupCount} section${needsSetupCount === 1 ? "" : "s"} still need setup or content.` : "Core camp sections look launch-ready.";
 
       const attentionList = document.getElementById("attentionList");
-      const attentionPanel = attentionList.closest(".panel");
-      const attentionTitle = attentionPanel.querySelector("h3");
-      const attentionHelper = attentionPanel.querySelector(".helper");
-
       const items = [];
-      if (setupIncomplete) {
-        attentionTitle.textContent = "Finish your camp setup";
-        attentionHelper.textContent = "Complete any remaining profile, member, or section details to prepare your camp for launch.";
-
-        if (campProfileStatus?.state !== "Live") {
-          items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
-        }
-        if (pendingPeople.length) {
-          items.push(buildAttentionItem(`${pendingPeople.length} pending invite${pendingPeople.length > 1 ? "s" : ""}`, "Follow up with invited members or activate them after they join.", "membership-invite"));
-        }
-        if (incompleteProfiles) {
-          items.push(buildAttentionItem(`${incompleteProfiles} incomplete active profile${incompleteProfiles > 1 ? "s" : ""}`, "Finish joined year, favorite stand, gear, and memory details for better public popups.", "profiles-finish"));
-        }
-
-        const actionKeyBySection = {
-          campfeed: "campfeed-manage",
-          stands: "stands-manage",
-          deerdrives: "deerdrives-manage",
-          calendar: "calendar-manage",
-          campcards: "campcards-manage",
-          campmemories: "campmemories-manage",
-          camprecipes: "camprecipes-manage",
-          traditions: "traditions-manage"
-        };
-        statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0, 4).forEach(item => {
-          items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
-        });
-      } else if (recentlySaved) {
-        attentionTitle.textContent = "Changes saved";
-        attentionHelper.textContent = "Your updates are in place. Tap View Camp Page to review the live camp experience.";
-        items.push(`<div class="summary-item"><strong>Changes saved</strong><span>Your updates are in place. Tap <strong>View Camp Page</strong> to review the live camp experience.</span></div>`);
-      } else if (setupComplete) {
-        attentionTitle.textContent = "Your DeerCamp is ready to review";
-        attentionHelper.textContent = "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.";
-        items.push(`<div class="summary-item"><strong>Your DeerCamp is ready to review</strong><span>The main camp sections now have content. Save your changes, then tap <strong>View Camp Page</strong> to see how your DeerCamp looks live.</span></div>`);
+      if (campProfileStatus?.state !== "Live") {
+        items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
       }
-
+      if (pendingPeople.length) {
+        items.push(buildAttentionItem(`${pendingPeople.length} pending invite${pendingPeople.length > 1 ? "s" : ""}`, "Follow up with invited members or activate them after they join.", "membership-invite"));
+      }
+      const incompleteProfiles = activePeople.filter(person => !isProfileComplete(person)).length;
+      if (incompleteProfiles) {
+        items.push(buildAttentionItem(`${incompleteProfiles} incomplete active profile${incompleteProfiles > 1 ? "s" : ""}`, "Finish joined year, favorite stand, gear, and memory details for better public popups.", "profiles-finish"));
+      }
+      const actionKeyBySection = {
+        campfeed: "campfeed-manage",
+        stands: "stands-manage",
+        deerdrives: "deerdrives-manage",
+        calendar: "calendar-manage",
+        campcards: "campcards-manage",
+        campmemories: "campmemories-manage",
+        camprecipes: "camprecipes-manage",
+        traditions: "traditions-manage"
+      };
+      statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0,4).forEach(item => {
+        items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
+      });
+      const feedStatus = statuses.find(item => item.key === "campfeed");
+      if (feedStatus) {
+        items.push(buildAttentionItem("CampFeed sync model", feedStatus.detail, "campfeed-manage"));
+      }
       if (!items.length) {
-        items.push(`<div class="summary-item"><strong>Finish your camp setup</strong><span>Complete any remaining profile, member, or section details to prepare your camp for launch.</span></div>`);
+        items.push(`<div class="summary-item"><strong>Launch basics look good</strong><span>CampProfile, membership, and key sections are in a healthy state. Use Fast Actions for final polish.</span></div>`);
       }
-
       attentionList.innerHTML = items.join("");
       bindAttentionChecklist();
 
@@ -4171,6 +4255,72 @@ function normalizeCampRecipe(item, index = 0) {
       showToast._timer = setTimeout(() => toast.classList.remove("show"), 2400);
     }
 
+    function configureDashboardShareModal() {
+      const openBtn = document.getElementById("shareDeerCampBtn");
+      const backdrop = document.getElementById("dashboardShareModalBackdrop");
+      const modal = document.getElementById("dashboardShareModal");
+      const closeBtn = document.getElementById("closeDashboardShareModal");
+      const linkInput = document.getElementById("dashboardShareLinkInput");
+      const copyBtn = document.getElementById("dashboardCopyShareLinkBtn");
+      const feedback = document.getElementById("dashboardShareFeedback");
+      const byEmail = document.getElementById("dashboardShareByEmail");
+      const byText = document.getElementById("dashboardShareByText");
+      const byFacebook = document.getElementById("dashboardShareByFacebook");
+      const nativeBtn = document.getElementById("dashboardNativeShareBtn");
+      if (!openBtn || !backdrop || !modal || !closeBtn || !linkInput || !copyBtn || !feedback || !byEmail || !byText || !byFacebook || !nativeBtn) return;
+
+      const closeModal = () => {
+        modal.classList.remove("open");
+        backdrop.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+        feedback.textContent = "";
+      };
+
+      const syncShareUi = () => {
+        const shareUrl = getDashboardShareUrl();
+        const shareTitle = dashboardState?.camp?.name ? `DeerCamp — ${dashboardState.camp.name}` : "DeerCamp";
+        const shareText = getDashboardShareDescription();
+        const mailBody = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
+        const encodedTitle = encodeURIComponent(shareTitle);
+        linkInput.value = shareUrl;
+        byEmail.href = `mailto:?subject=${encodedTitle}&body=${mailBody}`;
+        byText.href = `sms:?&body=${mailBody}`;
+        byFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+        nativeBtn.onclick = async () => {
+          try {
+            if (navigator.share) {
+              await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+              feedback.textContent = "Share sheet opened.";
+            } else {
+              await navigator.clipboard.writeText(shareUrl);
+              feedback.textContent = "Share link copied.";
+            }
+          } catch (error) {
+            if (error && error.name === "AbortError") return;
+            feedback.textContent = "Unable to open share options right now.";
+          }
+        };
+      };
+
+      openBtn.addEventListener("click", () => {
+        syncShareUi();
+        modal.classList.add("open");
+        backdrop.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+      });
+      closeBtn.addEventListener("click", closeModal);
+      backdrop.addEventListener("click", closeModal);
+      copyBtn.addEventListener("click", async () => {
+        syncShareUi();
+        try {
+          await navigator.clipboard.writeText(linkInput.value);
+          feedback.textContent = "Share link copied.";
+        } catch (error) {
+          feedback.textContent = "Could not copy the share link.";
+        }
+      });
+    }
+
     function openProfileDrawer(id) {
       const person = dashboardState.people.find(entry => entry.id === id);
       if (!person) return;
@@ -4336,6 +4486,7 @@ function normalizeCampRecipe(item, index = 0) {
       dashboardState.camp.summary = document.getElementById("campProfileSummary").value.trim();
       dashboardState.camp.hero = resolveDashboardAssetPath(document.getElementById("campProfileHero").value.trim(), "hero");
       dashboardState.camp.brandImage = resolveDashboardAssetPath(document.getElementById("campProfileBrand").value.trim(), "brand");
+      dashboardState.camp.publishState = document.getElementById("campProfilePublishToggle").checked ? "public" : "private";
       dashboardState.camp.location = [dashboardState.camp.city, dashboardState.camp.state].filter(Boolean).join(", ");
       dashboardState.camp.slug = slugify(dashboardState.camp.name) || dashboardState.camp.slug || "deercamp";
     }
@@ -4783,78 +4934,20 @@ function normalizeCampRecipe(item, index = 0) {
       saveState(true);
     });
 
-    document.getElementById("viewCampPageBtn").addEventListener("click", () => {
-      window.location.href = "camp.html";
+    document.getElementById("dashboardBackBtn")?.addEventListener("click", () => {
+      goBackTab();
     });
 
-    function configureDashboardShareModal() {
-      const backdrop = document.getElementById("dashboardShareModalBackdrop");
-      const modal = document.getElementById("dashboardShareModal");
-      const closeBtn = document.getElementById("closeDashboardShareModal");
-      const openBtn = document.getElementById("shareDeerCampBtn");
-      const copyBtn = document.getElementById("dashboardCopyShareLinkBtn");
-      const nativeBtn = document.getElementById("dashboardNativeShareBtn");
-      const input = document.getElementById("dashboardShareLinkInput");
-      const feedback = document.getElementById("dashboardShareFeedback");
-      const emailLink = document.getElementById("dashboardShareByEmail");
-      const textLink = document.getElementById("dashboardShareByText");
-      const facebookLink = document.getElementById("dashboardShareByFacebook");
-      const shareUrl = "https://ourdeercamp.com";
-      const shareText = "Start your own DeerCamp in 5 minutes";
-
-      if (!backdrop || !modal || !closeBtn || !openBtn || !copyBtn || !nativeBtn || !input || !feedback || !emailLink || !textLink || !facebookLink) return;
-
-      input.value = shareUrl;
-      emailLink.href = `mailto:?subject=${encodeURIComponent("Check out DeerCamp")}&body=${encodeURIComponent(`${shareText}
-
-${shareUrl}`)}`;
-      textLink.href = `sms:?body=${encodeURIComponent(`${shareText} ${shareUrl}`)}`;
-      facebookLink.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
-
-      function openModal() {
-        modal.classList.add("open");
-        backdrop.classList.add("open");
-        modal.setAttribute("aria-hidden", "false");
-        feedback.textContent = "";
-      }
-
-      function closeModal() {
-        modal.classList.remove("open");
-        backdrop.classList.remove("open");
-        modal.setAttribute("aria-hidden", "true");
-      }
-
-      openBtn.addEventListener("click", openModal);
-      closeBtn.addEventListener("click", closeModal);
-      backdrop.addEventListener("click", closeModal);
-
-      copyBtn.addEventListener("click", async () => {
-        try {
-          await navigator.clipboard.writeText(shareUrl);
-          feedback.textContent = "Link copied.";
-        } catch (error) {
-          input.select();
-          document.execCommand("copy");
-          feedback.textContent = "Link copied.";
-        }
-      });
-
-      nativeBtn.addEventListener("click", async () => {
-        if (navigator.share) {
-          try {
-            await navigator.share({ title: "DeerCamp", text: shareText, url: shareUrl });
-            feedback.textContent = "Shared.";
-          } catch (error) {}
-        } else {
-          feedback.textContent = "Use the copy, email, text, or Facebook options above.";
-        }
-      });
-    }
+    document.getElementById("viewCampPageBtn").addEventListener("click", () => {
+      const currentCampId = getResolvedDashboardCampId();
+      window.location.href = buildCampUrl("camp.html", currentCampId);
+    });
 
     resetCalendarForm();
     resetStandForm();
     configureDashboardShareModal();
     render();
+    showTab(currentTab, { recordHistory: false, scroll: false });
   </script>
 </body>
 </html>

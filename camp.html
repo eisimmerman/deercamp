@@ -2933,6 +2933,11 @@ function campScopeKey(campId, suffix) {
   return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
 }
 
+function buildCampUrl(path, campId) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+}
+
 function safeParseJson(raw, fallback = {}) {
   try { return JSON.parse(raw || JSON.stringify(fallback)) || fallback; }
   catch { return fallback; }
@@ -2947,6 +2952,17 @@ localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 if (!Object.keys(scopedCampData).length && Object.keys(data || {}).length) {
   localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(Object.assign({}, data, { campId: activeCampId })));
 }
+try {
+  const currentUrl = new URL(window.location.href);
+  if (activeCampId && currentUrl.searchParams.get("campId") !== activeCampId) {
+    currentUrl.searchParams.set("campId", activeCampId);
+    window.history.replaceState({}, "", `${currentUrl.pathname}?${currentUrl.searchParams.toString()}`);
+  }
+} catch (error) {
+  // ignore URL rewrite issues
+}
+const enabledSections = Object.assign({ campfeed: true, stands: true, deerdrives: true, calendar: true, campcards: true, campmemories: true, camprecipes: true, traditions: true }, data.enabledSections && typeof data.enabledSections === "object" ? data.enabledSections : {});
+const publishState = String(data.publishState || data.visibility || "private").trim().toLowerCase() === "public" ? "public" : "private";
 const FEED_COMMENTS_KEY = `deerCampFeedComments:${activeCampId}`;
 const defaultTraditionLinks = {
   "Arnold Bar & Grill Buck Pool": "https://maps.app.goo.gl/DhaxcRFTHt9ysVHz5"
@@ -3416,6 +3432,7 @@ function normalizeCampMemoryItem(item, index = 0) {
 }
 
 function getCampMemoriesSource() {
+  if (enabledSections.campmemories === false) return [];
   const suppliedMemories = Array.isArray(data.memories) ? data.memories : [];
   const suppliedWallOfFame = Array.isArray(data.wallOfFame) ? data.wallOfFame : [];
   const candidateSource = suppliedMemories.length ? suppliedMemories : suppliedWallOfFame;
@@ -3608,7 +3625,47 @@ const deerDrives = (Array.isArray(data.deerDrives) ? data.deerDrives : [])
   .map((item, index) => normalizeDeerDriveItem(item, index))
   .filter(Boolean);
 
+const normalizedCampStands = (
+  Array.isArray(data.campStands) ? data.campStands
+  : (Array.isArray(data.stands) ? data.stands
+  : (Array.isArray(data.campMap) ? data.campMap
+  : (Array.isArray(data.standMap) ? data.standMap : [])))
+)
+  .map((item, index) => {
+    if (!item) return null;
+    if (typeof item === "string") {
+      const name = item.trim();
+      return name ? { id: `stand-${index + 1}`, name, area: "", assignedHunter: "", backupHunter: "", bestWind: "", accessRoute: "", notes: "" } : null;
+    }
+    if (typeof item !== "object" || Array.isArray(item)) return null;
+    const name = String(item.name || item.title || item.label || item.standName || `Camp Stand ${index + 1}`).trim();
+    if (!name) return null;
+    return {
+      id: String(item.id || `stand-${index + 1}`).trim(),
+      name,
+      area: String(item.area || item.zone || item.location || "").trim(),
+      assignedHunter: String(item.assignedHunter || item.hunter || item.primaryHunter || "").trim(),
+      backupHunter: String(item.backupHunter || item.secondaryHunter || "").trim(),
+      bestWind: String(item.bestWind || item.wind || "").trim(),
+      accessRoute: String(item.accessRoute || item.route || "").trim(),
+      notes: String(item.notes || item.description || item.details || "").trim()
+    };
+  })
+  .filter(Boolean);
+
 const driveMemberNames = renderedMemberProfiles.map(member => String(member.name || "").trim()).filter(Boolean);
+
+function getStandPinPosition(index = 0, total = 1) {
+  const presets = [
+    { top: "18%", left: "72%" },
+    { top: "46%", left: "21%" },
+    { top: "68%", left: "56%" },
+    { top: "26%", left: "34%" },
+    { top: "62%", left: "78%" },
+    { top: "78%", left: "28%" }
+  ];
+  return presets[index % presets.length];
+}
 
 
 function escapeHtml(value = "") {
@@ -3948,17 +4005,17 @@ function getCampFeedEntries() {
 }
 
 const rawSections = [
-  { key: "feed", title: "CampFeed", hasContent: true, pinFirst: true },
-  { key: "campcards", title: "CampCards", hasContent: true },
+  { key: "feed", title: "CampFeed", hasContent: enabledSections.campfeed !== false, pinFirst: true },
+  { key: "campcards", title: "CampCards", hasContent: enabledSections.campcards !== false && normalizedCampCards.length > 0 },
   { key: "members", title: "CampMembers", hasContent: renderedMemberProfiles.length > 0 },
-  { key: "deerdrives", title: "CampDeerDrives", hasContent: deerDrives.length > 0 },
-  { key: "recipes", title: "CampRecipes", hasContent: true },
-  { key: "calendar", title: "CampCalendar", hasContent: true },
-  { key: "contentsubmission", title: "CampContent Submission", hasContent: true },
-  { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
-  { key: "memories", title: "CampMemories / Wall of Fame", hasContent: true },
-  { key: "map", title: "CampStands", hasContent: true }
-];
+  { key: "deerdrives", title: "CampDeerDrives", hasContent: enabledSections.deerdrives !== false && deerDrives.length > 0 },
+  { key: "recipes", title: "CampRecipes", hasContent: enabledSections.camprecipes !== false },
+  { key: "calendar", title: "CampCalendar", hasContent: enabledSections.calendar !== false },
+  { key: "contentsubmission", title: "CampContent Submission", hasContent: enabledSections.calendar !== false || enabledSections.camprecipes !== false || enabledSections.traditions !== false },
+  { key: "traditions", title: "CampTraditions", hasContent: enabledSections.traditions !== false && normalizedTraditions.length > 0 },
+  { key: "memories", title: "CampMemories / Wall of Fame", hasContent: enabledSections.campmemories !== false && normalizedCampMemories.length > 0 },
+  { key: "map", title: "CampStands", hasContent: enabledSections.stands !== false && normalizedCampStands.length > 0 }
+].filter(section => section.hasContent);
 
 const sections = [
   ...rawSections.filter(section => section.pinFirst),
@@ -5185,26 +5242,37 @@ Cook in cast iron until done"></textarea>
   }
 
   else if (section.key === "map") {
+    const standCards = normalizedCampStands.length ? normalizedCampStands : [
+      { name: "North Stand", notes: "Tap-able stand pins can open trail notes, best-wind guidance, sighting history, and deer movement trends." },
+      { name: "Oak Ridge", notes: "Track scrapes, rub lines, crossings, and wind reads." },
+      { name: "Creek Crossing", notes: "Keep seasonal intel where the camp can use it." }
+    ];
+    const mapImage = String(data.map || "assets/maps/cedar-ridge-map.jpg").trim() || "assets/maps/cedar-ridge-map.jpg";
+    const pinsHtml = standCards.map((stand, index) => {
+      const pos = getStandPinPosition(index, standCards.length);
+      return `<button type="button" class="map-pin" style="top:${pos.top}; left:${pos.left};">${escapeHtml(stand.name || `Stand ${index + 1}`)}</button>`;
+    }).join("");
+    const sideHtml = standCards.map((stand) => {
+      const metaBits = [stand.area, stand.assignedHunter ? `Assigned: ${stand.assignedHunter}` : "", stand.bestWind ? `Best wind: ${stand.bestWind}` : ""].filter(Boolean).join(" • ");
+      const note = stand.notes || stand.accessRoute || "Stand details saved by the Steward will appear here.";
+      return `<div class="map-legend-item"><span class="map-legend-icon">📍</span><div><strong>${escapeHtml(stand.name || "Camp Stand")}</strong><br>${escapeHtml(metaBits || note)}</div></div>`;
+    }).join("");
     container.innerHTML = `
       <h2>CampStands</h2>
-      <p class="section-helper">Placeholder example: interactive stand pins, notes, and scouting context will live here.</p>
+      <p class="section-helper">Saved stands from the Steward Dashboard appear here so members can quickly review locations, assignments, and scouting notes.</p>
       <div class="map-preview">
         <div class="map-preview-canvas">
-          <img src="assets/maps/cedar-ridge-map.jpg" class="map-preview-image" alt="Camp map preview">
+          <img src="${escapeAttr(mapImage)}" class="map-preview-image" alt="Camp stand map preview">
           <div class="map-preview-ribbon">Interactive preview</div>
-          <button type="button" class="map-pin map-pin--north">North Stand</button>
-          <button type="button" class="map-pin map-pin--ridge">Oak Ridge</button>
-          <button type="button" class="map-pin map-pin--creek">Creek Crossing</button>
-          <div class="map-preview-note">Tap-able stand pins can open trail notes, best-wind guidance, sighting history, and deer movement trends.</div>
+          ${pinsHtml}
+          <div class="map-preview-note">${escapeHtml((standCards[0] && (standCards[0].notes || standCards[0].accessRoute)) || "Tap stand pins to review saved notes and assignments.")}</div>
         </div>
 
         <div class="map-preview-sidecard">
-          <h3>Sneak Peek</h3>
-          <p>This preview shows the kind of map magic DeerCamp can surface for every camp: stand locations, scouting notes, and quick context tied to each spot.</p>
+          <h3>Saved Stand Notes</h3>
+          <p>Your live camp page is now using the stand list saved by the Steward instead of placeholder map labels.</p>
           <div class="map-legend">
-            <div class="map-legend-item"><span class="map-legend-icon">📍</span><div><strong>Stand pins</strong><br>Jump straight to a named location.</div></div>
-            <div class="map-legend-item"><span class="map-legend-icon">🧭</span><div><strong>Scouting context</strong><br>Track scrapes, rub lines, crossings, and wind reads.</div></div>
-            <div class="map-legend-item"><span class="map-legend-icon">🦌</span><div><strong>Deer movement notes</strong><br>Keep seasonal intel where the camp can use it.</div></div>
+            ${sideHtml}
           </div>
         </div>
       </div>
@@ -5236,6 +5304,14 @@ Cook in cast iron until done"></textarea>
     }
   }
 });
+const shareMenuLink = document.createElement("a");
+shareMenuLink.href = publishState === "public" ? buildCampUrl("camp.html", activeCampId) : "index.html";
+shareMenuLink.textContent = "Share DeerCamp";
+shareMenuLink.addEventListener("click", () => {
+  menu.classList.remove("open");
+  menuToggle.setAttribute("aria-expanded", "false");
+});
+menu.appendChild(shareMenuLink);
 
 menuToggle.addEventListener("click", () => {
   const isOpen = menu.classList.toggle("open");
@@ -6585,21 +6661,25 @@ let contentSubmissions = Array.isArray(data.contentSubmissions)
 function persistScopedCampData() {
   data.campId = activeCampId;
   data.contentSubmissions = contentSubmissions;
-  localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+  if (!getCampIdFromUrl()) {
+    localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+  }
   localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(data));
   localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 
   try {
     const dashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId, "dashboard")), null)
-      || safeParseJson(localStorage.getItem(DASHBOARD_KEY), null)
+      || (!getCampIdFromUrl() ? safeParseJson(localStorage.getItem(DASHBOARD_KEY), null) : null)
       || {};
     if (dashboard && typeof dashboard === "object") {
       dashboard.traditions = Array.isArray(data.traditions) ? data.traditions : [];
       dashboard.recipeObjects = Array.isArray(data.recipeObjects) ? data.recipeObjects : [];
       dashboard.calendarEvents = Array.isArray(data.calendarEvents) ? data.calendarEvents : [];
       dashboard.contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions : [];
-      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard));
       localStorage.setItem(campScopeKey(activeCampId, "dashboard"), JSON.stringify(dashboard));
+      if (!getCampIdFromUrl()) {
+        localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard));
+      }
     }
   } catch (error) {
     // ignore storage sync issues
