@@ -2286,6 +2286,19 @@
     function currentTimestampLabel() {
       return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
     }
+    function parseSavedTimestamp(value = "") {
+      const raw = String(value || "").trim();
+      if (!raw || raw === "Not yet") return null;
+      const parsed = new Date(raw);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function wasSavedRecently(value = "", windowMinutes = 15) {
+      const savedAt = parseSavedTimestamp(value);
+      if (!savedAt) return false;
+      return (Date.now() - savedAt.getTime()) <= windowMinutes * 60 * 1000;
+    }
+
 
     function normalizeDateKey(value) {
       if (!value) return "";
@@ -2769,7 +2782,9 @@ function normalizeCampRecipe(item, index = 0) {
     }
 
     function deriveDashboardData() {
-      const saved = activeCampId ? (scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) : null) : localStorage.getItem(STORAGE_KEY);
+      const saved = activeCampId
+        ? (scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) : null)
+        : (scopedDashboardStorageKey ? localStorage.getItem(scopedDashboardStorageKey) || localStorage.getItem(STORAGE_KEY) : localStorage.getItem(STORAGE_KEY));
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
@@ -2802,7 +2817,11 @@ function normalizeCampRecipe(item, index = 0) {
 
       let campData = {};
       try {
-        campData = safeParseStoredJson((activeCampId ? (scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) : localStorage.getItem(CAMP_DATA_KEY)) || "{}", {});
+        campData = safeParseStoredJson(
+          activeCampId
+            ? ((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || "{}")
+            : (((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}"))
+        , {});
       } catch (error) {
         campData = {};
       }
@@ -2932,9 +2951,6 @@ function normalizeCampRecipe(item, index = 0) {
 
     sanitizeLocalStorageDriveData();
     let dashboardState = deriveDashboardData();
-    if (dashboardState?.camp?.campId) {
-      localStorage.setItem(ACTIVE_CAMP_KEY, String(dashboardState.camp.campId).trim());
-    }
     applyRosterGovernance();
     dashboardState.deerDrives = Array.isArray(dashboardState.deerDrives)
       ? dashboardState.deerDrives.map((drive, index) => normalizeDrive(drive, index, dashboardState.people.map(person => person.name)))
@@ -2953,7 +2969,11 @@ function normalizeCampRecipe(item, index = 0) {
     function syncCampDataFromDashboard() {
       let campData = {};
       try {
-        campData = safeParseStoredJson((activeCampId ? (scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) : localStorage.getItem(CAMP_DATA_KEY)) || "{}", {});
+        campData = safeParseStoredJson(
+          activeCampId
+            ? ((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || "{}")
+            : (((scopedCampDataStorageKey ? localStorage.getItem(scopedCampDataStorageKey) : null) || localStorage.getItem(CAMP_DATA_KEY) || "{}"))
+        , {});
       } catch (error) {
         campData = {};
       }
@@ -3360,14 +3380,13 @@ function normalizeCampRecipe(item, index = 0) {
       const liveCount = statuses.filter(item => item.state === "Live" || item.state === "Starter Content Loaded").length;
       const needsSetupCount = statuses.filter(item => item.state === "Needs Setup" || item.state === "Empty").length;
       const incompleteProfiles = activePeople.filter(person => !isProfileComplete(person)).length;
-      const campProfileStatus = statuses.find(item => item.key === "campProfile");
-      const hasOutstandingSetup = Boolean(
-        campProfileStatus?.state !== "Live" ||
+      const recentlySaved = wasSavedRecently(dashboardState.lastSaved);
+      const setupIncomplete = Boolean(
+        needsSetupCount ||
         pendingPeople.length ||
-        incompleteProfiles ||
-        needsSetupCount
+        incompleteProfiles
       );
-      const hasRecentlySaved = Boolean(String(dashboardState.lastSaved || "").trim());
+      const setupComplete = !setupIncomplete;
 
       document.getElementById("statActiveMembers").textContent = activePeople.length;
       document.getElementById("statPendingInvites").textContent = pendingPeople.length;
@@ -3376,6 +3395,7 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("statStewardName").textContent = steward ? steward.name.split(" ")[0] : "—";
       document.getElementById("statLastSaved").textContent = dashboardState.lastSaved || "Not yet";
 
+      const campProfileStatus = statuses.find(item => item.key === "campProfile");
       document.getElementById("readinessCampIdentity").textContent = campProfileStatus?.state === "Live" ? "Camp identity ready" : "Camp identity needs setup";
       document.getElementById("readinessCampIdentitySub").textContent = campProfileStatus?.detail || "CampProfile still needs setup.";
       document.getElementById("readinessMembers").textContent = pendingPeople.length ? "Members need attention" : "Members ready";
@@ -3383,29 +3403,16 @@ function normalizeCampRecipe(item, index = 0) {
       document.getElementById("readinessSections").textContent = needsSetupCount ? "Sections need setup" : "Sections ready";
       document.getElementById("readinessSectionsSub").textContent = needsSetupCount ? `${needsSetupCount} section${needsSetupCount === 1 ? "" : "s"} still need setup or content.` : "Core camp sections look launch-ready.";
 
-      const attentionPanel = document.querySelector('#tab-dashboard .panel');
-      const attentionHelper = attentionPanel ? attentionPanel.querySelector('.helper') : null;
       const attentionList = document.getElementById("attentionList");
+      const attentionPanel = attentionList?.closest(".panel");
+      const attentionTitle = attentionPanel?.querySelector("h3");
+      const attentionHelper = attentionPanel?.querySelector(".helper");
+
       const items = [];
+      if (setupIncomplete) {
+        if (attentionTitle) attentionTitle.textContent = "Finish your camp setup";
+        if (attentionHelper) attentionHelper.textContent = "Complete any remaining profile, member, or section details to prepare your camp for launch.";
 
-      if (hasOutstandingSetup) {
-        if (attentionHelper) {
-          attentionHelper.textContent = "Complete any remaining profile, member, or section details to prepare your camp for launch.";
-        }
-        items.push(`<div class="summary-item"><strong>Finish your camp setup</strong><span>Complete any remaining profile, member, or section details to prepare your camp for launch.</span></div>`);
-      } else if (hasRecentlySaved) {
-        if (attentionHelper) {
-          attentionHelper.textContent = "Your updates are in place. Tap View Camp Page to review the live camp experience.";
-        }
-        items.push(`<div class="summary-item"><strong>Changes saved</strong><span>Your updates are in place. Tap View Camp Page to review the live camp experience.</span></div>`);
-      } else {
-        if (attentionHelper) {
-          attentionHelper.textContent = "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.";
-        }
-        items.push(`<div class="summary-item"><strong>Your DeerCamp is ready to review</strong><span>The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.</span></div>`);
-      }
-
-      if (hasOutstandingSetup) {
         if (campProfileStatus?.state !== "Live") {
           items.push(buildAttentionItem("Complete CampProfile", "Add camp summary, location, hero, and access notes so the camp identity feels complete.", "campprofile-edit"));
         }
@@ -3425,11 +3432,22 @@ function normalizeCampRecipe(item, index = 0) {
           camprecipes: "camprecipes-manage",
           traditions: "traditions-manage"
         };
-        statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0,4).forEach(item => {
+        statuses.filter(item => item.state === "Needs Setup" && item.key !== "campProfile").slice(0, 4).forEach(item => {
           items.push(buildAttentionItem(`${item.label} needs setup`, item.detail, actionKeyBySection[item.key] || ""));
         });
+      } else if (recentlySaved) {
+        if (attentionTitle) attentionTitle.textContent = "Changes saved";
+        if (attentionHelper) attentionHelper.textContent = "Your updates are in place. Tap View Camp Page to review the live camp experience.";
+        items.push(`<div class="summary-item"><strong>Changes saved</strong><span>Your updates are in place. Tap <strong>View Camp Page</strong> to review the live camp experience.</span></div>`);
+      } else if (setupComplete) {
+        if (attentionTitle) attentionTitle.textContent = "Your DeerCamp is ready to review";
+        if (attentionHelper) attentionHelper.textContent = "The main camp sections now have content. Save your changes, then tap View Camp Page to see how your DeerCamp looks live.";
+        items.push(`<div class="summary-item"><strong>Your DeerCamp is ready to review</strong><span>The main camp sections now have content. Save your changes, then tap <strong>View Camp Page</strong> to see how your DeerCamp looks live.</span></div>`);
       }
 
+      if (!items.length) {
+        items.push(`<div class="summary-item"><strong>Finish your camp setup</strong><span>Complete any remaining profile, member, or section details to prepare your camp for launch.</span></div>`);
+      }
       attentionList.innerHTML = items.join("");
       bindAttentionChecklist();
 
