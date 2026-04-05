@@ -2744,6 +2744,7 @@ function normalizeCampRecipe(item, index = 0) {
 
     function sanitizeLocalStorageDriveData() {
       try {
+        if (activeCampId) return;
         const rawCampData = JSON.parse(localStorage.getItem(CAMP_DATA_KEY) || "{}") || {};
         const rawDashboardData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {};
 
@@ -4785,6 +4786,70 @@ function normalizeCampRecipe(item, index = 0) {
     document.getElementById("viewCampPageBtn").addEventListener("click", () => {
       window.location.href = "camp.html";
     });
+
+    function configureDashboardShareModal() {
+      const backdrop = document.getElementById("dashboardShareModalBackdrop");
+      const modal = document.getElementById("dashboardShareModal");
+      const closeBtn = document.getElementById("closeDashboardShareModal");
+      const openBtn = document.getElementById("shareDeerCampBtn");
+      const copyBtn = document.getElementById("dashboardCopyShareLinkBtn");
+      const nativeBtn = document.getElementById("dashboardNativeShareBtn");
+      const input = document.getElementById("dashboardShareLinkInput");
+      const feedback = document.getElementById("dashboardShareFeedback");
+      const emailLink = document.getElementById("dashboardShareByEmail");
+      const textLink = document.getElementById("dashboardShareByText");
+      const facebookLink = document.getElementById("dashboardShareByFacebook");
+      const shareUrl = "https://ourdeercamp.com";
+      const shareText = "Start your own DeerCamp in 5 minutes";
+
+      if (!backdrop || !modal || !closeBtn || !openBtn || !copyBtn || !nativeBtn || !input || !feedback || !emailLink || !textLink || !facebookLink) return;
+
+      input.value = shareUrl;
+      emailLink.href = `mailto:?subject=${encodeURIComponent("Check out DeerCamp")}&body=${encodeURIComponent(`${shareText}
+
+${shareUrl}`)}`;
+      textLink.href = `sms:?body=${encodeURIComponent(`${shareText} ${shareUrl}`)}`;
+      facebookLink.href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+
+      function openModal() {
+        modal.classList.add("open");
+        backdrop.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+        feedback.textContent = "";
+      }
+
+      function closeModal() {
+        modal.classList.remove("open");
+        backdrop.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+
+      openBtn.addEventListener("click", openModal);
+      closeBtn.addEventListener("click", closeModal);
+      backdrop.addEventListener("click", closeModal);
+
+      copyBtn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          feedback.textContent = "Link copied.";
+        } catch (error) {
+          input.select();
+          document.execCommand("copy");
+          feedback.textContent = "Link copied.";
+        }
+      });
+
+      nativeBtn.addEventListener("click", async () => {
+        if (navigator.share) {
+          try {
+            await navigator.share({ title: "DeerCamp", text: shareText, url: shareUrl });
+            feedback.textContent = "Shared.";
+          } catch (error) {}
+        } else {
+          feedback.textContent = "Use the copy, email, text, or Facebook options above.";
+        }
+      });
+    }
 
     resetCalendarForm();
     resetStandForm();
