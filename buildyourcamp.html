@@ -75,7 +75,6 @@
     }
     .brand h1 { margin: 0; font-size: 1.2rem; }
     .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
-    .brand-welcome { margin: 4px 0 0; color: var(--brown-deep); font-size: 0.92rem; font-weight: 700; }
     .rule-card {
       margin-bottom: 18px;
       padding: 14px;
@@ -395,7 +394,6 @@
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Onboarding Wizard</p>
-          <div class="brand-welcome" id="brandWelcomeName">Welcome Steward</div>
         </div>
       </div>
 
@@ -622,20 +620,7 @@
 
     function getWizardHeading() {
       const campName = getResolvedCampName();
-      return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
-    }
-
-    function getResolvedStewardFirstName() {
-      const fullName = getFirstFilledValue(
-        state?.steward?.name,
-        wizardState?.steward?.name,
-        dashboardState?.camp?.stewardName,
-        campData?.stewardName,
-        campData?.steward,
-        prefill?.stewardName
-      );
-      const first = String(fullName || "").trim().split(/\s+/).filter(Boolean)[0];
-      return first || "Steward";
+      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
     }
 
     function buildStewardNameFromParams(params) {
@@ -754,6 +739,8 @@
       return signFile ? `assets/heroes/${signFile}` : "";
     }
 
+    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
+
     function getPrefillFromUrl() {
       const params = new URLSearchParams(window.location.search || "");
       const campMembers = parseCommaList(params.get("campMembers") || "");
@@ -780,7 +767,6 @@
     }
 
     const prefill = getPrefillFromUrl();
-    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
 
     function deriveCampIdFromWizard(camp = {}) {
       const parts = [camp.name, camp.city, camp.state, camp.zip]
@@ -990,6 +976,18 @@
       });
     }
 
+    function normalizeMemberStatus(person = {}, fallbackStatus = "Invited") {
+      const rawStatus = String(person?.status || "").trim().toLowerCase();
+      if (rawStatus === "removed") return "Removed";
+      if (rawStatus === "active" && (person?.inviteAcceptedAt || person?.acceptedAt || person?.isAccepted === true)) {
+        return "Active";
+      }
+      if (rawStatus === "active") return fallbackStatus;
+      if (rawStatus === "pending") return "Invited";
+      if (rawStatus === "invited") return "Invited";
+      return fallbackStatus;
+    }
+
     const legacyCampData = safeParse(CAMP_DATA_KEY, {});
     const legacyDashboardState = safeParse(DASHBOARD_KEY, {});
     const legacyWizardState = safeParse(WIZARD_KEY, {});
@@ -1065,10 +1063,10 @@
         email: getFirstFilledValue(wizardState.steward?.email, campData.stewardEmail, prefill.stewardEmail)
       },
       members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
-        ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+        ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: normalizeMemberStatus(person) }))
         : (Array.isArray(campData.memberProfiles)
-          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Active" })) : []))))),
+          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: normalizeMemberStatus(person) }))
+          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Invited" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Invited" })) : []))))),
       sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
       starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
       autosavedAt: wizardState.autosavedAt || "",
@@ -1098,10 +1096,6 @@
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = getWizardHeading();
-      const brandWelcomeNode = document.getElementById('brandWelcomeName');
-      if (brandWelcomeNode) {
-        brandWelcomeNode.textContent = `Welcome ${getResolvedStewardFirstName()}`;
-      }
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
@@ -1123,28 +1117,16 @@
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
       wizardTitle.textContent = getWizardHeading();
-      const brandWelcomeNode = document.getElementById('brandWelcomeName');
-      if (brandWelcomeNode) {
-        brandWelcomeNode.textContent = `Welcome ${getResolvedStewardFirstName()}`;
-      }
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      const resolvedHeroPreviewPath = resolveHeroTemplatePath(
-        state.camp.hero ||
-        state.camp.brand ||
-        state.prefill?.heroTemplate ||
-        getDefaultHeroPathForState(displayState)
-      );
-      const previewIsRegionalSign = /(?:^|\/)(?:north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)-deer-camp-sign\.png$/i.test(resolvedHeroPreviewPath || '');
-      document.getElementById('heroPreview').style.backgroundImage = resolvedHeroPreviewPath ? `linear-gradient(180deg, rgba(69,42,22,0.12), rgba(69,42,22,0.28)), url('${resolvedHeroPreviewPath}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = resolvedHeroPreviewPath ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = resolvedHeroPreviewPath ? (previewIsRegionalSign ? 'center 18%' : 'center center') : '';
-      document.getElementById('heroPreview').style.backgroundRepeat = resolvedHeroPreviewPath ? 'no-repeat' : '';
-      document.getElementById('heroPreviewPath').textContent = resolvedHeroPreviewPath || 'No hero path yet';
+      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
+      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
+      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
+      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -1159,7 +1141,7 @@
         rows.push(`<div class="member-card"><div class="member-card-top"><strong>No members added yet</strong><span class="badge">Optional now</span></div><div class="member-card-lines"><span>Add members now or do it later from the Steward Dashboard.</span></div></div>`);
       } else {
         state.members.forEach((member, index) => {
-          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Active'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>Members added here merge into the roster without replacing prior steward work.</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
+          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Invited'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>${(member.status || 'Invited') === 'Active' ? 'This member is active in camp.' : 'This member will stay pending until they accept an invite or the Steward activates them.'}</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
         });
       }
       list.innerHTML = rows.join('');
@@ -1305,11 +1287,6 @@
     }
 
     function fillForms() {
-      document.getElementById('wizardTitle').textContent = getWizardHeading();
-      const brandWelcomeNode = document.getElementById('brandWelcomeName');
-      if (brandWelcomeNode) {
-        brandWelcomeNode.textContent = `Welcome ${getResolvedStewardFirstName()}`;
-      }
       document.getElementById('campName').value = state.camp.name || '';
       document.getElementById('campEstablished').value = state.camp.established || '';
       document.getElementById('campCity').value = state.camp.city || '';
@@ -1382,7 +1359,7 @@
           email: member.email || existing.email || '',
           role: 'Camp Member',
           roleLine: existing.roleLine || 'Invited camp contributor',
-          status: existing.status || member.status || 'Active'
+          status: existing.status || member.status || 'Invited'
         }));
       });
       nextCampData.memberProfiles = Array.from(profileMap.values());
