@@ -396,25 +396,61 @@
       return input.split(separator).map(item => item.trim()).filter(Boolean);
     }
 
+    function parseIndexedParamMap(params, patterns = []) {
+      const collected = [];
+      for (const [rawKey, rawValue] of params.entries()) {
+        const key = String(rawKey || '').trim();
+        const value = String(rawValue || '').trim();
+        if (!key || !value) continue;
+        for (const pattern of patterns) {
+          const match = key.match(pattern);
+          if (match) {
+            const index = Number(match[1] || collected.length + 1);
+            collected.push({ index, value });
+            break;
+          }
+        }
+      }
+      return collected.sort((a, b) => a.index - b.index).map(item => item.value);
+    }
+
     function parseUrlPrefill() {
       const params = new URLSearchParams(window.location.search || '');
-      const memberNames = parseDelimitedList(readParam(params, ['memberNames', 'members', 'memberList']));
-      const memberEmails = parseDelimitedList(readParam(params, ['memberEmails', 'memberEmailList']));
-      const singleMemberName = readParam(params, ['memberName']);
-      const singleMemberEmail = readParam(params, ['memberEmail']);
+      const listedMemberNames = parseDelimitedList(readParam(params, ['memberNames', 'members', 'memberList', 'campMembers']));
+      const listedMemberEmails = parseDelimitedList(readParam(params, ['memberEmails', 'memberEmailList', 'campMemberEmails']));
+      const repeatedMemberNames = [];
+      ['memberName', 'member', 'campMember', 'campMemberName'].forEach(name => {
+        params.getAll(name).forEach(value => {
+          const trimmed = String(value || '').trim();
+          if (trimmed) repeatedMemberNames.push(trimmed);
+        });
+      });
+      const repeatedMemberEmails = [];
+      ['memberEmail', 'campMemberEmail'].forEach(name => {
+        params.getAll(name).forEach(value => {
+          const trimmed = String(value || '').trim();
+          if (trimmed) repeatedMemberEmails.push(trimmed);
+        });
+      });
+      const indexedMemberNames = parseIndexedParamMap(params, [
+        /^member(?:Name)?(\d+)$/i,
+        /^campMember(?:Name)?(\d+)$/i,
+        /^member_(\d+)$/i,
+        /^campMember_(\d+)$/i
+      ]);
+      const indexedMemberEmails = parseIndexedParamMap(params, [
+        /^memberEmail(\d+)$/i,
+        /^campMemberEmail(\d+)$/i,
+        /^memberEmail_(\d+)$/i,
+        /^campMemberEmail_(\d+)$/i
+      ]);
+      const memberNames = [...listedMemberNames, ...repeatedMemberNames, ...indexedMemberNames];
+      const memberEmails = [...listedMemberEmails, ...repeatedMemberEmails, ...indexedMemberEmails];
       const members = memberNames.map((name, index) => ({
         name,
         email: memberEmails[index] || '',
         status: 'Invited'
       }));
-
-      if (singleMemberName) {
-        members.push({
-          name: singleMemberName,
-          email: singleMemberEmail || '',
-          status: 'Invited'
-        });
-      }
 
       const prefill = {
         campId: readParam(params, ['campId', 'campID', 'id']),
