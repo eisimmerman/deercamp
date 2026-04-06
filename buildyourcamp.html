@@ -395,7 +395,7 @@
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Onboarding Wizard</p>
-          <div class="brand-welcome" id="brandWelcomeName">Welcome Steward</div>
+          <p id="sidebarWelcomeText" class="brand-welcome">Welcome Steward</p>
         </div>
       </div>
 
@@ -580,7 +580,6 @@
 
 
     const SHARE_DEERCAMP_URL = "https://ourdeercamp.com";
-    const MEMBER_WELCOME_EMAIL_ENDPOINT = "/api/send-member-welcome";
 
     function normalizeStateCode(value = "") {
       const raw = String(value || "").trim();
@@ -623,117 +622,7 @@
 
     function getWizardHeading() {
       const campName = getResolvedCampName();
-      return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
-    }
-
-    function getMemberFirstName(value = "") {
-      const clean = String(value || "").trim();
-      return clean ? clean.split(/\s+/).filter(Boolean)[0] || "Camp Member" : "Camp Member";
-    }
-
-    function generateInviteToken() {
-      try {
-        const bytes = new Uint8Array(16);
-        window.crypto.getRandomValues(bytes);
-        return Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
-      } catch (error) {
-        return `invite-${Date.now()}-${Math.random().toString(16).slice(2, 12)}`;
-      }
-    }
-
-    async function triggerMemberWelcomeEmail(payload = {}) {
-      const memberEmail = String(payload.memberEmail || "").trim();
-      if (!memberEmail) {
-        return { ok: false, skipped: true, reason: "missing-member-email" };
-      }
-
-      const response = await fetch(MEMBER_WELCOME_EMAIL_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        keepalive: true,
-        body: JSON.stringify(payload)
-      });
-
-      let data = {};
-      try {
-        data = await response.json();
-      } catch (error) {
-        data = {};
-      }
-
-      if (!response.ok || data.ok === false) {
-        throw new Error(data.error || `Member welcome email request failed (${response.status}).`);
-      }
-
-      return data;
-    }
-
-    async function sendPendingMemberInvites(nextCampData = {}) {
-      const people = Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles : [];
-      const eligiblePeople = people.filter((profile) => {
-        const role = String(profile?.role || "").trim().toLowerCase();
-        const status = String(profile?.status || "").trim().toLowerCase();
-        const email = String(profile?.email || "").trim();
-        return role !== "camp steward" && status === "invited" && email && !profile?.inviteSentAt;
-      });
-
-      const summary = {
-        attempted: eligiblePeople.length,
-        sent: 0,
-        failed: 0
-      };
-
-      for (const profile of eligiblePeople) {
-        const inviteToken = String(profile.inviteToken || "").trim() || generateInviteToken();
-        profile.inviteToken = inviteToken;
-
-        const payload = {
-          campId: nextCampData.campId || "",
-          campName: nextCampData.name || nextCampData.campName || "DeerCamp",
-          campCity: nextCampData.city || "",
-          campState: normalizeStateCode(nextCampData.state || ""),
-          campZip: nextCampData.zip || "",
-          stewardName: nextCampData.stewardName || nextCampData.campSteward || state.steward.name || "",
-          memberName: profile.name || "Camp Member",
-          memberFirstName: getMemberFirstName(profile.name || ""),
-          memberEmail: profile.email || "",
-          inviteToken,
-          send: true
-        };
-
-        try {
-          const result = await Promise.race([
-            triggerMemberWelcomeEmail(payload),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Member invite email timed out.")), 3500))
-          ]);
-
-          profile.inviteSentAt = new Date().toISOString();
-          profile.inviteEmail = profile.email || "";
-          profile.inviteLink = String(result?.inviteLink || "").trim();
-          profile.inviteSendError = "";
-          summary.sent += 1;
-        } catch (error) {
-          profile.inviteSendError = error?.message || "Member invite email failed.";
-          summary.failed += 1;
-          console.error("Member welcome email failed:", {
-            member: profile.name || "",
-            email: profile.email || "",
-            error: profile.inviteSendError
-          });
-        }
-      }
-
-      try {
-        localStorage.setItem("deercamp.lastMemberInviteBatch", JSON.stringify({
-          campId: nextCampData.campId || "",
-          sentAt: new Date().toISOString(),
-          ...summary
-        }));
-      } catch (error) {}
-
-      return summary;
+      return campName ? `Continue Building ${campName}` : "Continue Building Your DeerCamp";
     }
 
     function buildStewardNameFromParams(params) {
@@ -852,6 +741,8 @@
       return signFile ? `assets/heroes/${signFile}` : "";
     }
 
+    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
+
     function getPrefillFromUrl() {
       const params = new URLSearchParams(window.location.search || "");
       const campMembers = parseCommaList(params.get("campMembers") || "");
@@ -878,8 +769,6 @@
     }
 
     const prefill = getPrefillFromUrl();
-
-    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
 
     function deriveCampIdFromWizard(camp = {}) {
       const parts = [camp.name, camp.city, camp.state, camp.zip]
@@ -926,7 +815,14 @@
       if (prefillState.deerDrives?.length) chips.push(`${prefillState.deerDrives.length} deer drive${prefillState.deerDrives.length === 1 ? "" : "s"}`);
       if (prefillState.heroTemplate) chips.push(titleCaseWords(prefillState.heroTemplate.replace(/[-_]/g, " ").replace(/\.png$/i, "")));
 
-      const hasPrefill = Boolean(prefillState.campName || prefillState.city || prefillState.state || prefillState.stewardName || chips.length);
+      const hasPrefill = Boolean(
+        prefillState.campName ||
+        prefillState.city ||
+        prefillState.state ||
+        prefillState.campYear ||
+        prefillState.stewardName ||
+        chips.length
+      );
       if (!hasPrefill) {
         card.style.display = "none";
         return;
@@ -1166,8 +1062,8 @@
       members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
         ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
         : (Array.isArray(campData.memberProfiles)
-          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Invited" }))
-          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Invited" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Invited" })) : []))))),
+          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : (Array.isArray(prefill.campMembers) ? prefill.campMembers.map(name => ({ name, email: "", status: "Active" })) : []))))),
       sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
       starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
       autosavedAt: wizardState.autosavedAt || "",
@@ -1197,9 +1093,9 @@
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
       wizardTitle.textContent = getWizardHeading();
-      const brandWelcomeNode = document.getElementById('brandWelcomeName');
-      if (brandWelcomeNode) {
-        brandWelcomeNode.textContent = `Welcome ${getResolvedStewardFirstName()}`;
+      const sidebarWelcomeText = document.getElementById('sidebarWelcomeText');
+      if (sidebarWelcomeText) {
+        sidebarWelcomeText.textContent = `Welcome ${getResolvedStewardFirstName()}`;
       }
       wizardSubtitle.textContent = STEPS[state.step].subtitle;
       document.getElementById('prevBtn').disabled = state.step === 0;
@@ -1225,21 +1121,13 @@
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
-      const resolvedHeroPreviewPath = resolveHeroTemplatePath(
-        state.camp.hero ||
-        state.camp.brand ||
-        state.prefill?.heroTemplate ||
-        getDefaultHeroPathForState(displayState)
-      );
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      const previewIsRegionalSign = /(?:^|\/)(?:north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)-deer-camp-sign\.png$/i.test(resolvedHeroPreviewPath || '');
-      document.getElementById('heroPreview').style.backgroundImage = resolvedHeroPreviewPath ? `linear-gradient(180deg, rgba(69,42,22,0.12), rgba(69,42,22,0.28)), url('${resolvedHeroPreviewPath}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = resolvedHeroPreviewPath ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = resolvedHeroPreviewPath ? (previewIsRegionalSign ? 'center 18%' : 'center center') : '';
-      document.getElementById('heroPreview').style.backgroundRepeat = resolvedHeroPreviewPath ? 'no-repeat' : '';
-      document.getElementById('heroPreviewPath').textContent = resolvedHeroPreviewPath || 'No hero path yet';
+      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
+      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
+      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
+      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
@@ -1254,7 +1142,7 @@
         rows.push(`<div class="member-card"><div class="member-card-top"><strong>No members added yet</strong><span class="badge">Optional now</span></div><div class="member-card-lines"><span>Add members now or do it later from the Steward Dashboard.</span></div></div>`);
       } else {
         state.members.forEach((member, index) => {
-          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Invited'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>${(member.status || 'Invited') === 'Active' ? 'This member is active in camp.' : 'This member will stay pending until they accept an invite or the Steward activates them.'}</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
+          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Active'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>Members added here merge into the roster without replacing prior steward work.</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
         });
       }
       list.innerHTML = rows.join('');
@@ -1401,9 +1289,9 @@
 
     function fillForms() {
       document.getElementById('wizardTitle').textContent = getWizardHeading();
-      const brandWelcomeNode = document.getElementById('brandWelcomeName');
-      if (brandWelcomeNode) {
-        brandWelcomeNode.textContent = `Welcome ${getResolvedStewardFirstName()}`;
+      const sidebarWelcomeText = document.getElementById('sidebarWelcomeText');
+      if (sidebarWelcomeText) {
+        sidebarWelcomeText.textContent = `Welcome ${getResolvedStewardFirstName()}`;
       }
       document.getElementById('campName').value = state.camp.name || '';
       document.getElementById('campEstablished').value = state.camp.established || '';
@@ -1422,7 +1310,7 @@
       renderStarterToggles();
     }
 
-    async function mergeAndLaunch() {
+    function mergeAndLaunch() {
       applyDomToState();
       const resolvedCampId = String(state.campId || initialCampId || deriveCampIdFromWizard(state.camp)).trim();
       state.campId = resolvedCampId;
@@ -1477,14 +1365,12 @@
           email: member.email || existing.email || '',
           role: 'Camp Member',
           roleLine: existing.roleLine || 'Invited camp contributor',
-          status: existing.status || member.status || 'Invited'
+          status: existing.status || member.status || 'Active'
         }));
       });
       nextCampData.memberProfiles = Array.from(profileMap.values());
       nextCampData.members = nextCampData.memberProfiles.filter(profile => String(profile.role || '').toLowerCase() !== 'camp steward' && String(profile.status || '').toLowerCase() !== 'removed').map(profile => profile.name);
       nextCampData.campMembers = nextCampData.members.slice();
-
-      const inviteSummary = await sendPendingMemberInvites(nextCampData);
 
       if ((!Array.isArray(nextCampData.traditions) || !nextCampData.traditions.length) && state.prefill.traditions.length) {
         nextCampData.traditions = buildPrefillTraditions(state.prefill.traditions);
@@ -1530,8 +1416,7 @@
           campId: nextCampData.campId
         },
         people: nextCampData.memberProfiles,
-        lastSaved: currentTimestampLabel(),
-        lastInviteBatch: inviteSummary
+        lastSaved: currentTimestampLabel()
       });
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
@@ -1563,21 +1448,15 @@
     document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
     document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
-    document.getElementById('nextBtn').addEventListener('click', async () => {
+    document.getElementById('nextBtn').addEventListener('click', () => {
       if (state.step === STEPS.length - 1) {
-        await mergeAndLaunch();
+        mergeAndLaunch();
       } else {
         showStep(state.step + 1);
       }
     });
     document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
-    document.getElementById('openDashboardBtn').addEventListener('click', async () => {
-      if (state.step === STEPS.length - 1) {
-        await mergeAndLaunch();
-        return;
-      }
-      window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp));
-    });
+    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = buildCampUrl('steward-dashboard.html', state.campId || initialCampId || deriveCampIdFromWizard(state.camp)));
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
 
@@ -1601,6 +1480,7 @@
       city: state.camp.city,
       state: state.camp.state,
       campYear: state.camp.established,
+      stewardName: state.steward.name,
       campMembers: state.members.map(item => item.name).filter(Boolean),
       traditions: state.prefill.traditions,
       deerDrives: state.prefill.deerDrives,
