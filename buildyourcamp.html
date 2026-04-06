@@ -590,6 +590,15 @@
         : 'CampProfile needs camp name, location, and established year before this step feels complete.';
     }
 
+    function escapeHtml(value = '') {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function syncWelcomePrefill() {
       const welcomeHeading = document.getElementById('welcomeHeading');
       const welcomeHelper = document.getElementById('welcomeHelper');
@@ -603,6 +612,11 @@
       if (state.camp.zip) metaBits.push(state.camp.zip);
       if (state.camp.established) metaBits.push(`Est. ${state.camp.established}`);
 
+      const memberNames = (state.members || []).map(member => String(member.name || '').trim()).filter(Boolean);
+      const memberSummary = memberNames.length
+        ? `${memberNames.length} member${memberNames.length === 1 ? '' : 's'} loaded: ${memberNames.join(' • ')}`
+        : '';
+
       welcomeHeading.textContent = state.steward.name ? `Welcome, ${state.steward.name}` : 'Welcome';
       if (state.camp.name) {
         welcomeHelper.textContent = `Your builder link already loaded ${state.camp.name}. Review the details, make any edits you want, and continue into the Steward Dashboard.`;
@@ -610,10 +624,13 @@
         welcomeHelper.textContent = 'This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.';
       }
 
-      if (metaBits.length) {
+      if (metaBits.length || memberSummary) {
         welcomePrefillCard.style.display = '';
         welcomePrefillTitle.textContent = 'Camp details pulled from your setup link';
-        welcomePrefillMeta.textContent = metaBits.join(' • ');
+        welcomePrefillMeta.innerHTML = [
+          metaBits.length ? `<div>${escapeHtml(metaBits.join(' • '))}</div>` : '',
+          memberSummary ? `<div style="margin-top:6px;">${escapeHtml(memberSummary)}</div>` : ''
+        ].filter(Boolean).join('');
       } else {
         welcomePrefillCard.style.display = 'none';
         welcomePrefillTitle.textContent = 'Camp details loaded';
