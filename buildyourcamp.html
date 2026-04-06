@@ -109,6 +109,8 @@
     }
     .topbar h2 { margin: 0; font-size: 1.35rem; }
     .topbar p { margin: 4px 0 0; color: var(--muted); }
+    .wizard-greeting { margin: 6px 0 0; color: var(--brown-deep); font-weight: 700; }
+    .wizard-greeting[hidden] { display: none; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px;
       border-radius: 999px; border: 0; font-weight: 700; cursor: pointer; font-size: 0.95rem;
@@ -202,6 +204,31 @@
     .toggle-recommendation { display:flex; gap:8px; flex-wrap:wrap; }
     .toggle-card .helper-copy { margin:0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
     .switch-label { font-size:0.84rem; font-weight:700; color: var(--muted); }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(19, 14, 10, 0.48);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 60;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-card {
+      width: min(520px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+    }
+    .modal-card h4 { margin: 0; font-size: 1.15rem; }
+    .modal-card p { margin: 0; color: var(--muted); line-height: 1.45; }
+    .modal-grid { display: grid; gap: 12px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
     @media (max-width: 980px) {
       .shell { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
@@ -233,6 +260,7 @@
       <div class="topbar">
         <div style="flex:1 1 auto; min-width:0;">
           <h2 id="wizardTitle">Build Your DeerCamp</h2>
+          <p id="wizardGreeting" class="wizard-greeting" hidden></p>
           <p id="wizardSubtitle">Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.</p>
           <div class="progress-wrap">
             <div class="progress-meta">
@@ -343,6 +371,29 @@
     </main>
   </div>
 
+  <div class="modal-backdrop" id="memberEditModal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="memberEditTitle">
+      <div>
+        <h4 id="memberEditTitle">Edit member</h4>
+        <p>Update the member name and email together.</p>
+      </div>
+      <form id="memberEditForm" class="modal-grid" autocomplete="off" data-lpignore="true">
+        <div class="field">
+          <label for="memberEditName">Member Name</label>
+          <input id="memberEditName" type="text" />
+        </div>
+        <div class="field">
+          <label for="memberEditEmail">Member Email</label>
+          <input id="memberEditEmail" type="email" />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" id="memberEditCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="memberEditSaveBtn">Save Member</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     const CAMP_DATA_KEY = "campData";
     const DASHBOARD_KEY = "deerCampStewardDashboard";
@@ -401,23 +452,12 @@
       return '';
     }
 
-    const KNOWN_HERO_SIGN_FILES = new Set([
-      'northeast-deer-camp-sign.png',
-      'southeast-deer-camp-sign.png',
-      'south-deer-camp-sign.png',
-      'eastern-deer-camp-sign.png',
-      'midwest-deer-camp-sign.png',
-      'southwest-deer-camp-sign.png',
-      'western-deer-camp-sign.png',
-      'northwest-deer-camp-sign.png'
-    ]);
-
     function normalizeBuilderImagePath(value = '') {
       const clean = String(value || '').trim();
       if (!clean) return '';
       if (/^(data:|blob:|https?:\/\/)/i.test(clean)) return clean;
       if (clean.includes('/')) return clean;
-      if (KNOWN_HERO_SIGN_FILES.has(clean)) return `assets/heroes/${clean}`;
+      if (SIGN_LIBRARY_BY_FILE[clean]) return `assets/heroes/${clean}`;
       if (/\.(png|jpe?g|webp|gif|svg)$/i.test(clean)) return `assets/heroes/${clean}`;
       return clean;
     }
@@ -642,8 +682,14 @@
 
     const stepList = document.getElementById("stepList");
     const wizardTitle = document.getElementById("wizardTitle");
+    const wizardGreeting = document.getElementById("wizardGreeting");
     const wizardSubtitle = document.getElementById("wizardSubtitle");
     const savePill = document.getElementById("savePill");
+    const memberEditModal = document.getElementById("memberEditModal");
+    const memberEditForm = document.getElementById("memberEditForm");
+    const memberEditName = document.getElementById("memberEditName");
+    const memberEditEmail = document.getElementById("memberEditEmail");
+    let editingMemberIndex = null;
     const progressStepLabel = document.getElementById("progressStepLabel");
     const progressPercent = document.getElementById("progressPercent");
     const progressFill = document.getElementById("progressFill");
@@ -823,19 +869,20 @@
     }
 
     function syncHeaderCopy() {
+      const greeting = state.steward.name ? `Welcome, ${state.steward.name}` : '';
+      wizardGreeting.textContent = greeting;
+      wizardGreeting.hidden = !greeting;
+
       if (state.step === 0) {
-        wizardTitle.textContent = state.camp.name ? `Build Your DeerCamp - ${state.camp.name}` : 'Build Your DeerCamp';
+        wizardTitle.textContent = state.camp.name ? `Build Your Camp - ${state.camp.name}` : 'Build Your Camp';
         const parts = [];
-        if (state.steward.name) parts.push(`Welcome, ${state.steward.name}`);
         if (state.camp.city || state.camp.state) parts.push([state.camp.city, state.camp.state].filter(Boolean).join(', '));
         if (state.camp.zip) parts.push(state.camp.zip);
         if (state.camp.established) parts.push(`Est. ${state.camp.established}`);
         wizardSubtitle.textContent = parts.length ? parts.join(' • ') : 'Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.';
       } else {
         wizardTitle.textContent = STEPS[state.step].title;
-        wizardSubtitle.textContent = state.steward.name
-          ? `Welcome, ${state.steward.name} • ${STEPS[state.step].subtitle}`
-          : STEPS[state.step].subtitle;
+        wizardSubtitle.textContent = STEPS[state.step].subtitle;
       }
     }
 
@@ -859,16 +906,26 @@
       persist();
     };
 
-    window.editWizardMember = function(index) {
+    function closeMemberEditModal() {
+      editingMemberIndex = null;
+      memberEditModal.classList.remove('open');
+      memberEditModal.setAttribute('aria-hidden', 'true');
+      memberEditForm.reset();
+    }
+
+    function openMemberEditModal(index) {
       const member = state.members[index];
       if (!member) return;
-      const nextName = window.prompt('Edit member name', member.name || '');
-      if (nextName === null) return;
-      const nextEmail = window.prompt('Edit member email', member.email || '');
-      state.members[index] = Object.assign({}, member, { name: String(nextName || '').trim(), email: String(nextEmail || '').trim() });
-      state.members = uniquePeople(state.members.filter(item => String(item.name || '').trim()));
-      renderMemberList();
-      persist();
+      editingMemberIndex = index;
+      memberEditName.value = member.name || '';
+      memberEditEmail.value = member.email || '';
+      memberEditModal.classList.add('open');
+      memberEditModal.setAttribute('aria-hidden', 'false');
+      setTimeout(() => memberEditName.focus(), 30);
+    }
+
+    window.editWizardMember = function(index) {
+      openMemberEditModal(index);
     };
 
     function renderSectionToggles() {
@@ -1134,6 +1191,38 @@
     document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
     document.getElementById('stewardName').addEventListener('input', queuePersist);
     document.getElementById('stewardEmail').addEventListener('input', queuePersist);
+    document.getElementById('memberEditCancelBtn').addEventListener('click', closeMemberEditModal);
+    memberEditModal.addEventListener('click', (event) => {
+      if (event.target === memberEditModal) closeMemberEditModal();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && memberEditModal.classList.contains('open')) {
+        closeMemberEditModal();
+      }
+    });
+    memberEditForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (editingMemberIndex === null) return;
+      const existingMember = state.members[editingMemberIndex];
+      if (!existingMember) {
+        closeMemberEditModal();
+        return;
+      }
+      const nextName = String(memberEditName.value || '').trim();
+      const nextEmail = String(memberEditEmail.value || '').trim();
+      if (!nextName) {
+        memberEditName.focus();
+        return;
+      }
+      state.members[editingMemberIndex] = Object.assign({}, existingMember, {
+        name: nextName,
+        email: nextEmail
+      });
+      state.members = uniquePeople(state.members.filter(item => String(item.name || '').trim()));
+      closeMemberEditModal();
+      renderMemberList();
+      persist();
+    });
 
     fillForms();
     renderStepList();
