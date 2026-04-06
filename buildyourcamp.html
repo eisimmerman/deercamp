@@ -265,7 +265,7 @@
         <h3>CampProfile</h3>
         <p class="helper">Lock the public identity of your camp first. This should map directly into the CampProfile tab in the Steward Dashboard.</p>
         <div class="two-grid">
-          <form class="form-grid" id="campProfileStepForm">
+          <form class="form-grid" id="campProfileStepForm" autocomplete="off" data-lpignore="true">
             <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text" placeholder="Big Buck Camp" /></div>
             <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text" placeholder="1999" /></div>
             <div class="field"><label for="campCity">City</label><input id="campCity" type="text" placeholder="Eau Claire" /></div>
@@ -297,7 +297,7 @@
         <div class="card" style="margin-bottom:18px;"><strong>Start here</strong><span>Add the Steward email first, then add members one by one with name and email. You can remove any row here, and you can fine-tune full profile details later from the Steward Dashboard.</span></div>
         <div class="two-grid">
           <div>
-            <form class="form-grid" id="memberAddForm">
+            <form class="form-grid" id="memberAddForm" autocomplete="off" data-lpignore="true">
               <div class="field"><label for="stewardName">Steward Name</label><input id="stewardName" type="text" placeholder="Eric Simmerman" /></div>
               <div class="field"><label for="stewardEmail">Steward Email</label><input id="stewardEmail" type="email" placeholder="ourdeercamp@gmail.com" /></div>
               <div class="field"><label for="memberName">Add Member Name</label><input id="memberName" type="text" placeholder="Bruce" /></div>
@@ -888,7 +888,7 @@
       autosaveTimer = setTimeout(() => persist(true), 280);
     }
 
-    function fillForms() {
+    function forceFormValuesFromState() {
       document.getElementById('campName').value = state.camp.name || '';
       document.getElementById('campEstablished').value = state.camp.established || '';
       document.getElementById('campCity').value = state.camp.city || '';
@@ -900,12 +900,24 @@
       document.getElementById('campAccess').value = state.camp.accessNote || '';
       document.getElementById('stewardName').value = state.steward.name || '';
       document.getElementById('stewardEmail').value = state.steward.email || '';
+    }
+
+    function refreshWizardFromState() {
+      forceFormValuesFromState();
       syncCampProfilePreview();
       syncWelcomePrefill();
       syncHeaderCopy();
       renderMemberList();
       renderSectionToggles();
       renderStarterToggles();
+    }
+
+    function guardAgainstBrowserRestoredValues() {
+      refreshWizardFromState();
+    }
+
+    function fillForms() {
+      refreshWizardFromState();
     }
 
     function mergeAndLaunch() {
@@ -1059,6 +1071,10 @@
     renderStepList();
     showStep(state.step);
     persist(false);
+    [60, 220, 700].forEach(delay => setTimeout(guardAgainstBrowserRestoredValues, delay));
+    window.addEventListener('pageshow', () => {
+      setTimeout(guardAgainstBrowserRestoredValues, 60);
+    });
   </script>
 </body>
 </html>
