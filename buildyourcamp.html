@@ -266,26 +266,26 @@
         <p class="helper">Lock the public identity of your camp first. This should map directly into the CampProfile tab in the Steward Dashboard.</p>
         <div class="two-grid">
           <form class="form-grid" id="campProfileStepForm" autocomplete="off" data-lpignore="true">
-            <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text" placeholder="Big Buck Camp" /></div>
-            <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text" placeholder="1999" /></div>
-            <div class="field"><label for="campCity">City</label><input id="campCity" type="text" placeholder="Eau Claire" /></div>
-            <div class="field"><label for="campState">State</label><input id="campState" type="text" placeholder="WI" /></div>
-            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text" placeholder="54701" /></div>
-            <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text" placeholder="assets/heroes/MN-deer-camp.jpg" /></div>
-            <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary" placeholder="What makes this camp unique, who it is for, and what the season means here."></textarea></div>
-            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text" placeholder="assets/branding/deer-track.png" /></div>
-            <div class="field span-2"><label for="campAccess">Access / Rules Note</label><textarea id="campAccess" placeholder="Gate locked after dark. Text the steward before bringing guests."></textarea></div>
+            <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text"  /></div>
+            <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text"  /></div>
+            <div class="field"><label for="campCity">City</label><input id="campCity" type="text"  /></div>
+            <div class="field"><label for="campState">State</label><input id="campState" type="text"  /></div>
+            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text"  /></div>
+            <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text"  /></div>
+            <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary" ></textarea></div>
+            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text"  /></div>
+            <div class="field span-2"><label for="campAccess">Access / Rules Note</label><textarea id="campAccess" ></textarea></div>
           </form>
           <div class="preview">
             <div class="hero-preview" id="heroPreview">
               <div>
                 Camp hero preview
-                <small id="heroPreviewPath">No hero path yet</small>
+                <small id="heroPreviewPath"></small>
               </div>
             </div>
-            <div class="card"><strong id="profilePreviewName">Big Buck Camp</strong><span id="profilePreviewMeta">Add location and established year.</span></div>
-            <div class="card"><strong>Summary</strong><span id="profilePreviewSummary">Add a camp summary so this reads like a real camp, not just saved data.</span></div>
-            <div class="card"><strong>Access Note</strong><span id="profilePreviewAccess">No access note yet.</span></div>
+            <div class="card"><strong id="profilePreviewName"></strong><span id="profilePreviewMeta"></span></div>
+            <div class="card"><strong>Summary</strong><span id="profilePreviewSummary"></span></div>
+            <div class="card"><strong>Access Note</strong><span id="profilePreviewAccess"></span></div>
             <div class="step-complete" id="campProfileComplete">CampProfile needs a few more details before this step feels complete.</div>
           </div>
         </div>
@@ -298,10 +298,10 @@
         <div class="two-grid">
           <div>
             <form class="form-grid" id="memberAddForm" autocomplete="off" data-lpignore="true">
-              <div class="field"><label for="stewardName">Steward Name</label><input id="stewardName" type="text" placeholder="Eric Simmerman" /></div>
-              <div class="field"><label for="stewardEmail">Steward Email</label><input id="stewardEmail" type="email" placeholder="ourdeercamp@gmail.com" /></div>
-              <div class="field"><label for="memberName">Add Member Name</label><input id="memberName" type="text" placeholder="Bruce" /></div>
-              <div class="field"><label for="memberEmail">Add Member Email</label><input id="memberEmail" type="email" placeholder="bruce@example.com" /></div>
+              <div class="field"><label for="stewardName">Steward Name</label><input id="stewardName" type="text"  /></div>
+              <div class="field"><label for="stewardEmail">Steward Email</label><input id="stewardEmail" type="email"  /></div>
+              <div class="field"><label for="memberName">Add Member Name</label><input id="memberName" type="text"  /></div>
+              <div class="field"><label for="memberEmail">Add Member Email</label><input id="memberEmail" type="email"  /></div>
               <div class="field span-2"><button class="btn btn-primary" type="submit">Add Member</button></div>
             </form>
           </div>
@@ -638,6 +638,16 @@
       progressFill.style.width = `${pct}%`;
       renderStepList();
       if (state.step === 5) renderReview();
+      if (state.step === 1) {
+        requestAnimationFrame(() => {
+          fillForms();
+          syncCampProfilePreview();
+        });
+        setTimeout(() => {
+          fillForms();
+          syncCampProfilePreview();
+        }, 180);
+      }
       persist(false);
     }
 
@@ -674,11 +684,19 @@
       return 'center center';
     }
 
+    function getCacheBustedAssetUrl(path = '') {
+      const value = String(path || '').trim();
+      if (!value) return '';
+      const separator = value.includes('?') ? '&' : '?';
+      return `${value}${separator}dc_preview=${Date.now()}`;
+    }
+
+
     function updateHeroPreview() {
       const heroPreview = document.getElementById('heroPreview');
       const heroPreviewPath = document.getElementById('heroPreviewPath');
       const candidates = buildImageCandidateList();
-      const fallbackLabel = state.camp.hero || state.camp.brand || 'No hero path yet';
+      const fallbackLabel = state.camp.hero || state.camp.brand || '';
       heroPreview.dataset.previewToken = String(Date.now());
       const previewToken = heroPreview.dataset.previewToken;
       heroPreview.style.backgroundImage = '';
@@ -692,27 +710,28 @@
         if (heroPreview.dataset.previewToken !== previewToken) return;
         if (index >= candidates.length) return;
         const candidate = candidates[index];
+        const candidateUrl = getCacheBustedAssetUrl(candidate);
         const probe = new Image();
         probe.onload = () => {
           if (heroPreview.dataset.previewToken !== previewToken) return;
-          heroPreview.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${candidate.replace(/'/g, "\'")}')`;
+          heroPreview.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${candidateUrl.replace(/'/g, "\'")}')`;
           heroPreview.style.backgroundSize = 'cover';
           heroPreview.style.backgroundPosition = getHeroPreviewPosition(candidate);
           heroPreviewPath.textContent = candidate;
         };
         probe.onerror = () => tryNext(index + 1);
-        probe.src = candidate;
+        probe.src = candidateUrl;
       };
 
       tryNext(0);
     }
 
     function syncCampProfilePreview() {
-      document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
+      document.getElementById('profilePreviewName').textContent = state.camp.name || '';
       const meta = [ [state.camp.city, state.camp.state].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
-      document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
-      document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
-      document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
+      document.getElementById('profilePreviewMeta').textContent = meta || '';
+      document.getElementById('profilePreviewSummary').textContent = state.camp.summary || '';
+      document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || '';
       updateHeroPreview();
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
@@ -779,7 +798,9 @@
         wizardSubtitle.textContent = parts.length ? parts.join(' • ') : 'Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.';
       } else {
         wizardTitle.textContent = STEPS[state.step].title;
-        wizardSubtitle.textContent = STEPS[state.step].subtitle;
+        wizardSubtitle.textContent = state.steward.name
+          ? `Welcome, ${state.steward.name} • ${STEPS[state.step].subtitle}`
+          : STEPS[state.step].subtitle;
       }
     }
 
