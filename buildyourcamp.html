@@ -464,6 +464,10 @@
         status: 'Invited'
       }));
 
+      const sharedImagePath = readParam(params, ['campImage', 'campImagePath', 'image', 'imagePath', 'selectedImage', 'selectedImagePath', 'selectedHeroImage', 'selectedHeroImagePath']);
+      const heroImagePath = readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath']);
+      const brandImagePath = readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath']);
+
       const prefill = {
         campId: readParam(params, ['campId', 'campID', 'id']),
         camp: {
@@ -473,8 +477,8 @@
           state: readParam(params, ['campState', 'state']),
           zip: readParam(params, ['campZip', 'zip', 'postalCode']),
           summary: readParam(params, ['campSummary', 'summary', 'about', 'campAbout', 'description']),
-          hero: readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath']),
-          brand: readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath']),
+          hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
+          brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
           accessNote: readParam(params, ['campAccess', 'accessNote', 'access', 'rulesNote', 'accessRules'])
         },
         steward: {
@@ -515,6 +519,16 @@
 
     function currentTimestampLabel() {
       return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    }
+
+    function normalizeLinkedCampImages(camp = {}) {
+      const normalized = Object.assign({}, camp || {});
+      const sharedImagePath = firstNonEmpty(normalized.hero, normalized.brand, '');
+      if (sharedImagePath) {
+        normalized.hero = sharedImagePath;
+        normalized.brand = sharedImagePath;
+      }
+      return normalized;
     }
 
     function uniquePeople(people = []) {
@@ -560,7 +574,7 @@
               ? baseCampData.members.map(name => ({ name, email: "", status: "Active" }))
               : []));
 
-    const freshCampDefaults = {
+    const freshCampDefaults = normalizeLinkedCampImages({
       name: firstNonEmpty(urlPrefill.camp.name, 'DeerCamp'),
       established: firstNonEmpty(urlPrefill.camp.established, ''),
       city: firstNonEmpty(urlPrefill.camp.city, ''),
@@ -570,24 +584,24 @@
       hero: firstNonEmpty(urlPrefill.camp.hero, ''),
       brand: firstNonEmpty(urlPrefill.camp.brand, ''),
       accessNote: firstNonEmpty(urlPrefill.camp.accessNote, '')
-    };
+    });
 
     const state = {
       campId: urlCampId || savedWizardCampId || storedCampId || "",
       step: shouldStartFreshFromUrl ? 0 : (Number.isInteger(baseWizardState.step) ? baseWizardState.step : 0),
       camp: shouldStartFreshFromUrl
         ? freshCampDefaults
-        : {
+        : normalizeLinkedCampImages({
             name: firstNonEmpty(urlPrefill.camp.name, baseWizardState.camp?.name, baseDashboardState.camp?.name, baseCampData.name, baseCampData.campName, "DeerCamp"),
             established: firstNonEmpty(urlPrefill.camp.established, baseWizardState.camp?.established, baseDashboardState.camp?.established, baseCampData.established, ""),
             city: firstNonEmpty(urlPrefill.camp.city, baseWizardState.camp?.city, baseDashboardState.camp?.city, baseCampData.city, ""),
             state: firstNonEmpty(urlPrefill.camp.state, baseWizardState.camp?.state, baseDashboardState.camp?.state, baseCampData.state, ""),
             zip: firstNonEmpty(urlPrefill.camp.zip, baseWizardState.camp?.zip, baseDashboardState.camp?.zip, baseCampData.zip, ""),
             summary: firstNonEmpty(urlPrefill.camp.summary, baseWizardState.camp?.summary, baseDashboardState.camp?.summary, baseCampData.summary, baseCampData.about, ""),
-            hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
-            brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
+            hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
+            brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
             accessNote: firstNonEmpty(urlPrefill.camp.accessNote, baseWizardState.camp?.accessNote, baseDashboardState.camp?.accessNote, baseCampData.accessNote, "")
-          },
+          }),
       steward: shouldStartFreshFromUrl
         ? {
             name: firstNonEmpty(urlPrefill.steward.name, ''),
@@ -900,6 +914,7 @@
       state.camp.summary = document.getElementById('campSummary').value.trim();
       state.camp.brand = document.getElementById('campBrand').value.trim();
       state.camp.accessNote = document.getElementById('campAccess').value.trim();
+      state.camp = normalizeLinkedCampImages(state.camp);
       state.steward.name = document.getElementById('stewardName').value.trim();
       state.steward.email = document.getElementById('stewardEmail').value.trim();
       syncCampProfilePreview();
@@ -967,8 +982,9 @@
       nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || campData.location || '';
       nextCampData.summary = state.camp.summary || campData.summary || campData.about || '';
       nextCampData.about = nextCampData.summary;
-      nextCampData.hero = state.camp.hero || campData.hero || '';
-      nextCampData.brandImage = state.camp.brand || campData.brandImage || campData.brandingImage || '';
+      const launchSharedImagePath = firstNonEmpty(state.camp.hero, state.camp.brand, campData.hero, campData.brandImage, campData.brandingImage, '');
+      nextCampData.hero = launchSharedImagePath;
+      nextCampData.brandImage = launchSharedImagePath;
       nextCampData.brandingImage = nextCampData.brandImage;
       nextCampData.accessNote = state.camp.accessNote || campData.accessNote || '';
       nextCampData.feedSourceMode = 'app';
