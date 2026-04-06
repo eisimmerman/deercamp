@@ -234,8 +234,9 @@
       </div>
 
       <section class="panel step-panel active" id="step-0">
-        <h3>Welcome</h3>
-        <p class="helper">This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.</p>
+        <h3 id="welcomeHeading">Welcome</h3>
+        <p class="helper" id="welcomeHelper">This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.</p>
+        <div class="card" id="welcomePrefillCard" style="margin-bottom:18px; display:none;"><strong id="welcomePrefillTitle">Camp details loaded</strong><span id="welcomePrefillMeta">Your camp details from the builder link will appear here.</span></div>
         <div class="three-grid">
           <div class="card"><strong>Build my camp</strong><span>CampProfile, members, sections, and starter content in one guided pass.</span></div>
           <div class="card"><strong>Run my camp</strong><span>When you finish here, DeerCamp takes you into the Steward Dashboard command center.</span></div>
@@ -419,7 +420,7 @@
         campId: readParam(params, ['campId', 'campID', 'id']),
         camp: {
           name: readParam(params, ['campName', 'name']),
-          established: readParam(params, ['campEstablished', 'established', 'yearEstablished']),
+          established: readParam(params, ['campEstablished', 'campYear', 'year', 'established', 'yearEstablished']),
           city: readParam(params, ['campCity', 'city']),
           state: readParam(params, ['campState', 'state']),
           zip: readParam(params, ['campZip', 'zip', 'postalCode']),
@@ -429,7 +430,7 @@
           accessNote: readParam(params, ['campAccess', 'accessNote', 'access', 'rulesNote', 'accessRules'])
         },
         steward: {
-          name: readParam(params, ['stewardName']),
+          name: readParam(params, ['stewardName', 'campSteward', 'steward', 'stewardFullName']),
           email: readParam(params, ['stewardEmail', 'email'])
         },
         members
@@ -559,8 +560,7 @@
     function showStep(index) {
       state.step = Math.max(0, Math.min(STEPS.length - 1, index));
       document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
-      wizardTitle.textContent = STEPS[state.step].title;
-      wizardSubtitle.textContent = STEPS[state.step].subtitle;
+      syncHeaderCopy();
       document.getElementById('prevBtn').disabled = state.step === 0;
       document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
       const totalFlowSteps = STEPS.length;
@@ -588,6 +588,52 @@
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
         : 'CampProfile needs camp name, location, and established year before this step feels complete.';
+    }
+
+    function syncWelcomePrefill() {
+      const welcomeHeading = document.getElementById('welcomeHeading');
+      const welcomeHelper = document.getElementById('welcomeHelper');
+      const welcomePrefillCard = document.getElementById('welcomePrefillCard');
+      const welcomePrefillTitle = document.getElementById('welcomePrefillTitle');
+      const welcomePrefillMeta = document.getElementById('welcomePrefillMeta');
+      const locationBits = [state.camp.city, state.camp.state].filter(Boolean);
+      const metaBits = [];
+      if (state.camp.name) metaBits.push(state.camp.name);
+      if (locationBits.length) metaBits.push(locationBits.join(', '));
+      if (state.camp.zip) metaBits.push(state.camp.zip);
+      if (state.camp.established) metaBits.push(`Est. ${state.camp.established}`);
+
+      welcomeHeading.textContent = state.steward.name ? `Welcome, ${state.steward.name}` : 'Welcome';
+      if (state.camp.name) {
+        welcomeHelper.textContent = `Your builder link already loaded ${state.camp.name}. Review the details, make any edits you want, and continue into the Steward Dashboard.`;
+      } else {
+        welcomeHelper.textContent = 'This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.';
+      }
+
+      if (metaBits.length) {
+        welcomePrefillCard.style.display = '';
+        welcomePrefillTitle.textContent = 'Camp details pulled from your setup link';
+        welcomePrefillMeta.textContent = metaBits.join(' • ');
+      } else {
+        welcomePrefillCard.style.display = 'none';
+        welcomePrefillTitle.textContent = 'Camp details loaded';
+        welcomePrefillMeta.textContent = 'Your camp details from the builder link will appear here.';
+      }
+    }
+
+    function syncHeaderCopy() {
+      if (state.step === 0) {
+        wizardTitle.textContent = state.camp.name ? `Build Your Camp - ${state.camp.name}` : 'Build Your Camp';
+        const parts = [];
+        if (state.steward.name) parts.push(`Welcome, ${state.steward.name}`);
+        if (state.camp.city || state.camp.state) parts.push([state.camp.city, state.camp.state].filter(Boolean).join(', '));
+        if (state.camp.zip) parts.push(state.camp.zip);
+        if (state.camp.established) parts.push(`Est. ${state.camp.established}`);
+        wizardSubtitle.textContent = parts.length ? parts.join(' • ') : 'Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.';
+      } else {
+        wizardTitle.textContent = STEPS[state.step].title;
+        wizardSubtitle.textContent = STEPS[state.step].subtitle;
+      }
     }
 
     function renderMemberList() {
@@ -718,6 +764,8 @@
       document.getElementById('stewardName').value = state.steward.name || '';
       document.getElementById('stewardEmail').value = state.steward.email || '';
       syncCampProfilePreview();
+      syncWelcomePrefill();
+      syncHeaderCopy();
       renderMemberList();
       renderSectionToggles();
       renderStarterToggles();
