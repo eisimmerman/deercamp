@@ -367,6 +367,93 @@
       catch { return fallback; }
     }
 
+    function firstNonEmpty(...values) {
+      for (const value of values) {
+        if (value === undefined || value === null) continue;
+        if (typeof value === 'string' && !value.trim()) continue;
+        return value;
+      }
+      return '';
+    }
+
+    function normalizeCampId(value = '') {
+      return String(value || '').trim();
+    }
+
+    function readParam(params, names = []) {
+      for (const name of names) {
+        const value = params.get(name);
+        if (typeof value === 'string' && value.trim()) return value.trim();
+      }
+      return '';
+    }
+
+    function parseDelimitedList(value = '') {
+      const input = String(value || '').trim();
+      if (!input) return [];
+      const separator = /\||;|\n/.test(input) ? /\s*\|\s*|\s*;\s*|\n+/ : /\s*,\s*/;
+      return input.split(separator).map(item => item.trim()).filter(Boolean);
+    }
+
+    function parseUrlPrefill() {
+      const params = new URLSearchParams(window.location.search || '');
+      const memberNames = parseDelimitedList(readParam(params, ['memberNames', 'members', 'memberList']));
+      const memberEmails = parseDelimitedList(readParam(params, ['memberEmails', 'memberEmailList']));
+      const singleMemberName = readParam(params, ['memberName']);
+      const singleMemberEmail = readParam(params, ['memberEmail']);
+      const members = memberNames.map((name, index) => ({
+        name,
+        email: memberEmails[index] || '',
+        status: 'Invited'
+      }));
+
+      if (singleMemberName) {
+        members.push({
+          name: singleMemberName,
+          email: singleMemberEmail || '',
+          status: 'Invited'
+        });
+      }
+
+      const prefill = {
+        campId: readParam(params, ['campId', 'campID', 'id']),
+        camp: {
+          name: readParam(params, ['campName', 'name']),
+          established: readParam(params, ['campEstablished', 'established', 'yearEstablished']),
+          city: readParam(params, ['campCity', 'city']),
+          state: readParam(params, ['campState', 'state']),
+          zip: readParam(params, ['campZip', 'zip', 'postalCode']),
+          summary: readParam(params, ['campSummary', 'summary', 'about', 'campAbout', 'description']),
+          hero: readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath']),
+          brand: readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath']),
+          accessNote: readParam(params, ['campAccess', 'accessNote', 'access', 'rulesNote', 'accessRules'])
+        },
+        steward: {
+          name: readParam(params, ['stewardName']),
+          email: readParam(params, ['stewardEmail', 'email'])
+        },
+        members
+      };
+
+      prefill.hasPrefill = Boolean(
+        prefill.campId ||
+        Object.values(prefill.camp).some(Boolean) ||
+        Object.values(prefill.steward).some(Boolean) ||
+        prefill.members.length
+      );
+
+      return prefill;
+    }
+
+    function extractStoredCampId(source = {}) {
+      return normalizeCampId(firstNonEmpty(
+        source?.campId,
+        source?.camp?.campId,
+        source?.camp?.id,
+        source?.id
+      ));
+    }
+
     function slugify(value = "") {
       return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     }
@@ -394,32 +481,60 @@
     const campData = safeParse(CAMP_DATA_KEY, {});
     const dashboardState = safeParse(DASHBOARD_KEY, {});
     const wizardState = safeParse(WIZARD_KEY, {});
+    const urlPrefill = parseUrlPrefill();
+
+    const activeCampId = normalizeCampId(localStorage.getItem('deercamp.activeCampId'));
+    const urlCampId = normalizeCampId(urlPrefill.campId || activeCampId);
+    const savedWizardCampId = normalizeCampId(firstNonEmpty(wizardState.campId, wizardState.camp?.campId, wizardState.camp?.id));
+    const storedCampId = normalizeCampId(firstNonEmpty(extractStoredCampId(campData), extractStoredCampId(dashboardState), activeCampId));
+
+    const shouldStartFreshFromUrl = Boolean(urlPrefill.hasPrefill && (urlCampId ? urlCampId !== savedWizardCampId : true));
+    const shouldIgnoreStoredCampState = Boolean(shouldStartFreshFromUrl && (!storedCampId || !urlCampId || storedCampId !== urlCampId));
+
+    if (shouldStartFreshFromUrl) {
+      localStorage.removeItem(WIZARD_KEY);
+    }
+
+    const baseCampData = shouldIgnoreStoredCampState ? {} : campData;
+    const baseDashboardState = shouldIgnoreStoredCampState ? {} : dashboardState;
+    const baseWizardState = shouldStartFreshFromUrl ? {} : wizardState;
+
+    const fallbackMembers = Array.isArray(baseDashboardState.people)
+      ? baseDashboardState.people
+          .filter(person => person.role !== "Camp Steward")
+          .map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+      : (Array.isArray(baseCampData.memberProfiles)
+          ? baseCampData.memberProfiles
+              .filter(person => String(person.role || "").toLowerCase() !== "camp steward")
+              .map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
+          : (Array.isArray(baseCampData.members)
+              ? baseCampData.members.map(name => ({ name, email: "", status: "Active" }))
+              : []));
 
     const state = {
-      step: Number.isInteger(wizardState.step) ? wizardState.step : 0,
+      campId: urlCampId || savedWizardCampId || storedCampId || "",
+      step: shouldStartFreshFromUrl ? 0 : (Number.isInteger(baseWizardState.step) ? baseWizardState.step : 0),
       camp: {
-        name: wizardState.camp?.name ?? dashboardState.camp?.name ?? campData.name ?? campData.campName ?? "DeerCamp",
-        established: wizardState.camp?.established ?? dashboardState.camp?.established ?? campData.established ?? "",
-        city: wizardState.camp?.city ?? dashboardState.camp?.city ?? campData.city ?? "",
-        state: wizardState.camp?.state ?? dashboardState.camp?.state ?? campData.state ?? "",
-        zip: wizardState.camp?.zip ?? dashboardState.camp?.zip ?? campData.zip ?? "",
-        summary: wizardState.camp?.summary ?? dashboardState.camp?.summary ?? campData.summary ?? campData.about ?? "",
-        hero: wizardState.camp?.hero ?? dashboardState.camp?.hero ?? campData.hero ?? "",
-        brand: wizardState.camp?.brand ?? dashboardState.camp?.brandImage ?? campData.brandImage ?? campData.brandingImage ?? "",
-        accessNote: wizardState.camp?.accessNote ?? dashboardState.camp?.accessNote ?? campData.accessNote ?? ""
+        name: firstNonEmpty(urlPrefill.camp.name, baseWizardState.camp?.name, baseDashboardState.camp?.name, baseCampData.name, baseCampData.campName, "DeerCamp"),
+        established: firstNonEmpty(urlPrefill.camp.established, baseWizardState.camp?.established, baseDashboardState.camp?.established, baseCampData.established, ""),
+        city: firstNonEmpty(urlPrefill.camp.city, baseWizardState.camp?.city, baseDashboardState.camp?.city, baseCampData.city, ""),
+        state: firstNonEmpty(urlPrefill.camp.state, baseWizardState.camp?.state, baseDashboardState.camp?.state, baseCampData.state, ""),
+        zip: firstNonEmpty(urlPrefill.camp.zip, baseWizardState.camp?.zip, baseDashboardState.camp?.zip, baseCampData.zip, ""),
+        summary: firstNonEmpty(urlPrefill.camp.summary, baseWizardState.camp?.summary, baseDashboardState.camp?.summary, baseCampData.summary, baseCampData.about, ""),
+        hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
+        brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
+        accessNote: firstNonEmpty(urlPrefill.camp.accessNote, baseWizardState.camp?.accessNote, baseDashboardState.camp?.accessNote, baseCampData.accessNote, "")
       },
       steward: {
-        name: wizardState.steward?.name ?? campData.stewardName ?? campData.steward ?? "",
-        email: wizardState.steward?.email ?? ""
+        name: firstNonEmpty(urlPrefill.steward.name, baseWizardState.steward?.name, baseCampData.stewardName, baseCampData.steward, ""),
+        email: firstNonEmpty(urlPrefill.steward.email, baseWizardState.steward?.email, "")
       },
-      members: uniquePeople(wizardState.members || (Array.isArray(dashboardState.people)
-        ? dashboardState.people.filter(person => person.role !== "Camp Steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-        : (Array.isArray(campData.memberProfiles)
-          ? campData.memberProfiles.filter(person => String(person.role || "").toLowerCase() !== "camp steward").map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-          : (Array.isArray(campData.members) ? campData.members.map(name => ({ name, email: "", status: "Active" })) : [])))),
-      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), wizardState.sections || {}),
-      starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), wizardState.starters || {}),
-      autosavedAt: wizardState.autosavedAt || ""
+      members: uniquePeople(shouldStartFreshFromUrl
+        ? (urlPrefill.members || [])
+        : ([...(urlPrefill.members || []), ...(baseWizardState.members || fallbackMembers)])),
+      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), baseWizardState.sections || {}),
+      starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), baseWizardState.starters || {}),
+      autosavedAt: baseWizardState.autosavedAt || ""
     };
 
     const stepList = document.getElementById("stepList");
@@ -429,6 +544,10 @@
     const progressStepLabel = document.getElementById("progressStepLabel");
     const progressPercent = document.getElementById("progressPercent");
     const progressFill = document.getElementById("progressFill");
+
+    if (state.campId) {
+      localStorage.setItem('deercamp.activeCampId', state.campId);
+    }
 
     function renderStepList() {
       stepList.innerHTML = STEPS.map((step, index) => {
@@ -574,6 +693,7 @@
 
     function persist(showFlash = true) {
       applyDomToState();
+      state.campId = normalizeCampId(state.campId || urlCampId || savedWizardCampId || storedCampId);
       state.autosavedAt = currentTimestampLabel();
       localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
       savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
@@ -608,6 +728,10 @@
       const nextCampData = Object.assign({}, campData);
       nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
       nextCampData.campName = nextCampData.name;
+      nextCampData.campId = normalizeCampId(state.campId || campData.campId || dashboardState.camp?.campId || localStorage.getItem('deercamp.activeCampId') || '');
+      if (!nextCampData.campId) {
+        nextCampData.campId = slugify(nextCampData.name) || 'deercamp';
+      }
       nextCampData.city = state.camp.city || campData.city || '';
       nextCampData.state = state.camp.state || campData.state || '';
       nextCampData.zip = state.camp.zip || campData.zip || '';
@@ -696,6 +820,7 @@
           feedSourceMode: 'app',
           feedModeration: 'review',
           feedOfflinePolicy: 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.',
+          campId: nextCampData.campId,
           slug: slugify(nextCampData.name) || 'deercamp'
         },
         people: nextCampData.memberProfiles,
@@ -704,8 +829,14 @@
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
-      incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, { autosavedAt: currentTimestampLabel() })));
+      localStorage.setItem('deercamp.activeCampId', nextCampData.campId);
+      if (typeof incrementCreatedCampCounter === 'function') {
+        incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
+      }
+      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, {
+        campId: nextCampData.campId,
+        autosavedAt: currentTimestampLabel()
+      })));
       window.location.href = 'steward-dashboard.html';
     }
 
