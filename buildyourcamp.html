@@ -401,6 +401,16 @@
       return '';
     }
 
+    function normalizeBuilderImagePath(value = '') {
+      const clean = String(value || '').trim();
+      if (!clean) return '';
+      if (/^(data:|blob:|https?:\/\/)/i.test(clean)) return clean;
+      if (clean.includes('/')) return clean;
+      if (SIGN_LIBRARY_BY_FILE[clean]) return `assets/heroes/${clean}`;
+      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(clean)) return `assets/heroes/${clean}`;
+      return clean;
+    }
+
     function parseDelimitedList(value = '') {
       const input = String(value || '').trim();
       if (!input) return [];
@@ -464,9 +474,9 @@
         status: 'Invited'
       }));
 
-      const sharedImagePath = readParam(params, ['campImage', 'campImagePath', 'image', 'imagePath', 'selectedImage', 'selectedImagePath', 'selectedHeroImage', 'selectedHeroImagePath']);
-      const heroImagePath = readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath']);
-      const brandImagePath = readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath']);
+      const sharedImagePath = normalizeBuilderImagePath(readParam(params, ['campImage', 'campImagePath', 'image', 'imagePath', 'selectedImage', 'selectedImagePath', 'selectedHeroImage', 'selectedHeroImagePath', 'campImageSelect', 'heroTemplate']));
+      const heroImagePath = normalizeBuilderImagePath(readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath', 'campHeroImage', 'campHeroPath']));
+      const brandImagePath = normalizeBuilderImagePath(readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath', 'campSign', 'campSignImage', 'campSignImagePath']));
 
       const prefill = {
         campId: readParam(params, ['campId', 'campID', 'id']),
@@ -476,14 +486,14 @@
           city: readParam(params, ['campCity', 'city']),
           state: readParam(params, ['campState', 'state']),
           zip: readParam(params, ['campZip', 'zip', 'postalCode']),
-          summary: readParam(params, ['campSummary', 'summary', 'about', 'campAbout', 'description']),
+          summary: readParam(params, ['campSummary', 'summary', 'about', 'campAbout', 'description', 'campDescription']),
           hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
           brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
           accessNote: readParam(params, ['campAccess', 'accessNote', 'access', 'rulesNote', 'accessRules'])
         },
         steward: {
           name: readParam(params, ['stewardName', 'campSteward', 'steward', 'stewardFullName']),
-          email: readParam(params, ['stewardEmail', 'email'])
+          email: readParam(params, ['stewardEmail', 'campStewardEmail', 'email'])
         },
         members
       };
