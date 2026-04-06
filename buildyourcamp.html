@@ -75,6 +75,7 @@
     }
     .brand h1 { margin: 0; font-size: 1.2rem; }
     .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
+    .brand-welcome { margin: 4px 0 0; color: var(--brown-deep); font-size: 0.92rem; font-weight: 700; }
     .rule-card {
       margin-bottom: 18px;
       padding: 14px;
@@ -394,7 +395,7 @@
         <div>
           <h1>DeerCamp</h1>
           <p>Steward Onboarding Wizard</p>
-          <p id="sidebarWelcomeName" style="margin:4px 0 0; color:var(--brown-deep); font-size:0.9rem; font-weight:700;">Welcome Steward</p>
+          <div class="brand-welcome" id="brandWelcomeName">Welcome Steward</div>
         </div>
       </div>
 
@@ -624,7 +625,7 @@
       return campName ? `Continue Building Your DeerCamp - ${campName}` : "Continue Building Your DeerCamp";
     }
 
-    function getStewardFirstName() {
+    function getResolvedStewardFirstName() {
       const fullName = getFirstFilledValue(
         state?.steward?.name,
         wizardState?.steward?.name,
@@ -752,8 +753,6 @@
       return signFile ? `assets/heroes/${signFile}` : "";
     }
 
-    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
-
     function getPrefillFromUrl() {
       const params = new URLSearchParams(window.location.search || "");
       const campMembers = parseCommaList(params.get("campMembers") || "");
@@ -780,6 +779,7 @@
     }
 
     const prefill = getPrefillFromUrl();
+    const inferredCampSeed = inferCampFieldsFromCampId(prefill.campId || getCampIdFromUrl(), prefill.campName);
 
     function deriveCampIdFromWizard(camp = {}) {
       const parts = [camp.name, camp.city, camp.state, camp.zip]
@@ -1118,29 +1118,26 @@
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
       wizardTitle.textContent = getWizardHeading();
-      const sidebarWelcome = document.getElementById('sidebarWelcomeName');
-      if (sidebarWelcome) {
-        sidebarWelcome.textContent = `Welcome ${getStewardFirstName()}`;
-      }
+      document.getElementById('brandWelcomeName').textContent = `Welcome ${getResolvedStewardFirstName()}`;
       const displayCity = state.camp.city ? titleCaseWords(state.camp.city) : '';
       const displayState = normalizeStateCode(state.camp.state);
       const meta = [ [displayCity, displayState].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
-      const resolvedHeroPreviewPath = resolveHeroTemplatePath(
-        state.camp.hero ||
-        state.camp.brand ||
-        state.prefill?.heroTemplate ||
-        getDefaultHeroPathForState(displayState)
-      );
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      const previewIsRegionalSign = /(?:^|\/)(?:north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)-deer-camp-sign\.png$/i.test(resolvedHeroPreviewPath || '');
+      const resolvedHeroPreviewPath =
+        state.camp.hero ||
+        resolveHeroTemplatePath(state.camp.brand || '') ||
+        resolveHeroTemplatePath(state.prefill.heroTemplate || '') ||
+        getDefaultHeroPathForState(state.camp.state || '');
       document.getElementById('heroPreview').style.backgroundImage = resolvedHeroPreviewPath ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${resolvedHeroPreviewPath}')` : '';
       document.getElementById('heroPreview').style.backgroundSize = resolvedHeroPreviewPath ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = resolvedHeroPreviewPath ? (previewIsRegionalSign ? 'center top' : 'center center') : '';
-      document.getElementById('heroPreviewPath').textContent = state.camp.hero || state.camp.brand || state.prefill?.heroTemplate || 'No hero path yet';
-      const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.summary);
-      document.getElementById('campProfileComplete').textContent = complete ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.' : 'CampProfile needs a few more details before this step feels complete.';
+      document.getElementById('heroPreview').style.backgroundPosition = resolvedHeroPreviewPath ? 'center top' : '';
+      document.getElementById('heroPreviewPath').textContent = resolvedHeroPreviewPath || 'No hero path yet';
+      const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
+      document.getElementById('campProfileComplete').textContent = complete
+        ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
+        : 'CampProfile needs camp name, location, and established year before this step feels complete.';
     }
 
     function renderMemberList() {
