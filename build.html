@@ -656,6 +656,9 @@ function buildBuilderResumeUrl(path, payload = {}) {
     ["campTraditionsCustom", payload.campTraditionsCustom],
     ["campDeerDrives", payload.campDeerDrives],
     ["heroTemplate", payload.heroTemplate],
+    ["campHero", payload.campHero],
+    ["campBrand", payload.campBrand],
+    ["memberNames", payload.memberNames],
     ["campDescription", payload.campDescription]
   ];
   entries.forEach(([key, value]) => {
@@ -1914,6 +1917,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const recipeNames = recipeObjects.map(recipe => recipe.title);
 
   const selectedSign = getSelectedSignDefinition();
+  const selectedSignAssetPath = buildHeroAssetPath(selectedSign.file || HERO_FALLBACK_FILE);
   const campId = deriveCampIdFromBuilder({ name, city, state, zip });
 
   let hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
@@ -1995,6 +1999,9 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
     campDeerDrives: deerDrives.join(", "),
     heroTemplate: selectedSign.file,
+    campHero: selectedSignAssetPath,
+    campBrand: selectedSignAssetPath,
+    memberNames: campMembers.join(", "),
     campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
     send: true
   };

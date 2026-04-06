@@ -456,9 +456,13 @@
       const clean = String(value || '').trim();
       if (!clean) return '';
       if (/^(data:|blob:|https?:\/\/)/i.test(clean)) return clean;
+      const leafName = clean.split('/').pop() || clean;
+      const isImageFile = /\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
+      const isLikelyDeerCampSign = /(^|[-_\/])(north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)?-?deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName)
+        || /deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
+
       if (clean.includes('/')) return clean;
-      if (SIGN_LIBRARY_BY_FILE[clean]) return `assets/heroes/${clean}`;
-      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(clean)) return `assets/heroes/${clean}`;
+      if (isLikelyDeerCampSign || isImageFile) return `assets/heroes/${leafName}`;
       return clean;
     }
 
