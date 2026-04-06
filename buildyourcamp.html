@@ -535,10 +535,10 @@
     const activeCampId = normalizeCampId(localStorage.getItem('deercamp.activeCampId'));
     const urlCampId = normalizeCampId(urlPrefill.campId || activeCampId);
     const savedWizardCampId = normalizeCampId(firstNonEmpty(wizardState.campId, wizardState.camp?.campId, wizardState.camp?.id));
-    const storedCampId = normalizeCampId(firstNonEmpty(extractStoredCampId(campData), extractStoredCampId(dashboardState), activeCampId));
+    const storedCampId = normalizeCampId(firstNonEmpty(extractStoredCampId(campData), extractStoredCampId(dashboardState)));
 
     const shouldStartFreshFromUrl = Boolean(urlPrefill.hasPrefill && (urlCampId ? urlCampId !== savedWizardCampId : true));
-    const shouldIgnoreStoredCampState = Boolean(shouldStartFreshFromUrl && (!storedCampId || !urlCampId || storedCampId !== urlCampId));
+    const shouldIgnoreStoredCampState = Boolean(shouldStartFreshFromUrl || (urlCampId && storedCampId && storedCampId !== urlCampId));
 
     if (shouldStartFreshFromUrl) {
       localStorage.removeItem(WIZARD_KEY);
@@ -560,24 +560,43 @@
               ? baseCampData.members.map(name => ({ name, email: "", status: "Active" }))
               : []));
 
+    const freshCampDefaults = {
+      name: firstNonEmpty(urlPrefill.camp.name, 'DeerCamp'),
+      established: firstNonEmpty(urlPrefill.camp.established, ''),
+      city: firstNonEmpty(urlPrefill.camp.city, ''),
+      state: firstNonEmpty(urlPrefill.camp.state, ''),
+      zip: firstNonEmpty(urlPrefill.camp.zip, ''),
+      summary: firstNonEmpty(urlPrefill.camp.summary, ''),
+      hero: firstNonEmpty(urlPrefill.camp.hero, ''),
+      brand: firstNonEmpty(urlPrefill.camp.brand, ''),
+      accessNote: firstNonEmpty(urlPrefill.camp.accessNote, '')
+    };
+
     const state = {
       campId: urlCampId || savedWizardCampId || storedCampId || "",
       step: shouldStartFreshFromUrl ? 0 : (Number.isInteger(baseWizardState.step) ? baseWizardState.step : 0),
-      camp: {
-        name: firstNonEmpty(urlPrefill.camp.name, baseWizardState.camp?.name, baseDashboardState.camp?.name, baseCampData.name, baseCampData.campName, "DeerCamp"),
-        established: firstNonEmpty(urlPrefill.camp.established, baseWizardState.camp?.established, baseDashboardState.camp?.established, baseCampData.established, ""),
-        city: firstNonEmpty(urlPrefill.camp.city, baseWizardState.camp?.city, baseDashboardState.camp?.city, baseCampData.city, ""),
-        state: firstNonEmpty(urlPrefill.camp.state, baseWizardState.camp?.state, baseDashboardState.camp?.state, baseCampData.state, ""),
-        zip: firstNonEmpty(urlPrefill.camp.zip, baseWizardState.camp?.zip, baseDashboardState.camp?.zip, baseCampData.zip, ""),
-        summary: firstNonEmpty(urlPrefill.camp.summary, baseWizardState.camp?.summary, baseDashboardState.camp?.summary, baseCampData.summary, baseCampData.about, ""),
-        hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
-        brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
-        accessNote: firstNonEmpty(urlPrefill.camp.accessNote, baseWizardState.camp?.accessNote, baseDashboardState.camp?.accessNote, baseCampData.accessNote, "")
-      },
-      steward: {
-        name: firstNonEmpty(urlPrefill.steward.name, baseWizardState.steward?.name, baseCampData.stewardName, baseCampData.steward, ""),
-        email: firstNonEmpty(urlPrefill.steward.email, baseWizardState.steward?.email, "")
-      },
+      camp: shouldStartFreshFromUrl
+        ? freshCampDefaults
+        : {
+            name: firstNonEmpty(urlPrefill.camp.name, baseWizardState.camp?.name, baseDashboardState.camp?.name, baseCampData.name, baseCampData.campName, "DeerCamp"),
+            established: firstNonEmpty(urlPrefill.camp.established, baseWizardState.camp?.established, baseDashboardState.camp?.established, baseCampData.established, ""),
+            city: firstNonEmpty(urlPrefill.camp.city, baseWizardState.camp?.city, baseDashboardState.camp?.city, baseCampData.city, ""),
+            state: firstNonEmpty(urlPrefill.camp.state, baseWizardState.camp?.state, baseDashboardState.camp?.state, baseCampData.state, ""),
+            zip: firstNonEmpty(urlPrefill.camp.zip, baseWizardState.camp?.zip, baseDashboardState.camp?.zip, baseCampData.zip, ""),
+            summary: firstNonEmpty(urlPrefill.camp.summary, baseWizardState.camp?.summary, baseDashboardState.camp?.summary, baseCampData.summary, baseCampData.about, ""),
+            hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
+            brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
+            accessNote: firstNonEmpty(urlPrefill.camp.accessNote, baseWizardState.camp?.accessNote, baseDashboardState.camp?.accessNote, baseCampData.accessNote, "")
+          },
+      steward: shouldStartFreshFromUrl
+        ? {
+            name: firstNonEmpty(urlPrefill.steward.name, ''),
+            email: firstNonEmpty(urlPrefill.steward.email, '')
+          }
+        : {
+            name: firstNonEmpty(urlPrefill.steward.name, baseWizardState.steward?.name, baseCampData.stewardName, baseCampData.steward, ""),
+            email: firstNonEmpty(urlPrefill.steward.email, baseWizardState.steward?.email, "")
+          },
       members: uniquePeople(shouldStartFreshFromUrl
         ? (urlPrefill.members || [])
         : ([...(urlPrefill.members || []), ...(baseWizardState.members || fallbackMembers)])),
@@ -622,16 +641,69 @@
       persist(false);
     }
 
+    function buildImageCandidateList() {
+      const rawHero = String(state.camp.hero || '').trim();
+      const rawBrand = String(state.camp.brand || '').trim();
+      const candidates = [];
+      const pushCandidate = (value) => {
+        const trimmed = String(value || '').trim();
+        if (!trimmed || candidates.includes(trimmed)) return;
+        candidates.push(trimmed);
+      };
+
+      [rawHero, rawBrand].forEach(value => {
+        if (!value) return;
+        pushCandidate(value);
+        if (!/^([a-z]+:)?\/\//i.test(value) && !value.startsWith('/') && !value.includes('/')) {
+          pushCandidate(`assets/heroes/${value}`);
+          pushCandidate(`assets/branding/${value}`);
+          pushCandidate(`assets/images/${value}`);
+        }
+      });
+
+      return candidates;
+    }
+
+    function updateHeroPreview() {
+      const heroPreview = document.getElementById('heroPreview');
+      const heroPreviewPath = document.getElementById('heroPreviewPath');
+      const candidates = buildImageCandidateList();
+      const fallbackLabel = state.camp.hero || state.camp.brand || 'No hero path yet';
+      heroPreview.dataset.previewToken = String(Date.now());
+      const previewToken = heroPreview.dataset.previewToken;
+      heroPreview.style.backgroundImage = '';
+      heroPreview.style.backgroundSize = '';
+      heroPreview.style.backgroundPosition = '';
+      heroPreviewPath.textContent = fallbackLabel;
+
+      if (!candidates.length) return;
+
+      const tryNext = (index) => {
+        if (heroPreview.dataset.previewToken !== previewToken) return;
+        if (index >= candidates.length) return;
+        const candidate = candidates[index];
+        const probe = new Image();
+        probe.onload = () => {
+          if (heroPreview.dataset.previewToken !== previewToken) return;
+          heroPreview.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${candidate.replace(/'/g, "\'")}')`;
+          heroPreview.style.backgroundSize = 'cover';
+          heroPreview.style.backgroundPosition = 'center center';
+          heroPreviewPath.textContent = candidate;
+        };
+        probe.onerror = () => tryNext(index + 1);
+        probe.src = candidate;
+      };
+
+      tryNext(0);
+    }
+
     function syncCampProfilePreview() {
       document.getElementById('profilePreviewName').textContent = state.camp.name || 'DeerCamp';
       const meta = [ [state.camp.city, state.camp.state].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
       document.getElementById('profilePreviewMeta').textContent = meta || 'Add location and established year.';
       document.getElementById('profilePreviewSummary').textContent = state.camp.summary || 'Add a camp summary so this reads like a real camp, not just saved data.';
       document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || 'No access note yet.';
-      document.getElementById('heroPreview').style.backgroundImage = state.camp.hero ? `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${state.camp.hero}')` : '';
-      document.getElementById('heroPreview').style.backgroundSize = state.camp.hero ? 'cover' : '';
-      document.getElementById('heroPreview').style.backgroundPosition = state.camp.hero ? 'center center' : '';
-      document.getElementById('heroPreviewPath').textContent = state.camp.hero || 'No hero path yet';
+      updateHeroPreview();
       const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
       document.getElementById('campProfileComplete').textContent = complete
         ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
