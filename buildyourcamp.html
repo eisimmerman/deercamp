@@ -664,6 +664,16 @@
       return candidates;
     }
 
+    function getHeroPreviewPosition(path = '') {
+      const value = String(path || '').trim().toLowerCase();
+      if (!value) return 'center center';
+      if (value.includes('midwest-deer-camp-sign')) return 'center 22%';
+      if (value.includes('deer-camp-sign') || value.includes('/sign') || value.endsWith('sign.png') || value.endsWith('sign.jpg') || value.endsWith('sign.jpeg') || value.includes('gate')) {
+        return 'center 24%';
+      }
+      return 'center center';
+    }
+
     function updateHeroPreview() {
       const heroPreview = document.getElementById('heroPreview');
       const heroPreviewPath = document.getElementById('heroPreviewPath');
@@ -687,7 +697,7 @@
           if (heroPreview.dataset.previewToken !== previewToken) return;
           heroPreview.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${candidate.replace(/'/g, "\'")}')`;
           heroPreview.style.backgroundSize = 'cover';
-          heroPreview.style.backgroundPosition = 'center center';
+          heroPreview.style.backgroundPosition = getHeroPreviewPosition(candidate);
           heroPreviewPath.textContent = candidate;
         };
         probe.onerror = () => tryNext(index + 1);
