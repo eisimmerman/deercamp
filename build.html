@@ -270,6 +270,14 @@
     opacity: 0.9;
   }
 
+  .form-row-align-input {
+    align-items: start;
+  }
+
+  .form-row-align-input > label {
+    padding-top: 12px;
+  }
+
 
   @media (max-width: 768px) {
     .hero-preview-frame {
@@ -355,20 +363,18 @@
         </div>
       </div>
 
-      <div class="form-row">
+      <div class="form-row form-row-align-input">
         <label>Established</label>
         <div style="width:100%;">
           <input id="campYear" placeholder="e.g. 1984">
-          <div class="field-helper">Camp established year is for display only. The calendar uses the current DeerCamp build year for official season opener dates.</div>
-          <div id="seasonOpenerStatus" class="season-opener-status">Calendar will only show official statewide hunting season opener dates for the current DeerCamp build year once the camp is created.</div>
         </div>
       </div>
     </div>
 
     <div class="form-section">
-      <h2>Camp Sign &amp; Hero</h2>
+      <h2>Camp Sign</h2>
 
-      <div class="form-row">
+      <div class="form-row form-row-align-input">
         <label>Regional Sign</label>
         <div>
           <select id="campImageSelect">
@@ -392,7 +398,7 @@
       </div>
 
       <div class="form-row">
-        <label>Upload Hero</label>
+        <label>Upload Your<br>Camp Picture</label>
         <input type="file" id="campImageUpload" accept="image/*">
       </div>
 
@@ -415,17 +421,17 @@
     </div>
 
     <div class="form-section">
-      <h2>People &amp; Traditions</h2>
+      <h2>People</h2>
 
-      <div class="form-row">
+      <div class="form-row form-row-align-input">
         <label>Camp Steward</label>
         <div>
           <input id="campSteward" placeholder="camp administrator">
-          <div class="field-helper">Tap this name on the camp page for steward details.</div>
+          <div class="field-helper">Steward sets up, invites members and manages camp content.</div>
         </div>
       </div>
 
-      <div class="form-row">
+      <div class="form-row form-row-align-input">
         <label>Steward Email</label>
         <div>
           <input id="campStewardEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
@@ -433,7 +439,7 @@
         </div>
       </div>
 
-      <div class="form-row">
+      <div class="form-row form-row-align-input">
         <label>Camp Members</label>
         <div>
           <input id="campMembers" placeholder="separate names with commas">
@@ -441,35 +447,8 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <label>Traditions</label>
-        <div class="tradition-builder-wrap">
-          <p class="tradition-builder-note"><strong>Choose from classic deer-camp traditions, then add your own.</strong> These become the identity-and-ritual cards on your camp page.</p>
-          <div id="traditionStarterGroups" class="tradition-starter-groups"></div>
-          <div class="tradition-custom-row">
-            <input id="campTraditionsCustom" placeholder="Add your own traditions, comma-separated">
-          </div>
-          <div id="traditionBuilderStatus" class="tradition-builder-status"></div>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <label>Deer Drives</label>
-        <input id="campDeerDrives" placeholder="North Ridge Push, Creek Line">
-      </div>
-    </div>
-
-    <div class="form-section">
-      <h2>Recipes</h2>
-
-      <div class="form-row">
-        <label>Camp Recipes</label>
-        <div class="recipe-builder-wrap">
-          <p class="recipe-builder-note">DeerCamp auto-generates 8 recipe cards from your full camp roster. We loop back through the roster when there are more recipes than hunters.</p>
-          <div id="recipeBuilderStatus" class="recipe-builder-status"></div>
-          <div id="recipeNamePreview" class="recipe-name-preview"></div>
-        </div>
-      </div>
+      <input type="hidden" id="campTraditionsCustom" value="">
+      <input type="hidden" id="campDeerDrives" value="">
     </div>
 
     <button type="submit" class="build-btn">Build My Camp</button>
@@ -1906,15 +1885,10 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     memberProfiles.push(buildDefaultMemberProfile(memberName, "Camp Member"));
   });
 
-  const traditions = collectSelectedTraditions();
-
-  const deerDrives = document.getElementById("campDeerDrives").value
-    .split(",")
-    .map(item => item.trim())
-    .filter(Boolean);
-
-  const recipeObjects = buildAutoRecipeObjects(members);
-  const recipeNames = recipeObjects.map(recipe => recipe.title);
+  const traditions = [];
+  const deerDrives = [];
+  const recipeObjects = [];
+  const recipeNames = [];
 
   const selectedSign = getSelectedSignDefinition();
   const selectedSignAssetPath = buildHeroAssetPath(selectedSign.file || HERO_FALLBACK_FILE);
@@ -1933,12 +1907,13 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const location = [city, state].filter(Boolean).join(", ");
   const seasonYear = getCurrentSeasonLookupYear();
-  const calendarEvents = await buildOfficialSeasonCalendarEvents(state, seasonYear);
+  const calendarEvents = [];
   const calendarMeta = {
     lookupType: "official-state-season-openers",
     stateCode: normalizeState(state),
     year: seasonYear,
-    hasOfficialData: calendarEvents.length > 0
+    hasOfficialData: false,
+    note: "Camp created with a blank live shell. Add calendar items later from the Steward Dashboard."
   };
 
   const campData = {
@@ -1961,18 +1936,20 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     memberProfiles,
     traditions,
     deerDrives,
-    feedEntries: STARTER_FEED_ENTRIES,
-    campCards: STARTER_CAMP_CARDS,
-    memories: STARTER_WALL_OF_FAME,
-    wallOfFame: STARTER_WALL_OF_FAME,
-    recipes: recipeObjects,
+    feedEntries: [],
+    campCards: [],
+    memories: [],
+    wallOfFame: [],
+    recipes: [],
     recipeNames,
     recipeObjects,
     calendarEvents,
     calendarMeta,
     siteCreatedAt: new Date().toISOString(),
     siteSeasonLookupYear: seasonYear,
-    siteSeasonLookupMonthLabel: getCurrentSeasonLookupLabel()
+    siteSeasonLookupMonthLabel: getCurrentSeasonLookupLabel(),
+    siteBlankShell: true,
+    siteStage: "live-shell"
   };
 
   localStorage.setItem("campData", JSON.stringify(campData));
@@ -2036,7 +2013,24 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }));
   }
 
-  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", welcomePayload);
+  const stewardContinueUrl = buildBuilderResumeUrl("buildyourcamp.html", {
+    ...welcomePayload,
+    campEstablished: year,
+    campHero: hero,
+    campBrand: hero,
+    heroTemplate: selectedSign.file,
+    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp")
+  });
+  localStorage.setItem("deercamp.lastBuilderResumeUrl", stewardContinueUrl);
+  localStorage.setItem("deercamp.lastWelcomePayload", JSON.stringify({
+    ...welcomePayload,
+    campEstablished: year,
+    campHero: hero,
+    campBrand: hero,
+    stewardContinueUrl
+  }));
+
+  window.location.href = buildCampUrl("camp.html", campId);
 });
 </script>
 </body>

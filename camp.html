@@ -2293,6 +2293,121 @@
     text-decoration: none;
   }
 
+
+  .camp-shell-placeholder {
+    display: grid;
+    gap: 18px;
+    justify-items: center;
+    text-align: center;
+    padding: clamp(28px, 5vw, 52px) clamp(18px, 4vw, 44px);
+    border-radius: 26px;
+    background: linear-gradient(180deg, rgba(255, 249, 240, 0.96) 0%, rgba(246, 236, 220, 0.94) 100%);
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.10);
+  }
+
+  .camp-shell-placeholder-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(91, 61, 30, 0.10);
+    color: #6b4624;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .camp-shell-placeholder-title {
+    margin: 0;
+    color: #3f2a15;
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    line-height: 1.08;
+  }
+
+  .camp-shell-placeholder-copy {
+    max-width: 760px;
+    margin: 0;
+    color: #5a4331;
+    font-size: 1.02rem;
+    line-height: 1.7;
+  }
+
+  .camp-shell-placeholder-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .camp-shell-placeholder-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 34px;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.76);
+    color: #5b3d1e;
+    font-size: 0.9rem;
+    font-weight: 700;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+  }
+
+  .camp-shell-placeholder-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .camp-shell-placeholder-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 48px;
+    padding: 0 20px;
+    border-radius: 999px;
+    border: 1px solid rgba(95, 64, 33, 0.18);
+    background: rgba(255, 255, 255, 0.84);
+    color: #4b3116;
+    font-size: 0.98rem;
+    font-weight: 800;
+    text-decoration: none;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+  }
+
+  .camp-shell-placeholder-btn.is-primary {
+    background: #5b3d1e;
+    color: #fff8ef;
+    border-color: #5b3d1e;
+  }
+
+  .camp-shell-placeholder-note {
+    margin: 0;
+    max-width: 720px;
+    color: #6b4624;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 720px) {
+    .camp-shell-placeholder {
+      padding: 24px 18px 28px;
+    }
+
+    .camp-shell-placeholder-actions {
+      width: 100%;
+      flex-direction: column;
+    }
+
+    .camp-shell-placeholder-btn {
+      width: 100%;
+    }
+  }
+
   .cinematic-footer {
     display: block;
     width: 100% !important;
@@ -3009,6 +3124,44 @@ if (cleanCity && cleanState && zip) {
 document.getElementById("campName").textContent = data.name || "DeerCamp";
 document.getElementById("campLocation").textContent =
   formattedLocation + (data.established ? " • Est. " + data.established : "");
+
+function buildCampScopedUrl(path, extraParams = {}) {
+  const url = new URL(path, window.location.href);
+  const campIdValue = String(activeCampId || data.campId || "").trim();
+  if (campIdValue) {
+    url.searchParams.set("campId", campIdValue);
+  }
+  Object.entries(extraParams || {}).forEach(([key, value]) => {
+    const clean = String(value || "").trim();
+    if (clean) {
+      url.searchParams.set(key, clean);
+    }
+  });
+  const query = url.searchParams.toString();
+  return `${url.pathname}${query ? `?${query}` : ""}`;
+}
+
+const rawFeedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
+const rawCampCards = Array.isArray(data.campCards) ? data.campCards.filter(Boolean) : [];
+const rawCampMemories = (Array.isArray(data.memories) ? data.memories : (Array.isArray(data.wallOfFame) ? data.wallOfFame : [])).filter(Boolean);
+const rawCampRecipes = (Array.isArray(data.recipeObjects) ? data.recipeObjects : (Array.isArray(data.recipes) ? data.recipes : [])).filter(Boolean);
+const rawCampTraditions = (Array.isArray(data.traditions) ? data.traditions : []).filter(Boolean);
+const rawCampCalendar = (Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events) ? data.events : (Array.isArray(data.campEvents) ? data.campEvents : []))).filter(Boolean);
+const rawCampStands = (Array.isArray(data.campStands) ? data.campStands : (Array.isArray(data.stands) ? data.stands : (Array.isArray(data.campMap) ? data.campMap : (Array.isArray(data.standMap) ? data.standMap : [])))).filter(Boolean);
+const rawCampDrives = (Array.isArray(data.deerDrives) ? data.deerDrives : []).filter(Boolean);
+
+const hasStructuredCampContent = [
+  rawFeedEntries.length,
+  rawCampCards.length,
+  rawCampMemories.length,
+  rawCampRecipes.length,
+  rawCampTraditions.length,
+  rawCampCalendar.length,
+  rawCampStands.length,
+  rawCampDrives.length
+].some(Boolean);
+
+const shouldRenderBlankCampShell = Boolean(data.siteBlankShell || data.siteStage === "live-shell") && !hasStructuredCampContent;
 
 const STEWARD_ROLE_TEMPLATE = {
   title: "Camp Steward",
@@ -4034,6 +4187,64 @@ function wireAudioFallback(audioEl, candidates = []) {
   });
 }
 
+function renderBlankCampShell() {
+  const stewardName = String(data.stewardName || data.steward || data.campSteward || "").trim();
+  const stewardEmail = String(data.stewardEmail || "").trim();
+  const memberCount = Array.isArray(data.campMembers) ? data.campMembers.filter(Boolean).length : (Array.isArray(data.members) ? data.members.filter(Boolean).length : 0);
+  const savedWelcomeEmail = safeParseJson(localStorage.getItem("deercamp.lastWelcomeEmail"), {});
+  const savedBuilderResumeUrl = String(localStorage.getItem("deercamp.lastBuilderResumeUrl") || "").trim();
+  const continueUrl = savedBuilderResumeUrl || buildCampScopedUrl("buildyourcamp.html", {
+    campName: data.name || "DeerCamp",
+    campCity: cleanCity || city,
+    campState: cleanState || state,
+    campZip: zip,
+    campEstablished: data.established || "",
+    campHero: data.hero || "",
+    campBrand: data.brandImage || data.brandingImage || data.hero || "",
+    stewardName,
+    stewardEmail,
+    memberNames: Array.isArray(data.campMembers) ? data.campMembers.join(", ") : (Array.isArray(data.members) ? data.members.join(", ") : "")
+  });
+  const dashboardUrl = buildCampScopedUrl("steward-dashboard.html");
+
+  const placeholder = document.createElement("div");
+  placeholder.className = "content-section";
+  placeholder.id = "next-steps";
+  placeholder.innerHTML = `
+    <div class="camp-shell-placeholder">
+      <span class="camp-shell-placeholder-badge">Your DeerCamp is live</span>
+      <h2 class="camp-shell-placeholder-title">${escapeHtml(data.name || "Your DeerCamp")}</h2>
+      <p class="camp-shell-placeholder-copy">Your camp homepage has been created. Add members, stories, traditions, recipes, field updates, and more from your Steward tools as you build it out over time.</p>
+      <div class="camp-shell-placeholder-meta">
+        ${formattedLocation ? `<span class="camp-shell-placeholder-pill">${escapeHtml(formattedLocation)}</span>` : ""}
+        ${data.established ? `<span class="camp-shell-placeholder-pill">Est. ${escapeHtml(data.established)}</span>` : ""}
+        ${stewardName ? `<span class="camp-shell-placeholder-pill">Steward: ${escapeHtml(stewardName)}</span>` : ""}
+        <span class="camp-shell-placeholder-pill">Members: ${escapeHtml(String(memberCount))}</span>
+      </div>
+      <div class="camp-shell-placeholder-actions">
+        <a class="camp-shell-placeholder-btn is-primary" href="${escapeHtml(continueUrl)}">Continue Building Your Camp</a>
+        <a class="camp-shell-placeholder-btn" href="${escapeHtml(dashboardUrl)}">Open Steward Dashboard</a>
+      </div>
+      <p class="camp-shell-placeholder-note">${stewardEmail ? `A Steward return link ${savedWelcomeEmail.ok ? "was sent" : "can be sent"} to ${escapeHtml(stewardEmail)} when email is available.` : "Use Continue Building Your Camp to keep going right now."}</p>
+    </div>
+  `;
+  content.appendChild(placeholder);
+
+  menu.innerHTML = "";
+  [
+    { href: continueUrl, label: "Continue Building Your Camp" },
+    { href: dashboardUrl, label: "Open Steward Dashboard" }
+  ].forEach(item => {
+    const link = document.createElement("a");
+    link.href = item.href;
+    link.textContent = item.label;
+    menu.appendChild(link);
+  });
+}
+
+if (shouldRenderBlankCampShell) {
+  renderBlankCampShell();
+} else {
 sections.forEach(section => {
   const container = document.createElement("div");
   container.className = "content-section";
@@ -5236,6 +5447,7 @@ Cook in cast iron until done"></textarea>
     }
   }
 });
+}
 
 menuToggle.addEventListener("click", () => {
   const isOpen = menu.classList.toggle("open");
@@ -6983,6 +7195,9 @@ function initCampContentSubmissionForm() {
 
 window.addEventListener("load", async () => {
   syncCampLayout();
+  if (shouldRenderBlankCampShell) {
+    return;
+  }
   renderCompactRecipes();
   initCalendar();
   initCalendarMemberForm();
