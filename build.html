@@ -595,6 +595,16 @@ const stateMap = {
   "district of columbia": "DC"
 };
 
+const ZIP_LOOKUP_OVERRIDES = {
+  "eagan|MN": ["55121"]
+};
+
+function normalizeZipCandidate(value = "") {
+  const clean = String(value || "").trim();
+  const match = clean.match(/\b\d{5}\b/);
+  return match ? match[0] : "";
+}
+
 function slugifyCampId(value = "") {
   return String(value || "")
     .toLowerCase()
@@ -1153,10 +1163,7 @@ function getFirstName(value = "") {
 }
 
 function buildPersonalizedRecipeTitle(owner, adjective, baseTitle) {
-  if (!owner || owner === "Camp") {
-    return `${adjective} ${baseTitle}`;
-  }
-  return `${owner}'s ${adjective} ${baseTitle}`;
+  return `${adjective} ${baseTitle}`;
 }
 
 function buildAutoRecipeObjects(memberNames = []) {
@@ -1171,9 +1178,7 @@ function buildAutoRecipeObjects(memberNames = []) {
     const adjective = CAMP_RECIPE_ADJECTIVES[index % CAMP_RECIPE_ADJECTIVES.length];
 
     return {
-      subtitle: owner === "Camp"
-        ? `${recipe.meal} • DeerCamp Classic`
-        : `${recipe.meal} • ${owner}'s Camp Recipe`,
+      subtitle: `${recipe.meal} • Camp Recipe`,
       title: buildPersonalizedRecipeTitle(owner, adjective, recipe.baseTitle),
       description: recipe.description,
       time: recipe.time,
@@ -1665,13 +1670,15 @@ function getZipCodesFromResponse(data) {
   const codes = new Set();
 
   if (data && typeof data["post code"] === "string") {
-    codes.add(data["post code"]);
+    const normalized = normalizeZipCandidate(data["post code"]);
+    if (normalized) codes.add(normalized);
   }
 
   if (data && Array.isArray(data.places)) {
     data.places.forEach((place) => {
       if (place && typeof place["post code"] === "string") {
-        codes.add(place["post code"]);
+        const normalized = normalizeZipCandidate(place["post code"]);
+        if (normalized) codes.add(normalized);
       }
     });
   }
@@ -1723,6 +1730,10 @@ async function autofillZip(forceReplace = false) {
 
     if (!postalCodes.length && city.includes(".")) {
       postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
+    }
+
+    if (!postalCodes.length) {
+      postalCodes = ZIP_LOOKUP_OVERRIDES[requestKey] || [];
     }
 
     if (!postalCodes.length) {

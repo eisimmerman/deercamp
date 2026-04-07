@@ -3063,6 +3063,70 @@ if (!Object.keys(scopedCampData).length && Object.keys(data || {}).length) {
   localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(Object.assign({}, data, { campId: activeCampId })));
 }
 const FEED_COMMENTS_KEY = `deerCampFeedComments:${activeCampId}`;
+const selectedRecipeIds = Array.isArray(data.selectedRecipeIds)
+  ? data.selectedRecipeIds.map(item => String(item || "").trim()).filter(Boolean)
+  : [];
+
+function coerceCampPhotoGallery() {
+  const gallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.slice() : [];
+  const byId = new Map();
+  gallery.forEach(item => {
+    const id = String(item?.id || "").trim();
+    if (!id) return;
+    byId.set(id, {
+      id,
+      title: String(item.title || "Camp picture").trim(),
+      caption: String(item.caption || item.body || "").trim(),
+      member: String(item.member || item.author || "Camp Member").trim(),
+      image: String(item.image || "").trim(),
+      createdAt: item.createdAt || new Date().toISOString(),
+      createdAtMs: Number.isFinite(Number(item.createdAtMs)) ? Number(item.createdAtMs) : Date.now(),
+      tags: Array.isArray(item.tags) ? item.tags.filter(Boolean) : ["Picture", "CampUpdate"]
+    });
+  });
+
+  const nextFeedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.map((entry, index) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const nextEntry = Object.assign({}, entry);
+    const isPhoto = String(nextEntry.mediaType || nextEntry.type || nextEntry.category || "").toLowerCase() === "photo"
+      || (String(nextEntry.kicker || "").toLowerCase().includes("picture") && String(nextEntry.image || "").trim());
+    const imageValue = String(nextEntry.image || "").trim();
+    if (isPhoto && imageValue) {
+      const id = String(nextEntry.imageRef || nextEntry.id || `campphoto-${Date.now()}-${index}`).trim();
+      if (!byId.has(id)) {
+        byId.set(id, {
+          id,
+          title: String(nextEntry.title || "Camp picture").trim(),
+          caption: String(nextEntry.body || "").trim(),
+          member: String(nextEntry.author || "Camp Member").trim(),
+          image: imageValue,
+          createdAt: nextEntry.createdAt || new Date().toISOString(),
+          createdAtMs: Number.isFinite(Number(nextEntry.createdAtMs)) ? Number(nextEntry.createdAtMs) : Date.now(),
+          tags: Array.isArray(nextEntry.tags) ? nextEntry.tags.filter(Boolean) : ["Picture", "CampUpdate"]
+        });
+      }
+      nextEntry.imageRef = id;
+      delete nextEntry.image;
+    }
+    return nextEntry;
+  }) : [];
+
+  data.campPhotoGallery = Array.from(byId.values())
+    .filter(item => String(item.image || "").trim())
+    .sort((a, b) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0))
+    .slice(0, 24);
+  if (nextFeedEntries.length) data.feedEntries = nextFeedEntries.slice(0, 40);
+}
+
+function getCampPhotoImageById(photoId = "") {
+  const cleanId = String(photoId || "").trim();
+  if (!cleanId) return "";
+  const gallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery : [];
+  const match = gallery.find(item => String(item?.id || "").trim() === cleanId);
+  return match ? String(match.image || "").trim() : "";
+}
+
+coerceCampPhotoGallery();
 const defaultTraditionLinks = {
   "Arnold Bar & Grill Buck Pool": "https://maps.app.goo.gl/DhaxcRFTHt9ysVHz5"
 };
@@ -4016,28 +4080,21 @@ function buildDriveMapMarkup(drive = {}, driveIndex = 0, memberNames = []) {
 }
 
 function normalizeFeedEntry(entry = {}, index = 0) {
-  const requestedAudio = entry.audio || entry.voice || "assets/feed/winter-trail-deer.mp3";
-  const audioCandidates = Array.isArray(requestedAudio)
-    ? requestedAudio
-    : [
-        requestedAudio,
-        "assets/feed/winter-trail-deer.mp3",
-        "winter-trail-deer.mp3",
-        "assets/feed/winter-trail-deer.mp3.mp3",
-        "winter-trail-deer.mp3.mp3",
-        "assets/feed/ElevenLabs_2026-03-22T08_01_47_Christopher_pvc_sp100_s83_sb100_se4_m2.mp3",
-        "ElevenLabs_2026-03-22T08_01_47_Christopher_pvc_sp100_s83_sb100_se4_m2.mp3"
-      ];
+  const requestedAudio = entry.audio || entry.voice || "";
+  const audioCandidates = (Array.isArray(requestedAudio) ? requestedAudio : [requestedAudio])
+    .map(value => String(value || "").trim())
+    .filter(Boolean);
+  const resolvedImage = String(entry.image || entry.img || getCampPhotoImageById(entry.imageRef || entry.photoId || entry.id) || "assets/feed/winter-trail-deer.jpg").trim();
 
   return {
     title: entry.title || `Field Update ${index + 1}`,
     kicker: entry.kicker || "CampFeed Preview",
     meta: entry.meta || "Posted from the field • Just now",
     body: entry.body || "Hunters can share a live field update with a photo, quick note, and optional audio clip right from DeerCamp.",
-    image: entry.image || entry.img || "assets/feed/winter-trail-deer.jpg",
+    image: resolvedImage,
     imageFit: entry.imageFit || entry.fit || "cover",
-    audio: audioCandidates.filter(Boolean).filter((value, idx, arr) => arr.indexOf(value) === idx),
-    tags: Array.isArray(entry.tags) && entry.tags.length ? entry.tags : ["Photo", "Audio", "Field note"]
+    audio: audioCandidates,
+    tags: Array.isArray(entry.tags) && entry.tags.length ? entry.tags : ["Photo", "Field note"]
   };
 }
 
@@ -4120,7 +4177,7 @@ const rawSections = [
   { key: "feed", dashboardKey: "campfeed", title: "CampFeed", hasContent: true, pinFirst: true },
   { key: "campupdate", dashboardKey: "campupdate", title: "CampUpdate", hasContent: true },
   { key: "campcards", dashboardKey: "campcards", title: "CampCards", hasContent: true },
-  { key: "recipes", dashboardKey: "camprecipes", title: "CampRecipes", hasContent: true },
+  { key: "recipes", dashboardKey: "camprecipes", title: "CampRecipes", hasContent: getCampRecipes().length > 0 },
   { key: "calendar", dashboardKey: "calendar", title: "CampCalendar", hasContent: true },
   { key: "traditions", dashboardKey: "traditions", title: "CampTraditions", hasContent: true },
   { key: "memories", dashboardKey: "campmemories", title: "CampMemories / Wall of Fame", hasContent: true },
@@ -4129,16 +4186,23 @@ const rawSections = [
   { key: "map", title: "CampStands", hasContent: true }
 ];
 
-const sections = hasExplicitSectionVisibility
-  ? rawSections.filter(section => {
-      if (section.dashboardKey) return Boolean(enabledSections[section.dashboardKey]);
-      return false;
-    })
-  : [
+const defaultVisibleSections = [
       ...rawSections.filter(section => section.pinFirst),
       ...rawSections.filter(section => !section.pinFirst && section.hasContent),
       ...rawSections.filter(section => !section.pinFirst && !section.hasContent)
     ];
+
+const filteredVisibleSections = hasExplicitSectionVisibility
+  ? rawSections.filter(section => {
+      if (!section.dashboardKey) return false;
+      if (section.key === "recipes") {
+        return (Boolean(enabledSections[section.dashboardKey]) && section.hasContent) || section.hasContent;
+      }
+      return Boolean(enabledSections[section.dashboardKey]);
+    })
+  : [];
+
+const sections = filteredVisibleSections.length ? filteredVisibleSections : defaultVisibleSections;
 
 const content = document.getElementById("content");
 const menu = document.getElementById("menu");
@@ -4283,7 +4347,7 @@ sections.forEach(section => {
               <span id="feedRecentCount" class="feed-recent-count">Showing 0 of 0</span>
             </div>
             <div class="feed-carousel-controls">
-              <p class="feed-carousel-caption">Running 5 recent posts</p>
+              <p class="feed-carousel-caption">Recent 3 pictures</p>
               <button type="button" class="feed-carousel-arrow" id="feedPrevBtn" aria-label="Previous featured posts">◀</button>
               <button type="button" class="feed-carousel-arrow" id="feedNextBtn" aria-label="Next featured posts">▶</button>
             </div>
@@ -4292,7 +4356,7 @@ sections.forEach(section => {
           <div class="feed-archive-toolbar">
             <div class="feed-search-wrap">
               <label class="feed-search-label" for="feedSearchInput">Search CampFeed</label>
-              <input id="feedSearchInput" class="feed-search-input" type="search" placeholder="Search pictures, traditions, recipes, calendar events, members, or tags">
+              <input id="feedSearchInput" class="feed-search-input" type="search" placeholder="Search pictures, members, or tags">
             </div>
             <div class="feed-sort-wrap">
               <label class="feed-sort-label" for="feedSortSelect">Sort</label>
@@ -4306,7 +4370,7 @@ sections.forEach(section => {
           <div class="feed-filter-row" id="feedFilterRow"></div>
 
           <div class="feed-archive-meta">
-            <p id="feedResultsCount" class="feed-results-count">0 posts</p>
+            <p id="feedResultsCount" class="feed-results-count">0 pictures</p>
             <button type="button" id="feedClearBtn" class="feed-clear-btn">Clear Filters</button>
           </div>
 
@@ -4388,14 +4452,7 @@ sections.forEach(section => {
     const feedFilters = [
       { key: "all", label: "All" },
       { key: "photo", label: "Photos" },
-      { key: "audio", label: "Audio" },
-      { key: "video", label: "Video" },
-      { key: "buck", label: "Bucks" },
-      { key: "camp-life", label: "Camp Life" },
-      { key: "recipe", label: "Recipes" },
-      { key: "tradition", label: "Traditions" },
-      { key: "calendar", label: "Calendar" },
-      { key: "wall-of-fame", label: "Wall of Fame" }
+      { key: "audio", label: "Audio" }
     ];
 
     let featuredCards = [];
@@ -4816,23 +4873,7 @@ sections.forEach(section => {
               </div>
 
               <div class="calendar-form-main">
-              <div id="contentSubmissionPanelPhoto" class="content-submission-panel is-active">
-                <label class="calendar-form-row">
-                  <span class="calendar-form-label">Picture Title</span>
-                  <input id="contentPhotoTitle" class="calendar-form-input" type="text" placeholder="Big buck by the road">
-                </label>
-
-                <label class="calendar-form-row">
-                  <span class="calendar-form-label">Picture</span>
-                  <input id="contentPhotoFile" class="calendar-form-input" type="file" accept="image/*">
-                </label>
-
-                <label class="calendar-form-row">
-                  <span class="calendar-form-label">Caption</span>
-                  <textarea id="contentPhotoCaption" class="calendar-form-textarea" placeholder="Quick note about what happened in this moment."></textarea>
-                </label>
-              </div>
-                <label class="calendar-form-row">
+              <label class="calendar-form-row">
                   <span class="calendar-form-label">Event Title</span>
                   <input id="calendarMemberEventTitle" class="calendar-form-input" type="text" placeholder="Final Setup">
                 </label>
@@ -4852,11 +4893,11 @@ sections.forEach(section => {
   else if (section.key === "campupdate") {
     container.innerHTML = `
       <h2>CampUpdate</h2>
-      <p class="section-helper">Members can post a picture, tradition, recipe, or calendar event. Every CampUpdate appears in CampFeed, and traditions, recipes, and calendar events also cross-post into their permanent camp sections.</p>
+      <p class="section-helper">Members can post a picture, tradition, recipe, or calendar event. Pictures post into CampFeed. Traditions, recipes, and calendar events appear here in Recent CampUpdates and also cross-post into their permanent camp sections.</p>
       <div class="calendar-shell">
         <div class="calendar-form-panel">
           <h4 class="calendar-form-title">Post a CampUpdate</h4>
-          <p class="calendar-form-copy">Choose your name, choose a post type, and add it once. DeerCamp routes it to CampFeed and the right camp section.</p>
+          <p class="calendar-form-copy">Choose your name, choose a post type, and add it once. Pictures post into CampFeed. Traditions, recipes, and calendar events post here and into the right camp section.</p>
 
           <form id="campContentSubmissionForm" class="calendar-form-grid">
             <div class="calendar-form-side">
@@ -4882,6 +4923,23 @@ sections.forEach(section => {
             </div>
 
             <div class="calendar-form-main">
+              <div id="contentSubmissionPanelPhoto" class="content-submission-panel is-active">
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Picture Title</span>
+                  <input id="contentPhotoTitle" class="calendar-form-input" type="text" placeholder="Big buck by the road">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Picture</span>
+                  <input id="contentPhotoFile" class="calendar-form-input" type="file" accept="image/*">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Caption</span>
+                  <textarea id="contentPhotoCaption" class="calendar-form-textarea" placeholder="Quick note about what happened in this moment."></textarea>
+                </label>
+              </div>
+
               <div id="contentSubmissionPanelRecipe" class="content-submission-panel">
                 <label class="calendar-form-row">
                   <span class="calendar-form-label">Recipe Title</span>
@@ -4930,11 +4988,6 @@ Cook in cast iron until done"></textarea>
                 </label>
 
                 <label class="calendar-form-row">
-                  <span class="calendar-form-label">Group</span>
-                  <input id="contentTraditionGroup" class="calendar-form-input" type="text" placeholder="Opening Camp">
-                </label>
-
-                <label class="calendar-form-row">
                   <span class="calendar-form-label">Description</span>
                   <textarea id="contentTraditionDescription" class="calendar-form-textarea" placeholder="The quiet coffee ritual before first light that starts every season right."></textarea>
                 </label>
@@ -4973,7 +5026,7 @@ Cook in cast iron until done"></textarea>
         <div class="calendar-events-panel">
           <h4 class="calendar-panel-title">Recent CampUpdates</h4>
           <div id="contentSubmissionRecentList" class="calendar-event-list">
-            <p class="calendar-empty-note">No CampUpdates yet. New pictures, traditions, recipes, and calendar events will appear here first.</p>
+            <p class="calendar-empty-note">No CampUpdates yet. New traditions, recipes, and calendar events will appear here first.</p>
           </div>
         </div>
       </div>
@@ -4983,7 +5036,7 @@ Cook in cast iron until done"></textarea>
   else if (section.key === "traditions") {
     container.innerHTML = `
       <h2>CampTraditions</h2>
-      <p class="section-helper">Starter traditions plus anything your camp adds over time — the rituals that make this camp this camp.</p>
+      <p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p>
       <div class="traditions-grid" id="traditionsGrid"></div>
     `;
 
@@ -5587,38 +5640,24 @@ function buildPersonalizedRecipeTitle(owner, adjective, baseTitle) {
   return `${owner}'s ${adjective} ${baseTitle}`;
 }
 
-function buildAutoRecipeObjects(memberNames = []) {
-  const owners = (Array.isArray(memberNames) ? memberNames : [])
-    .map(getFirstName)
-    .filter(Boolean);
-
-  const cycleOwners = owners.length ? owners : ["Camp"];
-
-  return AUTO_RECIPE_LIBRARY.map((recipe, index) => {
-    const owner = cycleOwners[index % cycleOwners.length];
-    const adjective = CAMP_RECIPE_ADJECTIVES[index % CAMP_RECIPE_ADJECTIVES.length];
-
-    return {
-      subtitle: owner === "Camp"
-        ? `${recipe.meal} • DeerCamp Classic`
-        : `${recipe.meal} • ${owner}'s Camp Recipe`,
-      title: buildPersonalizedRecipeTitle(owner, adjective, recipe.baseTitle),
-      description: recipe.description,
-      time: recipe.time,
-      serves: recipe.serves,
-      difficulty: recipe.difficulty,
-      ingredients: [...recipe.ingredients],
-      steps: [...recipe.steps],
-      serving: [...recipe.serving],
-      tips: [...recipe.tips],
-      meal: recipe.meal,
-      owner,
-      adjective,
-      sourceTitle: recipe.baseTitle,
-      icon: recipe.icon,
-      equipment: recipe.equipment
-    };
-  });
+function buildAutoRecipeObjects() {
+  return AUTO_RECIPE_LIBRARY.map((recipe, index) => ({
+    id: `starter-recipe-${index + 1}`,
+    subtitle: `${recipe.meal} • DeerCamp Recipe`,
+    title: recipe.baseTitle,
+    description: recipe.description,
+    time: recipe.time,
+    serves: recipe.serves,
+    difficulty: recipe.difficulty,
+    ingredients: [...recipe.ingredients],
+    steps: [...recipe.steps],
+    serving: [...recipe.serving],
+    tips: [...recipe.tips],
+    meal: recipe.meal,
+    sourceTitle: recipe.baseTitle,
+    icon: recipe.icon,
+    equipment: recipe.equipment
+  }));
 }
 
 
@@ -5627,31 +5666,13 @@ function getCampRecipes() {
     ? data.recipeObjects
     : (Array.isArray(data.recipes) && data.recipes.length ? data.recipes : []);
 
-  const memberNames = (renderedMemberProfiles || []).map(profile => profile.name).filter(Boolean);
-  const autoRecipes = buildAutoRecipeObjects(memberNames);
+  const autoRecipes = buildAutoRecipeObjects();
+  const selectedSet = new Set((Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds : selectedRecipeIds).map(item => String(item || "").trim()).filter(Boolean));
+  const starterRecipes = autoRecipes.filter(recipe => selectedSet.has(String(recipe.id || "").trim()));
+  const customRecipes = recipeSource.map((recipe, index) => normalizeCampRecipe(recipe, index));
 
-  if (recipeSource.length) {
-    return recipeSource.map((recipe, index) => {
-      const normalized = normalizeCampRecipe(recipe, index);
-      const autoRecipe = normalizeCampRecipe(autoRecipes[index % autoRecipes.length], index);
-      const titleText = String(normalized.title || "").trim();
-      const subtitleText = String(normalized.subtitle || "").trim();
-      const hasPersonalOwner = /\b[A-Za-z'\-]+['’]s\b/.test(titleText);
-      const titleLooksGeneric = !titleText
-        || /^camp recipe(?: \d+)?$/i.test(titleText)
-        || /^recipe(?: \d+)?$/i.test(titleText);
-
-      return {
-        ...normalized,
-        subtitle: subtitleText && subtitleText.toLowerCase() !== "camp recipe" ? subtitleText : autoRecipe.subtitle,
-        title: hasPersonalOwner || !titleLooksGeneric ? normalized.title : autoRecipe.title
-      };
-    });
-  }
-
-  return autoRecipes.map((recipe, index) => normalizeCampRecipe(recipe, index));
+  return [...starterRecipes.map((recipe, index) => normalizeCampRecipe(recipe, index)), ...customRecipes];
 }
-
 
 function openCampRecipeModal(recipe) {
   const modal = document.getElementById("recipeModal");
@@ -6525,10 +6546,24 @@ let contentSubmissions = Array.isArray(data.contentSubmissions)
 
 function persistScopedCampData() {
   data.campId = activeCampId;
-  data.contentSubmissions = contentSubmissions;
-  localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
-  localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(data));
-  localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+  data.contentSubmissions = contentSubmissions.slice(0, 30);
+  if (Array.isArray(data.feedEntries)) data.feedEntries = data.feedEntries.slice(0, 40);
+  if (Array.isArray(data.campPhotoGallery)) data.campPhotoGallery = data.campPhotoGallery.slice(0, 18);
+
+  const writePayload = () => {
+    localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+    localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(data));
+    localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+  };
+
+  try {
+    writePayload();
+  } catch (error) {
+    if (Array.isArray(data.campPhotoGallery)) data.campPhotoGallery = data.campPhotoGallery.slice(0, 10);
+    if (Array.isArray(data.feedEntries)) data.feedEntries = data.feedEntries.slice(0, 20);
+    data.contentSubmissions = contentSubmissions.slice(0, 20);
+    writePayload();
+  }
 
   try {
     const dashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId, "dashboard")), null)
@@ -6539,6 +6574,7 @@ function persistScopedCampData() {
       dashboard.recipeObjects = Array.isArray(data.recipeObjects) ? data.recipeObjects : [];
       dashboard.calendarEvents = Array.isArray(data.calendarEvents) ? data.calendarEvents : [];
       dashboard.contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions : [];
+      dashboard.selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds : [];
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(dashboard));
       localStorage.setItem(campScopeKey(activeCampId, "dashboard"), JSON.stringify(dashboard));
     }
@@ -6630,13 +6666,17 @@ function renderContentSubmissionRecentList() {
   if (!list) return;
 
   const items = Array.isArray(contentSubmissions)
-    ? contentSubmissions.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || ""))).slice(0, 6)
+    ? contentSubmissions
+        .filter(item => String(item?.type || "").trim().toLowerCase() !== "photo")
+        .slice()
+        .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+        .slice(0, 6)
     : [];
 
   list.innerHTML = "";
 
   if (!items.length) {
-    list.innerHTML = '<p class="calendar-empty-note">No CampUpdates yet. New pictures, traditions, recipes, and calendar events will appear here first.</p>';
+    list.innerHTML = '<p class="calendar-empty-note">No CampUpdates yet. New traditions, recipes, and calendar events will appear here first.</p>';
     return;
   }
 
@@ -6661,7 +6701,8 @@ function buildCampFeedEntry(payload = {}) {
     kicker: type === "photo" ? "CampUpdate • Picture" : `CampUpdate • ${normalizeCampUpdateTypeLabel(type)}`,
     meta: [String(payload.member || "Camp Member").trim(), new Date(createdAtMs).toLocaleString()].filter(Boolean).join(" • "),
     body: String(payload.body || payload.summary || "New camp update.").trim(),
-    image: String(payload.image || "").trim(),
+    image: String(payload.image || getCampPhotoImageById(payload.imageRef || payload.photoId || payload.id) || "").trim(),
+    imageRef: String(payload.imageRef || payload.photoId || "").trim(),
     imageFit: String(payload.imageFit || (payload.image ? "contain" : "cover")).trim() || "cover",
     audio: String(payload.audio || "").trim(),
     tags: Array.isArray(payload.tags) ? payload.tags.filter(Boolean) : [normalizeCampUpdateTypeLabel(type), "CampUpdate"],
@@ -6676,12 +6717,12 @@ function buildCampFeedEntry(payload = {}) {
 function pushCampFeedEntry(entry = {}) {
   const nextEntries = Array.isArray(data.feedEntries) ? data.feedEntries.slice() : [];
   nextEntries.unshift(entry);
-  data.feedEntries = nextEntries;
+  data.feedEntries = nextEntries.slice(0, 40);
 }
 
 function rememberCampPhotoGallery(item = {}) {
   const gallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.slice() : [];
-  gallery.unshift({
+  const nextItem = {
     id: item.id || `campphoto-${Date.now()}`,
     title: String(item.title || "Camp picture").trim(),
     caption: String(item.caption || item.body || "").trim(),
@@ -6690,15 +6731,43 @@ function rememberCampPhotoGallery(item = {}) {
     createdAt: item.createdAt || new Date().toISOString(),
     createdAtMs: Number.isFinite(Number(item.createdAtMs)) ? Number(item.createdAtMs) : Date.now(),
     tags: Array.isArray(item.tags) ? item.tags.filter(Boolean) : ["Picture", "CampUpdate"]
-  });
-  data.campPhotoGallery = gallery;
+  };
+  const withoutMatch = gallery.filter(existing => String(existing?.id || "").trim() !== nextItem.id);
+  withoutMatch.unshift(nextItem);
+  data.campPhotoGallery = withoutMatch.slice(0, 24);
+  return nextItem;
 }
 
 function readImageFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     if (!file) return reject(new Error("No file selected."));
+
     const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const maxWidth = 1400;
+        const maxHeight = 1400;
+        const scale = Math.min(1, maxWidth / image.width, maxHeight / image.height);
+        const width = Math.max(1, Math.round(image.width * scale));
+        const height = Math.max(1, Math.round(image.height * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          resolve(String(reader.result || ""));
+          return;
+        }
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(image, 0, 0, width, height);
+        const optimized = canvas.toDataURL("image/jpeg", 0.72);
+        resolve(String(optimized || reader.result || ""));
+      };
+      image.onerror = () => resolve(String(reader.result || ""));
+      image.src = String(reader.result || "");
+    };
     reader.onerror = () => reject(new Error("Could not read that image file."));
     reader.readAsDataURL(file);
   });
@@ -6775,11 +6844,16 @@ function initCampContentSubmissionForm() {
       readImageFileAsDataUrl(file).then(imageData => {
         const createdAt = new Date().toISOString();
         const createdAtMs = Date.now();
-        const feedEntry = buildCampFeedEntry({ type: "photo", member, title, body: caption || `${member} added a new camp picture.`, image: imageData, imageFit: "contain", tags: ["Picture", "CampUpdate"], createdAt, createdAtMs });
-        rememberCampPhotoGallery({ id: feedEntry.id, title, caption, member, image: imageData, tags: feedEntry.tags, createdAt, createdAtMs });
+        const photoItem = rememberCampPhotoGallery({ id: `campphoto-${createdAtMs}`, title, caption, member, image: imageData, tags: ["Picture", "CampUpdate"], createdAt, createdAtMs });
+        const feedEntry = buildCampFeedEntry({ type: "photo", member, title, body: caption || `${member} added a new camp picture.`, imageRef: photoItem.id, imageFit: "contain", tags: ["Picture", "CampUpdate"], createdAt, createdAtMs });
         contentSubmissions.unshift({ type: "photo", member, title, summary: caption || `Picture posted by ${member}.`, createdAt, createdAtMs });
         pushCampFeedEntry(feedEntry);
-        persistScopedCampData();
+        try {
+          persistScopedCampData();
+        } catch (error) {
+          setContentSubmissionFeedback("That picture is too large for local browser storage. Try a smaller file.", true);
+          return;
+        }
         window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
         renderContentSubmissionRecentList();
         setContentSubmissionFeedback(`${title} was added to CampFeed and saved into camp pictures.`);
@@ -6816,7 +6890,7 @@ function initCampContentSubmissionForm() {
         : getCampRecipes().map(recipe => ({ ...recipe })));
 
       nextRecipes.push({
-        subtitle: `${member}'s Recipe`,
+        subtitle: "Camp Recipe",
         title,
         description: description || "Member-submitted camp recipe.",
         time,
@@ -6834,18 +6908,17 @@ function initCampContentSubmissionForm() {
       contentSubmissions.unshift({
         type: "recipe",
         member,
-        title,
+        title: `${title} -- added to CampRecipes`,
         summary: description || `Recipe submitted by ${member}.`,
         createdAt,
         createdAtMs
       });
-      pushCampFeedEntry(buildCampFeedEntry({ type: "recipe", member, title, body: description || `${member} added a new camp recipe.`, tags: ["Recipe", "CampUpdate", member], createdAt, createdAtMs }));
 
       persistScopedCampData();
       window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
       renderCompactRecipes();
       renderContentSubmissionRecentList();
-      setContentSubmissionFeedback(`${title} was added to CampFeed and CampRecipes.`);
+      setContentSubmissionFeedback(`${title} was added to Recent CampUpdates and CampRecipes.`);
       form.reset();
       populateContentSubmissionMemberSelect();
       typeSelect.value = "photo";
@@ -6855,14 +6928,14 @@ function initCampContentSubmissionForm() {
 
     if (type === "tradition") {
       const titleInput = document.getElementById("contentTraditionTitle");
-      const groupInput = document.getElementById("contentTraditionGroup");
       const descriptionInput = document.getElementById("contentTraditionDescription");
       const urlInput = document.getElementById("contentTraditionUrl");
 
       const label = String(titleInput.value || "").trim();
-      const group = String(groupInput.value || "").trim() || "Camp Traditions";
       const description = String(descriptionInput.value || "").trim();
       const url = String(urlInput.value || "").trim();
+      const matchedStarter = STARTER_TRADITION_LIBRARY[String(label || "").trim().toLowerCase()] || {};
+      const group = String(matchedStarter.group || "Camp Traditions").trim();
 
       if (!label) {
         setContentSubmissionFeedback("Add a tradition title before submitting.", true);
@@ -6882,18 +6955,17 @@ function initCampContentSubmissionForm() {
       contentSubmissions.unshift({
         type: "tradition",
         member,
-        title: label,
+        title: `${label} -- added to CampTraditions`,
         summary: description || `Tradition submitted by ${member}.`,
         createdAt,
         createdAtMs
       });
-      pushCampFeedEntry(buildCampFeedEntry({ type: "tradition", member, title: label, body: description || `${member} added a new camp tradition.`, tags: ["Tradition", "CampUpdate", group], createdAt, createdAtMs }));
 
       persistScopedCampData();
       window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
       appendTraditionCardToGrid(tradition);
       renderContentSubmissionRecentList();
-      setContentSubmissionFeedback(`${label} was added to CampFeed and CampTraditions.`);
+      setContentSubmissionFeedback(`${label} was added to Recent CampUpdates and CampTraditions.`);
       form.reset();
       populateContentSubmissionMemberSelect();
       typeSelect.value = "photo";
@@ -6938,12 +7010,11 @@ function initCampContentSubmissionForm() {
     contentSubmissions.unshift({
       type: "event",
       member,
-      title,
+      title: `${title} -- added to CampCalendar`,
       summary: `${formatCalendarHumanDate(date)} • ${description || "Camp event submitted."}`,
       createdAt,
       createdAtMs
     });
-    pushCampFeedEntry(buildCampFeedEntry({ type: "event", member, title, body: `${formatCalendarHumanDate(date)} • ${description || "Camp event posted."}`, tags: ["Calendar", "CampUpdate", member], createdAt, createdAtMs }));
     persistScopedCampData();
     window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
     selectedDateKey = date;
@@ -6951,7 +7022,7 @@ function initCampContentSubmissionForm() {
     renderCalendarEventList(date);
     updateCalendarFormSelectionDisplay();
     renderContentSubmissionRecentList();
-    setContentSubmissionFeedback(`${title} was added to CampFeed and CampCalendar for ${formatCalendarHumanDate(date)}.`);
+    setContentSubmissionFeedback(`${title} was added to Recent CampUpdates and CampCalendar for ${formatCalendarHumanDate(date)}.`);
     form.reset();
     populateContentSubmissionMemberSelect();
     typeSelect.value = "photo";
