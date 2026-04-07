@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeerCamp Steward Onboarding Wizard</title>
+  <title>Continue Building Your DeerCamp</title>
   <style>
     :root {
       --bg: #d7ccb9;
-      --panel: #f7f1e7;
-      --panel-2: #efe4d2;
+      --panel: rgba(247, 241, 231, 0.94);
       --ink: #231a13;
       --muted: #6b5644;
       --brown: #6a4427;
       --brown-deep: #452a16;
       --green: #496647;
-      --gold: #b1792d;
       --line: rgba(69, 42, 22, 0.12);
-      --shadow: 0 10px 28px rgba(0,0,0,0.12);
-      --radius: 22px;
-      --radius-sm: 16px;
+      --shadow: 0 14px 34px rgba(0,0,0,0.12);
+      --radius: 26px;
+      --radius-sm: 18px;
     }
+
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       font-family: Arial, Helvetica, sans-serif;
@@ -29,735 +29,489 @@
         radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
         linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
     }
-    button, input, select, textarea { font: inherit; }
-    .shell {
+
+    a, button, input { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .page-shell {
       min-height: 100vh;
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      gap: 24px;
       padding: 24px;
+      display: grid;
+      gap: 22px;
+      align-content: start;
     }
-    .sidebar, .panel, .card, .status-card {
+
+    .brand-bar,
+    .hero-panel {
+      max-width: 1180px;
+      margin: 0 auto;
+      width: 100%;
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
     }
-    .sidebar {
-      padding: 22px 18px;
-      position: sticky;
-      top: 24px;
-      align-self: start;
+
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
     }
+
     .brand {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 18px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--line);
+      min-width: 0;
     }
+
     .brand-mark {
       width: 56px;
       height: 56px;
-      display: grid;
-      place-items: center;
-      padding: 8px;
-      background: rgba(106,68,39,0.1);
       border-radius: 16px;
       overflow: hidden;
+      background: rgba(106,68,39,0.10);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
     }
+
     .brand-mark img {
       width: 100%;
       height: 100%;
       object-fit: contain;
       display: block;
     }
-    .brand h1 { margin: 0; font-size: 1.2rem; }
-    .brand p { margin: 4px 0 0; color: var(--muted); font-size: 0.9rem; }
-    .rule-card {
-      margin-bottom: 18px;
-      padding: 14px;
-      border-radius: 18px;
-      background: linear-gradient(180deg, rgba(106,68,39,0.09), rgba(106,68,39,0.03));
-      border: 1px solid rgba(69,42,22,0.08);
-    }
-    .rule-card strong { display: block; margin-bottom: 6px; }
-    .step-list { display: grid; gap: 10px; }
-    .step {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      padding: 12px 14px;
-      border-radius: 14px;
-      background: rgba(255,255,255,0.55);
-      border: 1px solid rgba(69,42,22,0.08);
-    }
-    .step.active { background: var(--brown); color: #fff; }
-    .step.done { background: rgba(73,102,71,0.12); border-color: rgba(73,102,71,0.16); }
-    .step-num {
-      width: 28px; height: 28px; border-radius: 999px; display: grid; place-items: center; font-weight: 800;
-      background: rgba(69,42,22,0.12); color: var(--brown-deep); flex: 0 0 auto;
-    }
-    .step.active .step-num { background: rgba(255,255,255,0.16); color: #fff; }
-    .step.done .step-num { background: var(--green); color: #fff; }
-    .main { display: grid; gap: 22px; }
-    .topbar {
-      display: flex; align-items: center; justify-content: space-between; gap: 14px;
-      padding: 18px 22px; background: rgba(247,241,231,0.88); backdrop-filter: blur(8px);
-      border: 1px solid rgba(69,42,22,0.08); border-radius: 24px; box-shadow: var(--shadow);
-    }
-    .topbar h2 { margin: 0; font-size: 1.35rem; }
-    .topbar p { margin: 4px 0 0; color: var(--muted); }
-    .wizard-greeting { margin: 6px 0 0; color: var(--brown-deep); font-weight: 700; }
-    .wizard-greeting[hidden] { display: none; }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 16px;
-      border-radius: 999px; border: 0; font-weight: 700; cursor: pointer; font-size: 0.95rem;
-    }
-    .btn-primary { background: var(--brown); color: #fff; box-shadow: 0 10px 24px rgba(69,42,22,0.18); }
-    .btn-pulse {
-      animation: deercampPulse 1.9s ease-in-out infinite;
-      transform-origin: center;
-    }
-    .btn-pulse:hover,
-    .btn-pulse:focus-visible {
-      animation-play-state: paused;
-    }
-    @keyframes deercampPulse {
-      0%, 100% { transform: scale(1); box-shadow: 0 10px 24px rgba(69,42,22,0.18); }
-      50% { transform: scale(1.035); box-shadow: 0 14px 30px rgba(69,42,22,0.28); }
-    }
-    .btn-secondary { background: #fff; color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.12); }
-    .btn-soft { background: rgba(255,255,255,0.65); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.1); }
-    .panel { padding: 22px; }
-    .panel h3 { margin: 0 0 8px; }
-    .helper { margin: 0 0 18px; color: var(--muted); line-height: 1.55; }
-    .step-panel { display: none; }
-    .step-panel.active { display: block; }
-    .two-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-    .three-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 16px; }
-    .field { display: grid; gap: 7px; }
-    .field.span-2 { grid-column: 1 / -1; }
-    .field label { font-size: 0.88rem; font-weight: 700; color: var(--brown-deep); }
-    .field input, .field textarea, .field select {
-      width: 100%; min-height: 46px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(69,42,22,0.14);
-      background: #fff; color: var(--ink);
-    }
-    .field textarea { min-height: 110px; resize: vertical; }
-    .field-note { font-size: 0.82rem; color: var(--muted); }
-    .card, .status-card {
-      padding: 16px 18px;
-      border-radius: var(--radius-sm);
-      background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18));
-    }
-    .card strong, .status-card strong { display: block; margin-bottom: 6px; }
-    .badge {
-      display: inline-flex; align-items: center; min-height: 28px; padding: 4px 10px; border-radius: 999px;
-      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
-      background: rgba(106,68,39,0.08); color: var(--brown-deep); border: 1px solid rgba(69,42,22,0.08);
-    }
-    .badge.green { background: rgba(73,102,71,0.12); color: var(--green); }
-    .toggle-grid { display: grid; gap: 12px; }
-    .toggle-card {
-      display: grid; grid-template-columns: 1fr auto; gap: 14px; align-items: center;
-      padding: 16px 18px; border-radius: var(--radius-sm); background: linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.18)); border: 1px solid rgba(69,42,22,0.08);
-    }
-    .toggle-card label { font-weight: 700; }
-    .toggle-card p { margin: 6px 0 0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
-    .switch { display: inline-flex; gap: 8px; align-items: center; }
-    .switch input { width: 18px; height: 18px; }
-    .preview {
-      display: grid; gap: 14px; align-content: start;
-    }
-    .hero-preview {
-      min-height: 180px; border-radius: 18px; overflow: hidden; background: linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28)); display: grid; place-items: center; color: #fff; font-weight: 700;
-    }
-    .hero-preview small { display: block; font-weight: 400; opacity: 0.88; }
-    .member-list, .summary-list { display: grid; gap: 12px; }
-    .member-row {
-      padding: 14px 16px; border-radius: 16px; background: rgba(255,255,255,0.58); border: 1px solid rgba(69,42,22,0.08);
-    }
-    .member-row strong { display: block; }
-    .member-row span { color: var(--muted); font-size: 0.92rem; }
-    .footer-actions {
-      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px;
-    }
-    .save-pill {
-      display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 6px 12px; border-radius: 999px;
-      background: rgba(73,102,71,0.12); color: var(--green); font-size: 0.86rem; font-weight: 700;
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 1.28rem;
+      line-height: 1.05;
     }
 
-    .progress-wrap { display:grid; gap:10px; margin-top: 10px; }
-    .progress-meta { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; color: var(--muted); font-size:0.9rem; }
-    .progress-bar { width:100%; height:12px; border-radius:999px; background: rgba(69,42,22,0.10); overflow:hidden; }
-    .progress-fill { height:100%; width:0; border-radius:999px; background: linear-gradient(90deg, var(--brown), var(--gold)); transition: width 0.2s ease; }
-    .welcome-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
-    .sticky-footer { position: sticky; bottom: 14px; z-index: 8; padding: 14px 16px; background: rgba(247,241,231,0.94); backdrop-filter: blur(8px); border: 1px solid rgba(69,42,22,0.08); border-radius: 20px; box-shadow: var(--shadow); }
-    .member-card { display:grid; gap:10px; padding:14px 16px; border-radius:16px; background: rgba(255,255,255,0.58); border: 1px solid rgba(69,42,22,0.08); }
-    .member-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; flex-wrap:wrap; }
-    .member-card-lines { display:grid; gap:4px; color: var(--muted); font-size:0.92rem; }
-    .member-card-actions { display:flex; gap:8px; flex-wrap:wrap; }
-    .step-complete { margin-top:14px; padding:12px 14px; border-radius:16px; background: rgba(73,102,71,0.12); color: var(--green); font-weight:700; }
-    .toggle-copy { display:grid; gap:6px; }
-    .toggle-recommendation { display:flex; gap:8px; flex-wrap:wrap; }
-    .toggle-card .helper-copy { margin:0; color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
-    .switch-label { font-size:0.84rem; font-weight:700; color: var(--muted); }
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      background: rgba(19, 14, 10, 0.48);
-      display: none;
+    .brand-copy p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 20px;
-      z-index: 60;
+      min-height: 36px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(73,102,71,0.12);
+      color: var(--green);
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-align: center;
     }
-    .modal-backdrop.open { display: flex; }
-    .modal-card {
-      width: min(520px, 100%);
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      box-shadow: var(--shadow);
-      padding: 22px;
+
+    .status-pill.warning {
+      background: rgba(177,121,45,0.16);
+      color: #7c561f;
+    }
+
+    .hero-panel {
+      padding: 28px;
       display: grid;
-      gap: 16px;
+      grid-template-columns: minmax(0, 1.04fr) minmax(320px, 0.96fr);
+      gap: 24px;
+      align-items: center;
     }
-    .modal-card h4 { margin: 0; font-size: 1.15rem; }
-    .modal-card p { margin: 0; color: var(--muted); line-height: 1.45; }
-    .modal-grid { display: grid; gap: 12px; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--brown-deep);
+      background: rgba(106,68,39,0.08);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .hero-copy h2 {
+      margin: 14px 0 10px;
+      font-size: clamp(2rem, 4vw, 3.15rem);
+      line-height: 1.02;
+      color: var(--brown-deep);
+    }
+
+    .hero-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      max-width: 600px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--brown);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(69,42,22,0.18);
+    }
+
+    .link-secondary {
+      color: var(--brown-deep);
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .link-secondary:hover {
+      border-color: rgba(69,42,22,0.4);
+    }
+
+    .hero-helper {
+      margin-top: 16px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 620px;
+    }
+
+    .hero-preview-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(106,68,39,0.12), rgba(69,42,22,0.06));
+      border: 1px solid rgba(69,42,22,0.08);
+      min-width: 0;
+    }
+
+    .hero-preview-frame {
+      min-height: 320px;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(69,42,22,0.22), rgba(69,42,22,0.30)),
+        linear-gradient(180deg, #836144 0%, #5a3e27 100%);
+      position: relative;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      text-align: center;
+      background-size: cover;
+      background-position: center center;
+    }
+
+    .hero-preview-empty {
+      padding: 20px;
+      max-width: 260px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .hero-preview-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(29,19,10,0.62);
+      color: #fff6e9;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .hero-preview-meta {
+      display: grid;
+      gap: 6px;
+    }
+
+    .hero-preview-meta strong {
+      font-size: 1.12rem;
+      color: var(--brown-deep);
+    }
+
+    .hero-preview-meta span {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
     @media (max-width: 980px) {
-      .shell { grid-template-columns: 1fr; }
-      .sidebar { position: relative; top: 0; }
-      .two-grid, .three-grid, .form-grid { grid-template-columns: 1fr; }
-      .field.span-2 { grid-column: auto; }
+      .hero-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-preview-frame {
+        min-height: 280px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page-shell {
+        padding: 16px;
+      }
+
+      .brand-bar,
+      .hero-panel {
+        border-radius: 22px;
+      }
+
+      .brand-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn,
+      .link-secondary {
+        width: 100%;
+        text-align: center;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <aside class="sidebar">
+  <div class="page-shell">
+    <header class="brand-bar">
       <div class="brand">
-        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="Deer track icon" /></div>
-        <div>
+        <div class="brand-mark">
+          <img src="assets/images/deer-track.png" alt="DeerCamp mark" />
+        </div>
+        <div class="brand-copy">
           <h1>DeerCamp</h1>
-          <p>Steward Onboarding Wizard</p>
+          <p>Steward continuation</p>
         </div>
       </div>
+      <div id="emailStatusPill" class="status-pill">Your camp has been created</div>
+    </header>
 
-      <div class="rule-card">
-        <strong>First rule</strong>
-        <div>No replacement of prior Steward work. DeerCamp preloads what already exists, fills blanks, and only changes existing values when the Steward edits them.</div>
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Your DeerCamp is live</span>
+        <h2 id="welcomeHeadline">Welcome</h2>
+        <p id="heroMessage">Your camp homepage has been created. Add members and camp content next.</p>
+        <div class="hero-actions">
+          <a id="finishSetupBtn" class="btn btn-primary" href="steward-dashboard.html">Finish Setting Up Your Camp</a>
+          <a id="viewCampLink" class="link-secondary" href="camp.html">View My Camp</a>
+        </div>
+        <div id="heroHelper" class="hero-helper">A Steward return link can also be sent to your email when email is available.</div>
       </div>
 
-      <div class="step-list" id="stepList"></div>
-    </aside>
-
-    <main class="main">
-      <div class="topbar">
-        <div style="flex:1 1 auto; min-width:0;">
-          <h2 id="wizardTitle">Build Your DeerCamp</h2>
-          <p id="wizardGreeting" class="wizard-greeting" hidden></p>
-          <p id="wizardSubtitle">Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.</p>
-          <div class="progress-wrap">
-            <div class="progress-meta">
-              <span id="progressStepLabel">Step 1 of 6</span>
-              <span id="progressPercent">17% complete</span>
-            </div>
-            <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-          </div>
+      <div class="hero-preview-card">
+        <div id="heroPreviewFrame" class="hero-preview-frame">
+          <div id="heroPreviewBadge" class="hero-preview-badge">Camp sign</div>
+          <div id="heroPreviewEmpty" class="hero-preview-empty">Your camp sign or uploaded camp picture will appear here once DeerCamp resolves it.</div>
         </div>
-        <div class="save-pill" id="savePill">Autosaved locally</div>
-      </div>
-
-      <section class="panel step-panel active" id="step-0">
-        <h3 id="welcomeHeading">Welcome</h3>
-        <p class="helper" id="welcomeHelper">This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.</p>
-        <div class="card" id="welcomePrefillCard" style="margin-bottom:18px; display:none;"><strong id="welcomePrefillTitle">Camp details loaded</strong><span id="welcomePrefillMeta">Your camp details from the builder link will appear here.</span></div>
-        <div class="three-grid">
-          <div class="card"><strong>Build my camp</strong><span>CampProfile, members, sections, and starter content in one guided pass.</span></div>
-          <div class="card"><strong>Run my camp</strong><span>When you finish here, DeerCamp takes you into the Steward Dashboard command center.</span></div>
-          <div class="card"><strong>Do no harm</strong><span>Existing steward work stays in place unless you intentionally change it.</span></div>
-        </div>
-        <div class="welcome-actions">
-          <button class="btn btn-primary btn-pulse" id="startSetupBtn" type="button">Start Setup</button>
-          <button class="btn btn-secondary" id="continueSavedBtn" type="button">Continue Where I Left Off</button>
-          <button class="btn btn-soft" id="openDashboardStartBtn" type="button">Open Dashboard Instead</button>
-        </div>
-      </section>
-
-      <section class="panel step-panel" id="step-1">
-        <h3>CampProfile</h3>
-        <p class="helper">Lock the public identity of your camp first. This should map directly into the CampProfile tab in the Steward Dashboard.</p>
-        <div class="two-grid">
-          <form class="form-grid" id="campProfileStepForm" autocomplete="off" data-lpignore="true">
-            <div class="field"><label for="campName">Camp Name</label><input id="campName" type="text"  /></div>
-            <div class="field"><label for="campEstablished">Established</label><input id="campEstablished" type="text"  /></div>
-            <div class="field"><label for="campCity">City</label><input id="campCity" type="text"  /></div>
-            <div class="field"><label for="campState">State</label><input id="campState" type="text"  /></div>
-            <div class="field"><label for="campZip">Zip</label><input id="campZip" type="text"  /></div>
-            <div class="field"><label for="campHero">Hero Image Path</label><input id="campHero" type="text"  /></div>
-            <div class="field span-2"><label for="campSummary">Camp Summary / About</label><textarea id="campSummary" ></textarea></div>
-            <div class="field span-2"><label for="campBrand">Camp Sign / Branding Image Path</label><input id="campBrand" type="text"  /></div>
-            <div class="field span-2"><label for="campAccess">Access / Rules Note</label><textarea id="campAccess" ></textarea></div>
-          </form>
-          <div class="preview">
-            <div class="hero-preview" id="heroPreview">
-              <div>
-                Camp hero preview
-                <small id="heroPreviewPath"></small>
-              </div>
-            </div>
-            <div class="card"><strong id="profilePreviewName"></strong><span id="profilePreviewMeta"></span></div>
-            <div class="card"><strong>Summary</strong><span id="profilePreviewSummary"></span></div>
-            <div class="card"><strong>Access Note</strong><span id="profilePreviewAccess"></span></div>
-            <div class="step-complete" id="campProfileComplete">CampProfile needs a few more details before this step feels complete.</div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel step-panel" id="step-2">
-        <h3>Members</h3>
-        <p class="helper">Add or confirm the Steward and camp members. Existing people are preserved. New people are merged in without replacing current profiles.</p>
-        <div class="card" style="margin-bottom:18px;"><strong>Start here</strong><span>Add the Steward email first, then add members one by one with name and email. You can remove any row here, and you can fine-tune full profile details later from the Steward Dashboard.</span></div>
-        <div class="two-grid">
-          <div>
-            <form class="form-grid" id="memberAddForm" autocomplete="off" data-lpignore="true">
-              <div class="field"><label for="stewardName">Steward Name</label><input id="stewardName" type="text"  /></div>
-              <div class="field"><label for="stewardEmail">Steward Email</label><input id="stewardEmail" type="email"  /></div>
-              <div class="field"><label for="memberName">Add Member Name</label><input id="memberName" type="text"  /></div>
-              <div class="field"><label for="memberEmail">Add Member Email</label><input id="memberEmail" type="email"  /></div>
-              <div class="field span-2"><button class="btn btn-primary" type="submit">Add Member</button></div>
-            </form>
-          </div>
-          <div>
-            <div class="member-list" id="memberList"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel step-panel" id="step-3">
-        <h3>Sections</h3>
-        <p class="helper">Choose what goes live in this camp. Existing enabled sections stay enabled unless you explicitly turn them off. Each card explains why you would keep a section on at launch.</p>
-        <div class="toggle-grid" id="sectionToggleGrid"></div>
-      </section>
-
-      <section class="panel step-panel" id="step-4">
-        <h3>Starter Content</h3>
-        <p class="helper">Starter content should fill empty sections, not replace custom steward work. These switches only seed sections that are empty or explicitly chosen.</p>
-        <div class="toggle-grid" id="starterToggleGrid"></div>
-      </section>
-
-      <section class="panel step-panel" id="step-5">
-        <h3>Review + Launch</h3>
-        <p class="helper">Review what is new, what is updated, and what remains unchanged. Launching writes into the same DeerCamp data model used by the Steward Dashboard.</p>
-        <div class="three-grid" id="reviewStats"></div>
-        <div class="summary-list" id="reviewList" style="margin-top:16px;"></div>
-      </section>
-
-      <div class="footer-actions sticky-footer">
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-secondary" id="prevBtn" type="button">Back</button>
-          <button class="btn btn-soft" id="continueLaterBtn" type="button">Save + Continue Later</button>
-        </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-secondary" id="openDashboardBtn" type="button">Open Dashboard</button>
-          <button class="btn btn-primary" id="nextBtn" type="button">Next</button>
+        <div class="hero-preview-meta">
+          <strong id="heroMetaName">Your DeerCamp</strong>
+          <span id="heroMetaDetails">Camp details will appear here.</span>
         </div>
       </div>
-    </main>
-  </div>
-
-  <div class="modal-backdrop" id="memberEditModal" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="memberEditTitle">
-      <div>
-        <h4 id="memberEditTitle">Edit member</h4>
-        <p>Update the member name and email together.</p>
-      </div>
-      <form id="memberEditForm" class="modal-grid" autocomplete="off" data-lpignore="true">
-        <div class="field">
-          <label for="memberEditName">Member Name</label>
-          <input id="memberEditName" type="text" />
-        </div>
-        <div class="field">
-          <label for="memberEditEmail">Member Email</label>
-          <input id="memberEditEmail" type="email" />
-        </div>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-secondary" id="memberEditCancelBtn">Cancel</button>
-          <button type="submit" class="btn btn-primary" id="memberEditSaveBtn">Save Member</button>
-        </div>
-      </form>
-    </div>
+    </section>
   </div>
 
   <script>
     const CAMP_DATA_KEY = "campData";
     const DASHBOARD_KEY = "deerCampStewardDashboard";
-    const WIZARD_KEY = "deerCampStewardWizard";
+    const DASHBOARD_SLIM_KEY = "deercamp.stewardDashboardSlim";
+    const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+    const CAMP_SCOPE_PREFIX = "deercamp.camps.";
 
-    const SECTIONS = [
-      { key: "campfeed", label: "CampFeed", description: "Receives field posts, photos, and audio synced from the DeerCamp App so your camp can see real updates from the woods.", recommendation: "Recommended", reason: "Keep this on if your camp will use the DeerCamp App." },
-      { key: "stands", label: "CampStands", description: "Stand names, assignments, wind notes, and access routes.", recommendation: "Recommended", reason: "Needed for serious season setup and for later deer-drive planning." },
-      { key: "deerdrives", label: "CampDeerDrives", description: "Multiple drive plans built from the stand map.", recommendation: "Optional", reason: "Turn this on if your camp runs deer drives or will later." },
-      { key: "calendar", label: "CampCalendar", description: "Opener dates, hunt weekends, meals, and work weekends.", recommendation: "Recommended", reason: "Keeps the season organized and visible for everyone." },
-      { key: "campcards", label: "CampCards", description: "Featured camp stories shown on the public camp page.", recommendation: "Optional", reason: "Great for storytelling and featured moments, but not required for launch." },
-      { key: "campmemories", label: "CampMemories", description: "Wall of Fame winners, legacy moments, and preserved memories.", recommendation: "Optional", reason: "Good to keep on if you want to preserve season highlights and camp history." },
-      { key: "camprecipes", label: "CampRecipes", description: "Camp meal cards, ingredients, and methods.", recommendation: "Optional", reason: "Perfect if camp meals are part of your identity, but can be added later." },
-      { key: "traditions", label: "CampTraditions", description: "The camp heartbeat: rituals, remembrance, and identity.", recommendation: "Recommended", reason: "Adds instant soul to a new camp page and helps it feel alive on day one." }
-    ];
-
-    const STARTERS = [
-      { key: "traditions", label: "Seed CampTraditions", description: "Add starter traditions only if the section is empty." },
-      { key: "campcards", label: "Seed CampCards", description: "Add featured story starters only if no custom cards exist yet." },
-      { key: "campmemories", label: "Seed CampMemories", description: "Add wall-of-fame starters only if the section is empty." },
-      { key: "camprecipes", label: "Seed CampRecipes", description: "Add recipe starters only if the section is empty." }
-    ];
-
-    const STEPS = [
-      { title: "Welcome", subtitle: "Build your DeerCamp once, then refine it later." },
-      { title: "CampProfile", subtitle: "Set the public identity of the camp." },
-      { title: "Members", subtitle: "Add Steward and camp members." },
-      { title: "Sections", subtitle: "Choose which camp sections are on." },
-      { title: "Starter Content", subtitle: "Seed empty sections without replacing work." },
-      { title: "Review + Launch", subtitle: "Review, merge, and open the dashboard." }
-    ];
+    function campScopeKey(campId, suffix) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+    }
 
     function safeParse(key, fallback = {}) {
-      try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)) || fallback; }
-      catch { return fallback; }
+      try {
+        return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)) || fallback;
+      } catch {
+        return fallback;
+      }
     }
 
     function firstNonEmpty(...values) {
       for (const value of values) {
         if (value === undefined || value === null) continue;
-        if (typeof value === 'string' && !value.trim()) continue;
-        return value;
+        const clean = String(value).trim();
+        if (!clean) continue;
+        return clean;
       }
-      return '';
-    }
-
-    function normalizeCampId(value = '') {
-      return String(value || '').trim();
+      return "";
     }
 
     function readParam(params, names = []) {
       for (const name of names) {
         const value = params.get(name);
-        if (typeof value === 'string' && value.trim()) return value.trim();
+        if (typeof value === "string" && value.trim()) return value.trim();
       }
-      return '';
+      return "";
     }
 
-    function normalizeBuilderImagePath(value = '') {
-      const clean = String(value || '').trim();
-      if (!clean) return '';
+    function normalizeBuilderImagePath(value = "") {
+      const clean = String(value || "").trim();
+      if (!clean) return "";
       if (/^(data:|blob:|https?:\/\/)/i.test(clean)) return clean;
       const leafName = clean.split('/').pop() || clean;
       const isImageFile = /\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
       const isLikelyDeerCampSign = /(^|[-_\/])(north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)?-?deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName)
         || /deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
-
       if (clean.includes('/')) return clean;
       if (isLikelyDeerCampSign || isImageFile) return `assets/heroes/${leafName}`;
       return clean;
     }
 
-    function parseDelimitedList(value = '') {
-      const input = String(value || '').trim();
+    function parseDelimitedList(value = "") {
+      const input = String(value || "").trim();
       if (!input) return [];
       const separator = /\||;|\n/.test(input) ? /\s*\|\s*|\s*;\s*|\n+/ : /\s*,\s*/;
       return input.split(separator).map(item => item.trim()).filter(Boolean);
     }
 
-    function parseIndexedParamMap(params, patterns = []) {
-      const collected = [];
-      for (const [rawKey, rawValue] of params.entries()) {
-        const key = String(rawKey || '').trim();
-        const value = String(rawValue || '').trim();
-        if (!key || !value) continue;
-        for (const pattern of patterns) {
-          const match = key.match(pattern);
-          if (match) {
-            const index = Number(match[1] || collected.length + 1);
-            collected.push({ index, value });
-            break;
-          }
-        }
-      }
-      return collected.sort((a, b) => a.index - b.index).map(item => item.value);
-    }
-
     function parseUrlPrefill() {
-      const params = new URLSearchParams(window.location.search || '');
-      const listedMemberNames = parseDelimitedList(readParam(params, ['memberNames', 'members', 'memberList', 'campMembers']));
-      const listedMemberEmails = parseDelimitedList(readParam(params, ['memberEmails', 'memberEmailList', 'campMemberEmails']));
-      const repeatedMemberNames = [];
-      ['memberName', 'member', 'campMember', 'campMemberName'].forEach(name => {
-        params.getAll(name).forEach(value => {
-          const trimmed = String(value || '').trim();
-          if (trimmed) repeatedMemberNames.push(trimmed);
-        });
-      });
-      const repeatedMemberEmails = [];
-      ['memberEmail', 'campMemberEmail'].forEach(name => {
-        params.getAll(name).forEach(value => {
-          const trimmed = String(value || '').trim();
-          if (trimmed) repeatedMemberEmails.push(trimmed);
-        });
-      });
-      const indexedMemberNames = parseIndexedParamMap(params, [
-        /^member(?:Name)?(\d+)$/i,
-        /^campMember(?:Name)?(\d+)$/i,
-        /^member_(\d+)$/i,
-        /^campMember_(\d+)$/i
-      ]);
-      const indexedMemberEmails = parseIndexedParamMap(params, [
-        /^memberEmail(\d+)$/i,
-        /^campMemberEmail(\d+)$/i,
-        /^memberEmail_(\d+)$/i,
-        /^campMemberEmail_(\d+)$/i
-      ]);
-      const memberNames = [...listedMemberNames, ...repeatedMemberNames, ...indexedMemberNames];
-      const memberEmails = [...listedMemberEmails, ...repeatedMemberEmails, ...indexedMemberEmails];
-      const members = memberNames.map((name, index) => ({
-        name,
-        email: memberEmails[index] || '',
-        status: 'Invited'
-      }));
-
-      const sharedImagePath = normalizeBuilderImagePath(readParam(params, ['campImage', 'campImagePath', 'image', 'imagePath', 'selectedImage', 'selectedImagePath', 'selectedHeroImage', 'selectedHeroImagePath', 'campImageSelect', 'heroTemplate']));
-      const heroImagePath = normalizeBuilderImagePath(readParam(params, ['campHero', 'hero', 'heroImage', 'heroImagePath', 'campHeroImage', 'campHeroPath']));
-      const brandImagePath = normalizeBuilderImagePath(readParam(params, ['campBrand', 'brand', 'brandImage', 'brandingImage', 'signImage', 'signImagePath', 'campSign', 'campSignImage', 'campSignImagePath']));
-
-      const prefill = {
-        campId: readParam(params, ['campId', 'campID', 'id']),
-        camp: {
-          name: readParam(params, ['campName', 'name']),
-          established: readParam(params, ['campEstablished', 'campYear', 'year', 'established', 'yearEstablished']),
-          city: readParam(params, ['campCity', 'city']),
-          state: readParam(params, ['campState', 'state']),
-          zip: readParam(params, ['campZip', 'zip', 'postalCode']),
-          summary: readParam(params, ['campSummary', 'summary', 'about', 'campAbout', 'description', 'campDescription']),
-          hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
-          brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
-          accessNote: readParam(params, ['campAccess', 'accessNote', 'access', 'rulesNote', 'accessRules'])
-        },
-        steward: {
-          name: readParam(params, ['stewardName', 'campSteward', 'steward', 'stewardFullName']),
-          email: readParam(params, ['stewardEmail', 'campStewardEmail', 'email'])
-        },
+      const params = new URLSearchParams(window.location.search || "");
+      const sharedImagePath = normalizeBuilderImagePath(readParam(params, ["campImage", "campImagePath", "image", "imagePath", "selectedImage", "selectedImagePath", "selectedHeroImage", "selectedHeroImagePath", "campImageSelect", "heroTemplate"]));
+      const heroImagePath = normalizeBuilderImagePath(readParam(params, ["campHero", "hero", "heroImage", "heroImagePath", "campHeroImage", "campHeroPath"]));
+      const brandImagePath = normalizeBuilderImagePath(readParam(params, ["campBrand", "brand", "brandImage", "brandingImage", "signImage", "signImagePath", "campSign", "campSignImage", "campSignImagePath"]));
+      const members = parseDelimitedList(readParam(params, ["memberNames", "members", "memberList", "campMembers"]));
+      return {
+        campId: readParam(params, ["campId", "campID", "id"]),
+        campName: readParam(params, ["campName", "name"]),
+        city: readParam(params, ["campCity", "city"]),
+        state: readParam(params, ["campState", "state"]),
+        zip: readParam(params, ["campZip", "zip", "postalCode"]),
+        established: readParam(params, ["campEstablished", "campYear", "year", "established", "yearEstablished"]),
+        stewardName: readParam(params, ["stewardName", "campSteward", "steward", "stewardFullName"]),
+        stewardEmail: readParam(params, ["stewardEmail", "campStewardEmail", "email"]),
+        hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
+        brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
         members
       };
-
-      prefill.hasPrefill = Boolean(
-        prefill.campId ||
-        Object.values(prefill.camp).some(Boolean) ||
-        Object.values(prefill.steward).some(Boolean) ||
-        prefill.members.length
-      );
-
-      return prefill;
     }
 
-    function extractStoredCampId(source = {}) {
-      return normalizeCampId(firstNonEmpty(
-        source?.campId,
-        source?.camp?.campId,
-        source?.camp?.id,
-        source?.id
-      ));
+    function buildCampUrl(path, campId) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
     }
 
-    function slugify(value = "") {
-      return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-    }
-
-    function initialsFromName(name = "") {
-      const parts = String(name).trim().split(/\s+/).filter(Boolean);
-      if (!parts.length) return "DC";
-      return parts.slice(0, 2).map(part => part[0].toUpperCase()).join("");
-    }
-
-    function currentTimestampLabel() {
-      return new Date().toLocaleString([], { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-    }
-
-    function normalizeLinkedCampImages(camp = {}) {
-      const normalized = Object.assign({}, camp || {});
-      const sharedImagePath = firstNonEmpty(normalized.hero, normalized.brand, '');
-      if (sharedImagePath) {
-        normalized.hero = sharedImagePath;
-        normalized.brand = sharedImagePath;
-      }
-      return normalized;
-    }
-
-    function uniquePeople(people = []) {
-      const seen = new Set();
-      return people.filter(person => {
-        const key = `${String(person.name || "").trim().toLowerCase()}|${String(person.email || "").trim().toLowerCase()}`;
-        if (!String(person.name || "").trim() || seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    }
-
-    const campData = safeParse(CAMP_DATA_KEY, {});
-    const dashboardState = safeParse(DASHBOARD_KEY, {});
-    const wizardState = safeParse(WIZARD_KEY, {});
+    const legacyCampData = safeParse(CAMP_DATA_KEY, {});
+    const legacyDashboardData = safeParse(DASHBOARD_KEY, {});
+    const legacyDashboardSlim = safeParse(DASHBOARD_SLIM_KEY, {});
     const urlPrefill = parseUrlPrefill();
+    const activeCampId = firstNonEmpty(
+      urlPrefill.campId,
+      localStorage.getItem(ACTIVE_CAMP_KEY),
+      legacyCampData.campId,
+      legacyDashboardData.camp?.campId,
+      legacyDashboardSlim.campId
+    );
 
-    const activeCampId = normalizeCampId(localStorage.getItem('deercamp.activeCampId'));
-    const urlCampId = normalizeCampId(urlPrefill.campId || activeCampId);
-    const savedWizardCampId = normalizeCampId(firstNonEmpty(wizardState.campId, wizardState.camp?.campId, wizardState.camp?.id));
-    const storedCampId = normalizeCampId(firstNonEmpty(extractStoredCampId(campData), extractStoredCampId(dashboardState)));
-
-    const shouldStartFreshFromUrl = Boolean(urlPrefill.hasPrefill && (urlCampId ? urlCampId !== savedWizardCampId : true));
-    const shouldIgnoreStoredCampState = Boolean(shouldStartFreshFromUrl || (urlCampId && storedCampId && storedCampId !== urlCampId));
-
-    if (shouldStartFreshFromUrl) {
-      localStorage.removeItem(WIZARD_KEY);
+    if (activeCampId) {
+      localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
     }
 
-    const baseCampData = shouldIgnoreStoredCampState ? {} : campData;
-    const baseDashboardState = shouldIgnoreStoredCampState ? {} : dashboardState;
-    const baseWizardState = shouldStartFreshFromUrl ? {} : wizardState;
+    const scopedCampData = activeCampId ? safeParse(campScopeKey(activeCampId, "campData"), {}) : {};
+    const scopedDashboardSlim = activeCampId ? safeParse(campScopeKey(activeCampId, "dashboardSlim"), {}) : {};
 
-    const fallbackMembers = Array.isArray(baseDashboardState.people)
-      ? baseDashboardState.people
-          .filter(person => person.role !== "Camp Steward")
-          .map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-      : (Array.isArray(baseCampData.memberProfiles)
-          ? baseCampData.memberProfiles
-              .filter(person => String(person.role || "").toLowerCase() !== "camp steward")
-              .map(person => ({ name: person.name || "", email: person.email || "", status: person.status || "Active" }))
-          : (Array.isArray(baseCampData.members)
-              ? baseCampData.members.map(name => ({ name, email: "", status: "Active" }))
-              : []));
+    const campData = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
+    const dashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(legacyDashboardSlim).length ? legacyDashboardSlim : legacyDashboardData);
 
-    const freshCampDefaults = normalizeLinkedCampImages({
-      name: firstNonEmpty(urlPrefill.camp.name, 'DeerCamp'),
-      established: firstNonEmpty(urlPrefill.camp.established, ''),
-      city: firstNonEmpty(urlPrefill.camp.city, ''),
-      state: firstNonEmpty(urlPrefill.camp.state, ''),
-      zip: firstNonEmpty(urlPrefill.camp.zip, ''),
-      summary: firstNonEmpty(urlPrefill.camp.summary, ''),
-      hero: firstNonEmpty(urlPrefill.camp.hero, ''),
-      brand: firstNonEmpty(urlPrefill.camp.brand, ''),
-      accessNote: firstNonEmpty(urlPrefill.camp.accessNote, '')
-    });
+    const campName = firstNonEmpty(urlPrefill.campName, campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp");
+    const city = firstNonEmpty(urlPrefill.city, campData.city, dashboardData.camp?.city);
+    const state = firstNonEmpty(urlPrefill.state, campData.state, dashboardData.camp?.state);
+    const zip = firstNonEmpty(urlPrefill.zip, campData.zip, dashboardData.camp?.zip);
+    const established = firstNonEmpty(urlPrefill.established, campData.established, dashboardData.camp?.established);
+    const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members : (Array.isArray(dashboardData.people) ? dashboardData.people : []);
+    const stewardName = firstNonEmpty(urlPrefill.stewardName, campData.stewardName, campData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
+    const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, campData.stewardEmail, dashboardData.stewardEmail);
+    const memberNames = (
+      Array.isArray(urlPrefill.members) && urlPrefill.members.length
+        ? urlPrefill.members
+        : (Array.isArray(campData.members)
+            ? campData.members
+            : (Array.isArray(campData.campMembers)
+                ? campData.campMembers
+                : dashboardMembers.filter(person => String(person.role || '').toLowerCase() !== 'camp steward').map(person => person.name)))
+    ).filter(Boolean);
+    const heroPath = normalizeBuilderImagePath(firstNonEmpty(
+      urlPrefill.hero,
+      urlPrefill.brand,
+      campData.hero,
+      dashboardData.camp?.hero,
+      dashboardData.camp?.brandImage,
+      campData.brandImage,
+      campData.brandingImage
+    ));
 
-    const state = {
-      campId: urlCampId || savedWizardCampId || storedCampId || "",
-      step: shouldStartFreshFromUrl ? 0 : (Number.isInteger(baseWizardState.step) ? baseWizardState.step : 0),
-      camp: shouldStartFreshFromUrl
-        ? freshCampDefaults
-        : normalizeLinkedCampImages({
-            name: firstNonEmpty(urlPrefill.camp.name, baseWizardState.camp?.name, baseDashboardState.camp?.name, baseCampData.name, baseCampData.campName, "DeerCamp"),
-            established: firstNonEmpty(urlPrefill.camp.established, baseWizardState.camp?.established, baseDashboardState.camp?.established, baseCampData.established, ""),
-            city: firstNonEmpty(urlPrefill.camp.city, baseWizardState.camp?.city, baseDashboardState.camp?.city, baseCampData.city, ""),
-            state: firstNonEmpty(urlPrefill.camp.state, baseWizardState.camp?.state, baseDashboardState.camp?.state, baseCampData.state, ""),
-            zip: firstNonEmpty(urlPrefill.camp.zip, baseWizardState.camp?.zip, baseDashboardState.camp?.zip, baseCampData.zip, ""),
-            summary: firstNonEmpty(urlPrefill.camp.summary, baseWizardState.camp?.summary, baseDashboardState.camp?.summary, baseCampData.summary, baseCampData.about, ""),
-            hero: firstNonEmpty(urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, ""),
-            brand: firstNonEmpty(urlPrefill.camp.brand, baseWizardState.camp?.brand, baseDashboardState.camp?.brandImage, baseCampData.brandImage, baseCampData.brandingImage, urlPrefill.camp.hero, baseWizardState.camp?.hero, baseDashboardState.camp?.hero, baseCampData.hero, ""),
-            accessNote: firstNonEmpty(urlPrefill.camp.accessNote, baseWizardState.camp?.accessNote, baseDashboardState.camp?.accessNote, baseCampData.accessNote, "")
-          }),
-      steward: shouldStartFreshFromUrl
-        ? {
-            name: firstNonEmpty(urlPrefill.steward.name, ''),
-            email: firstNonEmpty(urlPrefill.steward.email, '')
-          }
-        : {
-            name: firstNonEmpty(urlPrefill.steward.name, baseWizardState.steward?.name, baseCampData.stewardName, baseCampData.steward, ""),
-            email: firstNonEmpty(urlPrefill.steward.email, baseWizardState.steward?.email, "")
-          },
-      members: uniquePeople(shouldStartFreshFromUrl
-        ? (urlPrefill.members || [])
-        : ([...(urlPrefill.members || []), ...(baseWizardState.members || fallbackMembers)])),
-      sections: Object.assign(Object.fromEntries(SECTIONS.map(item => [item.key, true])), baseWizardState.sections || {}),
-      starters: Object.assign(Object.fromEntries(STARTERS.map(item => [item.key, true])), baseWizardState.starters || {}),
-      autosavedAt: baseWizardState.autosavedAt || ""
-    };
+    const firstName = stewardName.split(/\s+/).filter(Boolean)[0] || stewardName;
+    const locationParts = [city, state].filter(Boolean);
+    const locationLine = [locationParts.join(', '), zip].filter(Boolean).join(' • ') || 'Location not set yet';
+    const establishedLine = established ? `Est. ${established}` : 'Established year not set';
+    const memberLine = memberNames.length
+      ? `${memberNames.length} member${memberNames.length === 1 ? '' : 's'}`
+      : 'No members yet';
 
-    const stepList = document.getElementById("stepList");
-    const wizardTitle = document.getElementById("wizardTitle");
-    const wizardGreeting = document.getElementById("wizardGreeting");
-    const wizardSubtitle = document.getElementById("wizardSubtitle");
-    const savePill = document.getElementById("savePill");
-    const memberEditModal = document.getElementById("memberEditModal");
-    const memberEditForm = document.getElementById("memberEditForm");
-    const memberEditName = document.getElementById("memberEditName");
-    const memberEditEmail = document.getElementById("memberEditEmail");
-    let editingMemberIndex = null;
-    const progressStepLabel = document.getElementById("progressStepLabel");
-    const progressPercent = document.getElementById("progressPercent");
-    const progressFill = document.getElementById("progressFill");
+    document.getElementById('welcomeHeadline').textContent = `Welcome, ${firstName}`;
+    document.getElementById('heroMessage').textContent = `${campName} has been created. Add members and camp content next.`;
+    document.getElementById('heroMetaName').textContent = campName;
+    document.getElementById('heroMetaDetails').textContent = [locationLine, establishedLine, memberLine].filter(Boolean).join(' • ');
 
-    if (state.campId) {
-      localStorage.setItem('deercamp.activeCampId', state.campId);
+    const emailStatusPill = document.getElementById('emailStatusPill');
+    const heroHelper = document.getElementById('heroHelper');
+    if (stewardEmail) {
+      emailStatusPill.textContent = `Return link available for ${stewardEmail}`;
+      heroHelper.textContent = `A Steward return link can also be sent to ${stewardEmail} when email is available.`;
+    } else {
+      emailStatusPill.textContent = 'Add your Steward email in setup for an easy return link';
+      emailStatusPill.classList.add('warning');
+      heroHelper.textContent = 'Add a Steward email during setup so you always have a simple return path.';
     }
 
-    function renderStepList() {
-      stepList.innerHTML = STEPS.map((step, index) => {
-        const cls = index === state.step ? "step active" : index < state.step ? "step done" : "step";
-        return `<div class="${cls}"><div class="step-num">${index < state.step ? "✓" : index + 1}</div><div><strong>${step.title}</strong><div style="font-size:0.84rem; opacity:0.82; margin-top:4px;">${step.subtitle}</div></div></div>`;
-      }).join("");
-    }
+    const campUrl = buildCampUrl('camp.html', activeCampId);
+    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId);
+    document.getElementById('viewCampLink').setAttribute('href', campUrl);
+    document.getElementById('finishSetupBtn').setAttribute('href', dashboardUrl);
 
-    function showStep(index) {
-      state.step = Math.max(0, Math.min(STEPS.length - 1, index));
-      document.querySelectorAll('.step-panel').forEach((panel, panelIndex) => panel.classList.toggle('active', panelIndex === state.step));
-      syncHeaderCopy();
-      document.getElementById('prevBtn').disabled = state.step === 0;
-      document.getElementById('nextBtn').textContent = state.step === STEPS.length - 1 ? 'Launch to Dashboard' : state.step === 1 ? 'Next — Members' : state.step === 2 ? 'Next — Sections' : state.step === 3 ? 'Next — Starter Content' : state.step === 4 ? 'Next — Review' : 'Next';
-      const totalFlowSteps = STEPS.length;
-      const currentStepNumber = state.step + 1;
-      const pct = Math.round((currentStepNumber / totalFlowSteps) * 100);
-      progressStepLabel.textContent = `Step ${currentStepNumber} of ${totalFlowSteps}`;
-      progressPercent.textContent = `${pct}% complete`;
-      progressFill.style.width = `${pct}%`;
-      renderStepList();
-      if (state.step === 5) renderReview();
-      if (state.step === 1) {
-        requestAnimationFrame(() => {
-          fillForms();
-          syncCampProfilePreview();
-        });
-        setTimeout(() => {
-          fillForms();
-          syncCampProfilePreview();
-        }, 180);
-      }
-      persist(false);
-    }
-
-    function buildImageCandidateList() {
-      const rawHero = String(state.camp.hero || '').trim();
-      const rawBrand = String(state.camp.brand || '').trim();
-      const candidates = [];
-      const pushCandidate = (value) => {
-        const trimmed = String(value || '').trim();
-        if (!trimmed || candidates.includes(trimmed)) return;
-        candidates.push(trimmed);
-      };
-
-      [rawHero, rawBrand].forEach(value => {
-        if (!value) return;
-        pushCandidate(value);
-        if (!/^([a-z]+:)?\/\//i.test(value) && !value.startsWith('/') && !value.includes('/')) {
-          pushCandidate(`assets/heroes/${value}`);
-          pushCandidate(`assets/branding/${value}`);
-          pushCandidate(`assets/images/${value}`);
-        }
-      });
-
-      return candidates;
-    }
+    const heroPreviewFrame = document.getElementById('heroPreviewFrame');
+    const heroPreviewEmpty = document.getElementById('heroPreviewEmpty');
 
     function getHeroPreviewPosition(path = '') {
       const value = String(path || '').trim().toLowerCase();
@@ -769,473 +523,28 @@
       return 'center center';
     }
 
-    function getCacheBustedAssetUrl(path = '') {
-      const value = String(path || '').trim();
-      if (!value) return '';
-      const separator = value.includes('?') ? '&' : '?';
-      return `${value}${separator}dc_preview=${Date.now()}`;
-    }
-
-
-    function updateHeroPreview() {
-      const heroPreview = document.getElementById('heroPreview');
-      const heroPreviewPath = document.getElementById('heroPreviewPath');
-      const candidates = buildImageCandidateList();
-      const fallbackLabel = state.camp.hero || state.camp.brand || '';
-      heroPreview.dataset.previewToken = String(Date.now());
-      const previewToken = heroPreview.dataset.previewToken;
-      heroPreview.style.backgroundImage = '';
-      heroPreview.style.backgroundSize = '';
-      heroPreview.style.backgroundPosition = '';
-      heroPreviewPath.textContent = fallbackLabel;
-
-      if (!candidates.length) return;
-
-      const tryNext = (index) => {
-        if (heroPreview.dataset.previewToken !== previewToken) return;
-        if (index >= candidates.length) return;
-        const candidate = candidates[index];
-        const candidateUrl = getCacheBustedAssetUrl(candidate);
-        const probe = new Image();
-        probe.onload = () => {
-          if (heroPreview.dataset.previewToken !== previewToken) return;
-          heroPreview.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.34)), url('${candidateUrl.replace(/'/g, "\'")}')`;
-          heroPreview.style.backgroundSize = 'cover';
-          heroPreview.style.backgroundPosition = getHeroPreviewPosition(candidate);
-          heroPreviewPath.textContent = candidate;
-        };
-        probe.onerror = () => tryNext(index + 1);
-        probe.src = candidateUrl;
-      };
-
-      tryNext(0);
-    }
-
-    function syncCampProfilePreview() {
-      document.getElementById('profilePreviewName').textContent = state.camp.name || '';
-      const meta = [ [state.camp.city, state.camp.state].filter(Boolean).join(', '), state.camp.zip, state.camp.established ? `Est. ${state.camp.established}` : '' ].filter(Boolean).join(' • ');
-      document.getElementById('profilePreviewMeta').textContent = meta || '';
-      document.getElementById('profilePreviewSummary').textContent = state.camp.summary || '';
-      document.getElementById('profilePreviewAccess').textContent = state.camp.accessNote || '';
-      updateHeroPreview();
-      const complete = Boolean(state.camp.name && state.camp.city && state.camp.state && state.camp.established);
-      document.getElementById('campProfileComplete').textContent = complete
-        ? 'CampProfile Complete! You can edit this later from the Steward Dashboard.'
-        : 'CampProfile needs camp name, location, and established year before this step feels complete.';
-    }
-
-    function escapeHtml(value = '') {
-      return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    function syncWelcomePrefill() {
-      const welcomeHeading = document.getElementById('welcomeHeading');
-      const welcomeHelper = document.getElementById('welcomeHelper');
-      const welcomePrefillCard = document.getElementById('welcomePrefillCard');
-      const welcomePrefillTitle = document.getElementById('welcomePrefillTitle');
-      const welcomePrefillMeta = document.getElementById('welcomePrefillMeta');
-      const locationBits = [state.camp.city, state.camp.state].filter(Boolean);
-      const metaBits = [];
-      if (state.camp.name) metaBits.push(state.camp.name);
-      if (locationBits.length) metaBits.push(locationBits.join(', '));
-      if (state.camp.zip) metaBits.push(state.camp.zip);
-      if (state.camp.established) metaBits.push(`Est. ${state.camp.established}`);
-
-      const memberNames = (state.members || []).map(member => String(member.name || '').trim()).filter(Boolean);
-      const memberSummary = memberNames.length
-        ? `${memberNames.length} member${memberNames.length === 1 ? '' : 's'} loaded: ${memberNames.join(' • ')}`
-        : '';
-
-      welcomeHeading.textContent = state.steward.name ? `Welcome, ${state.steward.name}` : 'Welcome';
-      if (state.camp.name) {
-        welcomeHelper.textContent = `Your builder link already loaded ${state.camp.name}. Review the details, make any edits you want, and continue into the Steward Dashboard.`;
-      } else {
-        welcomeHelper.textContent = 'This quick-start setup behaves like setting up a new PC: it guides you, saves as you go, and respects anything you already built. You can leave and come back anytime.';
-      }
-
-      if (metaBits.length || memberSummary) {
-        welcomePrefillCard.style.display = '';
-        welcomePrefillTitle.textContent = 'Camp details pulled from your setup link';
-        welcomePrefillMeta.innerHTML = [
-          metaBits.length ? `<div>${escapeHtml(metaBits.join(' • '))}</div>` : '',
-          memberSummary ? `<div style="margin-top:6px;">${escapeHtml(memberSummary)}</div>` : ''
-        ].filter(Boolean).join('');
-      } else {
-        welcomePrefillCard.style.display = 'none';
-        welcomePrefillTitle.textContent = 'Camp details loaded';
-        welcomePrefillMeta.textContent = 'Your camp details from the builder link will appear here.';
-      }
-    }
-
-    function syncHeaderCopy() {
-      const greeting = state.steward.name ? `Welcome, ${state.steward.name}` : '';
-      wizardGreeting.textContent = greeting;
-      wizardGreeting.hidden = !greeting;
-
-      if (state.step === 0) {
-        wizardTitle.textContent = state.camp.name ? `Build Your Camp - ${state.camp.name}` : 'Build Your Camp';
-        const parts = [];
-        if (state.camp.city || state.camp.state) parts.push([state.camp.city, state.camp.state].filter(Boolean).join(', '));
-        if (state.camp.zip) parts.push(state.camp.zip);
-        if (state.camp.established) parts.push(`Est. ${state.camp.established}`);
-        wizardSubtitle.textContent = parts.length ? parts.join(' • ') : 'Set up your camp, invite your people, and launch your Steward Dashboard without losing existing work.';
-      } else {
-        wizardTitle.textContent = STEPS[state.step].title;
-        wizardSubtitle.textContent = STEPS[state.step].subtitle;
-      }
-    }
-
-    function renderMemberList() {
-      const list = document.getElementById('memberList');
-      const rows = [];
-      rows.push(`<div class="member-card"><div class="member-card-top"><strong>Steward — ${state.steward.name || 'Not set yet'}</strong><span class="badge green">Required</span></div><div class="member-card-lines"><span>${state.steward.email || 'Add the steward email used for follow-up and quick-start messages.'}</span><span>This is the person who receives onboarding follow-up and manages the camp.</span></div></div>`);
-      if (!state.members.length) {
-        rows.push(`<div class="member-card"><div class="member-card-top"><strong>No members added yet</strong><span class="badge">Optional now</span></div><div class="member-card-lines"><span>Add members now or do it later from the Steward Dashboard.</span></div></div>`);
-      } else {
-        state.members.forEach((member, index) => {
-          rows.push(`<div class="member-card"><div class="member-card-top"><strong>${member.name}</strong><span class="badge">${member.status || 'Active'}</span></div><div class="member-card-lines"><span>Email: ${member.email || 'No email yet'}</span><span>Members added here merge into the roster without replacing prior steward work.</span></div><div class="member-card-actions"><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="editWizardMember(${index})">Edit</button><button type="button" class="btn btn-secondary" style="min-height:34px; padding:6px 10px;" onclick="removeWizardMember(${index})">Remove</button></div></div>`);
-        });
-      }
-      list.innerHTML = rows.join('');
-    }
-
-    window.removeWizardMember = function(index) {
-      state.members.splice(index, 1);
-      renderMemberList();
-      persist();
-    };
-
-    function closeMemberEditModal() {
-      editingMemberIndex = null;
-      memberEditModal.classList.remove('open');
-      memberEditModal.setAttribute('aria-hidden', 'true');
-      memberEditForm.reset();
-    }
-
-    function openMemberEditModal(index) {
-      const member = state.members[index];
-      if (!member) return;
-      editingMemberIndex = index;
-      memberEditName.value = member.name || '';
-      memberEditEmail.value = member.email || '';
-      memberEditModal.classList.add('open');
-      memberEditModal.setAttribute('aria-hidden', 'false');
-      setTimeout(() => memberEditName.focus(), 30);
-    }
-
-    window.editWizardMember = function(index) {
-      openMemberEditModal(index);
-    };
-
-    function renderSectionToggles() {
-      document.getElementById('sectionToggleGrid').innerHTML = SECTIONS.map(item => `
-        <div class="toggle-card">
-          <div class="toggle-copy">
-            <div class="toggle-recommendation"><label>${item.label}</label><span class="badge ${item.recommendation === 'Recommended' ? 'green' : ''}">${item.recommendation}</span></div>
-            <p>${item.description}</p>
-            <p class="helper-copy">${item.reason}</p>
-          </div>
-          <div class="switch"><span class="switch-label">${state.sections[item.key] ? 'On' : 'Off'}</span><input type="checkbox" data-section="${item.key}" ${state.sections[item.key] ? 'checked' : ''} /></div>
-        </div>
-      `).join('');
-      document.querySelectorAll('[data-section]').forEach(input => {
-        input.addEventListener('change', (event) => {
-          state.sections[event.target.dataset.section] = event.target.checked;
-          renderSectionToggles();
-          persist();
-        });
-      });
-    }
-
-    function renderStarterToggles() {
-      document.getElementById('starterToggleGrid').innerHTML = STARTERS.map(item => `
-        <div class="toggle-card">
-          <div><label>${item.label}</label><p>${item.description}</p></div>
-          <div class="switch"><input type="checkbox" data-starter="${item.key}" ${state.starters[item.key] ? 'checked' : ''} /></div>
-        </div>
-      `).join('');
-      document.querySelectorAll('[data-starter]').forEach(input => {
-        input.addEventListener('change', (event) => {
-          state.starters[event.target.dataset.starter] = event.target.checked;
-          persist();
-        });
-      });
-    }
-
-    function renderReview() {
-      const existingCampProfile = Boolean(campData.name || dashboardState.camp?.name);
-      const existingMembers = (Array.isArray(campData.memberProfiles) && campData.memberProfiles.length) || (Array.isArray(dashboardState.people) && dashboardState.people.length);
-      const enabledSections = Object.values(state.sections).filter(Boolean).length;
-      document.getElementById('reviewStats').innerHTML = `
-        <div class="status-card"><strong>${enabledSections}</strong><span>Sections enabled for this camp</span></div>
-        <div class="status-card"><strong>${state.members.length + (state.steward.name ? 1 : 0)}</strong><span>People included in the wizard plan</span></div>
-        <div class="status-card"><strong>${state.camp.name || 'DeerCamp'}</strong><span>${existingCampProfile ? 'Existing CampProfile will be updated only with current wizard values.' : 'New CampProfile will be created.'}</span></div>
-      `;
-      const items = [
-        `<div class="card"><strong>CampProfile</strong><span>${existingCampProfile ? 'Existing values are preserved unless edited in this wizard.' : 'A fresh CampProfile will be created.'}</span></div>`,
-        `<div class="card"><strong>Membership</strong><span>${existingMembers ? 'Current members stay in place. New wizard members will merge in without replacing profiles.' : 'A starter member roster will be created.'}</span></div>`,
-        `<div class="card"><strong>Sections</strong><span>${enabledSections} section${enabledSections === 1 ? '' : 's'} will be enabled in the steward flow.</span></div>`,
-        `<div class="card"><strong>Starter content</strong><span>Only empty sections get seeded unless you later choose to replace content intentionally.</span></div>`,
-        `<div class="card"><strong>Autosave</strong><span>Wizard progress is already saved locally. Launch writes the merged result into DeerCamp storage for the Steward Dashboard.</span></div>`
-      ];
-      document.getElementById('reviewList').innerHTML = items.join('');
-    }
-
-    function applyDomToState() {
-      state.camp.name = document.getElementById('campName').value.trim();
-      state.camp.established = document.getElementById('campEstablished').value.trim();
-      state.camp.city = document.getElementById('campCity').value.trim();
-      state.camp.state = document.getElementById('campState').value.trim();
-      state.camp.zip = document.getElementById('campZip').value.trim();
-      state.camp.hero = document.getElementById('campHero').value.trim();
-      state.camp.summary = document.getElementById('campSummary').value.trim();
-      state.camp.brand = document.getElementById('campBrand').value.trim();
-      state.camp.accessNote = document.getElementById('campAccess').value.trim();
-      state.camp = normalizeLinkedCampImages(state.camp);
-      state.steward.name = document.getElementById('stewardName').value.trim();
-      state.steward.email = document.getElementById('stewardEmail').value.trim();
-      syncCampProfilePreview();
-    }
-
-    function persist(showFlash = true) {
-      applyDomToState();
-      state.campId = normalizeCampId(state.campId || urlCampId || savedWizardCampId || storedCampId);
-      state.autosavedAt = currentTimestampLabel();
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
-      savePill.textContent = showFlash ? `Autosaved locally • ${state.autosavedAt}` : `Autosaved locally`;
-    }
-
-    let autosaveTimer = null;
-    function queuePersist() {
-      clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(() => persist(true), 280);
-    }
-
-    function forceFormValuesFromState() {
-      document.getElementById('campName').value = state.camp.name || '';
-      document.getElementById('campEstablished').value = state.camp.established || '';
-      document.getElementById('campCity').value = state.camp.city || '';
-      document.getElementById('campState').value = state.camp.state || '';
-      document.getElementById('campZip').value = state.camp.zip || '';
-      document.getElementById('campHero').value = state.camp.hero || '';
-      document.getElementById('campSummary').value = state.camp.summary || '';
-      document.getElementById('campBrand').value = state.camp.brand || '';
-      document.getElementById('campAccess').value = state.camp.accessNote || '';
-      document.getElementById('stewardName').value = state.steward.name || '';
-      document.getElementById('stewardEmail').value = state.steward.email || '';
-    }
-
-    function refreshWizardFromState() {
-      forceFormValuesFromState();
-      syncCampProfilePreview();
-      syncWelcomePrefill();
-      syncHeaderCopy();
-      renderMemberList();
-      renderSectionToggles();
-      renderStarterToggles();
-    }
-
-    function guardAgainstBrowserRestoredValues() {
-      refreshWizardFromState();
-    }
-
-    function fillForms() {
-      refreshWizardFromState();
-    }
-
-    function mergeAndLaunch() {
-      applyDomToState();
-      const nextCampData = Object.assign({}, campData);
-      nextCampData.name = state.camp.name || campData.name || 'DeerCamp';
-      nextCampData.campName = nextCampData.name;
-      nextCampData.campId = normalizeCampId(state.campId || campData.campId || dashboardState.camp?.campId || localStorage.getItem('deercamp.activeCampId') || '');
-      if (!nextCampData.campId) {
-        nextCampData.campId = slugify(nextCampData.name) || 'deercamp';
-      }
-      nextCampData.city = state.camp.city || campData.city || '';
-      nextCampData.state = state.camp.state || campData.state || '';
-      nextCampData.zip = state.camp.zip || campData.zip || '';
-      nextCampData.established = state.camp.established || campData.established || '';
-      nextCampData.location = [state.camp.city, state.camp.state].filter(Boolean).join(', ') || campData.location || '';
-      nextCampData.summary = state.camp.summary || campData.summary || campData.about || '';
-      nextCampData.about = nextCampData.summary;
-      const launchSharedImagePath = firstNonEmpty(state.camp.hero, state.camp.brand, campData.hero, campData.brandImage, campData.brandingImage, '');
-      nextCampData.hero = launchSharedImagePath;
-      nextCampData.brandImage = launchSharedImagePath;
-      nextCampData.brandingImage = nextCampData.brandImage;
-      nextCampData.accessNote = state.camp.accessNote || campData.accessNote || '';
-      nextCampData.feedSourceMode = 'app';
-      nextCampData.feedModeration = 'review';
-      nextCampData.feedOfflinePolicy = 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.';
-      nextCampData.stewardName = state.steward.name || campData.stewardName || '';
-      nextCampData.steward = state.steward.name || campData.steward || '';
-      nextCampData.campSteward = state.steward.name || campData.campSteward || '';
-
-      const existingProfiles = Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles.slice() : [];
-      const stewardProfile = existingProfiles.find(profile => String(profile.role || '').toLowerCase() === 'camp steward') || {
-        id: 'steward', role: 'Camp Steward', roleLine: 'Camp administrator', status: 'Active'
-      };
-      stewardProfile.name = state.steward.name || stewardProfile.name || 'Camp Steward';
-      stewardProfile.email = state.steward.email || stewardProfile.email || '';
-      stewardProfile.status = 'Active';
-      stewardProfile.role = 'Camp Steward';
-      stewardProfile.roleLine = 'Camp administrator';
-
-      const profileMap = new Map();
-      existingProfiles.forEach(profile => {
-        const key = String(profile.name || '').trim().toLowerCase();
-        if (key) profileMap.set(key, profile);
-      });
-      profileMap.set(String(stewardProfile.name || '').trim().toLowerCase(), stewardProfile);
-      state.members.forEach((member, index) => {
-        const key = String(member.name || '').trim().toLowerCase();
-        if (!key) return;
-        const existing = profileMap.get(key) || {};
-        profileMap.set(key, Object.assign({}, existing, {
-          id: existing.id || `member-${index + 1}`,
-          name: member.name,
-          email: member.email || existing.email || '',
-          role: 'Camp Member',
-          roleLine: existing.roleLine || 'Invited camp contributor',
-          status: existing.status || member.status || 'Active'
-        }));
-      });
-      nextCampData.memberProfiles = Array.from(profileMap.values());
-      nextCampData.members = nextCampData.memberProfiles.filter(profile => String(profile.role || '').toLowerCase() !== 'camp steward' && String(profile.status || '').toLowerCase() !== 'removed').map(profile => profile.name);
-      nextCampData.campMembers = nextCampData.members.slice();
-
-      if (state.starters.traditions && (!Array.isArray(nextCampData.traditions) || !nextCampData.traditions.length)) {
-        nextCampData.traditions = [
-          { label: 'Pre-Opener Campfire Meal', group: 'Opening Camp', description: 'The meal that marks the true start of camp.' },
-          { label: 'Opening Morning Coffee', group: 'Opening Camp', description: 'First light, strong coffee, low voices, and final plans before heading out.' }
-        ];
-      }
-      if (state.starters.campcards && (!Array.isArray(nextCampData.campCards) || !nextCampData.campCards.length)) {
-        nextCampData.campCards = [
-          { title: 'First Coffee at Camp', source: 'Camp Steward', image: '', caption: 'The first mug of camp coffee before daylight and before the woods wake up.', story: '' },
-          { title: 'Campfire Camaraderie', source: 'Camp Steward', image: '', caption: 'Stories, laughter, and the kind of campfire talk that becomes tradition.', story: '' }
-        ];
-      }
-      if (state.starters.campmemories && (!Array.isArray(nextCampData.memories) || !nextCampData.memories.length) && (!Array.isArray(nextCampData.wallOfFame) || !nextCampData.wallOfFame.length)) {
-        nextCampData.memories = [{ title: "Brittney's First Deer", category: 'Bow', winner: 'Brittney', year: '2025', image: '', audio: '', caption: 'A first deer and the kind of memory the whole camp wants preserved.', story: '' }];
-        nextCampData.wallOfFame = nextCampData.memories.slice();
-      }
-      if (state.starters.camprecipes && (!Array.isArray(nextCampData.recipeObjects) || !nextCampData.recipeObjects.length) && (!Array.isArray(nextCampData.recipes) || !nextCampData.recipes.length)) {
-        nextCampData.recipeObjects = [{ title: 'Legendary Skillet Eggs & Sausage Hash', subtitle: 'Breakfast • DeerCamp Classic', meal: 'Breakfast', sourceTitle: 'Skillet Eggs & Sausage Hash', description: 'One pan, hot fire, full belly — ready before first light.', time: '20 min', serves: '4', difficulty: 'Easy', equipment: 'Cast iron skillet', ingredients: ['1 lb breakfast sausage','6 large eggs'], steps: ['Brown sausage.','Cook eggs and hash.'], serving: ['Serve hot before first light.'], tips: ['Best with strong coffee.'] }];
-        nextCampData.recipes = nextCampData.recipeObjects.slice();
-      }
-
-      const existingDashboard = safeParse(DASHBOARD_KEY, {});
-      const nextDashboard = Object.assign({}, existingDashboard, {
-        camp: {
-          name: nextCampData.name,
-          city: nextCampData.city,
-          state: nextCampData.state,
-          zip: nextCampData.zip,
-          established: nextCampData.established,
-          location: nextCampData.location,
-          summary: nextCampData.summary,
-          hero: nextCampData.hero,
-          brandImage: nextCampData.brandImage,
-          accessNote: nextCampData.accessNote,
-          feedSourceMode: 'app',
-          feedModeration: 'review',
-          feedOfflinePolicy: 'Save locally at camp, queue uploads automatically, and sync when a connection becomes available.',
-          campId: nextCampData.campId,
-          slug: slugify(nextCampData.name) || 'deercamp'
-        },
-        people: nextCampData.memberProfiles,
-        lastSaved: currentTimestampLabel()
-      });
-
-      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
-      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(nextDashboard));
-      localStorage.setItem('deercamp.activeCampId', nextCampData.campId);
-      if (typeof incrementCreatedCampCounter === 'function') {
-        incrementCreatedCampCounter(nextCampData.campId || nextCampData.slug || nextCampData.name);
-      }
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(Object.assign({}, state, {
-        campId: nextCampData.campId,
-        autosavedAt: currentTimestampLabel()
-      })));
-      window.location.href = 'steward-dashboard.html';
-    }
-
-    document.getElementById('campProfileStepForm').addEventListener('input', queuePersist);
-    document.getElementById('campProfileStepForm').addEventListener('change', queuePersist);
-    document.getElementById('memberAddForm').addEventListener('submit', (event) => {
-      event.preventDefault();
-      const name = document.getElementById('memberName').value.trim();
-      const email = document.getElementById('memberEmail').value.trim();
-      if (!name) return;
-      state.members = uniquePeople([...state.members, { name, email, status: 'Invited' }]);
-      document.getElementById('memberName').value = '';
-      document.getElementById('memberEmail').value = '';
-      renderMemberList();
-      persist();
-    });
-
-    document.getElementById('startSetupBtn').addEventListener('click', () => showStep(1));
-    document.getElementById('continueSavedBtn').addEventListener('click', () => showStep(Math.max(1, state.step)));
-    document.getElementById('openDashboardStartBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
-    document.getElementById('prevBtn').addEventListener('click', () => showStep(state.step - 1));
-    document.getElementById('nextBtn').addEventListener('click', () => {
-      if (state.step === STEPS.length - 1) {
-        mergeAndLaunch();
-      } else {
-        showStep(state.step + 1);
-      }
-    });
-    document.getElementById('continueLaterBtn').addEventListener('click', () => persist(true));
-    document.getElementById('openDashboardBtn').addEventListener('click', () => window.location.href = 'steward-dashboard.html');
-    document.getElementById('stewardName').addEventListener('input', queuePersist);
-    document.getElementById('stewardEmail').addEventListener('input', queuePersist);
-    document.getElementById('memberEditCancelBtn').addEventListener('click', closeMemberEditModal);
-    memberEditModal.addEventListener('click', (event) => {
-      if (event.target === memberEditModal) closeMemberEditModal();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && memberEditModal.classList.contains('open')) {
-        closeMemberEditModal();
-      }
-    });
-    memberEditForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      if (editingMemberIndex === null) return;
-      const existingMember = state.members[editingMemberIndex];
-      if (!existingMember) {
-        closeMemberEditModal();
+    function renderHero(path) {
+      const clean = normalizeBuilderImagePath(path);
+      if (!clean) {
+        heroPreviewEmpty.style.display = 'block';
         return;
       }
-      const nextName = String(memberEditName.value || '').trim();
-      const nextEmail = String(memberEditEmail.value || '').trim();
-      if (!nextName) {
-        memberEditName.focus();
-        return;
-      }
-      state.members[editingMemberIndex] = Object.assign({}, existingMember, {
-        name: nextName,
-        email: nextEmail
-      });
-      state.members = uniquePeople(state.members.filter(item => String(item.name || '').trim()));
-      closeMemberEditModal();
-      renderMemberList();
-      persist();
-    });
 
-    fillForms();
-    renderStepList();
-    showStep(state.step);
-    persist(false);
-    [60, 220, 700].forEach(delay => setTimeout(guardAgainstBrowserRestoredValues, delay));
-    window.addEventListener('pageshow', () => {
-      setTimeout(guardAgainstBrowserRestoredValues, 60);
-    });
+      const img = new Image();
+      img.onload = () => {
+        heroPreviewFrame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.30)), url('${clean.replace(/'/g, "\\'")}')`;
+        heroPreviewFrame.style.backgroundSize = 'cover';
+        heroPreviewFrame.style.backgroundPosition = getHeroPreviewPosition(clean);
+        heroPreviewEmpty.style.display = 'none';
+      };
+      img.onerror = () => {
+        heroPreviewEmpty.style.display = 'block';
+        heroPreviewEmpty.textContent = 'DeerCamp could not resolve the camp image here yet. You can still continue into setup.';
+      };
+      img.src = clean;
+    }
+
+    renderHero(heroPath);
   </script>
 </body>
 </html>

@@ -3150,6 +3150,20 @@ const rawCampCalendar = (Array.isArray(data.calendarEvents) ? data.calendarEvent
 const rawCampStands = (Array.isArray(data.campStands) ? data.campStands : (Array.isArray(data.stands) ? data.stands : (Array.isArray(data.campMap) ? data.campMap : (Array.isArray(data.standMap) ? data.standMap : [])))).filter(Boolean);
 const rawCampDrives = (Array.isArray(data.deerDrives) ? data.deerDrives : []).filter(Boolean);
 
+const enabledSections = data.enabledSections && typeof data.enabledSections === "object"
+  ? Object.assign({}, data.enabledSections)
+  : {};
+const hasExplicitSectionVisibility = Object.keys(enabledSections).length > 0;
+const hasEnabledLiveSections = [
+  "campupdate",
+  "campfeed",
+  "traditions",
+  "campcards",
+  "camprecipes",
+  "calendar",
+  "campmemories"
+].some(key => Boolean(enabledSections[key]));
+
 const hasStructuredCampContent = [
   rawFeedEntries.length,
   rawCampCards.length,
@@ -3161,7 +3175,9 @@ const hasStructuredCampContent = [
   rawCampDrives.length
 ].some(Boolean);
 
-const shouldRenderBlankCampShell = Boolean(data.siteBlankShell || data.siteStage === "live-shell") && !hasStructuredCampContent;
+const shouldRenderBlankCampShell = Boolean(data.siteBlankShell || data.siteStage === "live-shell")
+  && !hasStructuredCampContent
+  && !hasEnabledLiveSections;
 
 const STEWARD_ROLE_TEMPLATE = {
   title: "Camp Steward",
@@ -4101,23 +4117,28 @@ function getCampFeedEntries() {
 }
 
 const rawSections = [
-  { key: "feed", title: "CampFeed", hasContent: true, pinFirst: true },
-  { key: "campcards", title: "CampCards", hasContent: true },
+  { key: "feed", dashboardKey: "campfeed", title: "CampFeed", hasContent: true, pinFirst: true },
+  { key: "campupdate", dashboardKey: "campupdate", title: "CampUpdate", hasContent: true },
+  { key: "campcards", dashboardKey: "campcards", title: "CampCards", hasContent: true },
+  { key: "recipes", dashboardKey: "camprecipes", title: "CampRecipes", hasContent: true },
+  { key: "calendar", dashboardKey: "calendar", title: "CampCalendar", hasContent: true },
+  { key: "traditions", dashboardKey: "traditions", title: "CampTraditions", hasContent: true },
+  { key: "memories", dashboardKey: "campmemories", title: "CampMemories / Wall of Fame", hasContent: true },
   { key: "members", title: "CampMembers", hasContent: renderedMemberProfiles.length > 0 },
   { key: "deerdrives", title: "CampDeerDrives", hasContent: deerDrives.length > 0 },
-  { key: "recipes", title: "CampRecipes", hasContent: true },
-  { key: "calendar", title: "CampCalendar", hasContent: true },
-  { key: "contentsubmission", title: "CampContent Submission", hasContent: true },
-  { key: "traditions", title: "CampTraditions", hasContent: normalizedTraditions.length > 0 },
-  { key: "memories", title: "CampMemories / Wall of Fame", hasContent: true },
   { key: "map", title: "CampStands", hasContent: true }
 ];
 
-const sections = [
-  ...rawSections.filter(section => section.pinFirst),
-  ...rawSections.filter(section => !section.pinFirst && section.hasContent),
-  ...rawSections.filter(section => !section.pinFirst && !section.hasContent)
-];
+const sections = hasExplicitSectionVisibility
+  ? rawSections.filter(section => {
+      if (section.dashboardKey) return Boolean(enabledSections[section.dashboardKey]);
+      return false;
+    })
+  : [
+      ...rawSections.filter(section => section.pinFirst),
+      ...rawSections.filter(section => !section.pinFirst && section.hasContent),
+      ...rawSections.filter(section => !section.pinFirst && !section.hasContent)
+    ];
 
 const content = document.getElementById("content");
 const menu = document.getElementById("menu");
@@ -4222,18 +4243,16 @@ function renderBlankCampShell() {
         <span class="camp-shell-placeholder-pill">Members: ${escapeHtml(String(memberCount))}</span>
       </div>
       <div class="camp-shell-placeholder-actions">
-        <a class="camp-shell-placeholder-btn is-primary" href="${escapeHtml(continueUrl)}">Continue Building Your Camp</a>
-        <a class="camp-shell-placeholder-btn" href="${escapeHtml(dashboardUrl)}">Open Steward Dashboard</a>
+        <a class="camp-shell-placeholder-btn is-primary" href="${escapeHtml(dashboardUrl)}">Go to Steward Dashboard</a>
       </div>
-      <p class="camp-shell-placeholder-note">${stewardEmail ? `A Steward return link ${savedWelcomeEmail.ok ? "was sent" : "can be sent"} to ${escapeHtml(stewardEmail)} when email is available.` : "Use Continue Building Your Camp to keep going right now."}</p>
+      <p class="camp-shell-placeholder-note">${stewardEmail ? `A Steward return link ${savedWelcomeEmail.ok ? "was sent" : "can be sent"} to ${escapeHtml(stewardEmail)} when email is available.` : "Use Steward Dashboard to keep building your camp."}</p>
     </div>
   `;
   content.appendChild(placeholder);
 
   menu.innerHTML = "";
   [
-    { href: continueUrl, label: "Continue Building Your Camp" },
-    { href: dashboardUrl, label: "Open Steward Dashboard" }
+    { href: dashboardUrl, label: "Go to Steward Dashboard" }
   ].forEach(item => {
     const link = document.createElement("a");
     link.href = item.href;
@@ -4264,28 +4283,16 @@ sections.forEach(section => {
               <span id="feedRecentCount" class="feed-recent-count">Showing 0 of 0</span>
             </div>
             <div class="feed-carousel-controls">
-              <p class="feed-carousel-caption">Latest 3 posts • newest on the left</p>
+              <p class="feed-carousel-caption">Running 5 recent posts</p>
               <button type="button" class="feed-carousel-arrow" id="feedPrevBtn" aria-label="Previous featured posts">◀</button>
               <button type="button" class="feed-carousel-arrow" id="feedNextBtn" aria-label="Next featured posts">▶</button>
-            </div>
-          </div>
-          <div class="feed-carousel-viewport">
-            <div id="feedCarouselTrack" class="feed-carousel-track"></div>
-          </div>
-        </div>
-
-        <div class="feed-archive-shell">
-          <div class="feed-archive-header">
-            <div class="feed-archive-header-copy">
-              <h3>CampFeed Archive</h3>
-              <p class="feed-archive-helper">Search and filter every camp post without losing the cinematic top rail.</p>
             </div>
           </div>
 
           <div class="feed-archive-toolbar">
             <div class="feed-search-wrap">
-              <label class="feed-search-label" for="feedSearchInput">Search</label>
-              <input id="feedSearchInput" class="feed-search-input" type="search" placeholder="Search memories, members, tags, or stands">
+              <label class="feed-search-label" for="feedSearchInput">Search CampFeed</label>
+              <input id="feedSearchInput" class="feed-search-input" type="search" placeholder="Search pictures, traditions, recipes, calendar events, members, or tags">
             </div>
             <div class="feed-sort-wrap">
               <label class="feed-sort-label" for="feedSortSelect">Sort</label>
@@ -4300,15 +4307,12 @@ sections.forEach(section => {
 
           <div class="feed-archive-meta">
             <p id="feedResultsCount" class="feed-results-count">0 posts</p>
-            <div class="feed-archive-page-controls">
-              <button type="button" id="feedArchivePrevBtn" class="feed-clear-btn">Previous 5</button>
-              <span id="feedArchivePageLabel" class="feed-results-count">Archive page 0 of 0</span>
-              <button type="button" id="feedArchiveNextBtn" class="feed-clear-btn">Next 5</button>
-            </div>
             <button type="button" id="feedClearBtn" class="feed-clear-btn">Clear Filters</button>
           </div>
 
-          <div id="feedArchiveList" class="feed-archive-list"></div>
+          <div class="feed-carousel-viewport">
+            <div id="feedCarouselTrack" class="feed-carousel-track"></div>
+          </div>
         </div>
       </div>
 
@@ -4357,11 +4361,7 @@ sections.forEach(section => {
     const sortSelect = container.querySelector("#feedSortSelect");
     const filterRow = container.querySelector("#feedFilterRow");
     const resultsCount = container.querySelector("#feedResultsCount");
-    const archivePrevBtn = container.querySelector("#feedArchivePrevBtn");
-    const archiveNextBtn = container.querySelector("#feedArchiveNextBtn");
-    const archivePageLabel = container.querySelector("#feedArchivePageLabel");
     const clearBtn = container.querySelector("#feedClearBtn");
-    const archiveList = container.querySelector("#feedArchiveList");
     const modalBackdrop = container.querySelector("#feedModalBackdrop");
     const modal = container.querySelector("#feedModal");
     const modalMedia = container.querySelector("#feedModalMedia");
@@ -4381,12 +4381,8 @@ sections.forEach(section => {
     const modalNext = container.querySelector("#feedModalNext");
 
     const ensureFeedModalOverlayRoot = () => {
-      if (modalBackdrop && modalBackdrop.parentElement !== document.body) {
-        document.body.appendChild(modalBackdrop);
-      }
-      if (modal && modal.parentElement !== document.body) {
-        document.body.appendChild(modal);
-      }
+      if (modalBackdrop && modalBackdrop.parentElement !== document.body) document.body.appendChild(modalBackdrop);
+      if (modal && modal.parentElement !== document.body) document.body.appendChild(modal);
     };
 
     const feedFilters = [
@@ -4397,6 +4393,8 @@ sections.forEach(section => {
       { key: "buck", label: "Bucks" },
       { key: "camp-life", label: "Camp Life" },
       { key: "recipe", label: "Recipes" },
+      { key: "tradition", label: "Traditions" },
+      { key: "calendar", label: "Calendar" },
       { key: "wall-of-fame", label: "Wall of Fame" }
     ];
 
@@ -4407,8 +4405,7 @@ sections.forEach(section => {
     let activeFilter = "all";
     let activeModalIndex = -1;
     let activeModalEntryId = "";
-    let archivePageIndex = 0;
-    const archivePageSize = 5;
+    let latestLiveFeedEntries = [];
 
     const getVisibleFeedCards = () => {
       if (window.innerWidth <= 720) return 1;
@@ -4416,14 +4413,11 @@ sections.forEach(section => {
       return 3;
     };
 
-
     const formatFeedCount = value => Number(value || 0).toLocaleString();
 
     const normalizeMediaType = entry => {
       const raw = String(entry.mediaType || entry.type || "").trim().toLowerCase();
-      if (["photo", "image", "audio", "video"].includes(raw)) {
-        return raw === "image" ? "photo" : raw;
-      }
+      if (["photo", "image", "audio", "video"].includes(raw)) return raw === "image" ? "photo" : raw;
       if (entry.video) return "video";
       if (entry.audio) return "audio";
       if (entry.image) return "photo";
@@ -4431,65 +4425,32 @@ sections.forEach(section => {
     };
 
     const normalizeCategory = entry => {
-      const haystack = [
-        entry.category,
-        entry.kicker,
-        entry.title,
-        entry.meta,
-        entry.body,
-        ...(Array.isArray(entry.tags) ? entry.tags : [])
-      ]
-        .join(" ")
-        .toLowerCase();
-
+      const haystack = [entry.category, entry.kicker, entry.title, entry.meta, entry.body, ...(Array.isArray(entry.tags) ? entry.tags : [])].join(" ").toLowerCase();
       if (/wall\s*of\s*fame|winner|annual/.test(haystack)) return "wall-of-fame";
       if (/recipe|venison|backstrap|chili|stew|breakfast|camp kitchen/.test(haystack)) return "recipe";
+      if (/tradition|ritual|opening morning|campfire/.test(haystack)) return "tradition";
+      if (/calendar|event|weekend|setup|meal/.test(haystack)) return "calendar";
       if (/buck|doe|spike|roadside sighting|sighting/.test(haystack)) return "buck";
-      if (/campfire|coffee|camp life|cabin|tradition|story/.test(haystack)) return "camp-life";
+      if (/camp life|cabin|story/.test(haystack)) return "camp-life";
       return "field-note";
     };
 
-    const buildSearchBlob = entry => {
-      return [
-        entry.title,
-        entry.kicker,
-        entry.meta,
-        entry.body,
-        entry.author,
-        entry.standName,
-        entry.category,
-        entry.mediaType,
-        ...(Array.isArray(entry.tags) ? entry.tags : [])
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-    };
+    const buildSearchBlob = entry => [entry.title, entry.kicker, entry.meta, entry.body, entry.author, entry.standName, entry.category, entry.mediaType, ...(Array.isArray(entry.tags) ? entry.tags : [])].filter(Boolean).join(" ").toLowerCase();
 
     const decorateFeedEntry = (entry, index = 0) => {
       const mediaType = normalizeMediaType(entry);
       const category = normalizeCategory(entry);
       const tags = Array.isArray(entry.tags) ? entry.tags.filter(Boolean) : [];
       const createdAtMs = Number.isFinite(Number(entry.createdAtMs)) ? Number(entry.createdAtMs) : Date.now() - index * 1000;
-      return {
-        ...entry,
-        id: entry.id || `feed-${createdAtMs}-${index}`,
-        mediaType,
-        category,
-        createdAtMs,
-        tags,
-        searchBlob: buildSearchBlob({ ...entry, mediaType, category, tags })
-      };
+      return { ...entry, id: entry.id || `feed-${createdAtMs}-${index}`, mediaType, category, createdAtMs, tags, searchBlob: buildSearchBlob({ ...entry, mediaType, category, tags }) };
     };
 
     const combineFeedEntries = (liveEntries, fallbackEntries) => {
       const map = new Map();
       [...liveEntries, ...fallbackEntries].forEach((entry, index) => {
         if (!entry) return;
-        const key = [entry.title, entry.meta, entry.body, entry.image, entry.audio].map(value => String(value || "").trim()).join("|");
-        if (!map.has(key)) {
-          map.set(key, decorateFeedEntry(entry, index));
-        }
+        const key = [entry.id, entry.title, entry.meta, entry.body, entry.image, entry.audio].map(value => String(value || "").trim()).join("|");
+        if (!map.has(key)) map.set(key, decorateFeedEntry(entry, index));
       });
       return Array.from(map.values()).sort((a, b) => b.createdAtMs - a.createdAtMs);
     };
@@ -4504,9 +4465,7 @@ sections.forEach(section => {
       const maxIndex = Math.max(0, featuredCards.length - getVisibleFeedCards());
       currentFeedIndex = Math.max(0, Math.min(nextIndex, maxIndex));
       const target = featuredCards[currentFeedIndex];
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
-      }
+      if (target) target.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "start" });
       syncFeedButtons();
     };
 
@@ -4518,17 +4477,14 @@ sections.forEach(section => {
 
     const renderFeaturedFeedCards = entries => {
       featuredTrack.innerHTML = "";
-      const featuredEntries = entries.slice(0, 3);
-
+      const featuredEntries = entries.slice(0, 5);
       featuredEntries.forEach((entry, index) => {
         const article = document.createElement("article");
         article.className = "feed-card" + (index === 0 ? " is-featured" : "");
         article.tabIndex = 0;
-
         const media = document.createElement("div");
         media.className = "feed-card-media";
         if (entry.imageFit === "contain") media.classList.add("is-contain");
-
         if (entry.image) {
           const image = document.createElement("img");
           image.src = entry.image;
@@ -4536,84 +4492,33 @@ sections.forEach(section => {
           image.loading = "lazy";
           media.appendChild(image);
         }
-
         const badge = document.createElement("span");
         badge.className = "feed-card-badge";
-        badge.textContent = index === 0 ? "Newest" : `Update ${index + 1}`;
+        badge.textContent = index === 0 ? "Newest" : `Recent ${index + 1}`;
         media.appendChild(badge);
-
         const copy = document.createElement("div");
         copy.className = "feed-card-copy";
-
-        const kicker = document.createElement("p");
-        kicker.className = "feed-card-kicker";
-        kicker.textContent = entry.kicker || "DeerCamp Global Feed";
-
-        const title = document.createElement("h3");
-        title.className = "feed-card-title";
-        title.textContent = entry.title || `Field Update ${index + 1}`;
-
-        const meta = document.createElement("p");
-        meta.className = "feed-card-meta";
-        meta.textContent = entry.meta || "Published from DeerCamp App";
-
-        const body = document.createElement("p");
-        body.className = "feed-card-body";
-        body.textContent = getExcerpt(entry.body || "New field update from DeerCamp.", 145);
-
-        const tags = document.createElement("div");
-        tags.className = "feed-card-tags";
-        (entry.tags || []).slice(0, 3).forEach(tag => {
-          const el = document.createElement("span");
-          el.className = "feed-card-tag";
-          el.textContent = tag;
-          tags.appendChild(el);
-        });
-
-        const openBtn = document.createElement("button");
-        openBtn.type = "button";
-        openBtn.className = "feed-card-open";
-        openBtn.textContent = "Open Post";
-        openBtn.addEventListener("click", event => {
-          event.stopPropagation();
-          openFeedModal(entry.id);
-        });
-
-        copy.appendChild(kicker);
-        copy.appendChild(title);
-        copy.appendChild(meta);
-        copy.appendChild(body);
-        copy.appendChild(tags);
-        copy.appendChild(openBtn);
-
+        const kicker = document.createElement("p"); kicker.className = "feed-card-kicker"; kicker.textContent = entry.kicker || "CampFeed";
+        const title = document.createElement("h3"); title.className = "feed-card-title"; title.textContent = entry.title || `Field Update ${index + 1}`;
+        const meta = document.createElement("p"); meta.className = "feed-card-meta"; meta.textContent = entry.meta || "Published from DeerCamp";
+        const body = document.createElement("p"); body.className = "feed-card-body"; body.textContent = getExcerpt(entry.body || "New field update from DeerCamp.", 145);
+        const tags = document.createElement("div"); tags.className = "feed-card-tags";
+        (entry.tags || []).slice(0, 3).forEach(tag => { const el = document.createElement("span"); el.className = "feed-card-tag"; el.textContent = tag; tags.appendChild(el); });
+        const openBtn = document.createElement("button"); openBtn.type = "button"; openBtn.className = "feed-card-open"; openBtn.textContent = "Open Post"; openBtn.addEventListener("click", event => { event.stopPropagation(); openFeedModal(entry.id); });
+        copy.append(kicker, title, meta, body, tags, openBtn);
         const audioSources = Array.isArray(entry.audio) ? entry.audio : [entry.audio];
         const validAudioSources = audioSources.map(item => String(item || "").trim()).filter(Boolean);
         if (validAudioSources.length) {
-          const audio = document.createElement("audio");
-          audio.className = "feed-card-audio";
-          audio.controls = true;
-          audio.preload = "metadata";
+          const audio = document.createElement("audio"); audio.className = "feed-card-audio"; audio.controls = true; audio.preload = "metadata";
           audio.appendChild(document.createTextNode("Your browser does not support the audio element."));
-          wireAudioFallback(audio, validAudioSources);
-          copy.appendChild(audio);
+          wireAudioFallback(audio, validAudioSources); copy.appendChild(audio);
         }
-
         article.addEventListener("click", () => openFeedModal(entry.id));
-        article.addEventListener("keypress", event => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            openFeedModal(entry.id);
-          }
-        });
-
-        article.appendChild(media);
-        article.appendChild(copy);
-        featuredTrack.appendChild(article);
+        article.addEventListener("keypress", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openFeedModal(entry.id); } });
+        article.append(media, copy); featuredTrack.appendChild(article);
       });
-
       featuredCards = Array.from(featuredTrack.children);
-      currentFeedIndex = 0;
-      syncFeedButtons();
+      currentFeedIndex = 0; syncFeedButtons();
     };
 
     const renderFilterChips = () => {
@@ -4624,375 +4529,118 @@ sections.forEach(section => {
         button.className = `feed-filter-chip${filter.key === activeFilter ? " is-active" : ""}`;
         button.dataset.filter = filter.key;
         button.textContent = filter.label;
-        button.addEventListener("click", () => {
-          activeFilter = filter.key;
-          archivePageIndex = 0;
-          renderFilterChips();
-          renderArchiveFeed();
-        });
+        button.addEventListener("click", () => { activeFilter = filter.key; renderFilterChips(); renderFeedView(); });
         filterRow.appendChild(button);
       });
     };
 
-const renderArchiveFeed = () => {
-  const searchTerm = String(searchInput.value || "").trim().toLowerCase();
-  const sortMode = sortSelect.value || "newest";
-
-  const archivePool = allFeedEntries.slice(3);
-
-  filteredEntries = archivePool
-    .filter(entry => {
-      if (!searchTerm) return true;
-      return entry.searchBlob.includes(searchTerm);
-    })
-    .filter(entry => {
-      if (activeFilter === "all") return true;
-      if (["photo", "audio", "video"].includes(activeFilter)) {
-        return entry.mediaType === activeFilter;
+    const renderFeedView = () => {
+      const searchTerm = String(searchInput.value || "").trim().toLowerCase();
+      const sortMode = sortSelect.value || "newest";
+      filteredEntries = allFeedEntries
+        .filter(entry => !searchTerm || entry.searchBlob.includes(searchTerm))
+        .filter(entry => {
+          if (activeFilter === "all") return true;
+          if (["photo", "audio", "video"].includes(activeFilter)) return entry.mediaType === activeFilter;
+          return entry.category === activeFilter;
+        })
+        .sort((a, b) => sortMode === "oldest" ? a.createdAtMs - b.createdAtMs : b.createdAtMs - a.createdAtMs);
+      const isSearching = Boolean(searchTerm) || activeFilter !== "all" || sortMode !== "newest";
+      const visibleEntries = isSearching ? filteredEntries : filteredEntries.slice(0, 5);
+      renderFeaturedFeedCards(visibleEntries);
+      if (feedRecentCount) {
+        feedRecentCount.textContent = isSearching
+          ? `Showing ${formatFeedCount(Math.min(visibleEntries.length, filteredEntries.length))} of ${formatFeedCount(filteredEntries.length)}`
+          : `Showing ${formatFeedCount(Math.min(5, allFeedEntries.length))} of ${formatFeedCount(allFeedEntries.length)}`;
       }
-      return entry.category === activeFilter;
-    })
-    .sort((a, b) => sortMode === "oldest" ? a.createdAtMs - b.createdAtMs : b.createdAtMs - a.createdAtMs);
-
-  const totalArchivePosts = filteredEntries.length;
-  const maxPageIndex = Math.max(0, Math.ceil(totalArchivePosts / archivePageSize) - 1);
-  archivePageIndex = Math.max(0, Math.min(archivePageIndex, maxPageIndex));
-
-  const pageStart = archivePageIndex * archivePageSize;
-  const pagedArchiveEntries = filteredEntries.slice(pageStart, pageStart + archivePageSize);
-
-  resultsCount.textContent = totalArchivePosts
-    ? `Archive showing ${formatFeedCount(pageStart + 1)}–${formatFeedCount(pageStart + pagedArchiveEntries.length)} of ${formatFeedCount(totalArchivePosts)} older post${totalArchivePosts === 1 ? "" : "s"}`
-    : "No archived posts";
-
-  if (archivePageLabel) {
-    archivePageLabel.textContent = totalArchivePosts
-      ? `Archive page ${archivePageIndex + 1} of ${maxPageIndex + 1}`
-      : "Archive page 0 of 0";
-  }
-
-  if (archivePrevBtn) archivePrevBtn.disabled = archivePageIndex <= 0;
-  if (archiveNextBtn) archiveNextBtn.disabled = archivePageIndex >= maxPageIndex || !totalArchivePosts;
-
-  archiveList.innerHTML = "";
-
-  if (!pagedArchiveEntries.length) {
-    const empty = document.createElement("div");
-    empty.className = "feed-empty-state";
-    empty.innerHTML = totalArchivePosts
-      ? `<strong>No posts on this archive page.</strong><p>Use Previous 5 or Next 5 to move through the archive.</p>`
-      : `<strong>No posts matched your search.</strong><p>Try another keyword or clear filters to browse the full CampFeed archive.</p>`;
-    archiveList.appendChild(empty);
-    return;
-  }
-
-  pagedArchiveEntries.forEach(entry => {
-    const card = document.createElement("article");
-    card.className = "feed-archive-card";
-
-    const media = document.createElement("div");
-    media.className = "feed-archive-media";
-    if (entry.imageFit === "contain") media.classList.add("is-contain");
-
-    if (entry.image) {
-      const image = document.createElement("img");
-      image.src = entry.image;
-      image.alt = entry.title || "Feed image";
-      image.loading = "lazy";
-      media.appendChild(image);
-    } else {
-      media.innerHTML = `<div class="feed-empty-state" style="height:100%;display:flex;align-items:center;justify-content:center;">No image for this post yet.</div>`;
-    }
-
-    const copy = document.createElement("div");
-    copy.className = "feed-archive-copy";
-
-    const topline = document.createElement("div");
-    topline.className = "feed-archive-topline";
-
-    const mediaBadge = document.createElement("span");
-    mediaBadge.className = "feed-archive-badge";
-    mediaBadge.textContent = entry.mediaType === "note" ? "Post" : entry.mediaType;
-
-    const categoryBadge = document.createElement("span");
-    categoryBadge.className = "feed-archive-badge";
-    categoryBadge.textContent = (entry.category || "field-note").replace(/-/g, " ");
-
-    topline.appendChild(mediaBadge);
-    topline.appendChild(categoryBadge);
-
-    const title = document.createElement("h4");
-    title.className = "feed-archive-title";
-    title.textContent = entry.title || "Field Update";
-
-    const meta = document.createElement("p");
-    meta.className = "feed-archive-meta";
-    meta.textContent = entry.meta || "Published from DeerCamp App";
-
-    const body = document.createElement("p");
-    body.className = "feed-archive-body";
-    body.textContent = getExcerpt(entry.body || "Published from DeerCamp App.");
-
-    const tags = document.createElement("div");
-    tags.className = "feed-archive-tags";
-    (entry.tags || []).forEach(tag => {
-      const tagEl = document.createElement("span");
-      tagEl.className = "feed-archive-tag";
-      tagEl.textContent = tag;
-      tags.appendChild(tagEl);
-    });
-
-    const actions = document.createElement("div");
-    actions.className = "feed-archive-actions";
-
-    const openBtn = document.createElement("button");
-    openBtn.type = "button";
-    openBtn.className = "feed-card-open";
-    openBtn.textContent = "Open Post";
-    openBtn.addEventListener("click", () => openFeedModal(entry.id));
-    actions.appendChild(openBtn);
-
-    copy.appendChild(topline);
-    copy.appendChild(title);
-    copy.appendChild(meta);
-    copy.appendChild(body);
-    if ((entry.tags || []).length) copy.appendChild(tags);
-    copy.appendChild(actions);
-
-    card.appendChild(media);
-    card.appendChild(copy);
-    archiveList.appendChild(card);
-  });
-};
-
+      resultsCount.textContent = filteredEntries.length
+        ? `${formatFeedCount(filteredEntries.length)} searchable CampFeed post${filteredEntries.length === 1 ? "" : "s"}`
+        : "No CampFeed posts matched your search";
+    };
 
     const renderFeedComments = entry => {
       const comments = getFeedCommentsForEntry(entry || {});
-      if (modalCommentsCount) {
-        modalCommentsCount.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
-      }
+      if (modalCommentsCount) modalCommentsCount.textContent = `${comments.length} comment${comments.length === 1 ? '' : 's'}`;
       if (modalCommentsList) {
-        if (!comments.length) {
-          modalCommentsList.innerHTML = '<p class="feed-modal-comment-empty">No comments yet. Camp members can start the conversation.</p>';
-        } else {
-          modalCommentsList.innerHTML = comments.map(comment => `
+        modalCommentsList.innerHTML = comments.length
+          ? comments.map(comment => `
             <div class="feed-modal-comment">
               <p class="feed-modal-comment-meta">${escapeHtml(comment.author)} • ${escapeHtml(formatFeedCommentTimestamp(comment.createdAtMs))}</p>
               <p class="feed-modal-comment-body">${escapeHtml(comment.body)}</p>
             </div>
-          `).join('');
-        }
+          `).join('')
+          : '<p class="feed-modal-comment-empty">No comments yet. Camp members can start the conversation.</p>';
       }
-      if (modalCommentAuthor && !String(modalCommentAuthor.value || '').trim()) {
-        modalCommentAuthor.value = getCurrentCommentAuthor();
-      }
-      if (modalCommentBody) {
-        modalCommentBody.value = '';
-      }
+      if (modalCommentAuthor && !String(modalCommentAuthor.value || '').trim()) modalCommentAuthor.value = getCurrentCommentAuthor();
+      if (modalCommentBody) modalCommentBody.value = '';
     };
 
     const closeFeedModal = () => {
-      modal.classList.remove("open");
-      modalBackdrop.classList.remove("open");
-      modal.style.display = "none";
-      modalBackdrop.style.display = "none";
-      modal.setAttribute("aria-hidden", "true");
-      modalAudio.pause();
-      modalAudio.currentTime = 0;
-      modalAudio.removeAttribute("src");
-      modalAudio.load();
-      activeModalIndex = -1;
-      activeModalEntryId = "";
-      if (modalCommentBody) modalCommentBody.value = "";
-      document.body.classList.remove("modal-open");
+      modal.classList.remove("open"); modalBackdrop.classList.remove("open"); modal.style.display = "none"; modalBackdrop.style.display = "none"; modal.setAttribute("aria-hidden", "true");
+      modalAudio.pause(); modalAudio.currentTime = 0; modalAudio.removeAttribute("src"); modalAudio.load(); activeModalIndex = -1; activeModalEntryId = "";
+      if (modalCommentBody) modalCommentBody.value = ""; document.body.classList.remove("modal-open");
     };
 
     const renderFeedModal = entry => {
       modalMedia.className = `feed-modal-media${entry.imageFit === "contain" ? " is-contain" : ""}`;
-      modalMedia.innerHTML = entry.image
-        ? `<img src="${entry.image}" alt="${String(entry.title || "Feed image").replace(/"/g, '&quot;')}">`
-        : `<div class="feed-empty-state" style="height:100%;display:flex;align-items:center;justify-content:center;">No image for this post yet.</div>`;
-      modalKicker.textContent = entry.kicker || "CampFeed";
-      modalTitle.textContent = entry.title || "Field Update";
-      modalMeta.textContent = entry.meta || "Published from DeerCamp App";
-      modalBody.textContent = entry.body || "Published from DeerCamp App.";
-      modalTags.innerHTML = "";
-      (entry.tags || []).forEach(tag => {
-        const el = document.createElement("span");
-        el.className = "feed-archive-tag";
-        el.textContent = tag;
-        modalTags.appendChild(el);
-      });
-
+      modalMedia.innerHTML = entry.image ? `<img src="${entry.image}" alt="${String(entry.title || "Feed image").replace(/"/g, '&quot;')}">` : `<div class="feed-empty-state" style="height:100%;display:flex;align-items:center;justify-content:center;">No image for this post yet.</div>`;
+      modalKicker.textContent = entry.kicker || "CampFeed"; modalTitle.textContent = entry.title || "Field Update"; modalMeta.textContent = entry.meta || "Published from DeerCamp"; modalBody.textContent = entry.body || "Published from DeerCamp.";
+      modalTags.innerHTML = ""; (entry.tags || []).forEach(tag => { const el = document.createElement("span"); el.className = "feed-archive-tag"; el.textContent = tag; modalTags.appendChild(el); });
       const audioSources = Array.isArray(entry.audio) ? entry.audio : [entry.audio];
       const validAudioSources = audioSources.map(item => String(item || "").trim()).filter(Boolean);
       if (validAudioSources.length) {
-        modalAudio.style.display = "block";
-        modalAudio.pause();
-        modalAudio.currentTime = 0;
-        modalAudio.muted = false;
-        modalAudio.volume = 1;
-        wireAudioFallback(modalAudio, validAudioSources).then(() => {
-          modalAudio.muted = false;
-          modalAudio.volume = 1;
-        }).catch(() => {
-          modalAudio.style.display = "none";
-        });
-      } else {
-        modalAudio.style.display = "none";
-        modalAudio.removeAttribute("src");
-        modalAudio.load();
-      }
-
-      renderFeedComments(entry);
-      modalPrev.disabled = activeModalIndex <= 0;
-      modalNext.disabled = activeModalIndex >= filteredEntries.length - 1;
+        modalAudio.style.display = "block"; modalAudio.pause(); modalAudio.currentTime = 0; modalAudio.muted = false; modalAudio.volume = 1;
+        wireAudioFallback(modalAudio, validAudioSources).then(() => { modalAudio.muted = false; modalAudio.volume = 1; }).catch(() => { modalAudio.style.display = "none"; });
+      } else { modalAudio.style.display = "none"; modalAudio.removeAttribute("src"); modalAudio.load(); }
+      renderFeedComments(entry); modalPrev.disabled = activeModalIndex <= 0; modalNext.disabled = activeModalIndex >= filteredEntries.length - 1;
     };
 
     const openFeedModal = entryId => {
-      const modalIndex = filteredEntries.findIndex(entry => entry.id === entryId);
-      const resolvedIndex = modalIndex >= 0 ? modalIndex : allFeedEntries.findIndex(entry => entry.id === entryId);
-      if (resolvedIndex < 0) return;
-      activeModalIndex = modalIndex >= 0 ? modalIndex : resolvedIndex;
-      const sourceEntries = modalIndex >= 0 ? filteredEntries : allFeedEntries;
-      const entry = sourceEntries[activeModalIndex];
-      if (!entry) return;
-      activeModalEntryId = entry.id || '';
-      ensureFeedModalOverlayRoot();
-      renderFeedModal(entry);
-      modal.style.display = "flex";
-      modalBackdrop.style.display = "block";
-      modal.classList.add("open");
-      modalBackdrop.classList.add("open");
-      modal.setAttribute("aria-hidden", "false");
-      document.body.classList.add("modal-open");
+      const modalIndex = filteredEntries.findIndex(entry => entry.id === entryId); if (modalIndex < 0) return; activeModalIndex = modalIndex;
+      const entry = filteredEntries[activeModalIndex]; if (!entry) return; activeModalEntryId = entry.id || '';
+      ensureFeedModalOverlayRoot(); renderFeedModal(entry); modal.style.display = "flex"; modalBackdrop.style.display = "block"; modal.classList.add("open"); modalBackdrop.classList.add("open"); modal.setAttribute("aria-hidden", "false"); document.body.classList.add("modal-open");
     };
 
     const stepFeedModal = direction => {
-      if (activeModalIndex < 0) return;
-      const nextIndex = activeModalIndex + direction;
-      if (nextIndex < 0 || nextIndex >= filteredEntries.length) return;
-      activeModalIndex = nextIndex;
-      renderFeedModal(filteredEntries[activeModalIndex]);
+      if (activeModalIndex < 0) return; const nextIndex = activeModalIndex + direction; if (nextIndex < 0 || nextIndex >= filteredEntries.length) return; activeModalIndex = nextIndex; renderFeedModal(filteredEntries[activeModalIndex]);
     };
 
-    const refreshFeedUI = liveEntries => {
-      allFeedEntries = combineFeedEntries(liveEntries, fallbackFeedEntries);
-      if (feedRecentCount) {
-        feedRecentCount.textContent = `Showing ${formatFeedCount(Math.min(3, allFeedEntries.length))} of ${formatFeedCount(allFeedEntries.length)}`;
-      }
-      renderFeaturedFeedCards(allFeedEntries);
-      renderFilterChips();
-      renderArchiveFeed();
-    };
+    const refreshFeedUI = liveEntries => { allFeedEntries = combineFeedEntries(liveEntries, getCampFeedEntries()); renderFilterChips(); renderFeedView(); };
 
     const normalizeGlobalFeedEntry = docSnap => {
-      const item = docSnap.data() || {};
-      const createdDate = item.createdAt && typeof item.createdAt.toDate === "function" ? item.createdAt.toDate() : null;
-      const createdAtMs = createdDate ? createdDate.getTime() : Date.now();
-      const authorName = String(item.authorName || item.author || "DeerCamp Member").trim();
-      const tagList = Array.isArray(item.tags) ? item.tags : [item.category, item.mediaType].filter(Boolean);
-
-      return decorateFeedEntry(normalizeFeedEntry({
-        id: docSnap.id,
-        title: String(item.title || "Field Memory").trim(),
-        kicker: item.kicker || "DeerCamp Global Feed",
-        meta: [authorName, createdDate ? createdDate.toLocaleString() : "Published from DeerCamp App"].filter(Boolean).join(" • "),
-        body: String(item.caption || item.details || item.story || "Published from DeerCamp App.").trim(),
-        image: String(item.imageUrl || item.image || "").trim(),
-        imageFit: String(item.imageFit || "cover").trim() || "cover",
-        audio: String(item.audioUrl || item.audio || "").trim(),
-        tags: tagList.length ? tagList : ["Global Feed", "Published", "Field Memory"],
-        mediaType: item.mediaType || (item.audioUrl ? "audio" : item.imageUrl ? "photo" : "note"),
-        category: item.category || "field-note",
-        author: authorName,
-        standName: String(item.standName || item.location || "").trim(),
-        createdAtMs
-      }, 0), 0);
+      const item = docSnap.data() || {}; const createdDate = item.createdAt && typeof item.createdAt.toDate === "function" ? item.createdAt.toDate() : null; const createdAtMs = createdDate ? createdDate.getTime() : Date.now();
+      const authorName = String(item.authorName || item.author || "DeerCamp Member").trim(); const tagList = Array.isArray(item.tags) ? item.tags : [item.category, item.mediaType].filter(Boolean);
+      return decorateFeedEntry(normalizeFeedEntry({ id: docSnap.id, title: String(item.title || "Field Memory").trim(), kicker: item.kicker || "CampFeed", meta: [authorName, createdDate ? createdDate.toLocaleString() : "Published from DeerCamp App"].filter(Boolean).join(" • "), body: String(item.caption || item.details || item.story || "Published from DeerCamp App.").trim(), image: String(item.imageUrl || item.image || "").trim(), imageFit: String(item.imageFit || "cover").trim() || "cover", audio: String(item.audioUrl || item.audio || "").trim(), tags: tagList.length ? tagList : ["CampFeed", "Published", "Field Memory"], mediaType: item.mediaType || (item.audioUrl ? "audio" : item.imageUrl ? "photo" : "note"), category: item.category || "field-note", author: authorName, standName: String(item.standName || item.location || "").trim(), createdAtMs }, 0), 0);
     };
 
     prevBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex - 1));
     nextBtn.addEventListener("click", () => goToFeedIndex(currentFeedIndex + 1));
-    searchInput.addEventListener("input", () => {
-      archivePageIndex = 0;
-      renderArchiveFeed();
-    });
-    sortSelect.addEventListener("change", () => {
-      archivePageIndex = 0;
-      renderArchiveFeed();
-    });
-    archivePrevBtn?.addEventListener("click", () => {
-      archivePageIndex = Math.max(0, archivePageIndex - 1);
-      renderArchiveFeed();
-    });
-    archiveNextBtn?.addEventListener("click", () => {
-      archivePageIndex += 1;
-      renderArchiveFeed();
-    });
-    clearBtn.addEventListener("click", () => {
-      searchInput.value = "";
-      sortSelect.value = "newest";
-      activeFilter = "all";
-      archivePageIndex = 0;
-      renderFilterChips();
-      renderArchiveFeed();
-    });
+    searchInput.addEventListener("input", renderFeedView);
+    sortSelect.addEventListener("change", renderFeedView);
+    clearBtn.addEventListener("click", () => { searchInput.value = ""; sortSelect.value = "newest"; activeFilter = "all"; renderFilterChips(); renderFeedView(); });
     modalCommentForm?.addEventListener("submit", event => {
-      event.preventDefault();
-      const entry = allFeedEntries.find(item => item.id === activeModalEntryId);
-      if (!entry) return;
-
-      const author = String(modalCommentAuthor?.value || '').trim() || getCurrentCommentAuthor();
-      const body = String(modalCommentBody?.value || '').trim();
-      if (!body) {
-        if (modalCommentBody) modalCommentBody.focus();
-        return;
-      }
-
-      const stored = getStoredFeedComments();
-      const current = Array.isArray(stored[entry.id]) ? stored[entry.id] : [];
-      current.push({ author, body, createdAtMs: Date.now() });
-      stored[entry.id] = current;
-      saveStoredFeedComments(stored);
-
-      if (modalCommentAuthor) modalCommentAuthor.value = author;
-      renderFeedComments(entry);
+      event.preventDefault(); const entry = allFeedEntries.find(item => item.id === activeModalEntryId); if (!entry) return;
+      const author = String(modalCommentAuthor?.value || '').trim() || getCurrentCommentAuthor(); const body = String(modalCommentBody?.value || '').trim(); if (!body) { if (modalCommentBody) modalCommentBody.focus(); return; }
+      const stored = getStoredFeedComments(); const current = Array.isArray(stored[entry.id]) ? stored[entry.id] : []; current.push({ author, body, createdAtMs: Date.now() }); stored[entry.id] = current; saveStoredFeedComments(stored);
+      if (modalCommentAuthor) modalCommentAuthor.value = author; renderFeedComments(entry);
     });
-    modalClose.addEventListener("click", closeFeedModal);
-    modalBackdrop.addEventListener("click", closeFeedModal);
-    modalPrev.addEventListener("click", () => stepFeedModal(-1));
-    modalNext.addEventListener("click", () => stepFeedModal(1));
+    modalClose.addEventListener("click", closeFeedModal); modalBackdrop.addEventListener("click", closeFeedModal); modalPrev.addEventListener("click", () => stepFeedModal(-1)); modalNext.addEventListener("click", () => stepFeedModal(1));
     window.addEventListener("resize", () => goToFeedIndex(currentFeedIndex));
-    document.addEventListener("keydown", event => {
-      if (!modal.classList.contains("open")) return;
-      if (event.key === "Escape") closeFeedModal();
-      if (event.key === "ArrowLeft") stepFeedModal(-1);
-      if (event.key === "ArrowRight") stepFeedModal(1);
-    });
+    document.addEventListener("keydown", event => { if (!modal.classList.contains("open")) return; if (event.key === "Escape") closeFeedModal(); if (event.key === "ArrowLeft") stepFeedModal(-1); if (event.key === "ArrowRight") stepFeedModal(1); });
 
     refreshFeedUI([]);
-
-    const globalFeedQuery = query(
-      collection(firestoreDb, "feedItems"),
-      where("campId", "==", activeCampId),
-      where("published", "==", true),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    );
-
-    onSnapshot(
-      globalFeedQuery,
-      snapshot => {
-        const liveEntries = snapshot.docs.map(normalizeGlobalFeedEntry).filter(entry => entry.image || entry.audio || entry.body);
-        refreshFeedUI(liveEntries);
-      },
-      error => {
-        console.error("Global feed live update failed:", error);
-        refreshFeedUI([]);
-      }
-    );
+    window.addEventListener("deercamp-feed-updated", () => refreshFeedUI(latestLiveFeedEntries));
+    const globalFeedQuery = query(collection(firestoreDb, "feedItems"), where("campId", "==", activeCampId), where("published", "==", true), orderBy("createdAt", "desc"), limit(100));
+    onSnapshot(globalFeedQuery, snapshot => {
+      const liveEntries = snapshot.docs.map(normalizeGlobalFeedEntry).filter(entry => entry.image || entry.audio || entry.body);
+      latestLiveFeedEntries = liveEntries;
+      refreshFeedUI(liveEntries);
+    }, error => {
+      console.error("Global feed live update failed:", error);
+      latestLiveFeedEntries = [];
+      refreshFeedUI([]);
+    });
   }
-
 
   else if (section.key === "campcards") {
     container.innerHTML = `
@@ -5168,6 +4816,22 @@ const renderArchiveFeed = () => {
               </div>
 
               <div class="calendar-form-main">
+              <div id="contentSubmissionPanelPhoto" class="content-submission-panel is-active">
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Picture Title</span>
+                  <input id="contentPhotoTitle" class="calendar-form-input" type="text" placeholder="Big buck by the road">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Picture</span>
+                  <input id="contentPhotoFile" class="calendar-form-input" type="file" accept="image/*">
+                </label>
+
+                <label class="calendar-form-row">
+                  <span class="calendar-form-label">Caption</span>
+                  <textarea id="contentPhotoCaption" class="calendar-form-textarea" placeholder="Quick note about what happened in this moment."></textarea>
+                </label>
+              </div>
                 <label class="calendar-form-row">
                   <span class="calendar-form-label">Event Title</span>
                   <input id="calendarMemberEventTitle" class="calendar-form-input" type="text" placeholder="Final Setup">
@@ -5185,14 +4849,14 @@ const renderArchiveFeed = () => {
     `;
   }
 
-  else if (section.key === "contentsubmission") {
+  else if (section.key === "campupdate") {
     container.innerHTML = `
-      <h2>CampContent Submission</h2>
-      <p class="section-helper">One shared form for member-added CampRecipes, CampTraditions, and CampCalendar events.</p>
+      <h2>CampUpdate</h2>
+      <p class="section-helper">Members can post a picture, tradition, recipe, or calendar event. Every CampUpdate appears in CampFeed, and traditions, recipes, and calendar events also cross-post into their permanent camp sections.</p>
       <div class="calendar-shell">
         <div class="calendar-form-panel">
-          <h4 class="calendar-form-title">Submit Camp Content</h4>
-          <p class="calendar-form-copy">Choose your name, choose a section, and send one clean suggestion into camp.</p>
+          <h4 class="calendar-form-title">Post a CampUpdate</h4>
+          <p class="calendar-form-copy">Choose your name, choose a post type, and add it once. DeerCamp routes it to CampFeed and the right camp section.</p>
 
           <form id="campContentSubmissionForm" class="calendar-form-grid">
             <div class="calendar-form-side">
@@ -5204,20 +4868,21 @@ const renderArchiveFeed = () => {
               <label class="calendar-form-row">
                 <span class="calendar-form-label">Section</span>
                 <select id="contentSubmissionType" class="calendar-member-select">
-                  <option value="recipe">CampRecipe</option>
-                  <option value="tradition">CampTradition</option>
-                  <option value="event">CampCalendar / Event</option>
+                  <option value="photo">Picture</option>
+                  <option value="recipe">Recipe</option>
+                  <option value="tradition">Tradition</option>
+                  <option value="event">Calendar Event</option>
                 </select>
               </label>
 
               <div class="calendar-form-actions">
-                <button id="campContentSubmissionSubmit" class="calendar-form-button" type="submit">Submit to Camp</button>
-                <div id="campContentSubmissionFeedback" class="calendar-form-feedback">Pick your section, fill in the details, and send it to camp.</div>
+                <button id="campContentSubmissionSubmit" class="calendar-form-button" type="submit">Post to Camp</button>
+                <div id="campContentSubmissionFeedback" class="calendar-form-feedback">Pick a post type, fill in the details, and send it into camp.</div>
               </div>
             </div>
 
             <div class="calendar-form-main">
-              <div id="contentSubmissionPanelRecipe" class="content-submission-panel is-active">
+              <div id="contentSubmissionPanelRecipe" class="content-submission-panel">
                 <label class="calendar-form-row">
                   <span class="calendar-form-label">Recipe Title</span>
                   <input id="contentRecipeTitle" class="calendar-form-input" type="text" placeholder="Bruce's Bombastic Backstraps">
@@ -5306,9 +4971,9 @@ Cook in cast iron until done"></textarea>
         </div>
 
         <div class="calendar-events-panel">
-          <h4 class="calendar-panel-title">Recent Camp Submissions</h4>
+          <h4 class="calendar-panel-title">Recent CampUpdates</h4>
           <div id="contentSubmissionRecentList" class="calendar-event-list">
-            <p class="calendar-empty-note">No member submissions yet. New recipes, traditions, and events will appear here first.</p>
+            <p class="calendar-empty-note">No CampUpdates yet. New pictures, traditions, recipes, and calendar events will appear here first.</p>
           </div>
         </div>
       </div>
@@ -6891,6 +6556,7 @@ function splitSubmissionLines(value) {
 
 function setContentSubmissionPanel(type) {
   const panels = {
+    photo: document.getElementById("contentSubmissionPanelPhoto"),
     recipe: document.getElementById("contentSubmissionPanelRecipe"),
     tradition: document.getElementById("contentSubmissionPanelTradition"),
     event: document.getElementById("contentSubmissionPanelEvent")
@@ -6945,7 +6611,7 @@ function buildSubmissionCard(item) {
 
   const meta = document.createElement("p");
   meta.className = "calendar-event-meta";
-  const typeLabel = item.type === "event" ? "CampCalendar / Event" : (item.type === "tradition" ? "CampTradition" : "CampRecipe");
+  const typeLabel = normalizeCampUpdateTypeLabel(item.type);
   const createdText = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : "Just now";
   meta.textContent = `${typeLabel} • ${item.member || "Camp Member"} • ${createdText}`;
 
@@ -6970,11 +6636,72 @@ function renderContentSubmissionRecentList() {
   list.innerHTML = "";
 
   if (!items.length) {
-    list.innerHTML = '<p class="calendar-empty-note">No member submissions yet. New recipes, traditions, and events will appear here first.</p>';
+    list.innerHTML = '<p class="calendar-empty-note">No CampUpdates yet. New pictures, traditions, recipes, and calendar events will appear here first.</p>';
     return;
   }
 
   items.forEach(item => list.appendChild(buildSubmissionCard(item)));
+}
+
+function normalizeCampUpdateTypeLabel(type = "") {
+  if (type === "photo") return "Picture";
+  if (type === "tradition") return "Tradition";
+  if (type === "recipe") return "Recipe";
+  if (type === "event") return "Calendar Event";
+  return "CampUpdate";
+}
+
+function buildCampFeedEntry(payload = {}) {
+  const createdAt = payload.createdAt || new Date().toISOString();
+  const createdAtMs = Number.isFinite(Number(payload.createdAtMs)) ? Number(payload.createdAtMs) : Date.now();
+  const type = String(payload.type || "note").trim().toLowerCase();
+  return {
+    id: payload.id || `campupdate-${createdAtMs}`,
+    title: String(payload.title || "CampUpdate").trim(),
+    kicker: type === "photo" ? "CampUpdate • Picture" : `CampUpdate • ${normalizeCampUpdateTypeLabel(type)}`,
+    meta: [String(payload.member || "Camp Member").trim(), new Date(createdAtMs).toLocaleString()].filter(Boolean).join(" • "),
+    body: String(payload.body || payload.summary || "New camp update.").trim(),
+    image: String(payload.image || "").trim(),
+    imageFit: String(payload.imageFit || (payload.image ? "contain" : "cover")).trim() || "cover",
+    audio: String(payload.audio || "").trim(),
+    tags: Array.isArray(payload.tags) ? payload.tags.filter(Boolean) : [normalizeCampUpdateTypeLabel(type), "CampUpdate"],
+    mediaType: payload.mediaType || (type === "photo" ? "photo" : payload.image ? "photo" : payload.audio ? "audio" : "note"),
+    category: payload.category || (type === "event" ? "calendar" : type),
+    author: String(payload.member || "Camp Member").trim(),
+    createdAt,
+    createdAtMs
+  };
+}
+
+function pushCampFeedEntry(entry = {}) {
+  const nextEntries = Array.isArray(data.feedEntries) ? data.feedEntries.slice() : [];
+  nextEntries.unshift(entry);
+  data.feedEntries = nextEntries;
+}
+
+function rememberCampPhotoGallery(item = {}) {
+  const gallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.slice() : [];
+  gallery.unshift({
+    id: item.id || `campphoto-${Date.now()}`,
+    title: String(item.title || "Camp picture").trim(),
+    caption: String(item.caption || item.body || "").trim(),
+    member: String(item.member || "Camp Member").trim(),
+    image: String(item.image || "").trim(),
+    createdAt: item.createdAt || new Date().toISOString(),
+    createdAtMs: Number.isFinite(Number(item.createdAtMs)) ? Number(item.createdAtMs) : Date.now(),
+    tags: Array.isArray(item.tags) ? item.tags.filter(Boolean) : ["Picture", "CampUpdate"]
+  });
+  data.campPhotoGallery = gallery;
+}
+
+function readImageFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return reject(new Error("No file selected."));
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read that image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 function appendTraditionCardToGrid(item) {
@@ -7015,10 +6742,10 @@ function initCampContentSubmissionForm() {
 
   if (!form || !memberSelect || !typeSelect) return;
 
-  setContentSubmissionPanel(typeSelect.value || "recipe");
+  setContentSubmissionPanel(typeSelect.value || "photo");
 
   typeSelect.addEventListener("change", () => {
-    setContentSubmissionPanel(typeSelect.value || "recipe");
+    setContentSubmissionPanel(typeSelect.value || "photo");
   });
 
   form.addEventListener("submit", event => {
@@ -7033,6 +6760,31 @@ function initCampContentSubmissionForm() {
     if (!member) {
       setContentSubmissionFeedback("Choose who is submitting this content from the camp roster.", true);
       memberSelect.focus();
+      return;
+    }
+
+    if (type === "photo") {
+      const titleInput = document.getElementById("contentPhotoTitle");
+      const fileInput = document.getElementById("contentPhotoFile");
+      const captionInput = document.getElementById("contentPhotoCaption");
+      const title = String(titleInput.value || "").trim();
+      const caption = String(captionInput.value || "").trim();
+      const file = fileInput.files && fileInput.files[0];
+      if (!title) { setContentSubmissionFeedback("Add a picture title before posting.", true); titleInput.focus(); return; }
+      if (!file) { setContentSubmissionFeedback("Choose a picture before posting.", true); fileInput.focus(); return; }
+      readImageFileAsDataUrl(file).then(imageData => {
+        const createdAt = new Date().toISOString();
+        const createdAtMs = Date.now();
+        const feedEntry = buildCampFeedEntry({ type: "photo", member, title, body: caption || `${member} added a new camp picture.`, image: imageData, imageFit: "contain", tags: ["Picture", "CampUpdate"], createdAt, createdAtMs });
+        rememberCampPhotoGallery({ id: feedEntry.id, title, caption, member, image: imageData, tags: feedEntry.tags, createdAt, createdAtMs });
+        contentSubmissions.unshift({ type: "photo", member, title, summary: caption || `Picture posted by ${member}.`, createdAt, createdAtMs });
+        pushCampFeedEntry(feedEntry);
+        persistScopedCampData();
+        window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
+        renderContentSubmissionRecentList();
+        setContentSubmissionFeedback(`${title} was added to CampFeed and saved into camp pictures.`);
+        form.reset(); populateContentSubmissionMemberSelect(); typeSelect.value = "photo"; setContentSubmissionPanel("photo");
+      }).catch(error => setContentSubmissionFeedback(error.message || "Could not read that picture.", true));
       return;
     }
 
@@ -7077,22 +6829,27 @@ function initCampContentSubmissionForm() {
       });
 
       data.recipeObjects = nextRecipes;
+      const createdAt = new Date().toISOString();
+      const createdAtMs = Date.now();
       contentSubmissions.unshift({
         type: "recipe",
         member,
         title,
         summary: description || `Recipe submitted by ${member}.`,
-        createdAt: new Date().toISOString()
+        createdAt,
+        createdAtMs
       });
+      pushCampFeedEntry(buildCampFeedEntry({ type: "recipe", member, title, body: description || `${member} added a new camp recipe.`, tags: ["Recipe", "CampUpdate", member], createdAt, createdAtMs }));
 
       persistScopedCampData();
+      window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
       renderCompactRecipes();
       renderContentSubmissionRecentList();
-      setContentSubmissionFeedback(`${title} was added to camp as a submitted recipe.`);
+      setContentSubmissionFeedback(`${title} was added to CampFeed and CampRecipes.`);
       form.reset();
       populateContentSubmissionMemberSelect();
-      typeSelect.value = "recipe";
-      setContentSubmissionPanel("recipe");
+      typeSelect.value = "photo";
+      setContentSubmissionPanel("photo");
       return;
     }
 
@@ -7120,22 +6877,27 @@ function initCampContentSubmissionForm() {
       const tradition = { label, group, description: description || "Member-submitted camp tradition.", url };
       nextTraditions.push(tradition);
       data.traditions = nextTraditions;
+      const createdAt = new Date().toISOString();
+      const createdAtMs = Date.now();
       contentSubmissions.unshift({
         type: "tradition",
         member,
         title: label,
         summary: description || `Tradition submitted by ${member}.`,
-        createdAt: new Date().toISOString()
+        createdAt,
+        createdAtMs
       });
+      pushCampFeedEntry(buildCampFeedEntry({ type: "tradition", member, title: label, body: description || `${member} added a new camp tradition.`, tags: ["Tradition", "CampUpdate", group], createdAt, createdAtMs }));
 
       persistScopedCampData();
+      window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
       appendTraditionCardToGrid(tradition);
       renderContentSubmissionRecentList();
-      setContentSubmissionFeedback(`${label} was added to camp as a submitted tradition.`);
+      setContentSubmissionFeedback(`${label} was added to CampFeed and CampTraditions.`);
       form.reset();
       populateContentSubmissionMemberSelect();
-      typeSelect.value = "recipe";
-      setContentSubmissionPanel("recipe");
+      typeSelect.value = "photo";
+      setContentSubmissionPanel("photo");
       return;
     }
 
@@ -7171,24 +6933,29 @@ function initCampContentSubmissionForm() {
 
     updateCalendarEvents(nextEvents);
     persistCalendarEvents();
+    const createdAt = new Date().toISOString();
+    const createdAtMs = Date.now();
     contentSubmissions.unshift({
       type: "event",
       member,
       title,
       summary: `${formatCalendarHumanDate(date)} • ${description || "Camp event submitted."}`,
-      createdAt: new Date().toISOString()
+      createdAt,
+      createdAtMs
     });
+    pushCampFeedEntry(buildCampFeedEntry({ type: "event", member, title, body: `${formatCalendarHumanDate(date)} • ${description || "Camp event posted."}`, tags: ["Calendar", "CampUpdate", member], createdAt, createdAtMs }));
     persistScopedCampData();
+    window.dispatchEvent(new CustomEvent("deercamp-feed-updated"));
     selectedDateKey = date;
     renderCalendar();
     renderCalendarEventList(date);
     updateCalendarFormSelectionDisplay();
     renderContentSubmissionRecentList();
-    setContentSubmissionFeedback(`${title} was added to CampCalendar for ${formatCalendarHumanDate(date)}.`);
+    setContentSubmissionFeedback(`${title} was added to CampFeed and CampCalendar for ${formatCalendarHumanDate(date)}.`);
     form.reset();
     populateContentSubmissionMemberSelect();
-    typeSelect.value = "recipe";
-    setContentSubmissionPanel("recipe");
+    typeSelect.value = "photo";
+    setContentSubmissionPanel("photo");
   });
 }
 
