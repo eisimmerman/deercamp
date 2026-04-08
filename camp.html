@@ -67,7 +67,7 @@
   .feed-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
   .pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.82rem;font-weight:800}
   .carousel{overflow:hidden}
-  .carousel-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 32px)/3);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
+  .carousel-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 64px)/5);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
   .carousel-track::-webkit-scrollbar{display:none}
   .feed-card{scroll-snap-align:start;overflow:hidden;padding:0}
   .feed-card-media img{display:block;width:100%;aspect-ratio:16/11;object-fit:cover;background:#e9decf}
@@ -138,7 +138,7 @@
   .members-section-card{display:grid;gap:10px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1);text-align:left;cursor:pointer}
   .member-name-row{display:flex;align-items:center;gap:10px;font-weight:800;color:#3a2717}
   .member-note{margin:0;color:#5b3d1e;line-height:1.45}
-  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 16px)/2)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
+  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
   @media (max-width:720px){.hero{height:clamp(320px,62vw,430px)}.hero-main-image{width:min(92vw,760px);max-width:calc(100vw - 24px);height:clamp(250px,58vw,360px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.camp-member-link{font-size:.88rem}.member-modal-card{width:calc(100vw - 18px)}}
 </style>
 </head>
@@ -264,6 +264,9 @@
       <p class="member-section-title">Specialty & note</p>
       <div class="member-detail-row"><div><strong>Specialty</strong></div><div id="memberModalSpecialty">—</div></div>
       <div class="member-detail-row"><div><strong>Note</strong></div><div id="memberModalDetailNote">—</div></div>
+    </div>
+    <div class="member-section">
+      <div class="member-detail-row"><div><strong>Member card edits</strong></div><div>Member-only editing will be added with secure sign-in.</div></div>
     </div>
   </div>
 </div>
@@ -873,6 +876,7 @@ if(document.getElementById('updateType')){
     }
   });
 }
+const CURRENT_UPDATE_PAGE_SIZE = 3;
 let feedItems = normalizePhotoEntries(), feedIndex=0, modalFeedIndex=-1;
 
 function setFeedCommentFeedback(message, isError = false){
@@ -931,21 +935,22 @@ function renderFeed(){
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
-  count.textContent=`Showing ${Math.min(3,feedItems.length)} of ${feedItems.length}`;
+  const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+  count.textContent=`Showing ${Math.min(visible,feedItems.length)} of ${feedItems.length}`;
   feedIndex=0;
   requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'}); syncFeedButtons(); });
 }
 function syncFeedButtons(){
   const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
   if(!prev||!next) return;
-  const max=Math.max(0, feedItems.length - (window.innerWidth<=720?1:window.innerWidth<=1100?2:3));
+  const max=Math.max(0, feedItems.length - (window.innerWidth<=720?1:window.innerWidth<=1100?3:5));
   prev.disabled=feedIndex<=0; next.disabled=feedIndex>=max;
   const mp=document.getElementById('feedModalPrev'), mn=document.getElementById('feedModalNext');
   if(mp&&mn){mp.disabled=modalFeedIndex<=0; mn.disabled=modalFeedIndex>=feedItems.length-1}
 }
 function goFeed(nextIndex){
   const track=document.getElementById('feedTrack');
-  const visible=window.innerWidth<=720?1:window.innerWidth<=1100?2:3;
+  const visible=window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
   const max=Math.max(0,feedItems.length-visible);
   feedIndex=Math.max(0,Math.min(nextIndex,max));
   const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
@@ -974,14 +979,14 @@ document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedInd
 document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
 document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
-window.addEventListener('resize', syncFeedButtons);
+window.addEventListener('resize', ()=>{renderFeed(); syncFeedButtons();});
 document.addEventListener('click', event=>{
   if(event.target && event.target.id === 'recentPrev'){
-    recentUpdatesOffset = Math.max(0, recentUpdatesOffset - 5);
+    recentUpdatesOffset = Math.max(0, recentUpdatesOffset - CURRENT_UPDATE_PAGE_SIZE);
     renderRecentUpdates();
   }
   if(event.target && event.target.id === 'recentNext'){
-    recentUpdatesOffset = recentUpdatesOffset + 5;
+    recentUpdatesOffset = recentUpdatesOffset + CURRENT_UPDATE_PAGE_SIZE;
     renderRecentUpdates();
   }
 });
@@ -992,7 +997,7 @@ function renderRecentUpdates(){
   const prevBtn=document.getElementById('recentPrev');
   const nextBtn=document.getElementById('recentNext');
   const items=normalizeRecentUpdates();
-  const pageSize = 3;
+  const pageSize = CURRENT_UPDATE_PAGE_SIZE;
   if(recentUpdatesOffset < 0) recentUpdatesOffset = 0;
   if(recentUpdatesOffset >= items.length) recentUpdatesOffset = Math.max(0, items.length - pageSize);
   const visible = items.slice(recentUpdatesOffset, recentUpdatesOffset + pageSize);
@@ -1094,7 +1099,7 @@ function renderCalendarEvents(){
   const prevBtn = document.getElementById('calendarEventsPrev');
   const nextBtn = document.getElementById('calendarEventsNext');
   const items=(selectedDateKey?normalizeCalendarEvents(calendarEvents).filter(ev=>ev.date===selectedDateKey):normalizeCalendarEvents(calendarEvents)).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-  const pageSize = 3;
+  const pageSize = CURRENT_UPDATE_PAGE_SIZE;
   if(calendarEventsOffset < 0) calendarEventsOffset = 0;
   if(calendarEventsOffset >= items.length) calendarEventsOffset = Math.max(0, items.length - pageSize);
   const visible = items.slice(calendarEventsOffset, calendarEventsOffset + pageSize);
