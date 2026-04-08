@@ -596,12 +596,30 @@ const stateMap = {
 };
 
 const ZIP_LOOKUP_OVERRIDES = {
-  "eagan|MN": ["55121"]
+  "eagan|MN": ["55121"],
+  "eau claire|WI": ["54701"],
+  "holcombe|WI": ["54745"],
+  "minong|WI": ["54859"],
+  "neillsville|WI": ["54456"],
+  "rush city|MN": ["55069"]
 };
+
+function normalizeLookupCity(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ");
+}
+
+function buildCityStateLookupKey(city = "", stateCode = "") {
+  const normalizedState = String(stateCode || "").trim().toUpperCase();
+  return `${normalizeLookupCity(city)}|${normalizedState}`;
+}
 
 function normalizeZipCandidate(value = "") {
   const clean = String(value || "").trim();
-  const match = clean.match(/\b\d{5}\b/);
+  const match = clean.match(/\d{5}/);
   return match ? match[0] : "";
 }
 
@@ -1713,6 +1731,43 @@ async function fetchZipCodesForCityState(city, stateCode) {
   return getZipCodesFromResponse(data);
 }
 
+async function fetchZipCodesFromNominatim(city, stateCode) {
+  const endpoint = new URL("https://nominatim.openstreetmap.org/search");
+  endpoint.searchParams.set("city", city);
+  endpoint.searchParams.set("state", stateCode);
+  endpoint.searchParams.set("country", "United States");
+  endpoint.searchParams.set("format", "jsonv2");
+  endpoint.searchParams.set("addressdetails", "1");
+  endpoint.searchParams.set("limit", "5");
+
+  const response = await fetch(endpoint.toString(), {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const rows = await response.json();
+  if (!Array.isArray(rows)) {
+    return [];
+  }
+
+  const codes = new Set();
+  rows.forEach((row) => {
+    const addressZip = normalizeZipCandidate(row?.address?.postcode || "");
+    if (addressZip) codes.add(addressZip);
+
+    const displayZip = normalizeZipCandidate(row?.display_name || "");
+    if (displayZip) codes.add(displayZip);
+  });
+
+  return Array.from(codes);
+}
+
 async function autofillZip(forceReplace = false) {
   const cityInput = document.getElementById("campCity");
   const stateInput = document.getElementById("campState");
@@ -1728,7 +1783,7 @@ async function autofillZip(forceReplace = false) {
     return;
   }
 
-  const requestKey = `${city.toLowerCase()}|${stateCode}`;
+  const requestKey = buildCityStateLookupKey(city, stateCode);
   if (!forceReplace && zipInput.dataset.lookupKey === requestKey && zipInput.value.trim()) {
     return;
   }
@@ -1743,11 +1798,19 @@ async function autofillZip(forceReplace = false) {
     }
 
     if (!postalCodes.length) {
+      postalCodes = await fetchZipCodesForCityState(normalizeLookupCity(city), stateCode);
+    }
+
+    if (!postalCodes.length) {
+      postalCodes = await fetchZipCodesFromNominatim(city, stateCode);
+    }
+
+    if (!postalCodes.length) {
       postalCodes = ZIP_LOOKUP_OVERRIDES[requestKey] || [];
     }
 
     if (!postalCodes.length) {
-      zipStatus.textContent = "ZIP not found automatically. You can still enter it manually.";
+      zipStatus.textContent = "ZIP not found automatically yet. You can still enter it manually.";
       return;
     }
 
