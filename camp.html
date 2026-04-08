@@ -597,9 +597,12 @@ function normalizePhotoEntries(){
       ? rawCreatedAtMs
       : (Number.isFinite(parsedCreatedAtMs) ? parsedCreatedAtMs : orderIndex);
     const createdAt = String(item.createdAt || (Number.isFinite(parsedCreatedAtMs) ? new Date(parsedCreatedAtMs).toISOString() : '1970-01-01T00:00:00.000Z'));
+    const stableTitle = String(item.title||"Camp picture").trim();
+    const isStarterPhoto = /^assets\/feed\//i.test(image) || stableId.startsWith('starter-') || /campfeed example|roadside sighting|young buck sighting/i.test(String(item.kicker||''));
+    const sourcePriority = isStarterPhoto ? 0 : 1;
     items.push({
       id:stableId,
-      title:String(item.title||"Camp picture").trim(),
+      title:stableTitle,
       body:String(item.body||item.caption||"Camp picture posted from DeerCamp.").trim(),
       image,
       author:String(item.author||item.member||"Camp Member").trim(),
@@ -607,6 +610,7 @@ function normalizePhotoEntries(){
       createdAtMs,
       tags:Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"],
       comments,
+      sourcePriority,
       _order: orderIndex++
     });
   };
@@ -616,7 +620,9 @@ function normalizePhotoEntries(){
     if(media==="photo" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
   });
   campPhotoGallery.forEach(p=>push({id:p.id,title:p.title,caption:p.caption,image:p.image,member:p.member,createdAt:p.createdAt,createdAtMs:p.createdAtMs,tags:p.tags}));
-  return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
+  return items
+    .sort((a,b)=>Number(b.sourcePriority||0)-Number(a.sourcePriority||0) || Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order))
+    .slice(0,12);
 }
 function normalizeRecentUpdates(){
   const officialCalendarUpdates = normalizeCalendarEvents(calendarEvents).map(ev=>({
@@ -626,20 +632,26 @@ function normalizeRecentUpdates(){
     summary:`${formatDateHuman(ev.date)} • ${ev.description||"Camp event submitted."}`,
     createdAt:`${ev.date}T12:00:00`,
     createdAtMs:new Date(`${ev.date}T12:00:00`).getTime(),
-    priority: 0
+    priority: 1,
+    sourceGroup: "official"
   }));
   const recentPosts = normalizeContentSubmissions(contentSubmissions, calendarEvents)
     .filter(i=>String(i.type||"").toLowerCase()!=="photo")
-    .map(item => Object.assign({ priority: 1 }, item));
-  const merged=[...recentPosts, ...officialCalendarUpdates];
+    .map(item => {
+      const itemType = String(item.type || "").toLowerCase();
+      const isMemberEvent = itemType === 'event';
+      return Object.assign({ priority: isMemberEvent ? 2 : 3, sourceGroup: isMemberEvent ? 'member-event' : 'post' }, item);
+    });
+
   const dedupe=new Map();
-  merged.forEach((item,idx)=>{
+  [...recentPosts, ...officialCalendarUpdates].forEach((item,idx)=>{
     const key=[item.type,item.title,item.summary].join("|").toLowerCase();
     if(!dedupe.has(key)) dedupe.set(key,{...item, id:item.id||`update-${idx}`});
   });
+
   return Array.from(dedupe.values())
     .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0) || Number(b.createdAtMs||0)-Number(a.createdAtMs||0))
-    .slice(0,8);
+    .slice(0,12);
 }
 function formatDateHuman(dateKey){const d=new Date(`${dateKey}T12:00:00`); if(Number.isNaN(d.getTime())) return dateKey; return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
 function getSelectedStarterRecipes(){
