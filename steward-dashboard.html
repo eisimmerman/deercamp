@@ -412,33 +412,6 @@
       align-items:center;
       gap:10px;
     }
-    .section-extra{
-      grid-column:1 / -1;
-      margin-top:10px;
-      padding:14px;
-      border-radius:16px;
-      background:rgba(255,255,255,.52);
-      border:1px solid rgba(69,42,22,.08);
-    }
-    .recipe-choice-copy{
-      margin:0 0 10px;
-      color:var(--muted);
-      line-height:1.5;
-      font-size:.92rem;
-    }
-    .recipe-choice-grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:10px 16px;
-    }
-    .recipe-choice-item{
-      display:flex;
-      align-items:flex-start;
-      gap:10px;
-      font-size:.92rem;
-      color:var(--brown-deep);
-    }
-    .recipe-choice-item input{margin-top:3px}
     .footer-note{
       padding:18px 20px;
       display:flex;
@@ -482,7 +455,6 @@
       .mini-stats{grid-template-columns:1fr}
       .form-grid{grid-template-columns:1fr}
       .member-row,.section-row{grid-template-columns:1fr}
-      .recipe-choice-grid{grid-template-columns:1fr}
       .footer-note{border-radius:22px}
     }
   </style>
@@ -536,7 +508,7 @@
         <div class="mini-stats">
           <div class="mini-stat"><strong id="statMembers">0</strong><span>active members</span></div>
           <div class="mini-stat"><strong id="statSections">0</strong><span>sections on</span></div>
-          <div class="mini-stat"><strong id="statStatus">â€”</strong><span>camp state</span></div>
+          <div class="mini-stat"><strong id="statStatus">GÇö</strong><span>camp state</span></div>
         </div>
 
         <form id="campForm" class="form-grid">
@@ -721,17 +693,6 @@
       campmaps: false
     };
 
-    const RECIPE_STARTER_OPTIONS = [
-      { id: "starter-recipe-1", title: "Skillet Eggs & Sausage Hash" },
-      { id: "starter-recipe-2", title: "Campfire Pancakes with Syrup" },
-      { id: "starter-recipe-3", title: "Smoked Meat Flatbread Wraps" },
-      { id: "starter-recipe-4", title: "Quick Camp Chili" },
-      { id: "starter-recipe-5", title: "Backstrap Steaks with Garlic Butter" },
-      { id: "starter-recipe-6", title: "Venison & Pasta Skillet" },
-      { id: "starter-recipe-7", title: "Foil Pack Venison & Veggies" },
-      { id: "starter-recipe-8", title: "Dutch Oven Deer Camp Stew" }
-    ];
-
     const state = {
       campId: activeCampId || campData.campId || savedSlim.campId || slugify([campData.name || campData.campName, campData.city, campData.state, campData.zip].filter(Boolean).join("-")) || "ourdeercamp",
       camp: {
@@ -747,9 +708,6 @@
       stewardName: campData.stewardName || campData.steward || savedSlim.stewardName || "Steward",
       stewardEmail: campData.stewardEmail || savedSlim.stewardEmail || "",
       sections: Object.assign({}, defaultSections, campData.enabledSections || savedSlim.sections || {}),
-      selectedRecipeIds: Array.isArray(savedSlim.selectedRecipeIds) && savedSlim.selectedRecipeIds.length
-        ? savedSlim.selectedRecipeIds.map(item => String(item || "").trim()).filter(Boolean)
-        : (Array.isArray(campData.selectedRecipeIds) ? campData.selectedRecipeIds.map(item => String(item || "").trim()).filter(Boolean) : []),
       members: Array.isArray(savedSlim.members) && savedSlim.members.length
         ? savedSlim.members
         : ((Array.isArray(campData.memberProfiles) && campData.memberProfiles.length
@@ -812,7 +770,7 @@
       { key: "campfeed", label: "CampFeed", note: "The running stream of recent camp posts and member interaction." },
       { key: "traditions", label: "CampTraditions", note: "Rituals and camp identity." },
       { key: "campcards", label: "CampCards", note: "Featured stories curated by the Steward." },
-      { key: "camprecipes", label: "CampRecipes", note: "Check box to display recipe or add new ones through CampUpdate." },
+      { key: "camprecipes", label: "CampRecipes", note: "Meals worth saving for future seasons." },
       { key: "calendar", label: "CampCalendar", note: "Dates, weekends, meals, and events." },
       { key: "campmemories", label: "CampMemories", note: "Annual selection of 3 \"Wall of Fame\" moments." }
     ];
@@ -862,7 +820,6 @@
         siteBlankShell: !hasVisibleLiveSections,
         siteStage: hasVisibleLiveSections ? "camp-live" : "live-shell",
         enabledSections: Object.assign({}, state.sections),
-        selectedRecipeIds: state.selectedRecipeIds.slice(),
         members: activeMembers.filter(member => member.role !== "Camp Steward").map(member => member.name),
         campMembers: activeMembers.filter(member => member.role !== "Camp Steward").map(member => member.name),
         memberProfiles
@@ -881,7 +838,7 @@
       document.getElementById("welcomeHeadline").textContent = `Welcome, ${state.stewardName}`;
       document.getElementById("previewCampName").textContent = state.camp.name || "Your DeerCamp";
       const location = [ [state.camp.city, state.camp.state].filter(Boolean).join(", "), state.camp.zip ].filter(Boolean).join(" ");
-      const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" â€¢ ");
+      const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" GÇó ");
       document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
       document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
       document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
@@ -927,9 +884,9 @@
       list.innerHTML = items.length ? items.map((member, index) => {
         const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
         const emailLine = member.email
-          ? `${member.email}${member.pendingInvite && role !== "Camp Steward" ? " â€¢ Ready to invite" : ""}`
-          : (role === "Camp Steward" ? "Add steward email now." : "No email yet â€¢ Add member details later.");
-        const extraNote = member.note ? ` â€¢ ${member.note}` : "";
+          ? `${member.email}${member.pendingInvite && role !== "Camp Steward" ? " GÇó Ready to invite" : ""}`
+          : (role === "Camp Steward" ? "Add steward email now." : "No email yet GÇó Add member details later.");
+        const extraNote = member.note ? ` GÇó ${member.note}` : "";
         return `
         <div class="member-row">
           <div>
@@ -998,26 +955,11 @@
 
     function renderSections() {
       const list = document.getElementById("sectionList");
-      list.innerHTML = sectionConfig.map(item => {
-        const extra = item.key === "camprecipes" && state.sections.camprecipes ? `
-          <div class="section-extra">
-            <p class="recipe-choice-copy">Check the recipe titles you want posted on the website. Recipes added through CampUpdate will also appear on the website.</p>
-            <div class="recipe-choice-grid">
-              ${RECIPE_STARTER_OPTIONS.map(option => `
-                <label class="recipe-choice-item">
-                  <input type="checkbox" data-recipe-choice="${option.id}" ${state.selectedRecipeIds.includes(option.id) ? "checked" : ""}>
-                  <span>${option.title}</span>
-                </label>
-              `).join("")}
-            </div>
-          </div>
-        ` : "";
-        return `
+      list.innerHTML = sectionConfig.map(item => `
         <div class="section-row">
           <div>
             <strong>${item.label}</strong>
             <p>${item.note}</p>
-            ${extra}
           </div>
           <div class="section-toggle">
             <label class="switch">
@@ -1025,32 +967,15 @@
               <span class="switch-thumb"></span>
             </label>
           </div>
-        </div>`;
-      }).join("");
+        </div>
+      `).join("");
 
       list.querySelectorAll("[data-section-toggle]").forEach(input => {
         input.addEventListener("change", () => {
           state.sections[input.dataset.sectionToggle] = input.checked;
           syncCampData();
           renderPreview();
-          renderSections();
           showToast(`${sectionConfig.find(item => item.key === input.dataset.sectionToggle)?.label || "Section"} ${input.checked ? "turned on" : "turned off"}.`);
-        });
-      });
-
-      list.querySelectorAll("[data-recipe-choice]").forEach(input => {
-        input.addEventListener("change", () => {
-          const recipeId = String(input.dataset.recipeChoice || "").trim();
-          const nextSet = new Set(state.selectedRecipeIds);
-          if (input.checked) {
-            nextSet.add(recipeId);
-            state.sections.camprecipes = true;
-          } else {
-            nextSet.delete(recipeId);
-          }
-          state.selectedRecipeIds = Array.from(nextSet);
-          syncCampData();
-          renderPreview();
         });
       });
     }
