@@ -339,7 +339,8 @@ function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(B
 const legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || legacy.campId || "ourdeercamp").trim();
 const scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
-const data = Object.keys(scoped).length ? scoped : legacy;
+const useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
+const data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 
