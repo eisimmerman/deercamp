@@ -88,6 +88,7 @@
     .member-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
     .member-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .member-edit{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(69,42,22,.12);background:#fff;color:var(--brown-deep);font-size:.78rem;font-weight:700;cursor:pointer}
+    .member-resend{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(73,102,71,.18);background:#fff;color:var(--green);font-size:.78rem;font-weight:700;cursor:pointer}
     .member-form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .member-form-note{min-height:1.2em;color:var(--brown-deep);font-size:.9rem;font-weight:700}
     .field.is-editing label{color:var(--brown)}
@@ -233,7 +234,7 @@
           </div>
           <div class="field span-2 member-form-actions">
             <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
-            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Invite Member</button>
+            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
             <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
           </div>
           <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
@@ -596,7 +597,7 @@
               : member.status === "Invite Sent"
                 ? " • Invite sent"
                 : member.status === "Failed"
-                  ? " • Failed to send"
+                  ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
                   : member.pendingInvite
                     ? " • Ready to send"
                     : "");
@@ -604,6 +605,9 @@
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
         const extraNote = member.note ? ` • ${member.note}` : "";
+        const resendButton = role !== "Camp Steward" && member.status === "Invite Sent" && String(member.email || "").trim()
+          ? `<button class="member-resend" type="button" data-resend-member="${index}">Resend</button>`
+          : "";
         return `
         <div class="member-row">
           <div>
@@ -612,6 +616,7 @@
           </div>
           <div class="member-actions">
             <div class="member-pill ${role === "Camp Steward" ? "gold" : "green"}">${role}</div>
+            ${resendButton}
             <button class="member-edit" type="button" data-edit-member="${index}">Edit</button>
           </div>
         </div>`;
@@ -619,6 +624,9 @@
 
       list.querySelectorAll("[data-edit-member]").forEach(button => {
         button.addEventListener("click", () => loadMemberForEdit(Number(button.dataset.editMember)));
+      });
+      list.querySelectorAll("[data-resend-member]").forEach(button => {
+        button.addEventListener("click", () => resendMemberInvite(Number(button.dataset.resendMember)));
       });
     }
 
@@ -654,37 +662,78 @@
     async function sendMemberInvites(members) {
       const results = [];
       for (const member of members) {
-        const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
-          ? window.crypto.randomUUID()
-          : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         try {
-          const response = await fetch("/api/send-member-welcome", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              send: true,
-              campId: state.campId,
-              campName: state.camp.name,
-              campCity: state.camp.city,
-              campState: state.camp.state,
-              campZip: state.camp.zip,
-              stewardName: state.stewardName,
-              stewardEmail: state.stewardEmail,
-              memberName: member.name,
-              memberEmail: member.email,
-              inviteToken
-            })
-          });
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok || !data.ok) {
-            throw new Error(data.error || "Failed to send invite.");
-          }
-          results.push({ member, success: true, inviteToken, data });
+          const result = await sendMemberInvite(member);
+          results.push({ member, success: true, inviteToken: result.inviteToken, data: result.data });
         } catch (error) {
           results.push({ member, success: false, error: error?.message || "Failed to send invite." });
         }
       }
       return results;
+    }
+
+    async function sendMemberInvite(member) {
+      const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
+        ? window.crypto.randomUUID()
+        : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const response = await fetch("/api/send-member-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          send: true,
+          campId: state.campId,
+          campName: state.camp.name,
+          campCity: state.camp.city,
+          campState: state.camp.state,
+          campZip: state.camp.zip,
+          stewardName: state.stewardName,
+          stewardEmail: state.stewardEmail,
+          memberName: member.name,
+          memberEmail: member.email,
+          inviteToken
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Failed to send invite.");
+      }
+      return { data, inviteToken };
+    }
+
+    async function resendMemberInvite(index) {
+      const member = state.members[index];
+      if (!member || String(member.role || "").toLowerCase() === "camp steward") return;
+      if (!String(member.email || "").trim()) {
+        showToast("Add a member email before resending.");
+        return;
+      }
+      const confirmed = window.confirm(`Resend invite to ${member.name || "this member"}?`);
+      if (!confirmed) return;
+
+      try {
+        member.status = "Sending";
+        member.inviteError = "";
+        renderMembers();
+        const result = await sendMemberInvite(member);
+        member.pendingInvite = false;
+        member.status = "Invite Sent";
+        member.inviteSentAt = new Date().toISOString();
+        member.inviteToken = result.inviteToken;
+        member.inviteError = "";
+        syncCampData();
+        renderMembers();
+        renderPreview();
+        updateInviteButton();
+        showToast(`Invite resent to ${member.name}.`);
+      } catch (error) {
+        member.status = "Failed";
+        member.inviteError = error?.message || "Failed to resend invite.";
+        syncCampData();
+        renderMembers();
+        updateInviteButton();
+        showToast(`Could not resend invite to ${member.name}.`);
+      }
     }
 
     function loadMemberForEdit(index) {
@@ -851,7 +900,7 @@
       const inviteBtn = document.getElementById("memberInviteBtn");
       const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
       if (!pending.length) {
-        showToast("Add at least one member email before sending invites.");
+        showToast("No new member invites are ready to send.");
         return;
       }
 
