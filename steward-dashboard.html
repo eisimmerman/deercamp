@@ -336,9 +336,15 @@
     }
 
     function sanitizeSummary(value = "") {
-      const clean = String(value || "").trim();
+      const raw = String(value || "");
+      const clean = raw.trim();
       if (/^first camp$/i.test(clean)) return "";
       return clean;
+    }
+
+    function getSummaryForEditing(value = "") {
+      const raw = String(value || "");
+      return /^first camp$/i.test(raw.trim()) ? "" : raw;
     }
 
     function buildCampUrl(path, campId) {
@@ -578,7 +584,10 @@
       document.getElementById("campState").value = state.camp.state || "";
       document.getElementById("campZip").value = state.camp.zip || "";
       document.getElementById("campHero").value = state.camp.hero || "";
-      document.getElementById("campSummary").value = sanitizeSummary(state.camp.summary || "");
+      const campSummaryField = document.getElementById("campSummary");
+      if (campSummaryField && document.activeElement !== campSummaryField) {
+        campSummaryField.value = getSummaryForEditing(state.camp.summary || "");
+      }
       document.getElementById("campPublicToggle").checked = state.camp.publishState === "public";
       document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
       document.getElementById("privacyNote").textContent = "Private camps share only the DeerCamp home until the Steward is ready to make this camp public.";
@@ -687,8 +696,6 @@
           campCity: state.camp.city,
           campState: state.camp.state,
           campZip: state.camp.zip,
-          campEstablished: state.camp.established,
-          campHero: state.camp.hero,
           stewardName: state.stewardName,
           stewardEmail: state.stewardEmail,
           memberName: member.name,
@@ -826,7 +833,7 @@
       state.camp.state = document.getElementById("campState").value.trim();
       state.camp.zip = document.getElementById("campZip").value.trim();
       state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.summary = document.getElementById("campSummary").value;
       state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
       renderPreview();
     });
@@ -838,7 +845,7 @@
       state.camp.state = document.getElementById("campState").value.trim();
       state.camp.zip = document.getElementById("campZip").value.trim();
       state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.summary = document.getElementById("campSummary").value;
       state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
       syncCampData();
       renderPreview();
