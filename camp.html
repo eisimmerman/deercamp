@@ -339,7 +339,7 @@ function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(B
 const legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || legacy.campId || "ourdeercamp").trim();
 const scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
-const useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
+const useGenericCampData = !Object.keys(scoped).length && Boolean(String(legacy.campId || "").trim()) && String(legacy.campId).trim() === activeCampId;
 const data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
@@ -364,8 +364,16 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
   return Boolean(item.custom) || /^recipe-/.test(id);
 });
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
-let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
-let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+const MIN_VALID_FEED_DATE_MS = Date.parse('2000-01-01T00:00:00Z');
+function hasValidFeedTimestamp(item = {}) {
+  const rawMs = Number(item && item.createdAtMs);
+  if (Number.isFinite(rawMs)) return rawMs >= MIN_VALID_FEED_DATE_MS;
+  const parsedMs = item && item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+  if (Number.isFinite(parsedMs)) return parsedMs >= MIN_VALID_FEED_DATE_MS;
+  return true;
+}
+let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(item => item && hasValidFeedTimestamp(item)) : [];
+let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(item => item && hasValidFeedTimestamp(item)) : [];
 
 function getEventIdentity(event = {}) {
   return [
@@ -595,6 +603,8 @@ function normalizePhotoEntries(){
     const comments = getCommentsForPost(stableId);
     const rawCreatedAtMs = Number(item.createdAtMs);
     const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+    const bestCreatedAtMs = Number.isFinite(rawCreatedAtMs) ? rawCreatedAtMs : parsedCreatedAtMs;
+    if (Number.isFinite(bestCreatedAtMs) && bestCreatedAtMs < MIN_VALID_FEED_DATE_MS) return;
     const createdAtMs = Number.isFinite(rawCreatedAtMs)
       ? rawCreatedAtMs
       : (Number.isFinite(parsedCreatedAtMs) ? parsedCreatedAtMs : orderIndex);

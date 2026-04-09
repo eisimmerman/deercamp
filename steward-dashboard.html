@@ -372,8 +372,8 @@
     const genericDashboard = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
     const scopedDashboard = safeParse(localStorage.getItem(scopedDashboardKey), {});
 
-    const useGenericCampData = !Object.keys(scopedCampData).length && (!genericCampData.campId || String(genericCampData.campId).trim() === activeCampId);
-    const useGenericDashboard = !Object.keys(scopedDashboard).length && (!genericDashboard.campId || String(genericDashboard.campId).trim() === activeCampId);
+    const useGenericCampData = !Object.keys(scopedCampData).length && Boolean(String(genericCampData.campId || "").trim()) && String(genericCampData.campId).trim() === activeCampId;
+    const useGenericDashboard = !Object.keys(scopedDashboard).length && Boolean(String(genericDashboard.campId || "").trim()) && String(genericDashboard.campId).trim() === activeCampId;
 
     const campData = Object.keys(scopedCampData).length ? scopedCampData : (useGenericCampData ? genericCampData : {});
     const savedDashboard = Object.keys(scopedDashboard).length ? scopedDashboard : (useGenericDashboard ? genericDashboard : {});
@@ -387,6 +387,18 @@
     };
 
     const defaultSelectedRecipeIds = [];
+
+    const MIN_VALID_FEED_DATE_MS = Date.parse('2000-01-01T00:00:00Z');
+    function hasValidFeedTimestamp(item = {}) {
+      const rawMs = Number(item && item.createdAtMs);
+      if (Number.isFinite(rawMs)) return rawMs >= MIN_VALID_FEED_DATE_MS;
+      const parsedMs = item && item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+      if (Number.isFinite(parsedMs)) return parsedMs >= MIN_VALID_FEED_DATE_MS;
+      return true;
+    }
+    function sanitizeCarryoverFeedEntries(items = []) {
+      return (Array.isArray(items) ? items : []).filter(item => item && hasValidFeedTimestamp(item));
+    }
 
     const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
     const fallbackMembers = [];
@@ -500,7 +512,10 @@
         pendingInvite: Boolean(member.pendingInvite)
       }));
 
-      const nextCampData = Object.assign({}, campData, {
+      const existingCampContentSource = Object.keys(scopedCampData).length
+        ? scopedCampData
+        : (String(campData.campId || "").trim() === state.campId ? campData : {});
+      const nextCampData = Object.assign({}, existingCampContentSource, {
         campId: state.campId,
         name: state.camp.name,
         campName: state.camp.name,
@@ -520,7 +535,9 @@
         selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
         members: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
         campMembers: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
-        memberProfiles: memberProfilesOut
+        memberProfiles: memberProfilesOut,
+        feedEntries: sanitizeCarryoverFeedEntries(existingCampContentSource.feedEntries),
+        campPhotoGallery: sanitizeCarryoverFeedEntries(existingCampContentSource.campPhotoGallery)
       });
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
