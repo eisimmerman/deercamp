@@ -929,6 +929,40 @@
       return true;
     }
 
+    function validateInviteOrBlock() {
+      const invite = getInviteContext();
+      const dashboard = getDashboardData();
+
+      const people = Array.isArray(dashboard.people) ? dashboard.people : [];
+      const inviteEmail = String(invite.email || '').trim().toLowerCase();
+      const inviteName = String(invite.name || '').trim().toLowerCase();
+      const inviteToken = String(invite.inviteToken || '').trim();
+
+      const match = people.find(person => {
+        const personEmail = String(person?.email || '').trim().toLowerCase();
+        const personName = String(person?.name || '').trim().toLowerCase();
+        const personToken = String(person?.inviteToken || '').trim();
+
+        const emailMatches = inviteEmail && personEmail === inviteEmail;
+        const nameMatches = inviteName && personName === inviteName;
+        const tokenMatches = inviteToken && personToken && personToken === inviteToken;
+
+        return tokenMatches || emailMatches || nameMatches;
+      });
+
+      if (!match) {
+        alert('This invite is not valid.');
+        return false;
+      }
+
+      if (String(match.status || '').trim().toLowerCase() === 'active') {
+        alert('This invite has already been used.');
+        return false;
+      }
+
+      return true;
+    }
+
     function mergeMemberIntoData() {
       syncStateFromForm();
 
@@ -1051,6 +1085,8 @@
         showStep(1);
         return;
       }
+
+      if (!validateInviteOrBlock()) return;
 
       const invite = getInviteContext();
       mergeMemberIntoData();
