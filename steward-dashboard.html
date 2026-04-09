@@ -589,8 +589,19 @@
       const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
       list.innerHTML = items.length ? items.map((member, index) => {
         const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+        const statusLine = role === "Camp Steward"
+          ? ""
+          : (member.status === "Sending"
+              ? " • Sending..."
+              : member.status === "Invite Sent"
+                ? " • Invite sent"
+                : member.status === "Failed"
+                  ? " • Failed to send"
+                  : member.pendingInvite
+                    ? " • Ready to send"
+                    : "");
         const emailLine = member.email
-          ? `${member.email}${member.pendingInvite && role !== "Camp Steward" ? " • Ready to invite" : ""}`
+          ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
         const extraNote = member.note ? ` • ${member.note}` : "";
         return `
@@ -637,7 +648,43 @@
       if (!inviteBtn) return;
       const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
       inviteBtn.hidden = pending.length === 0;
-      inviteBtn.textContent = pending.length > 1 ? "Invite Members" : "Invite Member";
+      inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
+    }
+
+    async function sendMemberInvites(members) {
+      const results = [];
+      for (const member of members) {
+        const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
+          ? window.crypto.randomUUID()
+          : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+        try {
+          const response = await fetch("/api/send-member-welcome", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              send: true,
+              campId: state.campId,
+              campName: state.camp.name,
+              campCity: state.camp.city,
+              campState: state.camp.state,
+              campZip: state.camp.zip,
+              stewardName: state.stewardName,
+              stewardEmail: state.stewardEmail,
+              memberName: member.name,
+              memberEmail: member.email,
+              inviteToken
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || !data.ok) {
+            throw new Error(data.error || "Failed to send invite.");
+          }
+          results.push({ member, success: true, inviteToken, data });
+        } catch (error) {
+          results.push({ member, success: false, error: error?.message || "Failed to send invite." });
+        }
+      }
+      return results;
     }
 
     function loadMemberForEdit(index) {
@@ -772,7 +819,7 @@
           member.status = "Active";
         } else {
           member.pendingInvite = Boolean(email);
-          member.status = member.pendingInvite ? "Invited" : "Active";
+          member.status = member.pendingInvite ? "Ready" : "Active";
         }
         syncCampData();
         renderMembers();
@@ -790,7 +837,7 @@
         email,
         note,
         role: "Camp Member",
-        status: email ? "Invited" : "Active",
+        status: email ? "Ready" : "Active",
         pendingInvite: Boolean(email)
       });
       syncCampData();
@@ -800,21 +847,52 @@
       showToast(`${name} added to the camp.`);
     });
 
-    document.getElementById("memberInviteBtn").addEventListener("click", () => {
+    document.getElementById("memberInviteBtn").addEventListener("click", async () => {
+      const inviteBtn = document.getElementById("memberInviteBtn");
       const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
       if (!pending.length) {
-        showToast("No member invitation is ready to send.");
+        showToast("Add at least one member email before sending invites.");
         return;
       }
+
+      const originalLabel = inviteBtn.textContent;
+      inviteBtn.disabled = true;
+      inviteBtn.textContent = "Sending Invites...";
       pending.forEach(member => {
-        member.pendingInvite = false;
-        member.status = "Invited";
+        member.status = "Sending";
       });
+      renderMembers();
+
+      const results = await sendMemberInvites(pending);
+      let successCount = 0;
+      let failCount = 0;
+
+      results.forEach(result => {
+        if (result.success) {
+          result.member.pendingInvite = false;
+          result.member.status = "Invite Sent";
+          result.member.inviteToken = result.inviteToken;
+          successCount += 1;
+        } else {
+          result.member.status = "Failed";
+          failCount += 1;
+          console.error(`Invite failed for ${result.member.name}:`, result.error);
+        }
+      });
+
+      inviteBtn.disabled = false;
+      inviteBtn.textContent = originalLabel;
       syncCampData();
       renderMembers();
       renderPreview();
       updateInviteButton();
-      showToast(pending.length > 1 ? `${pending.length} member invitations are ready.` : `Invitation ready for ${pending[0].name}.`);
+      if (failCount === 0) {
+        showToast(successCount > 1 ? `${successCount} member invites sent.` : `Invite sent to ${pending[0].name}.`);
+      } else if (successCount > 0) {
+        showToast(`${successCount} sent, ${failCount} failed.`);
+      } else {
+        showToast("No invites were sent.");
+      }
     });
 
     document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
