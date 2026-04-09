@@ -31,11 +31,11 @@
     a,button,input,textarea{font:inherit}
     a{text-decoration:none;color:inherit}
     .page-shell{min-height:100vh;padding:20px;display:grid;gap:18px}
-    .topbar,.hero-panel,.section-card,.footer-note{
+    .hero-panel,.section-card,.footer-note{
       max-width:1180px;width:100%;margin:0 auto;background:rgba(247,241,231,.92);
       border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px)
     }
-    .topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px 20px}
+    .topbar{display:flex;align-items:center;justify-content:flex-end;gap:16px;padding:16px 20px}
     .brand{display:flex;align-items:center;gap:12px;min-width:0}
     .brand-mark{width:56px;height:56px;border-radius:16px;overflow:hidden;background:rgba(106,68,39,.1);display:grid;place-items:center;flex:0 0 auto}
     .brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
@@ -107,28 +107,26 @@
     .recipe-option input{margin-top:3px}
     .recipe-option label{font-weight:700;color:var(--brown-deep);cursor:pointer}
     .recipe-selector[hidden]{display:none}
-    .footer-note{padding:18px 20px;display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap}
+    .footer-note{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    
+    .footer-brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .footer-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
     .footer-note p{margin:0;color:var(--muted);line-height:1.55}
     .toast{position:fixed;right:18px;bottom:18px;z-index:40;min-width:220px;padding:14px 16px;border-radius:16px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.1);box-shadow:var(--shadow);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .18s ease, transform .18s ease}
     .toast.show{opacity:1;transform:translateY(0)}
     @media (max-width:980px){.hero-panel,.grid-2{grid-template-columns:1fr}.preview-frame{min-height:240px}}
     @media (max-width:720px){
-      .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions{flex-direction:column}
+      .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions,.footer-actions{flex-direction:column}
       .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
-      .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
+      .footer-note{border-radius:22px;grid-template-columns:1fr}.footer-brand,.footer-actions,.footer-actions-right{justify-content:stretch}.recipe-grid{grid-template-columns:1fr}
     }
   </style>
 </head>
 <body>
   <div class="page-shell">
     <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
-        <div class="brand-copy"><h1>DeerCamp</h1></div>
-      </div>
       <div class="top-actions">
         <span class="pill" id="dashboardStatePill">Private camp</span>
-        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
       </div>
     </header>
 
@@ -270,9 +268,14 @@
     </div>
 
     <section class="footer-note">
-      <div class="top-actions">
+      <div class="footer-brand">
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
+        <div class="brand-copy"><h1>DeerCamp</h1></div>
+      </div>
+      <div class="footer-actions">
         <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
         <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
+        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
       </div>
     </section>
   </div>
@@ -356,66 +359,6 @@
       return ["campfeed","campupdate","calendar","traditions","camprecipes"].filter(key => Boolean(sections[key])).length;
     }
 
-    function normalizeMemberStatus(member = {}) {
-      const role = String(member.role || "Camp Member").trim().toLowerCase();
-      const email = String(member.email || "").trim();
-      const status = String(member.status || "").trim().toLowerCase();
-
-      if (role === "camp steward") {
-        return { status: "Active", pendingInvite: false };
-      }
-
-      if (status === "accepted") {
-        return { status: "Accepted", pendingInvite: false };
-      }
-
-      if (status === "active") {
-        return email ? { status: "Active", pendingInvite: false } : { status: "Draft", pendingInvite: false };
-      }
-
-      if (status === "invite sent") {
-        return email ? { status: "Invite Sent", pendingInvite: false } : { status: "Draft", pendingInvite: false };
-      }
-
-      if (status === "sending") {
-        return email ? { status: "Sending", pendingInvite: false } : { status: "Draft", pendingInvite: false };
-      }
-
-      if (status === "failed") {
-        return email ? { status: "Failed", pendingInvite: false } : { status: "Draft", pendingInvite: false };
-      }
-
-      if (status === "ready") {
-        return email ? { status: "Ready", pendingInvite: true } : { status: "Draft", pendingInvite: false };
-      }
-
-      return email ? { status: "Ready", pendingInvite: true } : { status: "Draft", pendingInvite: false };
-    }
-
-    function deriveMemberWorkflowState(email = "", previousMember = null) {
-      const cleanEmail = String(email || "").trim();
-      const previousEmail = String(previousMember?.email || "").trim().toLowerCase();
-      const previousStatus = String(previousMember?.status || "").trim().toLowerCase();
-      const previousRole = String(previousMember?.role || "").trim().toLowerCase();
-
-      if (previousRole === "camp steward") {
-        return { status: "Active", pendingInvite: false };
-      }
-
-      if (!cleanEmail) {
-        return { status: "Draft", pendingInvite: false };
-      }
-
-      if (previousEmail && previousEmail === cleanEmail.toLowerCase()) {
-        if (previousStatus === "invite sent") return { status: "Invite Sent", pendingInvite: false };
-        if (previousStatus === "accepted") return { status: "Accepted", pendingInvite: false };
-        if (previousStatus === "active") return { status: "Active", pendingInvite: false };
-      }
-
-      return { status: "Ready", pendingInvite: true };
-    }
-
-
     const urlCampId = getCampIdFromUrl();
     const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
     const inferredCampId = String(urlCampId || localStorage.getItem(ACTIVE_CAMP_KEY) || genericCampData.campId || "").trim();
@@ -465,7 +408,7 @@
         email: "",
         note: "",
         role: "Camp Member",
-        status: "Draft",
+        status: "Active",
         pendingInvite: false
       });
     });
@@ -493,17 +436,14 @@
         : (memberProfiles.length
             ? memberProfiles
                 .filter(item => String(item.status || "Active").toLowerCase() !== "removed")
-                .map(item => {
-                  const normalized = normalizeMemberStatus(item);
-                  return {
-                    name: String(item.name || "").trim(),
-                    email: String(item.email || "").trim(),
-                    note: String(item.note || "").trim(),
-                    role: String(item.role || "Camp Member").trim() || "Camp Member",
-                    status: normalized.status,
-                    pendingInvite: normalized.pendingInvite
-                  };
-                })
+                .map(item => ({
+                  name: String(item.name || "").trim(),
+                  email: String(item.email || "").trim(),
+                  note: String(item.note || "").trim(),
+                  role: String(item.role || "Camp Member").trim() || "Camp Member",
+                  status: String(item.status || "Active").trim() || "Active",
+                  pendingInvite: Boolean(item.pendingInvite)
+                }))
             : fallbackMembers)
     };
 
@@ -617,10 +557,7 @@
       const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" • ");
       document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
       document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
-      document.getElementById("statMembers").textContent = String(state.members.filter(member => {
-        const status = String(member.status || "").toLowerCase();
-        return status === "active" || status === "accepted";
-      }).length);
+      document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
       document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
       document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
       document.getElementById("heroSubnote").textContent = state.stewardEmail
@@ -675,9 +612,7 @@
                   ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
                   : member.pendingInvite
                     ? " • Ready to send"
-                    : String(member.status || "").trim().toLowerCase() === "draft"
-                      ? " • Not invited yet"
-                      : "");
+                    : "");
         const emailLine = member.email
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
@@ -944,9 +879,8 @@
           member.pendingInvite = false;
           member.status = "Active";
         } else {
-          const workflow = deriveMemberWorkflowState(email, member);
-          member.pendingInvite = workflow.pendingInvite;
-          member.status = workflow.status;
+          member.pendingInvite = Boolean(email);
+          member.status = member.pendingInvite ? "Ready" : "Active";
         }
         syncCampData();
         renderMembers();
@@ -959,14 +893,13 @@
         return;
       }
 
-      const workflow = deriveMemberWorkflowState(email);
       state.members.push({
         name,
         email,
         note,
         role: "Camp Member",
-        status: workflow.status,
-        pendingInvite: workflow.pendingInvite
+        status: email ? "Ready" : "Active",
+        pendingInvite: Boolean(email)
       });
       syncCampData();
       renderMembers();
