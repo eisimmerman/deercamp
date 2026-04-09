@@ -678,8 +678,14 @@
       const scopedKey = campScopeKey(campId, 'campData');
       const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
       const generic = parseJSON(localStorage.getItem(CAMP_DATA_KEY) || '{}', {});
-      if (scoped && Object.keys(scoped).length) return scoped;
-      return generic || {};
+      return {
+        ...(generic || {}),
+        ...(scoped || {}),
+        camp: {
+          ...((generic && generic.camp) || {}),
+          ...((scoped && scoped.camp) || {})
+        }
+      };
     }
 
     function getDashboardData() {
@@ -688,9 +694,90 @@
       const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
       const slim = parseJSON(localStorage.getItem(DASHBOARD_SLIM_KEY) || '{}', {});
       const legacy = parseJSON(localStorage.getItem(DASHBOARD_KEY) || '{}', {});
-      if (scoped && Object.keys(scoped).length) return scoped;
-      if (slim && Object.keys(slim).length) return slim;
-      return legacy || {};
+      return {
+        ...(legacy || {}),
+        ...(slim || {}),
+        ...(scoped || {}),
+        camp: {
+          ...((legacy && legacy.camp) || {}),
+          ...((slim && slim.camp) || {}),
+          ...((scoped && scoped.camp) || {})
+        }
+      };
+    }
+
+    function getFirstArrayItem(value) {
+      return Array.isArray(value) && value.length ? value[0] : '';
+    }
+
+    function getCampHeroSource(campData = {}, dashboard = {}) {
+      const dashboardCamp = dashboard && typeof dashboard.camp === 'object' ? dashboard.camp : {};
+      const campNode = campData && typeof campData.camp === 'object' ? campData.camp : {};
+      const candidates = [
+        campData.hero,
+        campData.campHero,
+        campData.heroImage,
+        campData.heroImagePath,
+        campData.heroPath,
+        campData.campHeroImage,
+        campData.campHeroImagePath,
+        campData.heroUrl,
+        campData.coverImage,
+        campData.coverImagePath,
+        campData.coverPhoto,
+        campData.coverPhotoPath,
+        campData.campImage,
+        campData.campImagePath,
+        campData.brandingImage,
+        campData.brandingImagePath,
+        campData.signImagePath,
+        campData.campSignImagePath,
+        campData.photo,
+        campData.image,
+        getFirstArrayItem(campData.heroImages),
+        getFirstArrayItem(campData.photos),
+        getFirstArrayItem(campData.images),
+        campNode.hero,
+        campNode.campHero,
+        campNode.heroImage,
+        campNode.heroImagePath,
+        campNode.heroPath,
+        campNode.coverImage,
+        campNode.coverPhoto,
+        campNode.campImage,
+        campNode.brandingImage,
+        campNode.brandingImagePath,
+        campNode.signImagePath,
+        campNode.campSignImagePath,
+        campNode.photo,
+        campNode.image,
+        getFirstArrayItem(campNode.heroImages),
+        getFirstArrayItem(campNode.photos),
+        getFirstArrayItem(campNode.images),
+        dashboardCamp.hero,
+        dashboardCamp.campHero,
+        dashboardCamp.heroImage,
+        dashboardCamp.heroImagePath,
+        dashboardCamp.heroPath,
+        dashboardCamp.coverImage,
+        dashboardCamp.coverPhoto,
+        dashboardCamp.campImage,
+        dashboardCamp.brandingImage,
+        dashboardCamp.brandingImagePath,
+        dashboardCamp.signImagePath,
+        dashboardCamp.campSignImagePath,
+        dashboardCamp.photo,
+        dashboardCamp.image,
+        getFirstArrayItem(dashboardCamp.heroImages),
+        getFirstArrayItem(dashboardCamp.photos),
+        getFirstArrayItem(dashboardCamp.images)
+      ];
+
+      const match = candidates
+        .map(value => String(value || '').trim())
+        .find(Boolean);
+
+      return resolveCampHeroPath(match);
     }
 
     function getInviteContext() {
@@ -704,6 +791,17 @@
       const nameParam = String(params.get('memberName') || params.get('name') || '').trim();
       const campNameParam = String(params.get('campName') || params.get('camp') || '').trim();
       const stewardNameParam = String(params.get('stewardName') || params.get('steward') || '').trim();
+      const campCityParam = String(params.get('campCity') || params.get('city') || '').trim();
+      const campStateParam = String(params.get('campState') || params.get('state') || '').trim();
+      const campZipParam = String(params.get('campZip') || params.get('zip') || '').trim();
+      const campEstablishedParam = String(params.get('campEstablished') || params.get('established') || '').trim();
+      const campHeroParam = String(
+        params.get('campHero') ||
+        params.get('hero') ||
+        params.get('campHeroImage') ||
+        params.get('heroImage') ||
+        ''
+      ).trim();
       const campIdParam = String(params.get('campId') || '').trim();
       const inviteTokenParam = String(params.get('inviteToken') || '').trim();
       const pendingMatch = people.find(person => {
@@ -719,6 +817,11 @@
         email: normalizeInviteEmail(emailParam || storedInvite?.email || pendingMatch?.email || ''),
         name: String(nameParam || storedInvite?.name || pendingMatch?.name || '').trim(),
         campName: String(campNameParam || campData.name || campData.campName || dashboard?.camp?.name || 'Your DeerCamp').trim(),
+        campCity: String(campCityParam || campData.city || dashboard?.camp?.city || '').trim(),
+        campState: String(campStateParam || campData.state || dashboard?.camp?.state || '').trim(),
+        campZip: String(campZipParam || campData.zip || dashboard?.camp?.zip || '').trim(),
+        campEstablished: String(campEstablishedParam || campData.established || dashboard?.camp?.established || '').trim(),
+        campHero: String(campHeroParam || '').trim(),
         stewardName: String(stewardNameParam || campData.stewardName || campData.steward || campData.campSteward || (people.find(person => person.role === 'Camp Steward') || {}).name || 'Camp Steward').trim(),
         inviteId: String(params.get('inviteId') || storedInvite?.id || pendingMatch?.id || '').trim(),
         inviteToken: inviteTokenParam || String(storedInvite?.inviteToken || pendingMatch?.inviteToken || '').trim()
@@ -874,13 +977,15 @@
       const campData = getCampData();
       const dashboard = getDashboardData();
       const campName = invite.campName || campData.name || campData.campName || dashboard?.camp?.name || 'Your DeerCamp';
-      const city = campData.city || dashboard?.camp?.city || '';
-      const stateCode = campData.state || dashboard?.camp?.state || '';
-      const established = campData.established || dashboard?.camp?.established || '';
+      const city = invite.campCity || campData.city || dashboard?.camp?.city || '';
+      const stateCode = invite.campState || campData.state || dashboard?.camp?.state || '';
+      const established = invite.campEstablished || campData.established || dashboard?.camp?.established || '';
       const metaParts = [city, stateCode].filter(Boolean).join(', ');
       const campMeta = [metaParts, established ? `Est. ${established}` : ''].filter(Boolean).join(' • ') || 'Camp details will appear here';
       const inviteEmail = normalizeInviteEmail(state.member.email || invite.email || 'Invite ready');
-      const heroPath = resolveCampHeroPath(campData.hero || campData.campHero || dashboard?.camp?.hero || '');
+      const heroPath = invite.campHero
+        ? resolveCampHeroPath(invite.campHero)
+        : getCampHeroSource(campData, dashboard);
       const heroPreview = document.getElementById('campHeroPreview');
 
       document.getElementById('campNameWelcome').textContent = campName;
@@ -894,7 +999,7 @@
 
       if (heroPreview) {
         heroPreview.style.backgroundImage = heroPath
-          ? `linear-gradient(180deg, rgba(106,68,39,0.26), rgba(69,42,22,0.34)), url('${heroPath.replace(/'/g, "\'")}')`
+          ? `linear-gradient(180deg, rgba(106,68,39,0.26), rgba(69,42,22,0.34)), url("${heroPath.replace(/"/g, '&quot;')}")`
           : 'linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28))';
       }
     }
@@ -1206,7 +1311,7 @@
     }
 
     render();
-    showStep(0, { persist: false });
+    showStep(savedResumeStep, { persist: false });
   </script>
 </body>
 </html>
