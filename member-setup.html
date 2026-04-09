@@ -594,6 +594,9 @@
   <script>
     const CAMP_DATA_KEY = 'campData';
     const DASHBOARD_KEY = 'deerCampStewardDashboard';
+    const DASHBOARD_SLIM_KEY = 'deercamp.stewardDashboardSlim';
+    const ACTIVE_CAMP_KEY = 'deercamp.activeCampId';
+    const CAMP_SCOPE_PREFIX = 'deercamp.camps.';
     const WIZARD_KEY = 'deerCampMemberWizard';
     const INVITE_KEY = 'deerCampMemberInvite';
 
@@ -637,6 +640,19 @@
       return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
     }
 
+    function getCampIdFromUrl() {
+      try {
+        return String(new URLSearchParams(window.location.search).get('campId') || '').trim();
+      } catch (error) {
+        return '';
+      }
+    }
+
+    function campScopeKey(campId, suffix) {
+      const cleanCampId = String(campId || '').trim();
+      return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : '';
+    }
+
     function normalizeInviteEmail(value = '') {
       const clean = String(value || '').trim();
       return /\.cm$/i.test(clean) ? clean.replace(/\.cm$/i, '.com') : clean;
@@ -658,11 +674,23 @@
     }
 
     function getCampData() {
-      return parseJSON(localStorage.getItem(CAMP_DATA_KEY) || '{}', {}) || {};
+      const campId = getCampIdFromUrl() || String(localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
+      const scopedKey = campScopeKey(campId, 'campData');
+      const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
+      const generic = parseJSON(localStorage.getItem(CAMP_DATA_KEY) || '{}', {});
+      if (scoped && Object.keys(scoped).length) return scoped;
+      return generic || {};
     }
 
     function getDashboardData() {
-      return parseJSON(localStorage.getItem(DASHBOARD_KEY) || '{}', {}) || {};
+      const campId = getCampIdFromUrl() || String(localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
+      const scopedKey = campScopeKey(campId, 'dashboardSlim');
+      const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
+      const slim = parseJSON(localStorage.getItem(DASHBOARD_SLIM_KEY) || '{}', {});
+      const legacy = parseJSON(localStorage.getItem(DASHBOARD_KEY) || '{}', {});
+      if (scoped && Object.keys(scoped).length) return scoped;
+      if (slim && Object.keys(slim).length) return slim;
+      return legacy || {};
     }
 
     function getInviteContext() {
@@ -932,13 +960,20 @@
     function validateInviteOrBlock() {
       const invite = getInviteContext();
       const dashboard = getDashboardData();
+      const campData = getCampData();
 
-      const people = Array.isArray(dashboard.people) ? dashboard.people : [];
       const inviteEmail = String(invite.email || '').trim().toLowerCase();
       const inviteName = String(invite.name || '').trim().toLowerCase();
       const inviteToken = String(invite.inviteToken || '').trim();
 
-      const match = people.find(person => {
+      const dashboardMembers = Array.isArray(dashboard.members) ? dashboard.members : [];
+      const dashboardPeople = Array.isArray(dashboard.people) ? dashboard.people : [];
+      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : [];
+      const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+
+      const allCandidates = [...dashboardMembers, ...dashboardPeople, ...pendingInvites, ...memberProfiles];
+
+      const match = allCandidates.find(person => {
         const personEmail = String(person?.email || '').trim().toLowerCase();
         const personName = String(person?.name || '').trim().toLowerCase();
         const personToken = String(person?.inviteToken || '').trim();
@@ -955,7 +990,13 @@
         return false;
       }
 
-      if (String(match.status || '').trim().toLowerCase() === 'active') {
+      const status = String(match.status || '').trim().toLowerCase();
+      if (status === 'active' && !inviteToken) {
+        alert('This invite has already been used.');
+        return false;
+      }
+
+      if (status === 'active' && inviteToken && String(match.inviteToken || '').trim() === inviteToken) {
         alert('This invite has already been used.');
         return false;
       }
@@ -993,6 +1034,9 @@
         memberProfiles
       };
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
+      const invite = getInviteContext();
+      const scopedCampKey = campScopeKey(invite.campId || updatedCampData.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
+      if (scopedCampKey) localStorage.setItem(scopedCampKey, JSON.stringify(updatedCampData));
 
       const people = Array.isArray(dashboard.people) ? [...dashboard.people] : [];
       const existingPersonIndex = people.findIndex(person => {
@@ -1046,10 +1090,21 @@
       const updatedDashboard = {
         ...dashboard,
         people,
+        members: Array.isArray(dashboard.members) ? dashboard.members.map(item => {
+          const itemEmail = String(item?.email || '').trim().toLowerCase();
+          const itemName = String(item?.name || '').trim().toLowerCase();
+          if ((memberEmailLower && itemEmail === memberEmailLower) || (memberNameLower && itemName === memberNameLower)) {
+            return { ...item, ...personPayload, status: 'Active', pendingInvite: false };
+          }
+          return item;
+        }) : Array.isArray(dashboard.people) ? people : [],
         pendingInvites: updatedPendingInvites,
         lastSaved: currentTimestampLabel()
       };
       localStorage.setItem(DASHBOARD_KEY, JSON.stringify(updatedDashboard));
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(updatedDashboard));
+      const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
+      if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
       localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true }));
       localStorage.removeItem(WIZARD_KEY);
     }
