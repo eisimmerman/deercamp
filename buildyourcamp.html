@@ -450,9 +450,16 @@
 
     const scopedCampData = activeCampId ? safeParse(campScopeKey(activeCampId, "campData"), {}) : {};
     const scopedDashboardSlim = activeCampId ? safeParse(campScopeKey(activeCampId, "dashboardSlim"), {}) : {};
+    const useLegacyCampData = !Object.keys(scopedCampData).length && (!legacyCampData.campId || String(legacyCampData.campId).trim() === activeCampId);
+    const useLegacyDashboardSlim = !Object.keys(scopedDashboardSlim).length && (!legacyDashboardSlim.campId || String(legacyDashboardSlim.campId).trim() === activeCampId);
+    const useLegacyDashboardData = !Object.keys(scopedDashboardSlim).length
+      && !Object.keys(legacyDashboardSlim).length
+      && (!legacyDashboardData.camp?.campId || String(legacyDashboardData.camp.campId).trim() === activeCampId);
 
-    const campData = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
-    const dashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(legacyDashboardSlim).length ? legacyDashboardSlim : legacyDashboardData);
+    const campData = Object.keys(scopedCampData).length ? scopedCampData : (useLegacyCampData ? legacyCampData : {});
+    const dashboardData = Object.keys(scopedDashboardSlim).length
+      ? scopedDashboardSlim
+      : (useLegacyDashboardSlim ? legacyDashboardSlim : (useLegacyDashboardData ? legacyDashboardData : {}));
 
     const campName = firstNonEmpty(urlPrefill.campName, campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp");
     const city = firstNonEmpty(urlPrefill.city, campData.city, dashboardData.camp?.city);
@@ -481,6 +488,76 @@
       campData.brandingImage
     ));
 
+    const existingDashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members.map(item => ({ ...item })) : [];
+    const hydratedMembers = existingDashboardMembers.length ? existingDashboardMembers : [];
+    if (!hydratedMembers.length && stewardName) {
+      hydratedMembers.push({
+        name: stewardName,
+        email: stewardEmail,
+        note: 'Keeps camp information current and helps guide the full DeerCamp experience.',
+        role: 'Camp Steward',
+        status: 'Active',
+        pendingInvite: false
+      });
+    }
+    memberNames.forEach(memberName => {
+      const clean = String(memberName || '').trim();
+      if (!clean) return;
+      const exists = hydratedMembers.some(person => String(person.name || '').trim().toLowerCase() === clean.toLowerCase());
+      if (!exists) {
+        hydratedMembers.push({
+          name: clean,
+          email: '',
+          note: 'Add member details later.',
+          role: 'Camp Member',
+          status: 'Draft',
+          pendingInvite: false
+        });
+      }
+    });
+
+    const hydratedCampData = Object.assign({}, campData, {
+      campId: activeCampId,
+      name: campName,
+      campName,
+      city,
+      state,
+      zip,
+      established,
+      hero: heroPath,
+      brandImage: heroPath || campData.brandImage || '',
+      stewardName,
+      steward: stewardName,
+      stewardEmail,
+      members: memberNames.slice(),
+      campMembers: memberNames.slice(),
+      memberProfiles: hydratedMembers.map(member => ({ ...member }))
+    });
+    const hydratedDashboardData = Object.assign({}, dashboardData, {
+      campId: activeCampId,
+      camp: {
+        campId: activeCampId,
+        name: campName,
+        city,
+        state,
+        zip,
+        established,
+        hero: heroPath,
+        summary: firstNonEmpty(campData.summary, campData.about, dashboardData.camp?.summary),
+        publishState: firstNonEmpty(dashboardData.camp?.publishState, campData.publishState, 'private')
+      },
+      stewardName,
+      stewardEmail,
+      members: hydratedMembers.map(member => ({ ...member }))
+    });
+
+    if (activeCampId) {
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(hydratedCampData));
+      localStorage.setItem(campScopeKey(activeCampId, 'campData'), JSON.stringify(hydratedCampData));
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(hydratedDashboardData));
+      localStorage.setItem(campScopeKey(activeCampId, 'dashboardSlim'), JSON.stringify(hydratedDashboardData));
+    }
+
     const firstName = stewardName.split(/\s+/).filter(Boolean)[0] || stewardName;
     const locationParts = [city, state].filter(Boolean);
     const locationLine = [locationParts.join(', '), zip].filter(Boolean).join(' • ') || 'Location not set yet';
@@ -497,8 +574,8 @@
     const emailStatusPill = document.getElementById('emailStatusPill');
     const heroHelper = document.getElementById('heroHelper');
     if (stewardEmail) {
-      emailStatusPill.textContent = `Return link available for ${stewardEmail}`;
-      heroHelper.textContent = `A Steward return link can also be sent to ${stewardEmail} when email is available.`;
+      emailStatusPill.textContent = `Return link available at ${stewardEmail}`;
+      heroHelper.textContent = `A Steward return link has been sent to ${stewardEmail}.`;
     } else {
       emailStatusPill.textContent = 'Add your Steward email in setup for an easy return link';
       emailStatusPill.classList.add('warning');

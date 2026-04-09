@@ -678,14 +678,9 @@
       const scopedKey = campScopeKey(campId, 'campData');
       const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
       const generic = parseJSON(localStorage.getItem(CAMP_DATA_KEY) || '{}', {});
-      return {
-        ...(generic || {}),
-        ...(scoped || {}),
-        camp: {
-          ...((generic && generic.camp) || {}),
-          ...((scoped && scoped.camp) || {})
-        }
-      };
+      if (scoped && Object.keys(scoped).length) return scoped;
+      if (generic && Object.keys(generic).length && (!generic.campId || String(generic.campId).trim() === campId)) return generic;
+      return {};
     }
 
     function getDashboardData() {
@@ -694,90 +689,10 @@
       const scoped = scopedKey ? parseJSON(localStorage.getItem(scopedKey) || '{}', {}) : {};
       const slim = parseJSON(localStorage.getItem(DASHBOARD_SLIM_KEY) || '{}', {});
       const legacy = parseJSON(localStorage.getItem(DASHBOARD_KEY) || '{}', {});
-      return {
-        ...(legacy || {}),
-        ...(slim || {}),
-        ...(scoped || {}),
-        camp: {
-          ...((legacy && legacy.camp) || {}),
-          ...((slim && slim.camp) || {}),
-          ...((scoped && scoped.camp) || {})
-        }
-      };
-    }
-
-    function getFirstArrayItem(value) {
-      return Array.isArray(value) && value.length ? value[0] : '';
-    }
-
-    function getCampHeroSource(campData = {}, dashboard = {}) {
-      const dashboardCamp = dashboard && typeof dashboard.camp === 'object' ? dashboard.camp : {};
-      const campNode = campData && typeof campData.camp === 'object' ? campData.camp : {};
-      const candidates = [
-        campData.hero,
-        campData.campHero,
-        campData.heroImage,
-        campData.heroImagePath,
-        campData.heroPath,
-        campData.campHeroImage,
-        campData.campHeroImagePath,
-        campData.heroUrl,
-        campData.coverImage,
-        campData.coverImagePath,
-        campData.coverPhoto,
-        campData.coverPhotoPath,
-        campData.campImage,
-        campData.campImagePath,
-        campData.brandingImage,
-        campData.brandingImagePath,
-        campData.signImagePath,
-        campData.campSignImagePath,
-        campData.photo,
-        campData.image,
-        getFirstArrayItem(campData.heroImages),
-        getFirstArrayItem(campData.photos),
-        getFirstArrayItem(campData.images),
-        campNode.hero,
-        campNode.campHero,
-        campNode.heroImage,
-        campNode.heroImagePath,
-        campNode.heroPath,
-        campNode.coverImage,
-        campNode.coverPhoto,
-        campNode.campImage,
-        campNode.brandingImage,
-        campNode.brandingImagePath,
-        campNode.signImagePath,
-        campNode.campSignImagePath,
-        campNode.photo,
-        campNode.image,
-        getFirstArrayItem(campNode.heroImages),
-        getFirstArrayItem(campNode.photos),
-        getFirstArrayItem(campNode.images),
-        dashboardCamp.hero,
-        dashboardCamp.campHero,
-        dashboardCamp.heroImage,
-        dashboardCamp.heroImagePath,
-        dashboardCamp.heroPath,
-        dashboardCamp.coverImage,
-        dashboardCamp.coverPhoto,
-        dashboardCamp.campImage,
-        dashboardCamp.brandingImage,
-        dashboardCamp.brandingImagePath,
-        dashboardCamp.signImagePath,
-        dashboardCamp.campSignImagePath,
-        dashboardCamp.photo,
-        dashboardCamp.image,
-        getFirstArrayItem(dashboardCamp.heroImages),
-        getFirstArrayItem(dashboardCamp.photos),
-        getFirstArrayItem(dashboardCamp.images)
-      ];
-
-      const match = candidates
-        .map(value => String(value || '').trim())
-        .find(Boolean);
-
-      return resolveCampHeroPath(match);
+      if (scoped && Object.keys(scoped).length) return scoped;
+      if (slim && Object.keys(slim).length && (!slim.campId || String(slim.campId).trim() === campId)) return slim;
+      if (legacy && Object.keys(legacy).length && (!legacy.camp?.campId || String(legacy.camp.campId).trim() === campId)) return legacy;
+      return {};
     }
 
     function getInviteContext() {
@@ -786,30 +701,30 @@
       const dashboard = getDashboardData();
       const campData = getCampData();
       const people = Array.isArray(dashboard.people) ? dashboard.people : [];
+      const dashboardMembers = Array.isArray(dashboard.members) ? dashboard.members : [];
+      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : [];
+      const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+      const allCandidates = [...people, ...dashboardMembers, ...pendingInvites, ...memberProfiles];
 
-      const emailParam = String(params.get('memberEmail') || params.get('email') || '').trim();
+      const emailParam = normalizeInviteEmail(String(params.get('memberEmail') || params.get('email') || '').trim());
       const nameParam = String(params.get('memberName') || params.get('name') || '').trim();
       const campNameParam = String(params.get('campName') || params.get('camp') || '').trim();
-      const stewardNameParam = String(params.get('stewardName') || params.get('steward') || '').trim();
       const campCityParam = String(params.get('campCity') || params.get('city') || '').trim();
       const campStateParam = String(params.get('campState') || params.get('state') || '').trim();
       const campZipParam = String(params.get('campZip') || params.get('zip') || '').trim();
-      const campEstablishedParam = String(params.get('campEstablished') || params.get('established') || '').trim();
-      const campHeroParam = String(
-        params.get('campHero') ||
-        params.get('hero') ||
-        params.get('campHeroImage') ||
-        params.get('heroImage') ||
-        ''
-      ).trim();
+      const campEstablishedParam = String(params.get('campEstablished') || params.get('campYear') || params.get('year') || '').trim();
+      const campHeroParam = String(params.get('campHero') || params.get('hero') || '').trim();
+      const stewardNameParam = String(params.get('stewardName') || params.get('steward') || '').trim();
       const campIdParam = String(params.get('campId') || '').trim();
       const inviteTokenParam = String(params.get('inviteToken') || '').trim();
-      const pendingMatch = people.find(person => {
-        const personEmail = String(person?.email || '').trim().toLowerCase();
+      const pendingMatch = allCandidates.find(person => {
+        const personEmail = normalizeInviteEmail(String(person?.email || '').trim()).toLowerCase();
         const personName = String(person?.name || '').trim().toLowerCase();
+        const personToken = String(person?.inviteToken || '').trim();
         const matchesEmail = emailParam && personEmail === emailParam.toLowerCase();
         const matchesName = nameParam && personName === nameParam.toLowerCase();
-        return String(person?.status || '').trim().toLowerCase() === 'invited' && (matchesEmail || matchesName);
+        const matchesToken = inviteTokenParam && personToken && personToken === inviteTokenParam;
+        return matchesToken || matchesEmail || matchesName;
       });
 
       return {
@@ -821,12 +736,55 @@
         campState: String(campStateParam || campData.state || dashboard?.camp?.state || '').trim(),
         campZip: String(campZipParam || campData.zip || dashboard?.camp?.zip || '').trim(),
         campEstablished: String(campEstablishedParam || campData.established || dashboard?.camp?.established || '').trim(),
-        campHero: String(campHeroParam || '').trim(),
+        campHero: String(campHeroParam || campData.hero || campData.campHero || dashboard?.camp?.hero || '').trim(),
         stewardName: String(stewardNameParam || campData.stewardName || campData.steward || campData.campSteward || (people.find(person => person.role === 'Camp Steward') || {}).name || 'Camp Steward').trim(),
         inviteId: String(params.get('inviteId') || storedInvite?.id || pendingMatch?.id || '').trim(),
         inviteToken: inviteTokenParam || String(storedInvite?.inviteToken || pendingMatch?.inviteToken || '').trim()
       };
     }
+
+    function ensureInviteContextSeed() {
+      const invite = getInviteContext();
+      if (!invite.campId) return;
+      const scopedCampKey = campScopeKey(invite.campId, 'campData');
+      const scopedDashboardKey = campScopeKey(invite.campId, 'dashboardSlim');
+      const campData = getCampData();
+      const dashboard = getDashboardData();
+      const seededCampData = {
+        ...campData,
+        campId: invite.campId,
+        name: invite.campName || campData.name || campData.campName || 'Your DeerCamp',
+        campName: invite.campName || campData.name || campData.campName || 'Your DeerCamp',
+        city: invite.campCity || campData.city || '',
+        state: invite.campState || campData.state || '',
+        zip: invite.campZip || campData.zip || '',
+        established: invite.campEstablished || campData.established || '',
+        hero: invite.campHero || campData.hero || campData.campHero || '',
+        stewardName: invite.stewardName || campData.stewardName || campData.steward || 'Camp Steward',
+        steward: invite.stewardName || campData.stewardName || campData.steward || 'Camp Steward'
+      };
+      const seededDashboard = {
+        ...dashboard,
+        campId: invite.campId,
+        camp: {
+          ...(dashboard.camp || {}),
+          campId: invite.campId,
+          name: invite.campName || dashboard?.camp?.name || seededCampData.name,
+          city: invite.campCity || dashboard?.camp?.city || seededCampData.city,
+          state: invite.campState || dashboard?.camp?.state || seededCampData.state,
+          zip: invite.campZip || dashboard?.camp?.zip || seededCampData.zip,
+          established: invite.campEstablished || dashboard?.camp?.established || seededCampData.established,
+          hero: invite.campHero || dashboard?.camp?.hero || seededCampData.hero
+        }
+      };
+      localStorage.setItem(ACTIVE_CAMP_KEY, invite.campId);
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(seededCampData));
+      localStorage.setItem(scopedCampKey, JSON.stringify(seededCampData));
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(seededDashboard));
+      localStorage.setItem(scopedDashboardKey, JSON.stringify(seededDashboard));
+    }
+
+    ensureInviteContextSeed();
 
     function buildMemberTemplate() {
       const invite = getInviteContext();
@@ -983,9 +941,7 @@
       const metaParts = [city, stateCode].filter(Boolean).join(', ');
       const campMeta = [metaParts, established ? `Est. ${established}` : ''].filter(Boolean).join(' • ') || 'Camp details will appear here';
       const inviteEmail = normalizeInviteEmail(state.member.email || invite.email || 'Invite ready');
-      const heroPath = invite.campHero
-        ? resolveCampHeroPath(invite.campHero)
-        : getCampHeroSource(campData, dashboard);
+      const heroPath = resolveCampHeroPath(invite.campHero || campData.hero || campData.campHero || dashboard?.camp?.hero || '');
       const heroPreview = document.getElementById('campHeroPreview');
 
       document.getElementById('campNameWelcome').textContent = campName;
@@ -999,7 +955,7 @@
 
       if (heroPreview) {
         heroPreview.style.backgroundImage = heroPath
-          ? `linear-gradient(180deg, rgba(106,68,39,0.26), rgba(69,42,22,0.34)), url("${heroPath.replace(/"/g, '&quot;')}")`
+          ? `linear-gradient(180deg, rgba(106,68,39,0.26), rgba(69,42,22,0.34)), url('${heroPath.replace(/'/g, "\'")}')`
           : 'linear-gradient(180deg, rgba(106,68,39,0.2), rgba(69,42,22,0.28))';
       }
     }
@@ -1091,6 +1047,9 @@
       });
 
       if (!match) {
+        if (invite.campId && invite.inviteToken && (invite.email || invite.name)) {
+          return true;
+        }
         alert('This invite is not valid.');
         return false;
       }
@@ -1210,7 +1169,7 @@
       localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(updatedDashboard));
       const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
       if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
-      localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true }));
+      localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
       localStorage.removeItem(WIZARD_KEY);
     }
 
@@ -1311,7 +1270,7 @@
     }
 
     render();
-    showStep(savedResumeStep, { persist: false });
+    showStep(0, { persist: false });
   </script>
 </body>
 </html>
