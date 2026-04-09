@@ -336,7 +336,8 @@
     }
 
     function sanitizeSummary(value = "") {
-      const clean = String(value || "").trim();
+      const raw = String(value || "");
+      const clean = raw.trim();
       if (/^first camp$/i.test(clean)) return "";
       return clean;
     }
@@ -354,6 +355,66 @@
     function countVisibleSections(sections = {}) {
       return ["campfeed","campupdate","calendar","traditions","camprecipes"].filter(key => Boolean(sections[key])).length;
     }
+
+    function normalizeMemberStatus(member = {}) {
+      const role = String(member.role || "Camp Member").trim().toLowerCase();
+      const email = String(member.email || "").trim();
+      const status = String(member.status || "").trim().toLowerCase();
+
+      if (role === "camp steward") {
+        return { status: "Active", pendingInvite: false };
+      }
+
+      if (status === "accepted") {
+        return { status: "Accepted", pendingInvite: false };
+      }
+
+      if (status === "active") {
+        return email ? { status: "Active", pendingInvite: false } : { status: "Draft", pendingInvite: false };
+      }
+
+      if (status === "invite sent") {
+        return email ? { status: "Invite Sent", pendingInvite: false } : { status: "Draft", pendingInvite: false };
+      }
+
+      if (status === "sending") {
+        return email ? { status: "Sending", pendingInvite: false } : { status: "Draft", pendingInvite: false };
+      }
+
+      if (status === "failed") {
+        return email ? { status: "Failed", pendingInvite: false } : { status: "Draft", pendingInvite: false };
+      }
+
+      if (status === "ready") {
+        return email ? { status: "Ready", pendingInvite: true } : { status: "Draft", pendingInvite: false };
+      }
+
+      return email ? { status: "Ready", pendingInvite: true } : { status: "Draft", pendingInvite: false };
+    }
+
+    function deriveMemberWorkflowState(email = "", previousMember = null) {
+      const cleanEmail = String(email || "").trim();
+      const previousEmail = String(previousMember?.email || "").trim().toLowerCase();
+      const previousStatus = String(previousMember?.status || "").trim().toLowerCase();
+      const previousRole = String(previousMember?.role || "").trim().toLowerCase();
+
+      if (previousRole === "camp steward") {
+        return { status: "Active", pendingInvite: false };
+      }
+
+      if (!cleanEmail) {
+        return { status: "Draft", pendingInvite: false };
+      }
+
+      if (previousEmail && previousEmail === cleanEmail.toLowerCase()) {
+        if (previousStatus === "invite sent") return { status: "Invite Sent", pendingInvite: false };
+        if (previousStatus === "accepted") return { status: "Accepted", pendingInvite: false };
+        if (previousStatus === "active") return { status: "Active", pendingInvite: false };
+      }
+
+      return { status: "Ready", pendingInvite: true };
+    }
+
 
     const urlCampId = getCampIdFromUrl();
     const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
@@ -404,7 +465,7 @@
         email: "",
         note: "",
         role: "Camp Member",
-        status: "Active",
+        status: "Draft",
         pendingInvite: false
       });
     });
@@ -432,14 +493,17 @@
         : (memberProfiles.length
             ? memberProfiles
                 .filter(item => String(item.status || "Active").toLowerCase() !== "removed")
-                .map(item => ({
-                  name: String(item.name || "").trim(),
-                  email: String(item.email || "").trim(),
-                  note: String(item.note || "").trim(),
-                  role: String(item.role || "Camp Member").trim() || "Camp Member",
-                  status: String(item.status || "Active").trim() || "Active",
-                  pendingInvite: Boolean(item.pendingInvite)
-                }))
+                .map(item => {
+                  const normalized = normalizeMemberStatus(item);
+                  return {
+                    name: String(item.name || "").trim(),
+                    email: String(item.email || "").trim(),
+                    note: String(item.note || "").trim(),
+                    role: String(item.role || "Camp Member").trim() || "Camp Member",
+                    status: normalized.status,
+                    pendingInvite: normalized.pendingInvite
+                  };
+                })
             : fallbackMembers)
     };
 
@@ -553,7 +617,10 @@
       const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" • ");
       document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
       document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
-      document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
+      document.getElementById("statMembers").textContent = String(state.members.filter(member => {
+        const status = String(member.status || "").toLowerCase();
+        return status === "active" || status === "accepted";
+      }).length);
       document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
       document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
       document.getElementById("heroSubnote").textContent = state.stewardEmail
@@ -608,7 +675,9 @@
                   ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
                   : member.pendingInvite
                     ? " • Ready to send"
-                    : "");
+                    : String(member.status || "").trim().toLowerCase() === "draft"
+                      ? " • Not invited yet"
+                      : "");
         const emailLine = member.email
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
@@ -844,7 +913,7 @@
       state.camp.state = document.getElementById("campState").value.trim();
       state.camp.zip = document.getElementById("campZip").value.trim();
       state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.summary = document.getElementById("campSummary").value;
       state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
       syncCampData();
       renderPreview();
@@ -875,8 +944,9 @@
           member.pendingInvite = false;
           member.status = "Active";
         } else {
-          member.pendingInvite = Boolean(email);
-          member.status = member.pendingInvite ? "Ready" : "Active";
+          const workflow = deriveMemberWorkflowState(email, member);
+          member.pendingInvite = workflow.pendingInvite;
+          member.status = workflow.status;
         }
         syncCampData();
         renderMembers();
@@ -889,13 +959,14 @@
         return;
       }
 
+      const workflow = deriveMemberWorkflowState(email);
       state.members.push({
         name,
         email,
         note,
         role: "Camp Member",
-        status: email ? "Ready" : "Active",
-        pendingInvite: Boolean(email)
+        status: workflow.status,
+        pendingInvite: workflow.pendingInvite
       });
       syncCampData();
       renderMembers();
