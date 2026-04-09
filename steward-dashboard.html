@@ -341,6 +341,11 @@
       return clean;
     }
 
+    function getSummaryForEditing(value = "") {
+      const raw = String(value || "");
+      return /^first camp$/i.test(raw.trim()) ? "" : raw;
+    }
+
     function buildCampUrl(path, campId) {
       const cleanCampId = String(campId || "").trim();
       return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
@@ -480,14 +485,6 @@
         : "https://ourdeercamp.com/";
     }
 
-    function preserveCurrentCampArray(value) {
-      return Array.isArray(value) ? value : [];
-    }
-
-    function preserveCurrentCampObject(value) {
-      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    }
-
     function syncCampData() {
       const activeMembers = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
       const memberProfilesOut = activeMembers.map(member => ({
@@ -499,11 +496,7 @@
         pendingInvite: Boolean(member.pendingInvite)
       }));
 
-      const sameScopedCamp = Boolean(Object.keys(scopedCampData).length);
-      const sameGenericCamp = Boolean(campData && String(campData.campId || "").trim() === state.campId);
-      const preserveCampContent = sameScopedCamp || sameGenericCamp;
-
-      const nextCampData = {
+      const nextCampData = Object.assign({}, campData, {
         campId: state.campId,
         name: state.camp.name,
         campName: state.camp.name,
@@ -514,8 +507,6 @@
         summary: sanitizeSummary(state.camp.summary),
         about: sanitizeSummary(state.camp.summary),
         hero: state.camp.hero,
-        brandImage: state.camp.hero,
-        brandingImage: state.camp.hero,
         stewardName: state.stewardName,
         steward: state.stewardName,
         stewardEmail: state.stewardEmail,
@@ -525,15 +516,8 @@
         selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
         members: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
         campMembers: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
-        memberProfiles: memberProfilesOut,
-        contentSubmissions: preserveCampContent ? preserveCurrentCampArray(campData.contentSubmissions).slice() : [],
-        feedComments: preserveCampContent ? Object.assign({}, preserveCurrentCampObject(campData.feedComments)) : {},
-        calendarEvents: preserveCampContent ? preserveCurrentCampArray(campData.calendarEvents || campData.events).slice() : [],
-        recipeObjects: preserveCampContent ? preserveCurrentCampArray(campData.recipeObjects).slice() : [],
-        traditions: preserveCampContent ? preserveCurrentCampArray(campData.traditions).slice() : [],
-        feedEntries: preserveCampContent ? preserveCurrentCampArray(campData.feedEntries).slice() : [],
-        campPhotoGallery: preserveCampContent ? preserveCurrentCampArray(campData.campPhotoGallery).slice() : []
-      };
+        memberProfiles: memberProfilesOut
+      });
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
@@ -599,7 +583,10 @@
       document.getElementById("campState").value = state.camp.state || "";
       document.getElementById("campZip").value = state.camp.zip || "";
       document.getElementById("campHero").value = state.camp.hero || "";
-      document.getElementById("campSummary").value = sanitizeSummary(state.camp.summary || "");
+      const campSummaryField = document.getElementById("campSummary");
+      if (campSummaryField && document.activeElement !== campSummaryField) {
+        campSummaryField.value = getSummaryForEditing(state.camp.summary || "");
+      }
       document.getElementById("campPublicToggle").checked = state.camp.publishState === "public";
       document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
       document.getElementById("privacyNote").textContent = "Private camps share only the DeerCamp home until the Steward is ready to make this camp public.";
@@ -621,9 +608,7 @@
                   ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
                   : member.pendingInvite
                     ? " • Ready to send"
-                    : member.status === "Draft"
-                      ? " • Not invited yet"
-                      : "");
+                    : "");
         const emailLine = member.email
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
@@ -847,7 +832,7 @@
       state.camp.state = document.getElementById("campState").value.trim();
       state.camp.zip = document.getElementById("campZip").value.trim();
       state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.summary = document.getElementById("campSummary").value;
       state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
       renderPreview();
     });
@@ -890,10 +875,8 @@
           member.pendingInvite = false;
           member.status = "Active";
         } else {
-          const currentStatus = String(member.status || "").trim().toLowerCase();
-          const isAcceptedMember = currentStatus === "active" || currentStatus === "accepted";
-          member.pendingInvite = !isAcceptedMember && Boolean(email);
-          member.status = isAcceptedMember ? member.status : (email ? "Ready" : "Draft");
+          member.pendingInvite = Boolean(email);
+          member.status = member.pendingInvite ? "Ready" : "Active";
         }
         syncCampData();
         renderMembers();
@@ -911,7 +894,7 @@
         email,
         note,
         role: "Camp Member",
-        status: email ? "Ready" : "Draft",
+        status: email ? "Ready" : "Active",
         pendingInvite: Boolean(email)
       });
       syncCampData();
