@@ -447,36 +447,67 @@
     }
 
     function memberIdentity(person = {}) {
-      return String(person.email || "").trim().toLowerCase() || String(person.name || "").trim().toLowerCase();
+      const role = String(person.role || '').trim().toLowerCase();
+      const email = String(person.email || '').trim().toLowerCase();
+      const name = String(person.name || '').trim().toLowerCase();
+      if (role === 'camp steward') return 'role:camp steward';
+      return email || name;
+    }
+
+    function membersMatch(left = {}, right = {}) {
+      const leftRole = String(left.role || '').trim().toLowerCase();
+      const rightRole = String(right.role || '').trim().toLowerCase();
+      if (leftRole === 'camp steward' || rightRole === 'camp steward') {
+        return leftRole === 'camp steward' && rightRole === 'camp steward';
+      }
+      const leftEmail = String(left.email || '').trim().toLowerCase();
+      const rightEmail = String(right.email || '').trim().toLowerCase();
+      const leftName = String(left.name || '').trim().toLowerCase();
+      const rightName = String(right.name || '').trim().toLowerCase();
+      if (leftEmail && rightEmail && leftEmail === rightEmail) return true;
+      if (leftName && rightName && leftName === rightName) return true;
+      return false;
+    }
+
+    function mergeMemberRecord(previous = {}, next = {}) {
+      const merged = Object.assign({}, previous, next);
+      if (!String(merged.name || '').trim()) merged.name = String(previous.name || next.name || '').trim();
+      if (!String(merged.email || '').trim()) merged.email = String(previous.email || next.email || '').trim();
+      if (!String(merged.note || '').trim()) merged.note = String(previous.note || next.note || '').trim();
+      if (!String(merged.role || '').trim()) merged.role = String(previous.role || next.role || 'Camp Member').trim() || 'Camp Member';
+      if (!String(merged.status || '').trim()) merged.status = String(previous.status || next.status || 'Draft').trim() || 'Draft';
+      return cloneMember(merged);
     }
 
     function mergeMembersFromCampAndDashboard(campData = {}, dashboardData = {}) {
       const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members.map(cloneMember) : [];
       const campProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles.map(cloneMember) : [];
       const fallbackMembers = [];
-      if (String(campData.stewardName || campData.steward || "").trim()) {
+      if (String(campData.stewardName || campData.steward || '').trim()) {
         fallbackMembers.push(cloneMember({
-          name: String(campData.stewardName || campData.steward || "").trim(),
-          email: String(campData.stewardEmail || "").trim(),
-          note: "Keeps camp information current and helps guide the full DeerCamp experience.",
-          role: "Camp Steward",
-          status: "Active",
+          name: String(campData.stewardName || campData.steward || '').trim(),
+          email: String(campData.stewardEmail || '').trim(),
+          note: 'Keeps camp information current and helps guide the full DeerCamp experience.',
+          role: 'Camp Steward',
+          status: 'Active',
           pendingInvite: false
         }));
       }
       (Array.isArray(campData.members) ? campData.members : []).forEach(name => {
-        const clean = String(name || "").trim();
+        const clean = String(name || '').trim();
         if (!clean) return;
-        fallbackMembers.push(cloneMember({ name: clean, role: "Camp Member", status: "Draft", pendingInvite: false }));
+        fallbackMembers.push(cloneMember({ name: clean, role: 'Camp Member', status: 'Draft', pendingInvite: false }));
       });
-      const merged = new Map();
+      const merged = [];
       [...fallbackMembers, ...dashboardMembers, ...campProfiles].forEach(member => {
-        const key = memberIdentity(member);
-        if (!key) return;
-        const prior = merged.get(key) || {};
-        merged.set(key, Object.assign({}, prior, member));
+        const existingIndex = merged.findIndex(existing => membersMatch(existing, member));
+        if (existingIndex >= 0) {
+          merged[existingIndex] = mergeMemberRecord(merged[existingIndex], member);
+        } else {
+          merged.push(cloneMember(member));
+        }
       });
-      return Array.from(merged.values());
+      return merged;
     }
 
     function hydrateDashboardSnapshot(activeCampId, campData = {}, dashboardData = {}) {
@@ -525,7 +556,9 @@
     const scopedDashboardSlim = activeCampId ? safeParse(campScopeKey(activeCampId, "dashboardSlim"), {}) : {};
 
     const campData = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
-    const rawDashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(legacyDashboardSlim).length ? legacyDashboardSlim : legacyDashboardData);
+    const matchingLegacyDashboardSlim = Object.keys(legacyDashboardSlim).length && String(legacyDashboardSlim.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardSlim : {};
+    const matchingLegacyDashboardData = Object.keys(legacyDashboardData).length && String(legacyDashboardData.camp?.campId || legacyDashboardData.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardData : {};
+    const rawDashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(matchingLegacyDashboardSlim).length ? matchingLegacyDashboardSlim : matchingLegacyDashboardData);
     const dashboardData = hydrateDashboardSnapshot(activeCampId, campData, rawDashboardData);
 
     const campName = firstNonEmpty(urlPrefill.campName, campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp");

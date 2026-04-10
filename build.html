@@ -1936,7 +1936,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const stewardName = document.getElementById("campSteward").value.trim();
   const stewardEmail = document.getElementById("campStewardEmail").value.trim();
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
-  const members = [stewardName, ...campMembers].filter(Boolean);
+  const rosterNames = [stewardName, ...campMembers].filter(Boolean);
 
   const memberProfiles = [];
   if (stewardName) {
@@ -1953,7 +1953,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     .map(item => item.trim())
     .filter(Boolean);
 
-  const recipeObjects = buildAutoRecipeObjects(members);
+  const recipeObjects = buildAutoRecipeObjects(rosterNames);
   const recipeNames = recipeObjects.map(recipe => recipe.title);
 
   const selectedSign = getSelectedSignDefinition();
@@ -1996,8 +1996,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     heroTemplateLabel: selectedSign.label,
     stewardName,
     stewardEmail,
-    campMembers,
-    members,
+    campMembers: campMembers.slice(),
+    members: campMembers.slice(),
     memberProfiles,
     traditions,
     deerDrives,
@@ -2021,6 +2021,60 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   if (scopedCampDataKey) {
     localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
   }
+
+  const initialDashboardSlim = {
+    campId,
+    camp: {
+      campId,
+      name,
+      city,
+      state,
+      zip,
+      established: year,
+      summary: "",
+      hero,
+      publishState: "private"
+    },
+    stewardName,
+    stewardEmail,
+    sections: {
+      campfeed: true,
+      campupdate: true,
+      calendar: true,
+      traditions: true,
+      camprecipes: true
+    },
+    selectedRecipeIds: [],
+    members: memberProfiles.map((member) => ({
+      ...member,
+      email: String(member.email || "").trim(),
+      note: String(member.note || "").trim(),
+      role: String(member.role || "Camp Member").trim() || "Camp Member",
+      status: String(member.status || (String(member.role || "").toLowerCase() === "camp steward" ? "Active" : "Draft")).trim(),
+      pendingInvite: false,
+      inviteToken: "",
+      inviteSentAt: "",
+      inviteError: ""
+    })),
+    people: memberProfiles.map((member) => ({
+      ...member,
+      email: String(member.email || "").trim(),
+      note: String(member.note || "").trim(),
+      role: String(member.role || "Camp Member").trim() || "Camp Member",
+      status: String(member.status || (String(member.role || "").toLowerCase() === "camp steward" ? "Active" : "Draft")).trim(),
+      pendingInvite: false,
+      inviteToken: "",
+      inviteSentAt: "",
+      inviteError: ""
+    })),
+    pendingInvites: []
+  };
+  localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(initialDashboardSlim));
+  const scopedDashboardSlimKey = campScopeKey(campId, "dashboardSlim");
+  if (scopedDashboardSlimKey) {
+    localStorage.setItem(scopedDashboardSlimKey, JSON.stringify(initialDashboardSlim));
+  }
+
   incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);

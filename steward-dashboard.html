@@ -89,6 +89,7 @@
     .member-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
     .member-edit{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(69,42,22,.12);background:#fff;color:var(--brown-deep);font-size:.78rem;font-weight:700;cursor:pointer}
     .member-resend{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(73,102,71,.18);background:#fff;color:var(--green);font-size:.78rem;font-weight:700;cursor:pointer}
+    .member-delete{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(139,45,29,.18);background:#fff;color:#8b2d1d;font-size:.78rem;font-weight:700;cursor:pointer}
     .member-form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .member-form-note{min-height:1.2em;color:var(--brown-deep);font-size:.9rem;font-weight:700}
     .field.is-editing label{color:var(--brown)}
@@ -121,16 +122,6 @@
 </head>
 <body>
   <div class="page-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
-        <div class="brand-copy"><h1>DeerCamp</h1></div>
-      </div>
-      <div class="top-actions">
-        <span class="pill" id="dashboardStatePill">Private camp</span>
-        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
-      </div>
-    </header>
 
     <section class="hero-panel">
       <div class="hero-copy">
@@ -235,6 +226,7 @@
           <div class="field span-2 member-form-actions">
             <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
             <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
+            <button id="memberDeleteBtn" class="btn member-delete" type="button" hidden>Delete Member</button>
             <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
           </div>
           <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
@@ -270,6 +262,16 @@
     </div>
 
     <section class="footer-note">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
+        <div class="brand-copy"><h1>DeerCamp</h1></div>
+      </div>
+      <div class="top-actions">
+        <span class="pill" id="dashboardStatePill">Private camp</span>
+        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
+      </div>
+    </header>
       <div class="top-actions">
         <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
         <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
@@ -367,6 +369,88 @@
     function isPublicMemberStatus(status = '') {
       const normalized = String(status || '').trim().toLowerCase();
       return normalized === 'active' || normalized === 'accepted';
+    }
+
+    function memberIdentityKey(member = {}) {
+      const role = String(member.role || "Camp Member").trim().toLowerCase();
+      const name = String(member.name || "").trim().toLowerCase();
+      const email = String(member.email || "").trim().toLowerCase();
+      if (role === "camp steward") return "role:camp steward";
+      return email ? `member:${email}` : `member:${name}`;
+    }
+
+    function membersMatch(left = {}, right = {}) {
+      const leftRole = String(left.role || '').trim().toLowerCase();
+      const rightRole = String(right.role || '').trim().toLowerCase();
+      if (leftRole === 'camp steward' || rightRole === 'camp steward') {
+        return leftRole === 'camp steward' && rightRole === 'camp steward';
+      }
+      const leftEmail = String(left.email || '').trim().toLowerCase();
+      const rightEmail = String(right.email || '').trim().toLowerCase();
+      const leftName = String(left.name || '').trim().toLowerCase();
+      const rightName = String(right.name || '').trim().toLowerCase();
+      if (leftEmail && rightEmail && leftEmail === rightEmail) return true;
+      if (leftName && rightName && leftName === rightName) return true;
+      return false;
+    }
+
+    function mergeMemberRecords(previous = {}, next = {}) {
+      const merged = {
+        name: String(next.name || previous.name || "").trim(),
+        email: String(next.email || previous.email || "").trim(),
+        note: String(next.note || previous.note || "").trim(),
+        role: String(next.role || previous.role || "Camp Member").trim() || "Camp Member",
+        status: String(next.status || previous.status || "Draft").trim() || "Draft",
+        pendingInvite: Boolean(next.pendingInvite || previous.pendingInvite),
+        inviteToken: String(next.inviteToken || previous.inviteToken || "").trim(),
+        inviteSentAt: String(next.inviteSentAt || previous.inviteSentAt || "").trim(),
+        inviteError: String(next.inviteError || previous.inviteError || "").trim()
+      };
+      merged.status = normalizeMemberStatus(merged);
+      merged.pendingInvite = merged.status === "Ready";
+      return merged;
+    }
+
+    function dedupeMembers(members = []) {
+      const merged = [];
+      (Array.isArray(members) ? members : []).forEach((raw) => {
+        if (!raw || typeof raw !== "object") return;
+        const next = {
+          name: String(raw.name || "").trim(),
+          email: String(raw.email || "").trim(),
+          note: String(raw.note || "").trim(),
+          role: String(raw.role || "Camp Member").trim() || "Camp Member",
+          status: String(raw.status || "Draft").trim() || "Draft",
+          pendingInvite: Boolean(raw.pendingInvite),
+          inviteToken: String(raw.inviteToken || "").trim(),
+          inviteSentAt: String(raw.inviteSentAt || "").trim(),
+          inviteError: String(raw.inviteError || "").trim()
+        };
+        if (!next.name && !next.email) return;
+        const existingIndex = merged.findIndex((member) => membersMatch(member, next));
+        if (existingIndex >= 0) {
+          merged[existingIndex] = mergeMemberRecords(merged[existingIndex], next);
+        } else {
+          merged.push(next);
+        }
+      });
+      const membersOut = merged.filter(member => String(member.status || "").toLowerCase() !== "removed");
+      membersOut.sort((a, b) => {
+        const aSteward = String(a.role || "").toLowerCase() === "camp steward" ? 0 : 1;
+        const bSteward = String(b.role || "").toLowerCase() === "camp steward" ? 0 : 1;
+        if (aSteward !== bSteward) return aSteward - bSteward;
+        return String(a.name || "").localeCompare(String(b.name || ""));
+      });
+      return membersOut;
+    }
+
+    function countStewards() {
+      return state.members.filter(member => String(member.role || "").toLowerCase() === "camp steward" && String(member.status || "").toLowerCase() !== "removed").length;
+    }
+
+    function canDeleteMember(member = {}) {
+      if (String(member.role || "").toLowerCase() !== "camp steward") return true;
+      return countStewards() > 1;
     }
 
     const urlCampId = getCampIdFromUrl();
@@ -472,6 +556,7 @@
     };
 
     if (!Array.isArray(state.members)) state.members = [];
+    state.members = dedupeMembers(state.members);
     const stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
     if (stewardMember) {
       if (!stewardMember.email && state.stewardEmail) stewardMember.email = state.stewardEmail;
@@ -506,7 +591,7 @@
     }
 
     function syncCampData() {
-      const keptMembers = state.members
+      const keptMembers = dedupeMembers(state.members)
         .filter(member => String(member.status || "Active").toLowerCase() !== "removed")
         .map(member => {
           const normalizedStatus = normalizeMemberStatus(member);
@@ -618,14 +703,18 @@
         empty.style.display = "block";
       }
 
-      document.getElementById("campName").value = state.camp.name || "";
-      document.getElementById("campEstablished").value = state.camp.established || "";
-      document.getElementById("campCity").value = state.camp.city || "";
-      document.getElementById("campState").value = state.camp.state || "";
-      document.getElementById("campZip").value = state.camp.zip || "";
-      document.getElementById("campHero").value = state.camp.hero || "";
-      document.getElementById("campSummary").value = sanitizeSummary(state.camp.summary || "");
-      document.getElementById("campPublicToggle").checked = state.camp.publishState === "public";
+      const activeField = document.activeElement;
+      const editingCampForm = Boolean(activeField && activeField.closest && activeField.closest("#campForm"));
+      if (!editingCampForm) {
+        document.getElementById("campName").value = state.camp.name || "";
+        document.getElementById("campEstablished").value = state.camp.established || "";
+        document.getElementById("campCity").value = state.camp.city || "";
+        document.getElementById("campState").value = state.camp.state || "";
+        document.getElementById("campZip").value = state.camp.zip || "";
+        document.getElementById("campHero").value = state.camp.hero || "";
+        document.getElementById("campSummary").value = String(state.camp.summary || "");
+        document.getElementById("campPublicToggle").checked = state.camp.publishState === "public";
+      }
       document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
       document.getElementById("privacyNote").textContent = "Private camps share only the DeerCamp home until the Steward is ready to make this camp public.";
       updateInviteButton();
@@ -792,6 +881,11 @@
       document.getElementById("memberEmail").value = member.email || "";
       document.getElementById("memberNote").value = member.note || "";
       document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward" : "Save Member";
+      const deleteBtn = document.getElementById("memberDeleteBtn");
+      if (deleteBtn) {
+        deleteBtn.hidden = !canDeleteMember(member);
+        deleteBtn.textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Delete Duplicate Steward" : "Delete Member";
+      }
       pulseMemberEditFields(member.name || "this member");
     }
 
@@ -799,6 +893,8 @@
       document.getElementById("memberForm").reset();
       document.getElementById("memberEditIndex").value = "";
       document.getElementById("memberSubmitBtn").textContent = "Add Member";
+      const deleteBtn = document.getElementById("memberDeleteBtn");
+      if (deleteBtn) deleteBtn.hidden = true;
       clearMemberEditPulse();
       updateInviteButton();
     }
@@ -865,27 +961,51 @@
       renderRecipeSelector();
     }
 
-    document.getElementById("campForm").addEventListener("input", () => {
+    function syncCampStateFromForm() {
       state.camp.name = document.getElementById("campName").value.trim() || "Your DeerCamp";
       state.camp.established = document.getElementById("campEstablished").value.trim();
       state.camp.city = document.getElementById("campCity").value.trim();
       state.camp.state = document.getElementById("campState").value.trim();
       state.camp.zip = document.getElementById("campZip").value.trim();
       state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.summary = document.getElementById("campSummary").value;
       state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
-      renderPreview();
+    }
+
+    function updatePreviewOnly() {
+      document.getElementById("welcomeHeadline").textContent = `Welcome, ${state.stewardName}`;
+      document.getElementById("previewCampName").textContent = state.camp.name || "Your DeerCamp";
+      const location = [[state.camp.city, state.camp.state].filter(Boolean).join(", "), state.camp.zip].filter(Boolean).join(" ");
+      const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" • ");
+      document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
+      document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
+      document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
+      document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
+      document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
+      document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
+      const heroPath = resolveImagePath(state.camp.hero);
+      const frame = document.getElementById("heroPreview");
+      const empty = document.getElementById("heroPreviewEmpty");
+      if (heroPath) {
+        frame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,.18), rgba(69,42,22,.32)), url("${heroPath.replace(/"/g, '\"')}")`;
+        frame.style.backgroundSize = "cover";
+        frame.style.backgroundPosition = "center center";
+        empty.style.display = "none";
+      } else {
+        frame.style.backgroundImage = "";
+        empty.style.display = "block";
+      }
+      updateInviteButton();
+    }
+
+    document.getElementById("campForm").addEventListener("input", () => {
+      syncCampStateFromForm();
+      updatePreviewOnly();
     });
 
     document.getElementById("saveAllBtn").addEventListener("click", () => {
-      state.camp.name = document.getElementById("campName").value.trim() || "Your DeerCamp";
-      state.camp.established = document.getElementById("campEstablished").value.trim();
-      state.camp.city = document.getElementById("campCity").value.trim();
-      state.camp.state = document.getElementById("campState").value.trim();
-      state.camp.zip = document.getElementById("campZip").value.trim();
-      state.camp.hero = document.getElementById("campHero").value.trim();
-      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
-      state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
+      syncCampStateFromForm();
+      state.camp.summary = sanitizeSummary(state.camp.summary);
       syncCampData();
       renderPreview();
       renderSections();
@@ -906,6 +1026,8 @@
       if (editIndex !== "") {
         const member = state.members[Number(editIndex)];
         if (!member) return;
+        const previousEmail = String(member.email || "").trim();
+        const previousStatus = String(member.status || "").trim().toLowerCase();
         member.name = name;
         member.email = email;
         member.note = note;
@@ -915,8 +1037,6 @@
           member.pendingInvite = false;
           member.status = "Active";
         } else {
-          const previousEmail = String(member.email || "").trim();
-          const previousStatus = String(member.status || "").trim().toLowerCase();
           member.inviteError = "";
           if (!email) {
             member.pendingInvite = false;
@@ -947,7 +1067,7 @@
         return;
       }
 
-      state.members.push({
+      const proposedMember = {
         name,
         email,
         note,
@@ -957,7 +1077,18 @@
         inviteToken: "",
         inviteSentAt: "",
         inviteError: ""
-      });
+      };
+      const duplicateIndex = state.members.findIndex(existing => memberIdentityKey(existing) === memberIdentityKey(proposedMember));
+      if (duplicateIndex >= 0) {
+        state.members[duplicateIndex] = mergeMemberRecords(state.members[duplicateIndex], proposedMember);
+        syncCampData();
+        renderMembers();
+        renderPreview();
+        resetMemberForm();
+        showToast(`${name} was already in the camp. Existing entry updated.`);
+        return;
+      }
+      state.members.push(proposedMember);
       syncCampData();
       renderMembers();
       renderPreview();
@@ -1014,6 +1145,24 @@
     });
 
     document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
+
+    document.getElementById("memberDeleteBtn").addEventListener("click", () => {
+      const editIndex = document.getElementById("memberEditIndex").value;
+      if (editIndex === "") return;
+      const member = state.members[Number(editIndex)];
+      if (!member || !canDeleteMember(member)) {
+        showToast("That member cannot be deleted here.");
+        return;
+      }
+      const confirmed = window.confirm(`Delete ${member.name || "this member"} from this camp?`);
+      if (!confirmed) return;
+      state.members.splice(Number(editIndex), 1);
+      syncCampData();
+      renderMembers();
+      renderPreview();
+      resetMemberForm();
+      showToast(`${member.name || "Member"} removed.`);
+    });
 
     document.getElementById("shareCampBtn").addEventListener("click", async (event) => {
       event.preventDefault();
