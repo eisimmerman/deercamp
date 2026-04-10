@@ -40,7 +40,7 @@
     .brand-mark{width:56px;height:56px;border-radius:16px;overflow:hidden;background:rgba(106,68,39,.1);display:grid;place-items:center;flex:0 0 auto}
     .brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
     .brand-copy h1{margin:0;font-size:1.24rem;line-height:1.04}
-    .top-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:flex-end}
     .pill{display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;background:rgba(73,102,71,.12);color:var(--green);font-size:.84rem;font-weight:700;white-space:nowrap}
     .btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:12px 18px;border-radius:999px;border:0;cursor:pointer;font-weight:700;transition:transform .16s ease, box-shadow .16s ease, background .16s ease}
     .btn:hover{transform:translateY(-1px)}
@@ -122,6 +122,19 @@
 </head>
 <body>
   <div class="page-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
+        <div class="brand-copy"><h1>DeerCamp</h1></div>
+      </div>
+      <div class="top-actions">
+        <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
+        <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
+        <span class="pill" id="dashboardStatePill">Private camp</span>
+        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
+      </div>
+    </header>
+
 
     <section class="hero-panel">
       <div class="hero-copy">
@@ -261,22 +274,6 @@
       </section>
     </div>
 
-    <section class="footer-note">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
-        <div class="brand-copy"><h1>DeerCamp</h1></div>
-      </div>
-      <div class="top-actions">
-        <span class="pill" id="dashboardStatePill">Private camp</span>
-        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
-      </div>
-    </header>
-      <div class="top-actions">
-        <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
-        <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
-      </div>
-    </section>
   </div>
 
   <div id="toast" class="toast"></div>
@@ -327,6 +324,11 @@
       toast.classList.add("show");
       clearTimeout(showToast._timer);
       showToast._timer = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function isLikelyEmail(value = "") {
+      const clean = String(value || "").trim();
+      return !clean || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
     }
 
     function resolveImagePath(value = "") {
@@ -740,8 +742,8 @@
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
         const extraNote = member.note ? ` • ${member.note}` : "";
-        const resendButton = role !== "Camp Steward" && member.status === "Invite Sent" && String(member.email || "").trim()
-          ? `<button class="member-resend" type="button" data-resend-member="${index}">Resend</button>`
+        const resendButton = role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && String(member.email || "").trim()
+          ? `<button class="member-resend" type="button" data-resend-member="${index}">${member.status === "Failed" ? "Retry" : "Resend"}</button>`
           : "";
         return `
         <div class="member-row">
@@ -808,6 +810,10 @@
     }
 
     async function sendMemberInvite(member) {
+      if (!isLikelyEmail(member?.email)) {
+        throw new Error("Enter a valid member email before sending the invite.");
+      }
+
       const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
         ? window.crypto.randomUUID()
         : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -1023,6 +1029,13 @@
         return;
       }
 
+      if (email && !isLikelyEmail(email)) {
+        const noteEl = document.getElementById("memberFormNote");
+        if (noteEl) noteEl.textContent = "Enter a valid member email before saving.";
+        showToast("Enter a valid member email before saving.");
+        return;
+      }
+
       if (editIndex !== "") {
         const member = state.members[Number(editIndex)];
         if (!member) return;
@@ -1121,9 +1134,13 @@
           result.member.pendingInvite = false;
           result.member.status = "Invite Sent";
           result.member.inviteToken = result.inviteToken;
+          result.member.inviteSentAt = new Date().toISOString();
+          result.member.inviteError = "";
           successCount += 1;
         } else {
           result.member.status = "Failed";
+          result.member.pendingInvite = true;
+          result.member.inviteError = result.error || "Failed to send invite.";
           failCount += 1;
           console.error(`Invite failed for ${result.member.name}:`, result.error);
         }
@@ -1140,7 +1157,8 @@
       } else if (successCount > 0) {
         showToast(`${successCount} sent, ${failCount} failed.`);
       } else {
-        showToast("No invites were sent.");
+        const firstError = results.find(result => !result.success)?.error || "No invites were sent.";
+        showToast(firstError);
       }
     });
 
