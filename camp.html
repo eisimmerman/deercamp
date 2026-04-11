@@ -154,79 +154,9 @@
   @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
   @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
 </style>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-window.DEERCAMP_FIREBASE_CONFIG = window.DEERCAMP_FIREBASE_CONFIG || window.FIREBASE_CONFIG || null;
-window.DeerCampCloud = window.DeerCampCloud || (() => {
-  let db = null;
-  let readyPromise = null;
-
-  async function ensureReady() {
-    if (db) return db;
-    if (readyPromise) return readyPromise;
-
-    readyPromise = new Promise((resolve) => {
-      try {
-        const config = window.DEERCAMP_FIREBASE_CONFIG;
-        if (!config || !config.apiKey || !config.projectId || !window.firebase || !firebase.firestore) {
-          console.warn("DeerCamp Firebase config missing. Falling back to localStorage.");
-          resolve(null);
-          return;
-        }
-
-        if (!firebase.apps.length) {
-          firebase.initializeApp(config);
-        }
-
-        db = firebase.firestore();
-        resolve(db);
-      } catch (error) {
-        console.warn("DeerCamp Firebase init failed. Falling back to localStorage.", error);
-        resolve(null);
-      }
-    });
-
-    return readyPromise;
-  }
-
-  async function getCamp(campId) {
-    const cleanCampId = String(campId || "").trim();
-    if (!cleanCampId) return null;
-    const firestoreDb = await ensureReady();
-    if (!firestoreDb) return null;
-    try {
-      const snapshot = await firestoreDb.collection("camps").doc(cleanCampId).get();
-      return snapshot.exists ? snapshot.data() : null;
-    } catch (error) {
-      console.warn("Could not load camp from Firebase.", error);
-      return null;
-    }
-  }
-
-  async function saveCamp(campId, data) {
-    const cleanCampId = String(campId || "").trim();
-    if (!cleanCampId || !data || typeof data !== "object") return false;
-    const firestoreDb = await ensureReady();
-    if (!firestoreDb) return false;
-    try {
-      await firestoreDb.collection("camps").doc(cleanCampId).set({
-        ...data,
-        campId: cleanCampId,
-        updatedAtClient: new Date().toISOString()
-      }, { merge: true });
-      return true;
-    } catch (error) {
-      console.warn("Could not save camp to Firebase.", error);
-      return false;
-    }
-  }
-
-  return { ensureReady, getCamp, saveCamp };
-})();
-</script>
-
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="firebase-web.js"></script>
 </head>
 <body>
 <header class="camp-header">
@@ -435,43 +365,7 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
 function getCampIdFromUrl(){try{return String(new URLSearchParams(window.location.search).get("campId")||"").trim()}catch{return ""}}
 function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?`${CAMP_SCOPE_PREFIX}${c}.${suffix}`:""}
 function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
-function campHasRenderableContent(payload={}){
-  return Boolean(
-    (Array.isArray(payload.feedEntries) && payload.feedEntries.length) ||
-    (Array.isArray(payload.campPhotoGallery) && payload.campPhotoGallery.length) ||
-    (Array.isArray(payload.traditions) && payload.traditions.length) ||
-    (Array.isArray(payload.recipeObjects) && payload.recipeObjects.length) ||
-    (Array.isArray(payload.calendarEvents) && payload.calendarEvents.length)
-  );
-}
-async function hydrateCampFromCloud(campId,{reloadOnChange=false}={}){
-  const cleanCampId=String(campId||"").trim();
-  if(!cleanCampId) return null;
-  try{
-    const cloudData = await DeerCampCloud.getCamp(cleanCampId);
-    if(!cloudData || typeof cloudData !== 'object') return null;
-    cloudData.campId = cleanCampId;
-    const scopedKey = campScopeKey(cleanCampId,"campData");
-    const nextSerialized = JSON.stringify(cloudData);
-    const prevSerialized = localStorage.getItem(scopedKey) || '';
-    localStorage.setItem(CAMP_DATA_KEY, nextSerialized);
-    localStorage.setItem(scopedKey, nextSerialized);
-    localStorage.setItem(ACTIVE_CAMP_KEY, cleanCampId);
-    if(reloadOnChange && nextSerialized !== prevSerialized){
-      const guardKey = `deercamp.cloudReload.${cleanCampId}`;
-      if(sessionStorage.getItem(guardKey) !== '1'){
-        sessionStorage.setItem(guardKey,'1');
-        window.location.reload();
-      }
-    } else if (reloadOnChange) {
-      sessionStorage.removeItem(`deercamp.cloudReload.${cleanCampId}`);
-    }
-    return cloudData;
-  }catch(error){
-    console.warn('Cloud camp hydration skipped.', error);
-    return null;
-  }
-}
+async function hydrateCampFromCloud(campId,{reloadOnChange=false}={}){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;if(reloadOnChange){const guardKey=`deercamp.cloudReload.${cleanCampId}`;const prevRaw=sessionStorage.getItem(guardKey)||"";const nextRaw=JSON.stringify(nextData);if(prevRaw!==nextRaw){sessionStorage.setItem(guardKey,nextRaw);window.location.reload();return nextData;}}return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
@@ -479,7 +373,7 @@ let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || legacy.campId || "ourdeercamp").trim();
 let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
 let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
-let data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
+const data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 hydrateCampFromCloud(activeCampId,{reloadOnChange:true});
@@ -632,6 +526,7 @@ function persist(){
       localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(dash));
     }
   }catch{}
+  Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
 function formatLocation(){

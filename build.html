@@ -318,79 +318,9 @@
   }
 
 </style>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script>
-window.DEERCAMP_FIREBASE_CONFIG = window.DEERCAMP_FIREBASE_CONFIG || window.FIREBASE_CONFIG || null;
-window.DeerCampCloud = window.DeerCampCloud || (() => {
-  let db = null;
-  let readyPromise = null;
-
-  async function ensureReady() {
-    if (db) return db;
-    if (readyPromise) return readyPromise;
-
-    readyPromise = new Promise((resolve) => {
-      try {
-        const config = window.DEERCAMP_FIREBASE_CONFIG;
-        if (!config || !config.apiKey || !config.projectId || !window.firebase || !firebase.firestore) {
-          console.warn("DeerCamp Firebase config missing. Falling back to localStorage.");
-          resolve(null);
-          return;
-        }
-
-        if (!firebase.apps.length) {
-          firebase.initializeApp(config);
-        }
-
-        db = firebase.firestore();
-        resolve(db);
-      } catch (error) {
-        console.warn("DeerCamp Firebase init failed. Falling back to localStorage.", error);
-        resolve(null);
-      }
-    });
-
-    return readyPromise;
-  }
-
-  async function getCamp(campId) {
-    const cleanCampId = String(campId || "").trim();
-    if (!cleanCampId) return null;
-    const firestoreDb = await ensureReady();
-    if (!firestoreDb) return null;
-    try {
-      const snapshot = await firestoreDb.collection("camps").doc(cleanCampId).get();
-      return snapshot.exists ? snapshot.data() : null;
-    } catch (error) {
-      console.warn("Could not load camp from Firebase.", error);
-      return null;
-    }
-  }
-
-  async function saveCamp(campId, data) {
-    const cleanCampId = String(campId || "").trim();
-    if (!cleanCampId || !data || typeof data !== "object") return false;
-    const firestoreDb = await ensureReady();
-    if (!firestoreDb) return false;
-    try {
-      await firestoreDb.collection("camps").doc(cleanCampId).set({
-        ...data,
-        campId: cleanCampId,
-        updatedAtClient: new Date().toISOString()
-      }, { merge: true });
-      return true;
-    } catch (error) {
-      console.warn("Could not save camp to Firebase.", error);
-      return false;
-    }
-  }
-
-  return { ensureReady, getCamp, saveCamp };
-})();
-</script>
-
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="firebase-web.js"></script>
 </head>
 
 <body>
@@ -2153,7 +2083,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   try {
     await DeerCampCloud.saveCamp(campId, campData);
   } catch (error) {
-    console.warn('Firebase camp save skipped.', error);
+    console.warn("Firebase camp save skipped.", error);
   }
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
