@@ -73,6 +73,27 @@
         console.warn("Could not cache Firestore camp locally.", error);
       }
       return cloud;
+    },
+
+    subscribeToCamp(campId, onData) {
+      const cleanCampId = String(campId || "").trim();
+      if (!cleanCampId || typeof onData !== "function") return () => {};
+      const db = this.ensureReady();
+      if (!db) return () => {};
+
+      try {
+        return db.collection("camps").doc(cleanCampId).onSnapshot((snap) => {
+          if (!snap || !snap.exists) return;
+          const payload = snap.data();
+          if (!payload || typeof payload !== "object") return;
+          onData(payload);
+        }, (error) => {
+          console.warn("Realtime Firestore subscription failed.", error);
+        });
+      } catch (error) {
+        console.warn("Could not subscribe to Firestore camp.", error);
+        return () => {};
+      }
     }
   };
 
