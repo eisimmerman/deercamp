@@ -318,8 +318,7 @@
   }
 
 </style>
-<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+
 <script src="firebase-web.js"></script>
 </head>
 
@@ -2078,13 +2077,9 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     localStorage.setItem(scopedDashboardSlimKey, JSON.stringify(initialDashboardSlim));
   }
 
-  incrementCreatedCampCounter(campId);
+  Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(campId, campData)).catch(() => {});
 
-  try {
-    await DeerCampCloud.saveCamp(campId, campData);
-  } catch (error) {
-    console.warn("Firebase camp save skipped.", error);
-  }
+  incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
   const welcomePayload = {
