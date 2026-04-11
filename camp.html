@@ -386,7 +386,7 @@ data.campId = activeCampId;
 const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campmaps:false
 }, data.enabledSections || {});
-const selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
+let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
 let calendarEvents = (Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
@@ -1307,6 +1307,99 @@ if(document.getElementById('calendarPrev')){
     calendarEvents = normalizeCalendarEvents(calendarEvents); populateCalendarGrid(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
   });
 }
+
+function buildCampRefreshSnapshot(payload = {}){
+  return JSON.stringify({
+    selectedRecipeIds: Array.isArray(payload.selectedRecipeIds) ? payload.selectedRecipeIds : [],
+    contentSubmissions: Array.isArray(payload.contentSubmissions) ? payload.contentSubmissions : [],
+    calendarEvents: Array.isArray(payload.calendarEvents) ? payload.calendarEvents : (Array.isArray(payload.events) ? payload.events : []),
+    recipeObjects: Array.isArray(payload.recipeObjects) ? payload.recipeObjects : [],
+    traditions: Array.isArray(payload.traditions) ? payload.traditions : [],
+    feedComments: payload.feedComments && typeof payload.feedComments === "object" ? payload.feedComments : {},
+    feedEntries: Array.isArray(payload.feedEntries) ? payload.feedEntries : [],
+    campPhotoGallery: Array.isArray(payload.campPhotoGallery) ? payload.campPhotoGallery : [],
+    memberProfiles: Array.isArray(payload.memberProfiles) ? payload.memberProfiles : [],
+    members: Array.isArray(payload.members) ? payload.members : [],
+    campMembers: Array.isArray(payload.campMembers) ? payload.campMembers : []
+  });
+}
+
+let lastCampRefreshSnapshot = buildCampRefreshSnapshot(data);
+
+function replaceArrayContents(target, nextItems){
+  target.length = 0;
+  (Array.isArray(nextItems) ? nextItems : []).forEach(item => target.push(item));
+}
+
+async function pullLatestCampDataSilently(){
+  try{
+    const cloudData = await hydrateCampFromCloud(activeCampId);
+    if(!cloudData || typeof cloudData !== "object") return;
+
+    const nextScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+    const nextLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+    const nextData = Object.keys(nextScoped).length ? nextScoped : nextLegacy;
+    if(!nextData || typeof nextData !== "object") return;
+
+    const nextSnapshot = buildCampRefreshSnapshot(nextData);
+    if(nextSnapshot === lastCampRefreshSnapshot) return;
+
+    Object.keys(data).forEach(key => { delete data[key]; });
+    Object.assign(data, nextData, { campId: activeCampId });
+
+    selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
+    contentSubmissions = normalizeContentSubmissions(Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [], Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events) ? data.events : []));
+    feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
+    calendarEvents = normalizeCalendarEvents((Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
+      date:String(e.date||"").trim(),
+      title:String(e.title||"Camp Event").trim(),
+      member:String(e.member||"").trim(),
+      description:String(e.description||"").trim(),
+      icon:String(e.icon||"").trim(),
+      source:String(e.source||"").trim()
+    })).filter(e=>e.date && e.title));
+    customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).filter(item => {
+      if(!item || typeof item !== "object") return false;
+      const id = String(item.id || "").trim();
+      return Boolean(item.custom) || /^recipe-/.test(id);
+    });
+    traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
+    feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
+    campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+    feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
+    campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
+
+    document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
+    document.getElementById("campLocation").textContent = formatLocation();
+    const nextHeroPath = resolveHeroPath();
+    document.getElementById("heroImage").style.setProperty("--hero-image", `url('${nextHeroPath}')`);
+    document.getElementById("heroMainImage").src = nextHeroPath;
+
+    renderMenu();
+    populateMemberSelects();
+    renderFeed();
+    recentUpdatesOffset = 0;
+    renderRecentUpdates();
+    renderCampMembersSection();
+    renderTraditions();
+    renderRecipes();
+    populateCalendarGrid();
+    calendarEventsOffset = 0;
+    renderCalendarEvents();
+    updateSelectedDateChip();
+
+    lastCampRefreshSnapshot = nextSnapshot;
+  }catch(error){
+    console.warn("Silent camp refresh skipped.", error);
+  }
+}
+
+setInterval(() => {
+  if(document.hidden) return;
+  if(document.body.classList.contains("modal-open")) return;
+  pullLatestCampDataSilently();
+}, 10000);
+
 renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes();
 })();
 </script>
