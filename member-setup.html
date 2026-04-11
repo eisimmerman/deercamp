@@ -735,10 +735,15 @@
         const personEmail = normalizeInviteEmail(String(person?.email || '').trim()).toLowerCase();
         const personName = String(person?.name || '').trim().toLowerCase();
         const personToken = String(person?.inviteToken || '').trim();
+        const personCampId = String(person?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
+        const matchesToken = inviteTokenParam && personToken && personToken === inviteTokenParam;
         const matchesEmail = emailParam && personEmail === emailParam.toLowerCase();
         const matchesName = nameParam && personName === nameParam.toLowerCase();
-        const matchesToken = inviteTokenParam && personToken && personToken === inviteTokenParam;
-        return matchesToken || matchesEmail || matchesName;
+        if (!matchesToken) return false;
+        if (campIdParam && personCampId && personCampId !== campIdParam) return false;
+        if (emailParam && personEmail && !matchesEmail) return false;
+        if (nameParam && personName && !matchesName) return false;
+        return true;
       });
 
       return {
@@ -1049,46 +1054,41 @@
     function validateInviteOrBlock() {
       const invite = getInviteContext();
       const dashboard = getDashboardData();
-      const campData = getCampData();
 
+      const inviteCampId = String(invite.campId || '').trim();
       const inviteEmail = String(invite.email || '').trim().toLowerCase();
       const inviteName = String(invite.name || '').trim().toLowerCase();
       const inviteToken = String(invite.inviteToken || '').trim();
 
-      const dashboardMembers = Array.isArray(dashboard.members) ? dashboard.members : [];
-      const dashboardPeople = Array.isArray(dashboard.people) ? dashboard.people : [];
-      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : [];
-      const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
-
-      const allCandidates = [...dashboardMembers, ...dashboardPeople, ...pendingInvites, ...memberProfiles];
-
-      const match = allCandidates.find(person => {
-        const personEmail = String(person?.email || '').trim().toLowerCase();
-        const personName = String(person?.name || '').trim().toLowerCase();
-        const personToken = String(person?.inviteToken || '').trim();
-
-        const emailMatches = inviteEmail && personEmail === inviteEmail;
-        const nameMatches = inviteName && personName === inviteName;
-        const tokenMatches = inviteToken && personToken && personToken === inviteToken;
-
-        return tokenMatches || emailMatches || nameMatches;
-      });
-
-      if (!match) {
-        if (invite.campId && invite.inviteToken && (invite.email || invite.name)) {
-          return true;
-        }
+      if (!inviteCampId || !inviteToken) {
         alert('This invite is not valid.');
         return false;
       }
 
-      const status = String(match.status || '').trim().toLowerCase();
-      if (status === 'active' && !inviteToken) {
-        alert('This invite has already been used.');
+      const dashboardCampId = String(dashboard?.campId || dashboard?.camp?.campId || '').trim();
+      if (dashboardCampId && dashboardCampId !== inviteCampId) {
+        alert('This invite does not belong to this camp.');
         return false;
       }
 
-      if (status === 'active' && inviteToken && String(match.inviteToken || '').trim() === inviteToken) {
+      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : [];
+      const matchedPendingInvite = pendingInvites.find(entry => {
+        const entryToken = String(entry?.inviteToken || '').trim();
+        const entryEmail = String(entry?.email || '').trim().toLowerCase();
+        const entryName = String(entry?.name || '').trim().toLowerCase();
+        if (!entryToken || entryToken !== inviteToken) return false;
+        if (inviteEmail && entryEmail && entryEmail !== inviteEmail) return false;
+        if (inviteName && entryName && entryName !== inviteName) return false;
+        return true;
+      });
+
+      if (!matchedPendingInvite) {
+        alert('This invite is not valid.');
+        return false;
+      }
+
+      const pendingStatus = String(matchedPendingInvite.status || '').trim().toLowerCase();
+      if (pendingStatus === 'accepted' || pendingStatus === 'active') {
         alert('This invite has already been used.');
         return false;
       }
@@ -1144,6 +1144,8 @@
         role: 'Camp Member',
         roleLine: member.roleLine || 'Camp Member',
         status: 'Active',
+        pendingInvite: false,
+        inviteToken: String(invite.inviteToken || '').trim(),
         email: member.email,
         phone: member.phone,
         yearJoined: member.yearJoined,
@@ -1171,13 +1173,17 @@
       }
 
       const pendingInvites = Array.isArray(dashboard.pendingInvites) ? [...dashboard.pendingInvites] : [];
-      const updatedPendingInvites = pendingInvites.map(invite => {
-        const inviteEmail = String(invite?.email || '').trim().toLowerCase();
-        const inviteName = String(invite?.name || '').trim().toLowerCase();
-        if ((memberEmailLower && inviteEmail === memberEmailLower) || (memberNameLower && inviteName === memberNameLower)) {
-          return { ...invite, status: 'Accepted' };
+      const activeInviteToken = String(invite.inviteToken || '').trim();
+      const updatedPendingInvites = pendingInvites.map(inviteEntry => {
+        const inviteEmail = String(inviteEntry?.email || '').trim().toLowerCase();
+        const inviteName = String(inviteEntry?.name || '').trim().toLowerCase();
+        const inviteToken = String(inviteEntry?.inviteToken || '').trim();
+        const matchesToken = activeInviteToken && inviteToken && inviteToken === activeInviteToken;
+        const matchesIdentity = (memberEmailLower && inviteEmail === memberEmailLower) || (memberNameLower && inviteName === memberNameLower);
+        if (matchesToken || (!activeInviteToken && matchesIdentity)) {
+          return { ...inviteEntry, status: 'Accepted', pendingInvite: false, acceptedAt: new Date().toISOString() };
         }
-        return invite;
+        return inviteEntry;
       });
 
       const updatedDashboard = {
