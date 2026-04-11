@@ -352,6 +352,48 @@
 <script src="firebase-web.js"></script>
 </head>
 <body>
+  <div id="inviteStatusScreen" style="display:none;">
+    <div style="
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+      padding:24px;
+    ">
+      <div style="
+        width:min(460px,100%);
+        background:rgba(247,241,231,0.96);
+        border:1px solid rgba(69,42,22,0.12);
+        border-radius:22px;
+        padding:32px 26px;
+        text-align:center;
+        box-shadow:0 10px 28px rgba(0,0,0,0.12);
+      ">
+        <div style="
+          width:72px;
+          height:72px;
+          margin:0 auto 16px;
+          border-radius:18px;
+          display:grid;
+          place-items:center;
+          background:rgba(106,68,39,0.1);
+          overflow:hidden;
+        ">
+          <img src="assets/images/deer-track.png" alt="DeerCamp" style="width:100%;height:100%;object-fit:contain;display:block;" onerror="this.src='assets/branding/deer-track.png'" />
+        </div>
+        <p style="margin:0 0 8px;color:#6b5644;font-size:0.88rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">DeerCamp Invite</p>
+        <h1 id="inviteStatusTitle" style="margin:0 0 12px;color:#452a16;font-size:1.9rem;">Invite Issue</h1>
+        <p id="inviteStatusMessage" style="margin:0;color:#6b5644;line-height:1.6;"></p>
+        <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px;">
+          <a href="index.html" class="btn btn-primary">Return to DeerCamp</a>
+          <button type="button" onclick="history.back()" class="btn btn-secondary">Go Back</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="shell">
     <aside class="sidebar">
       <div class="brand">
@@ -1051,6 +1093,24 @@
       return true;
     }
 
+    function showInviteStatus(type) {
+      const screen = document.getElementById('inviteStatusScreen');
+      if (!screen) return;
+      document.body.innerHTML = screen.outerHTML;
+
+      const title = document.getElementById('inviteStatusTitle');
+      const message = document.getElementById('inviteStatusMessage');
+
+      if (type === 'used') {
+        title.textContent = 'Invite Already Used';
+        message.textContent = 'This DeerCamp invite has already been used to join the camp.';
+        return;
+      }
+
+      title.textContent = 'Invalid Invite';
+      message.textContent = 'This invite link is not valid or does not belong to this camp.';
+    }
+
     function validateInviteOrBlock() {
       const invite = getInviteContext();
       const dashboard = getDashboardData();
@@ -1061,13 +1121,13 @@
       const inviteToken = String(invite.inviteToken || '').trim();
 
       if (!inviteCampId || !inviteToken) {
-        alert('This invite is not valid.');
+        showInviteStatus('invalid');
         return false;
       }
 
       const dashboardCampId = String(dashboard?.campId || dashboard?.camp?.campId || '').trim();
       if (dashboardCampId && dashboardCampId !== inviteCampId) {
-        alert('This invite does not belong to this camp.');
+        showInviteStatus('invalid');
         return false;
       }
 
@@ -1083,13 +1143,13 @@
       });
 
       if (!matchedPendingInvite) {
-        alert('This invite is not valid.');
+        showInviteStatus('invalid');
         return false;
       }
 
       const pendingStatus = String(matchedPendingInvite.status || '').trim().toLowerCase();
       if (pendingStatus === 'accepted' || pendingStatus === 'active') {
-        alert('This invite has already been used.');
+        showInviteStatus('used');
         return false;
       }
 
