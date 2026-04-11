@@ -347,6 +347,79 @@
       .member-card-preview .avatar { margin: 0 auto; }
     }
   </style>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+window.DEERCAMP_FIREBASE_CONFIG = window.DEERCAMP_FIREBASE_CONFIG || window.FIREBASE_CONFIG || null;
+window.DeerCampCloud = window.DeerCampCloud || (() => {
+  let db = null;
+  let readyPromise = null;
+
+  async function ensureReady() {
+    if (db) return db;
+    if (readyPromise) return readyPromise;
+
+    readyPromise = new Promise((resolve) => {
+      try {
+        const config = window.DEERCAMP_FIREBASE_CONFIG;
+        if (!config || !config.apiKey || !config.projectId || !window.firebase || !firebase.firestore) {
+          console.warn("DeerCamp Firebase config missing. Falling back to localStorage.");
+          resolve(null);
+          return;
+        }
+
+        if (!firebase.apps.length) {
+          firebase.initializeApp(config);
+        }
+
+        db = firebase.firestore();
+        resolve(db);
+      } catch (error) {
+        console.warn("DeerCamp Firebase init failed. Falling back to localStorage.", error);
+        resolve(null);
+      }
+    });
+
+    return readyPromise;
+  }
+
+  async function getCamp(campId) {
+    const cleanCampId = String(campId || "").trim();
+    if (!cleanCampId) return null;
+    const firestoreDb = await ensureReady();
+    if (!firestoreDb) return null;
+    try {
+      const snapshot = await firestoreDb.collection("camps").doc(cleanCampId).get();
+      return snapshot.exists ? snapshot.data() : null;
+    } catch (error) {
+      console.warn("Could not load camp from Firebase.", error);
+      return null;
+    }
+  }
+
+  async function saveCamp(campId, data) {
+    const cleanCampId = String(campId || "").trim();
+    if (!cleanCampId || !data || typeof data !== "object") return false;
+    const firestoreDb = await ensureReady();
+    if (!firestoreDb) return false;
+    try {
+      await firestoreDb.collection("camps").doc(cleanCampId).set({
+        ...data,
+        campId: cleanCampId,
+        updatedAtClient: new Date().toISOString()
+      }, { merge: true });
+      return true;
+    } catch (error) {
+      console.warn("Could not save camp to Firebase.", error);
+      return false;
+    }
+  }
+
+  return { ensureReady, getCamp, saveCamp };
+})();
+</script>
+
 </head>
 <body>
   <div class="shell">
@@ -693,6 +766,26 @@
       if (slim && Object.keys(slim).length && (!slim.campId || String(slim.campId).trim() === campId)) return slim;
       if (legacy && Object.keys(legacy).length && (!legacy.camp?.campId || String(legacy.camp.campId).trim() === campId)) return legacy;
       return {};
+    }
+
+
+    async function hydrateCampFromCloud(campId) {
+      const cleanCampId = String(campId || '').trim();
+      if (!cleanCampId) return null;
+
+      try {
+        const cloudCamp = await DeerCampCloud.getCamp(cleanCampId);
+        if (!cloudCamp || typeof cloudCamp !== 'object') return null;
+
+        const scopedCampKey = campScopeKey(cleanCampId, 'campData');
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(cloudCamp));
+        if (scopedCampKey) localStorage.setItem(scopedCampKey, JSON.stringify(cloudCamp));
+
+        return cloudCamp;
+      } catch (error) {
+        console.warn('Cloud hydration skipped for member setup.', error);
+        return null;
+      }
     }
 
     function getInviteContext() {
@@ -1068,10 +1161,12 @@
       return true;
     }
 
-    function mergeMemberIntoData() {
+    async function mergeMemberIntoData() {
       syncStateFromForm();
 
-      const campData = getCampData();
+      const invite = getInviteContext();
+      const cloudCampData = await hydrateCampFromCloud(invite.campId);
+      const campData = cloudCampData && typeof cloudCampData === 'object' ? cloudCampData : getCampData();
       const dashboard = getDashboardData();
       const member = { ...state.member };
       const memberEmailLower = String(member.email || '').trim().toLowerCase();
@@ -1098,7 +1193,6 @@
         memberProfiles
       };
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
-      const invite = getInviteContext();
       const scopedCampKey = campScopeKey(invite.campId || updatedCampData.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
       if (scopedCampKey) localStorage.setItem(scopedCampKey, JSON.stringify(updatedCampData));
 
@@ -1170,6 +1264,13 @@
       const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
       if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
       localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
+
+      try {
+        await DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData);
+      } catch (error) {
+        console.warn('Cloud save skipped for joined member.', error);
+      }
+
       localStorage.removeItem(WIZARD_KEY);
     }
 
@@ -1208,7 +1309,7 @@
       if (!validateInviteOrBlock()) return;
 
       const invite = getInviteContext();
-      mergeMemberIntoData();
+      await mergeMemberIntoData();
       const finalCampId =
         invite.campId ||
         getCampData().campId ||
