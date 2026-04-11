@@ -377,7 +377,6 @@ const data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy 
 data.campId = activeCampId;
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 hydrateCampFromCloud(activeCampId);
-subscribeToCampRealtime();
 
 const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campmaps:false
@@ -655,39 +654,6 @@ if(additionalMembers.length && membersRowWrap){
 closeMembersSheetBtn?.addEventListener("click", closeMembersSheet);
 membersSheetBackdrop?.addEventListener("click", closeMembersSheet);
 
-let cloudUnsubscribe = null;
-function subscribeToCampRealtime(){
-  if(!window.DeerCampCloud || !activeCampId) return;
-  if(cloudUnsubscribe){
-    try{ cloudUnsubscribe(); }catch{}
-    cloudUnsubscribe = null;
-  }
-  try{
-    cloudUnsubscribe = DeerCampCloud.subscribeToCamp(activeCampId, (cloudData) => {
-      if(!cloudData || typeof cloudData !== "object") return;
-      try{
-        const nextRaw = JSON.stringify(cloudData);
-        const scopedKey = campScopeKey(activeCampId,"campData");
-        const currentRaw = localStorage.getItem(scopedKey) || localStorage.getItem(CAMP_DATA_KEY) || "";
-        if(nextRaw === currentRaw) return;
-        localStorage.setItem(CAMP_DATA_KEY, nextRaw);
-        localStorage.setItem(scopedKey, nextRaw);
-        localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
-        window.location.reload();
-      }catch(error){
-        console.warn("Realtime camp sync skipped.", error);
-      }
-    });
-  }catch(error){
-    console.warn("Could not subscribe to realtime camp updates.", error);
-  }
-}
-window.addEventListener("beforeunload", () => {
-  if(cloudUnsubscribe){
-    try{ cloudUnsubscribe(); }catch{}
-    cloudUnsubscribe = null;
-  }
-});
 
 const menu=document.getElementById("menu"), menuToggle=document.getElementById("menuToggle");
 menuToggle.addEventListener("click",()=>menu.classList.toggle("open"));
