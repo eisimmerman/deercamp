@@ -369,14 +369,19 @@ async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"")
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
+let data = {};
+const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
+const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
+
+(async function(){
+localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+await hydrateCampFromCloud(activeCampId);
+
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
-const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || legacy.campId || "ourdeercamp").trim();
 let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
 let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
-const data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
+data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
-localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
-hydrateCampFromCloud(activeCampId);
 
 const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campmaps:false
@@ -1307,6 +1312,7 @@ if(document.getElementById('calendarPrev')){
   });
 }
 renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes();
+})();
 </script>
 </body>
 </html>
