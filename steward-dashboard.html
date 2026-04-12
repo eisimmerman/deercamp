@@ -823,6 +823,13 @@
         ? window.crypto.randomUUID()
         : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
+      member.inviteToken = inviteToken;
+      member.status = "Invite Sent";
+      member.pendingInvite = false;
+      member.inviteSentAt = new Date().toISOString();
+      member.inviteError = "";
+      syncCampData();
+
       const response = await fetch("/api/send-member-welcome", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -844,6 +851,10 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.ok) {
+        member.status = "Failed";
+        member.pendingInvite = true;
+        member.inviteError = data.error || "Failed to send invite.";
+        syncCampData();
         throw new Error(data.error || "Failed to send invite.");
       }
       return { data, inviteToken };

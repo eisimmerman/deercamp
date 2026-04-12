@@ -642,7 +642,7 @@
     const DASHBOARD_SLIM_KEY = 'deercamp.stewardDashboardSlim';
     const ACTIVE_CAMP_KEY = 'deercamp.activeCampId';
     const CAMP_SCOPE_PREFIX = 'deercamp.camps.';
-    const WIZARD_KEY = 'deerCampMemberWizard';
+    const WIZARD_KEY_PREFIX = 'deerCampMemberWizard';
     const INVITE_KEY = 'deerCampMemberInvite';
 
     const stepMeta = [
@@ -712,6 +712,23 @@
 
     function currentTimestampLabel() {
       return `Saved ${new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+    }
+
+    function buildWizardStorageKey(invite = {}) {
+      const campId = String(invite?.campId || getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
+      const token = String(invite?.inviteToken || '').trim();
+      const email = normalizeInviteEmail(String(invite?.email || '').trim()).toLowerCase();
+      const name = String(invite?.name || '').trim().toLowerCase();
+      const identity = token || email || name || 'member';
+      return `${WIZARD_KEY_PREFIX}.${campId || 'camp'}.${identity}`;
+    }
+
+    function clearLegacyWizardState() {
+      try {
+        localStorage.removeItem('deerCampMemberWizard');
+      } catch (error) {
+        console.warn('Could not clear legacy member wizard cache.', error);
+      }
     }
 
     function uniqueNames(names) {
@@ -883,12 +900,17 @@
       };
     }
 
+    const inviteContext = getInviteContext();
+    const wizardStorageKey = buildWizardStorageKey(inviteContext);
+
     const defaultState = {
       step: 0,
       member: buildMemberTemplate()
     };
 
-    const savedWizardState = parseJSON(localStorage.getItem(WIZARD_KEY) || 'null', null);
+    clearLegacyWizardState();
+
+    const savedWizardState = parseJSON(localStorage.getItem(wizardStorageKey) || 'null', null);
     const savedResumeStep = savedWizardState && typeof savedWizardState === 'object' && Number.isInteger(savedWizardState.step)
       ? Math.max(0, Math.min(2, savedWizardState.step))
       : 0;
@@ -899,7 +921,12 @@
       if (!saved || typeof saved !== 'object') return { ...defaultState, member: template };
       return {
         step: Number.isInteger(saved.step) ? Math.max(0, Math.min(2, saved.step)) : 0,
-        member: { ...template, ...(saved.member || {}) }
+        member: {
+          ...template,
+          ...(saved.member || {}),
+          name: String(saved?.member?.name || template.name || '').trim() || template.name,
+          email: normalizeInviteEmail(String(saved?.member?.email || template.email || '').trim()) || template.email
+        }
       };
     })();
 
@@ -917,7 +944,7 @@
     }
 
     function persistState(showSavedLabel = false) {
-      localStorage.setItem(WIZARD_KEY, JSON.stringify(state));
+      localStorage.setItem(wizardStorageKey, JSON.stringify(state));
       if (showSavedLabel) setSavePill(currentTimestampLabel());
     }
 
@@ -1098,11 +1125,6 @@
       if (!screen) return;
       document.body.innerHTML = screen.outerHTML;
 
-      const renderedScreen = document.getElementById('inviteStatusScreen');
-      if (renderedScreen) {
-        renderedScreen.style.display = 'block';
-      }
-
       const title = document.getElementById('inviteStatusTitle');
       const message = document.getElementById('inviteStatusMessage');
 
@@ -1119,6 +1141,7 @@
     function validateInviteOrBlock() {
       const invite = getInviteContext();
       const dashboard = getDashboardData();
+      const campData = getCampData();
 
       const inviteCampId = String(invite.campId || '').trim();
       const inviteEmail = String(invite.email || '').trim().toLowerCase();
@@ -1136,23 +1159,31 @@
         return false;
       }
 
-      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : [];
-      const matchedPendingInvite = pendingInvites.find(entry => {
+      const candidateEntries = [
+        ...(Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : []),
+        ...(Array.isArray(dashboard.people) ? dashboard.people : []),
+        ...(Array.isArray(dashboard.members) ? dashboard.members : []),
+        ...(Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [])
+      ];
+
+      const matchedInvite = candidateEntries.find(entry => {
         const entryToken = String(entry?.inviteToken || '').trim();
         const entryEmail = String(entry?.email || '').trim().toLowerCase();
         const entryName = String(entry?.name || '').trim().toLowerCase();
+        const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
         if (!entryToken || entryToken !== inviteToken) return false;
+        if (entryCampId && entryCampId !== inviteCampId) return false;
         if (inviteEmail && entryEmail && entryEmail !== inviteEmail) return false;
         if (inviteName && entryName && entryName !== inviteName) return false;
         return true;
       });
 
-      if (!matchedPendingInvite) {
+      if (!matchedInvite) {
         showInviteStatus('invalid');
         return false;
       }
 
-      const pendingStatus = String(matchedPendingInvite.status || '').trim().toLowerCase();
+      const pendingStatus = String(matchedInvite.status || '').trim().toLowerCase();
       if (pendingStatus === 'accepted' || pendingStatus === 'active') {
         showInviteStatus('used');
         return false;
@@ -1275,7 +1306,7 @@
       } catch (error) {
         console.warn('Cloud save skipped for joined member.', error);
       }
-      localStorage.removeItem(WIZARD_KEY);
+      localStorage.removeItem(wizardStorageKey);
     }
 
     document.getElementById('viewCampBtn').addEventListener('click', () => {
