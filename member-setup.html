@@ -336,6 +336,47 @@
       align-items: center;
     }
 
+
+    .field.required label::after {
+      content: " *";
+      color: #8b2d1d;
+    }
+
+    .field-error {
+      display: none;
+      margin-top: 6px;
+      color: #8b2d1d;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    .field.has-error input,
+    .field.has-error textarea,
+    .field.has-error select {
+      border-color: rgba(139,45,29,0.75);
+      box-shadow: 0 0 0 3px rgba(139,45,29,0.10);
+    }
+
+    .field.has-error .field-error {
+      display: block;
+    }
+
+    .form-alert {
+      display: none;
+      margin: 0 0 18px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(139,45,29,0.18);
+      background: rgba(255,255,255,0.72);
+      color: #8b2d1d;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .form-alert.show {
+      display: block;
+    }
+
     .hidden { display: none !important; }
 
     @media (max-width: 980px) {
@@ -489,49 +530,58 @@
 
         <div class="step-panel" id="step-1">
           <h3>Member Profile</h3>
-          <p class="helper">This is your member card inside DeerCamp. Only your own profile is edited here.</p>
+          <p class="helper">Fields marked with * are required to join camp. Everything else is optional.</p>
+          <div id="profileErrorBox" class="form-alert" aria-live="polite"></div>
           <div class="two-grid">
             <div>
               <div class="form-grid">
-                <div class="field">
+                <div class="field required" id="memberNameField">
                   <label for="memberName">Full name</label>
                   <input id="memberName" placeholder="Bruce Johnson" />
+                  <div class="field-error">Full name is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberNickname">Nickname</label>
                   <input id="memberNickname" placeholder="Buckshot" />
                 </div>
-                <div class="field">
+                <div class="field required" id="memberEmailField">
                   <label for="memberEmail">Email</label>
                   <input id="memberEmail" type="email" placeholder="member@example.com" />
+                  <div class="field-error">Email is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberPhone">Phone</label>
                   <input id="memberPhone" placeholder="Optional" />
                 </div>
-                <div class="field">
+                <div class="field required" id="memberYearJoinedField">
                   <label for="memberYearJoined">Year joined camp</label>
                   <input id="memberYearJoined" placeholder="2026" />
+                  <div class="field-error">Year joined camp is required.</div>
                 </div>
-                <div class="field">
+                <div class="field required" id="memberFavoriteStandField">
                   <label for="memberFavoriteStand">Favorite stand</label>
                   <input id="memberFavoriteStand" placeholder="North Ridge" />
+                  <div class="field-error">Favorite stand is required.</div>
                 </div>
-                <div class="field">
+                <div class="field required" id="memberFavoriteGearField">
                   <label for="memberFavoriteGear">Favorite rifle / bow</label>
                   <input id="memberFavoriteGear" placeholder=".308 / compound bow" />
+                  <div class="field-error">Favorite rifle / bow is required.</div>
                 </div>
-                <div class="field">
+                <div class="field required" id="memberSpecialtyField">
                   <label for="memberSpecialty">Camp specialty</label>
                   <input id="memberSpecialty" placeholder="Tracking, cooking, stories" />
+                  <div class="field-error">Camp specialty is required.</div>
                 </div>
-                <div class="field span-2">
+                <div class="field span-2 required" id="memberHarvestHighlightField">
                   <label for="memberHarvestHighlight">Harvest highlight</label>
                   <input id="memberHarvestHighlight" placeholder="Best deer or favorite field moment" />
+                  <div class="field-error">Harvest highlight is required.</div>
                 </div>
-                <div class="field span-2">
+                <div class="field span-2 required" id="memberBestMemoryField">
                   <label for="memberBestMemory">Best camp memory</label>
                   <input id="memberBestMemory" placeholder="That one morning when..." />
+                  <div class="field-error">Best camp memory is required.</div>
                 </div>
                 <div class="field span-2">
                   <label for="memberPhoto">Profile photo URL</label>
@@ -1150,20 +1200,53 @@
       renderProfilePreview();
     }
 
+
+    const requiredFieldConfig = [
+      { id: 'memberName', key: 'name', label: 'Full name' },
+      { id: 'memberEmail', key: 'email', label: 'Email' },
+      { id: 'memberYearJoined', key: 'yearJoined', label: 'Year joined camp' },
+      { id: 'memberFavoriteStand', key: 'favoriteStand', label: 'Favorite stand' },
+      { id: 'memberFavoriteGear', key: 'favoriteGear', label: 'Favorite rifle / bow' },
+      { id: 'memberSpecialty', key: 'specialty', label: 'Camp specialty' },
+      { id: 'memberHarvestHighlight', key: 'harvestHighlight', label: 'Harvest highlight' },
+      { id: 'memberBestMemory', key: 'bestCampMemory', label: 'Best camp memory' }
+    ];
+
+    function clearProfileErrors() {
+      document.querySelectorAll('.field.has-error').forEach(node => node.classList.remove('has-error'));
+      const errorBox = document.getElementById('profileErrorBox');
+      if (errorBox) {
+        errorBox.classList.remove('show');
+        errorBox.textContent = '';
+      }
+    }
+
+    function showProfileErrors(missing) {
+      const errorBox = document.getElementById('profileErrorBox');
+      const labels = missing.map(item => item.label);
+      missing.forEach(item => {
+        const input = document.getElementById(item.id);
+        const field = input ? input.closest('.field') : null;
+        if (field) field.classList.add('has-error');
+      });
+      if (errorBox) {
+        errorBox.textContent = `Please complete: ${labels.join(', ')}.`;
+        errorBox.classList.add('show');
+      }
+      const firstInput = missing.length ? document.getElementById(missing[0].id) : null;
+      if (firstInput) {
+        firstInput.focus();
+        firstInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+
     function validateProfileStep() {
       syncStateFromForm();
-      const missing = [];
-      if (!state.member.name) missing.push('Full name');
-      if (!state.member.email) missing.push('Email');
-      if (!state.member.yearJoined) missing.push('Year joined camp');
-      if (!state.member.favoriteStand) missing.push('Favorite stand');
-      if (!state.member.favoriteGear) missing.push('Favorite rifle / bow');
-      if (!state.member.harvestHighlight) missing.push('Harvest highlight');
-      if (!state.member.bestCampMemory) missing.push('Best camp memory');
-      if (!state.member.specialty) missing.push('Camp specialty');
+      clearProfileErrors();
+      const missing = requiredFieldConfig.filter(field => !String(state.member[field.key] || '').trim());
 
       if (missing.length) {
-        alert(`Please complete: ${missing.join(', ')}`);
+        showProfileErrors(missing);
         return false;
       }
       return true;
@@ -1464,16 +1547,43 @@
       'memberNote'
     ];
 
+
+    const profileInputIds = [
+      'memberName',
+      'memberNickname',
+      'memberEmail',
+      'memberPhone',
+      'memberYearJoined',
+      'memberFavoriteStand',
+      'memberFavoriteGear',
+      'memberSpecialty',
+      'memberHarvestHighlight',
+      'memberBestMemory',
+      'memberPhoto'
+    ];
+
+    profileInputIds.forEach(id => {
+      const node = document.getElementById(id);
+      if (!node) return;
+      node.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+        }
+      });
+    });
+
     trackedFields.forEach(id => {
       const node = document.getElementById(id);
       if (!node) return;
       node.addEventListener('input', () => {
         syncStateFromForm();
+        clearProfileErrors();
         persistState(true);
         renderProfilePreview();
       });
       node.addEventListener('change', () => {
         syncStateFromForm();
+        clearProfileErrors();
         persistState(true);
         renderProfilePreview();
       });
