@@ -828,6 +828,36 @@
       const scopedDashboardKey = campScopeKey(invite.campId, 'dashboardSlim');
       const campData = getCampData();
       const dashboard = getDashboardData();
+      const inviteEmail = normalizeInviteEmail(String(invite.email || '').trim());
+      const inviteName = String(invite.name || '').trim();
+      const inviteToken = String(invite.inviteToken || '').trim();
+      const seedInviteEntry = inviteToken ? {
+        id: invite.inviteId || `invite-${inviteToken}`,
+        campId: invite.campId,
+        name: inviteName,
+        email: inviteEmail,
+        role: 'Camp Member',
+        roleLine: 'Camp Member',
+        status: 'Invite Sent',
+        pendingInvite: true,
+        inviteToken,
+        inviteSentAt: new Date().toISOString(),
+        inviteError: ''
+      } : null;
+      const existingProfiles = Array.isArray(campData.memberProfiles) ? [...campData.memberProfiles] : [];
+      const profileIndex = seedInviteEntry ? existingProfiles.findIndex(profile => {
+        const profileToken = String(profile?.inviteToken || '').trim();
+        const profileEmail = normalizeInviteEmail(String(profile?.email || '').trim()).toLowerCase();
+        const profileName = String(profile?.name || '').trim().toLowerCase();
+        return (inviteToken && profileToken === inviteToken) || (inviteEmail && profileEmail === inviteEmail.toLowerCase()) || (inviteName && profileName === inviteName.toLowerCase());
+      }) : -1;
+      if (seedInviteEntry) {
+        if (profileIndex >= 0) {
+          existingProfiles[profileIndex] = { ...existingProfiles[profileIndex], ...seedInviteEntry };
+        } else {
+          existingProfiles.push(seedInviteEntry);
+        }
+      }
       const seededCampData = {
         ...campData,
         campId: invite.campId,
@@ -840,15 +870,31 @@
         hero: invite.campHero || campData.hero || campData.campHero || '',
         stewardName: invite.stewardName || campData.stewardName || campData.steward || 'Camp Steward',
         steward: invite.stewardName || campData.stewardName || campData.steward || 'Camp Steward',
+        memberProfiles: existingProfiles,
         feedEntries: Array.isArray(campData.feedEntries) ? campData.feedEntries : [],
         campPhotoGallery: Array.isArray(campData.campPhotoGallery) ? campData.campPhotoGallery : [],
         traditions: Array.isArray(campData.traditions) ? campData.traditions : [],
         recipeObjects: Array.isArray(campData.recipeObjects) ? campData.recipeObjects : [],
         calendarEvents: Array.isArray(campData.calendarEvents) ? campData.calendarEvents : []
       };
+      const pendingInvites = Array.isArray(dashboard.pendingInvites) ? [...dashboard.pendingInvites] : [];
+      if (seedInviteEntry) {
+        const pendingIndex = pendingInvites.findIndex(entry => {
+          const entryToken = String(entry?.inviteToken || '').trim();
+          const entryEmail = normalizeInviteEmail(String(entry?.email || '').trim()).toLowerCase();
+          const entryName = String(entry?.name || '').trim().toLowerCase();
+          return (inviteToken && entryToken === inviteToken) || (inviteEmail && entryEmail === inviteEmail.toLowerCase()) || (inviteName && entryName === inviteName.toLowerCase());
+        });
+        if (pendingIndex >= 0) {
+          pendingInvites[pendingIndex] = { ...pendingInvites[pendingIndex], ...seedInviteEntry };
+        } else {
+          pendingInvites.push(seedInviteEntry);
+        }
+      }
       const seededDashboard = {
         ...dashboard,
         campId: invite.campId,
+        pendingInvites,
         camp: {
           ...(dashboard.camp || {}),
           campId: invite.campId,
@@ -860,6 +906,9 @@
           hero: invite.campHero || dashboard?.camp?.hero || seededCampData.hero
         }
       };
+      if (seedInviteEntry) {
+        localStorage.setItem(INVITE_KEY, JSON.stringify(seedInviteEntry));
+      }
       localStorage.setItem(ACTIVE_CAMP_KEY, invite.campId);
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(seededCampData));
       localStorage.setItem(scopedCampKey, JSON.stringify(seededCampData));
@@ -1143,8 +1192,13 @@
       message.textContent = 'This invite link is not valid or does not belong to this camp.';
     }
 
-    function validateInviteOrBlock() {
-      const invite = getInviteContext();
+    async function validateInviteOrBlock() {
+      let invite = getInviteContext();
+      if (invite.campId) {
+        await hydrateCampFromCloud(invite.campId);
+        ensureInviteContextSeed();
+        invite = getInviteContext();
+      }
       const dashboard = getDashboardData();
       const campData = getCampData();
 
@@ -1171,9 +1225,9 @@
         ...(Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [])
       ];
 
-      const matchedInvite = candidateEntries.find(entry => {
+      const matchesInvite = (entry = {}) => {
         const entryToken = String(entry?.inviteToken || '').trim();
-        const entryEmail = String(entry?.email || '').trim().toLowerCase();
+        const entryEmail = normalizeInviteEmail(String(entry?.email || '').trim()).toLowerCase();
         const entryName = String(entry?.name || '').trim().toLowerCase();
         const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
         if (!entryToken || entryToken !== inviteToken) return false;
@@ -1181,17 +1235,49 @@
         if (inviteEmail && entryEmail && entryEmail !== inviteEmail) return false;
         if (inviteName && entryName && entryName !== inviteName) return false;
         return true;
-      });
+      };
 
-      if (!matchedInvite) {
-        showInviteStatus('invalid');
+      const matchedInvite = candidateEntries.find(matchesInvite);
+      if (matchedInvite) {
+        const pendingStatus = String(matchedInvite.status || '').trim().toLowerCase();
+        if (pendingStatus === 'accepted' || pendingStatus === 'active') {
+          showInviteStatus('used');
+          return false;
+        }
+        return true;
+      }
+
+      const exactAcceptedMatch = candidateEntries.find(entry => {
+        const entryToken = String(entry?.inviteToken || '').trim();
+        const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
+        const entryStatus = String(entry?.status || '').trim().toLowerCase();
+        if (!entryToken || entryToken !== inviteToken) return false;
+        if (entryCampId && entryCampId !== inviteCampId) return false;
+        return entryStatus === 'accepted' || entryStatus === 'active';
+      });
+      if (exactAcceptedMatch) {
+        showInviteStatus('used');
         return false;
       }
 
-      const pendingStatus = String(matchedInvite.status || '').trim().toLowerCase();
-      if (pendingStatus === 'accepted' || pendingStatus === 'active') {
-        showInviteStatus('used');
-        return false;
+      const urlBackedInvite = {
+        id: invite.inviteId || `invite-${inviteToken}`,
+        campId: inviteCampId,
+        name: String(invite.name || '').trim(),
+        email: normalizeInviteEmail(String(invite.email || '').trim()),
+        role: 'Camp Member',
+        roleLine: 'Camp Member',
+        status: 'Invite Sent',
+        pendingInvite: true,
+        inviteToken,
+        inviteSentAt: new Date().toISOString(),
+        inviteError: ''
+      };
+
+      try {
+        localStorage.setItem(INVITE_KEY, JSON.stringify(urlBackedInvite));
+      } catch (error) {
+        console.warn('Could not cache invite context locally.', error);
       }
 
       return true;
@@ -1346,7 +1432,7 @@
         return;
       }
 
-      if (!validateInviteOrBlock()) return;
+      if (!(await validateInviteOrBlock())) return;
 
       const invite = getInviteContext();
       await mergeMemberIntoData();

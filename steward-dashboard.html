@@ -450,6 +450,23 @@
       return membersOut;
     }
 
+    function purgeMemberEverywhere(target = {}) {
+      const targetRole = String(target.role || '').trim().toLowerCase();
+      const targetEmail = String(target.email || '').trim().toLowerCase();
+      const targetName = String(target.name || '').trim().toLowerCase();
+      state.members = (Array.isArray(state.members) ? state.members : []).filter(member => {
+        const memberRole = String(member.role || '').trim().toLowerCase();
+        if (targetRole === 'camp steward' || memberRole === 'camp steward') {
+          return !(targetRole === 'camp steward' && memberRole === 'camp steward');
+        }
+        const memberEmail = String(member.email || '').trim().toLowerCase();
+        const memberName = String(member.name || '').trim().toLowerCase();
+        const emailMatch = targetEmail && memberEmail && memberEmail === targetEmail;
+        const nameMatch = targetName && memberName && memberName === targetName;
+        return !(emailMatch || nameMatch);
+      });
+    }
+
     function countStewards() {
       return state.members.filter(member => String(member.role || "").toLowerCase() === "camp steward" && String(member.status || "").toLowerCase() !== "removed").length;
     }
@@ -621,6 +638,30 @@
       }));
       const publicMembers = keptMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && isPublicMemberStatus(member.status));
 
+      const nextDashboard = {
+        campId: state.campId,
+        camp: {
+          campId: state.campId,
+          name: state.camp.name,
+          city: state.camp.city,
+          state: state.camp.state,
+          zip: state.camp.zip,
+          established: state.camp.established,
+          summary: sanitizeSummary(state.camp.summary),
+          hero: state.camp.hero,
+          publishState: state.camp.publishState
+        },
+        stewardName: state.stewardName,
+        stewardEmail: state.stewardEmail,
+        sections: Object.assign({}, state.sections),
+        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
+        members: keptMembers.map(member => ({ ...member })),
+        people: keptMembers.map(member => ({ ...member })),
+        pendingInvites: keptMembers
+          .filter(member => String(member.role || '').toLowerCase() !== 'camp steward' && (member.status === 'Ready' || member.status === 'Invite Sent' || member.status === 'Sending' || member.status === 'Failed'))
+          .map(member => ({ ...member }))
+      };
+
       const nextCampData = Object.assign({}, campData, {
         campId: state.campId,
         name: state.camp.name,
@@ -641,37 +682,15 @@
         selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
         members: publicMembers.map(member => member.name),
         campMembers: publicMembers.map(member => member.name),
-        memberProfiles: memberProfilesOut
+        memberProfiles: memberProfilesOut,
+        pendingInvites: nextDashboard.pendingInvites.map(member => ({ ...member })),
+        dashboardMembers: nextDashboard.members.map(member => ({ ...member })),
+        dashboardPeople: nextDashboard.people.map(member => ({ ...member })),
+        dashboardSlim: nextDashboard
       });
 
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
       localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
-
-      const pendingInvites = keptMembers
-        .filter(member => String(member.role || '').toLowerCase() !== 'camp steward' && (member.status === 'Ready' || member.status === 'Invite Sent' || member.status === 'Sending' || member.status === 'Failed'))
-        .map(member => ({ ...member }));
-
-      const nextDashboard = {
-        campId: state.campId,
-        camp: {
-          campId: state.campId,
-          name: state.camp.name,
-          city: state.camp.city,
-          state: state.camp.state,
-          zip: state.camp.zip,
-          established: state.camp.established,
-          summary: sanitizeSummary(state.camp.summary),
-          hero: state.camp.hero,
-          publishState: state.camp.publishState
-        },
-        stewardName: state.stewardName,
-        stewardEmail: state.stewardEmail,
-        sections: Object.assign({}, state.sections),
-        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
-        members: keptMembers.map(member => ({ ...member })),
-        people: keptMembers.map(member => ({ ...member })),
-        pendingInvites
-      };
 
       localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(nextDashboard));
       localStorage.setItem(scopedDashboardKey, JSON.stringify(nextDashboard));
@@ -829,6 +848,14 @@
       member.inviteSentAt = new Date().toISOString();
       member.inviteError = "";
       syncCampData();
+      try {
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+          const latestCampData = JSON.parse(localStorage.getItem(scopedCampDataKey) || localStorage.getItem(CAMP_DATA_KEY) || '{}');
+          await DeerCampCloud.saveCamp(state.campId, latestCampData);
+        }
+      } catch (error) {
+        console.warn('Cloud save before member invite email failed.', error);
+      }
 
       const response = await fetch("/api/send-member-welcome", {
         method: "POST",
@@ -1052,6 +1079,17 @@
         return;
       }
 
+      const stewardEmailLower = String(state.stewardEmail || '').trim().toLowerCase();
+      const emailLower = String(email || '').trim().toLowerCase();
+      const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
+      const editingRole = String(editingMember?.role || '').trim().toLowerCase();
+      if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
+        const noteEl = document.getElementById("memberFormNote");
+        if (noteEl) noteEl.textContent = "Member email cannot match the Camp Steward email.";
+        showToast("Member email cannot match the Camp Steward email.");
+        return;
+      }
+
       if (editIndex !== "") {
         const member = state.members[Number(editIndex)];
         if (!member) return;
@@ -1109,12 +1147,13 @@
       };
       const duplicateIndex = state.members.findIndex(existing => memberIdentityKey(existing) === memberIdentityKey(proposedMember));
       if (duplicateIndex >= 0) {
-        state.members[duplicateIndex] = mergeMemberRecords(state.members[duplicateIndex], proposedMember);
+        purgeMemberEverywhere(state.members[duplicateIndex]);
+        state.members.push(proposedMember);
         syncCampData();
         renderMembers();
         renderPreview();
         resetMemberForm();
-        showToast(`${name} was already in the camp. Existing entry updated.`);
+        showToast(`${name} was already in the camp. Existing entry refreshed.`);
         return;
       }
       state.members.push(proposedMember);
@@ -1190,7 +1229,7 @@
       }
       const confirmed = window.confirm(`Delete ${member.name || "this member"} from this camp?`);
       if (!confirmed) return;
-      state.members.splice(Number(editIndex), 1);
+      purgeMemberEverywhere(member);
       syncCampData();
       renderMembers();
       renderPreview();
