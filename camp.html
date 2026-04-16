@@ -107,7 +107,8 @@
   .list{margin:0;padding-left:18px;line-height:1.45}
   .member-modal-card{position:relative;width:min(760px,calc(100vw - 28px));background:#f7f0e4;border-radius:22px;box-shadow:0 18px 44px rgba(0,0,0,.2);padding:18px;max-height:calc(100vh - var(--header-h) - 36px);overflow:auto}.member-role-block,.member-list-block{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48)}.member-role-label,.member-section-title{margin:0 0 8px;color:#7b5a33;font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.member-role-value{margin:0;color:#3f2a15;font-size:1rem;font-weight:700;line-height:1.35}.member-modal-list{margin:0;padding-left:18px;line-height:1.45}.member-modal-list li+li{margin-top:6px}.member-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.member-detail-card{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}.member-detail-card .member-detail-row{grid-template-columns:minmax(132px,152px) minmax(0,1fr)}
   .member-header{display:flex;gap:12px;margin:0 44px 12px 0;align-items:center}
-  .avatar{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:1rem;font-weight:800}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:1rem;font-weight:800;overflow:hidden;background-size:cover;background-position:center center}
+  .avatar img{display:block;width:100%;height:100%;object-fit:cover}
   .member-section{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}
   .member-detail-row{display:grid;grid-template-columns:minmax(132px,152px) minmax(0,1fr);gap:10px}
   .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
@@ -180,7 +181,11 @@
       pointer-events:none;
     }
     .mobile-top-bar{
-      display:flex;position:absolute;top:12px;left:12px;right:12px;align-items:flex-start;justify-content:space-between;z-index:4;
+      display:flex;position:fixed;top:12px;left:12px;right:12px;align-items:flex-start;justify-content:space-between;z-index:1310;pointer-events:auto;
+    }
+    .mobile-top-bar.scrolled .mobile-pill,
+    .mobile-top-bar.scrolled .mobile-hoof{
+      box-shadow:0 10px 24px rgba(0,0,0,.24);
     }
     .mobile-hoof{
       width:42px;height:42px;border-radius:11px;box-shadow:0 6px 16px rgba(0,0,0,.22);flex:0 0 auto;
@@ -468,7 +473,8 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
     harvestHighlight: String(member.harvestHighlight || "—").trim() || "—",
     bestCampMemory: String(member.bestCampMemory || "—").trim() || "—",
     specialty: String(member.specialty || "—").trim() || "—",
-    note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine
+    note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
+    photo: String(member.photo || member.profilePhoto || member.avatar || "").trim()
   };
 }
 
@@ -761,7 +767,7 @@ function openMembersSheet(){
     const card=document.createElement("button");
     card.type="button";
     card.className="members-section-card";
-    card.innerHTML=`<div class="member-name-row"><span class="camp-member-badge">${esc(initials(member.name))}</span><span>${esc(member.name)}</span></div><p class="member-note">${esc(member.note || member.role || "Camp Member")}</p>`;
+    card.innerHTML=`<div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)}</span></div><p class="member-note">${esc(member.note || member.role || "Camp Member")}</p>`;
     card.addEventListener("click",()=>{
       closeMembersSheet();
       openMemberModal(member);
@@ -799,6 +805,14 @@ membersSheetBackdrop?.addEventListener("click", closeMembersSheet);
 
 const menu=document.getElementById("menu"), menuToggle=document.getElementById("menuToggle");
 const mobileMenuToggle=document.getElementById("mobileMenuToggle");
+const mobileTopBar=document.querySelector(".mobile-top-bar");
+function syncMobileStickyMenu(){
+  if(!mobileTopBar || window.innerWidth > 720) return;
+  mobileTopBar.classList.toggle("scrolled", window.scrollY > 80);
+}
+window.addEventListener("scroll", syncMobileStickyMenu, { passive:true });
+window.addEventListener("resize", syncMobileStickyMenu);
+syncMobileStickyMenu();
 function toggleMenuVisibility(nextState){
   const shouldOpen = typeof nextState === "boolean" ? nextState : !menu.classList.contains("open");
   menu.classList.toggle("open", shouldOpen);
@@ -834,9 +848,16 @@ function renderMemberResponsibilityList(items = []){
   if(!list) return;
   list.innerHTML = (Array.isArray(items) ? items : []).map(item => `<li>${esc(item)}</li>`).join("");
 }
+function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
+  const photo = String(member?.photo || member?.profilePhoto || member?.avatar || "").trim();
+  if(photo){
+    return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}">`;
+  }
+  return esc(initials(member?.name || fallbackLabel));
+}
 function openMemberModal(member){
   const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
-  document.getElementById("memberModalAvatar").textContent=initials(profile.name || profile.role);
+  document.getElementById("memberModalAvatar").innerHTML=renderAvatarMarkup(profile, profile.role || "Camp Member");
   document.getElementById("memberModalName").textContent=profile.name||"Camp Member";
   document.getElementById("memberModalRole").textContent=profile.role||"Camp Member";
   document.getElementById("memberModalRoleLine").textContent=profile.roleLine||profile.note||"Camp member details";
@@ -844,7 +865,7 @@ function openMemberModal(member){
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
   document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
-  document.getElementById("memberModalYearJoined").textContent=profile.yearJoined||"—";
+  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
   document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
