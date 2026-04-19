@@ -18,6 +18,8 @@
   .header-inner{position:relative;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 24px;min-height:92px;background:linear-gradient(180deg, rgba(60,37,18,.18), rgba(60,37,18,.08))}
   .header-left,.header-right{position:absolute;top:12px;flex:0 0 auto}
   .header-left{left:12px}
+  .brand-home-link{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;text-decoration:none;line-height:0}
+  .brand-home-link:focus-visible{outline:3px solid rgba(255,255,255,.92);outline-offset:3px}
   .header-right{right:12px}
   .header-center{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 72px 0}
   .deer-icon{width:48px;height:48px;border-radius:12px}
@@ -28,7 +30,7 @@
   .camp-steward .camp-member-link{background:rgba(255,255,255,.9)}
   .camp-members-row{margin-top:8px;min-height:40px}
   .camp-member-link{display:inline-flex;align-items:center;gap:9px;padding:7px 14px 7px 10px;border:1px solid rgba(95,64,33,.18);border-radius:10px;background:rgba(255,255,255,.78);color:#4b3116;font-size:.98rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:pointer}
-  .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;position:relative;overflow:hidden;flex:0 0 28px;width:28px;min-width:28px;max-width:28px;height:28px;min-height:28px;max-height:28px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800;line-height:1}.camp-member-badge img{display:block;width:100%!important;height:100%!important;min-width:100%!important;min-height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:cover;object-position:center center;border-radius:inherit;flex:0 0 100%}
+  .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800}
   .camp-member-role-tag{display:inline-flex;align-items:center;min-height:18px;padding:2px 7px;border-radius:999px;background:rgba(111,77,43,.12);color:#6b4624;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .menu-btn{min-height:40px;padding:0 14px;border-radius:12px;border:0;background:rgba(255,255,255,.9);font-weight:700;color:#4b3116;cursor:pointer}
   .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
@@ -249,7 +251,7 @@
   <div class="mobile-hero-overlay"></div>
 
   <div class="mobile-top-bar">
-    <img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon">
+    <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
@@ -276,7 +278,7 @@
 </section>
 <header class="camp-header">
   <div class="header-inner">
-    <div class="header-left"><img src="assets/branding/deer-track.png" class="deer-icon" alt="DeerCamp icon"></div>
+    <div class="header-left"><a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="deer-icon" alt="DeerCamp icon"></a></div>
     <div class="header-center">
       <div class="camp-title" id="campName"></div>
       <div class="camp-meta" id="campLocation"></div>
@@ -1120,7 +1122,7 @@ function renderCampMembersSection(){
   const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
     {name:String(data.stewardName||data.steward||"Camp Steward"), role:"Camp Steward", email:String(data.stewardEmail||"").trim(), note:"Keeps camp information current and helps guide the full DeerCamp experience."}
   ]).filter(Boolean);
-  grid.innerHTML = members.length ? members.map((member,idx)=>`<button type="button" class="members-section-card" data-member-card="${idx}"><div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name || 'Camp Member')}</span><span>${esc(member.name||'Camp Member')}</span></div><div><span class="camp-member-role-tag">${esc((member.role||'Camp Member').replace(/camp\s+/i,'Camp '))}</span></div><p class="member-note">${esc(member.note || member.email || 'Camp member details available here.')}</p></button>`).join('') : '<p class="empty">No camp members yet.</p>';
+  grid.innerHTML = members.length ? members.map((member,idx)=>`<button type="button" class="members-section-card" data-member-card="${idx}"><div class="member-name-row"><span class="camp-member-badge">${esc(initials(member.name))}</span><span>${esc(member.name||'Camp Member')}</span></div><div><span class="camp-member-role-tag">${esc((member.role||'Camp Member').replace(/camp\s+/i,'Camp '))}</span></div><p class="member-note">${esc(member.note || member.email || 'Camp member details available here.')}</p></button>`).join('') : '<p class="empty">No camp members yet.</p>';
   grid.querySelectorAll('[data-member-card]').forEach(btn=>btn.addEventListener('click',()=>openMemberModal(members[Number(btn.dataset.memberCard)])));
 }
 
