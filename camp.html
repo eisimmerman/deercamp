@@ -107,8 +107,8 @@
   .list{margin:0;padding-left:18px;line-height:1.45}
   .member-modal-card{position:relative;width:min(760px,calc(100vw - 28px));background:#f7f0e4;border-radius:22px;box-shadow:0 18px 44px rgba(0,0,0,.2);padding:18px;max-height:calc(100vh - var(--header-h) - 36px);overflow:auto}.member-role-block,.member-list-block{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48)}.member-role-label,.member-section-title{margin:0 0 8px;color:#7b5a33;font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.member-role-value{margin:0;color:#3f2a15;font-size:1rem;font-weight:700;line-height:1.35}.member-modal-list{margin:0;padding-left:18px;line-height:1.45}.member-modal-list li+li{margin-top:6px}.member-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.member-detail-card{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}.member-detail-card .member-detail-row{grid-template-columns:minmax(132px,152px) minmax(0,1fr)}
   .member-header{display:flex;gap:12px;margin:0 44px 12px 0;align-items:center}
-  .avatar{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:1rem;font-weight:800;overflow:hidden;background-size:cover;background-position:center center}
-  .avatar img{display:block;width:100%;height:100%;object-fit:cover}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;min-width:58px;min-height:58px;flex:0 0 58px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:1rem;font-weight:800;overflow:hidden;background-size:cover;background-position:center center;position:relative;isolation:isolate}
+  .avatar img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;object-position:center center;border-radius:999px;flex:0 0 100%}
   .member-section{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}
   .member-detail-row{display:grid;grid-template-columns:minmax(132px,152px) minmax(0,1fr);gap:10px}
   .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
@@ -133,16 +133,8 @@
   .feed-comments h4{margin:0;color:#452a16}
   .feed-comments-list{display:grid;gap:10px;max-height:180px;overflow:auto}
   .feed-comment{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.52);border:1px solid rgba(69,42,22,.08)}
-  .feed-comment-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
   .feed-comment-meta{margin:0 0 4px;color:#6b4624;font-size:.82rem;font-weight:700}
   .feed-comment-body{margin:0;line-height:1.45}
-  .feed-card-tools,.feed-modal-tools,.feed-comment-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-  .feed-card-tools{margin-top:4px}
-  .feed-modal-tools{margin-top:4px}
-  .btn-danger,.btn-ghost-danger{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(139,45,29,.18);font-weight:800;cursor:pointer}
-  .btn-danger{background:#8b2d1d;color:#fff}
-  .btn-ghost-danger{background:#fff;color:#8b2d1d}
-  .btn-ghost-danger[hidden],.btn-danger[hidden]{display:none !important}
   .feed-comments-form{display:grid;gap:10px}
   .feed-comments-row{display:grid;grid-template-columns:minmax(170px,240px) auto;gap:10px;align-items:start}.feed-comments-row .btn{align-self:start}.feed-comments-text{width:100%;min-height:148px;resize:vertical}
   .feed-comments-empty{color:#6b5644;line-height:1.5}
@@ -334,9 +326,6 @@
           <textarea id="feedCommentText" class="textarea feed-comments-text" placeholder="Add a comment about this post."></textarea>
           <div id="feedCommentFeedback" class="feedback">Comments stay with this camp post.</div>
         </div>
-      </div>
-      <div class="feed-modal-tools">
-        <button type="button" id="feedModalDelete" class="btn-ghost-danger" hidden>Delete Post</button>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button type="button" id="feedModalPrev" class="btn btn-secondary">← Previous</button>
@@ -744,131 +733,6 @@ const membersSheetBackdrop=document.getElementById("membersSheetBackdrop");
 const closeMembersSheetBtn=document.getElementById("closeMembersSheet");
 const stewardMember=roster.find(member=>String(member.role||"").toLowerCase()==="camp steward") || null;
 const additionalMembers=roster.filter(member=>String(member.role||"").toLowerCase()!=="camp steward");
-const MEMBER_INVITE_KEY = "deerCampMemberInvite";
-
-function sameIdentity(a = "", b = ""){
-  return String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
-}
-function getCurrentViewerContext(){
-  const scopedDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
-  const legacyDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
-  const dashboard = (scopedDashboard && typeof scopedDashboard === "object" && Object.keys(scopedDashboard).length) ? scopedDashboard : legacyDashboard;
-  const dashboardCampId = String(dashboard?.campId || dashboard?.camp?.campId || "").trim();
-  const stewardName = String(dashboard?.stewardName || "").trim();
-  const stewardEmail = String(dashboard?.stewardEmail || "").trim();
-
-  if(dashboardCampId && dashboardCampId === activeCampId && (stewardName || stewardEmail)){
-    return {
-      role: "camp steward",
-      name: stewardName || String(data.stewardName || data.steward || "Camp Steward").trim(),
-      email: stewardEmail
-    };
-  }
-
-  const invite = safeParseJson(localStorage.getItem(MEMBER_INVITE_KEY), {});
-  const inviteCampId = String(invite?.campId || "").trim();
-  if(inviteCampId && inviteCampId === activeCampId){
-    return {
-      role: "camp member",
-      name: String(invite?.name || "").trim(),
-      email: String(invite?.email || "").trim()
-    };
-  }
-
-  return {
-    role: "",
-    name: "",
-    email: ""
-  };
-}
-const currentViewer = getCurrentViewerContext();
-
-function isStewardViewer(){
-  return String(currentViewer.role || "").toLowerCase() === "camp steward";
-}
-function isCurrentViewerAuthor(authorName = "", authorEmail = ""){
-  const viewerName = String(currentViewer.name || "").trim();
-  const viewerEmail = String(currentViewer.email || "").trim();
-  if(viewerEmail && authorEmail && sameIdentity(viewerEmail, authorEmail)) return true;
-  if(viewerName && authorName && sameIdentity(viewerName, authorName)) return true;
-  return false;
-}
-function canDeletePost(post){
-  if(!post || typeof post !== "object") return false;
-  if(isStewardViewer()) return true;
-  return isCurrentViewerAuthor(post.author, post.authorEmail);
-}
-function buildCommentKey(comment = {}, index = 0){
-  const explicitId = String(comment.id || "").trim();
-  if(explicitId) return explicitId;
-  return [
-    String(comment.author || "").trim().toLowerCase(),
-    String(comment.text || "").trim(),
-    String(comment.createdAt || "").trim(),
-    String(comment.createdAtMs || index)
-  ].join("|");
-}
-function canDeleteComment(comment){
-  if(!comment || typeof comment !== "object") return false;
-  if(isStewardViewer()) return true;
-  return isCurrentViewerAuthor(comment.author, comment.authorEmail);
-}
-function deleteFeedPostById(postId = ""){
-  const key = String(postId || "").trim();
-  if(!key) return;
-  const target = feedItems.find(item => String(item.id || "").trim() === key);
-  if(!target || !canDeletePost(target)) return;
-  const confirmed = window.confirm("Delete this post? This will remove the picture, caption, and related comments from the camp feed.");
-  if(!confirmed) return;
-
-  feedEntries = feedEntries.filter(entry => String(entry.id || entry.imageRef || "").trim() !== key);
-  campPhotoGallery = campPhotoGallery.filter(entry => String(entry.id || "").trim() !== key);
-  if(feedComments[key]) delete feedComments[key];
-
-  try{
-    persist();
-  }catch(error){
-    console.error("Could not delete post.", error);
-    setFeedCommentFeedback("Post could not be deleted. Please try again.", true);
-    return;
-  }
-
-  renderFeed();
-  recentUpdatesOffset = 0;
-  renderRecentUpdates();
-  setFeedCommentFeedback("Post deleted.");
-  if(modalFeedIndex >= 0){
-    closeFeedModal();
-  }
-}
-function deleteFeedComment(postId = "", commentKey = ""){
-  const key = String(postId || "").trim();
-  if(!key || !Array.isArray(feedComments[key])) return;
-  const comments = feedComments[key];
-  const targetIndex = comments.findIndex((comment, index) => buildCommentKey(comment, index) === commentKey);
-  if(targetIndex < 0) return;
-  const target = comments[targetIndex];
-  if(!canDeleteComment(target)) return;
-  const confirmed = window.confirm("Delete this comment?");
-  if(!confirmed) return;
-
-  comments.splice(targetIndex, 1);
-  if(!comments.length){
-    delete feedComments[key];
-  }
-
-  try{
-    persist();
-  }catch(error){
-    console.error("Could not delete comment.", error);
-    setFeedCommentFeedback("Comment could not be deleted. Please try again.", true);
-    return;
-  }
-
-  renderFeed();
-  renderFeedComments(key);
-  setFeedCommentFeedback("Comment deleted.");
-}
 
 function buildHeaderMemberButton(member, isSteward=false){
   const btn=document.createElement("button"); btn.className="camp-member-link"; btn.type="button";
@@ -986,10 +850,11 @@ function renderMemberResponsibilityList(items = []){
 }
 function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
   const photo = String(member?.photo || member?.profilePhoto || member?.avatar || "").trim();
+  const fallback = esc(initials(member?.name || fallbackLabel));
   if(photo){
-    return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}">`;
+    return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null; this.parentElement.textContent='${fallback}';">`;
   }
-  return esc(initials(member?.name || fallbackLabel));
+  return fallback;
 }
 function openMemberModal(member){
   const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
@@ -1365,27 +1230,8 @@ function renderFeedComments(postId = ''){
   if(!list || !empty || !authorSelect) return;
   const comments = getCommentsForPost(postId);
   const names = roster.map(r=>r.name).filter(Boolean);
-  authorSelect.innerHTML = names.length ? names.map(name => `<option value="${esc(name)}"${sameIdentity(name, currentViewer.name) ? ' selected' : ''}>${esc(name)}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
-  list.innerHTML = '';
-  comments.forEach((comment, index) => {
-    const row = document.createElement('div');
-    row.className = 'feed-comment';
-    const commentKey = buildCommentKey(comment, index);
-    row.innerHTML = `<div class="feed-comment-head"><div><p class="feed-comment-meta">${esc(comment.author || 'Camp Member')} • ${esc(new Date(comment.createdAtMs || Date.now()).toLocaleString())}</p></div><div class="feed-comment-actions"></div></div><p class="feed-comment-body">${esc(comment.text || '')}</p>`;
-    if(canDeleteComment(comment)){
-      const actions = row.querySelector('.feed-comment-actions');
-      const deleteBtn = document.createElement('button');
-      deleteBtn.type = 'button';
-      deleteBtn.className = 'btn-ghost-danger';
-      deleteBtn.textContent = 'Delete Comment';
-      deleteBtn.addEventListener('click', event => {
-        event.stopPropagation();
-        deleteFeedComment(postId, commentKey);
-      });
-      actions.appendChild(deleteBtn);
-    }
-    list.appendChild(row);
-  });
+  authorSelect.innerHTML = names.length ? names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
+  list.innerHTML = comments.map(comment => `<div class="feed-comment"><p class="feed-comment-meta">${esc(comment.author || 'Camp Member')} • ${esc(new Date(comment.createdAtMs || Date.now()).toLocaleString())}</p><p class="feed-comment-body">${esc(comment.text || '')}</p></div>`).join('');
   empty.hidden = comments.length > 0;
 }
 
@@ -1399,9 +1245,7 @@ document.getElementById('feedCommentSubmit')?.addEventListener('click', () => {
     return;
   }
   const next = {
-    id: `comment-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,
     author,
-    authorEmail: sameIdentity(author, currentViewer.name) ? String(currentViewer.email || '').trim() : '',
     text,
     createdAt: new Date().toISOString(),
     createdAtMs: Date.now()
@@ -1430,22 +1274,8 @@ function renderFeed(){
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
     card.innerHTML=`<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>
-      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div><div class="feed-card-tools"><button type="button" class="btn btn-secondary feed-open-btn">Open Post</button>${canDeletePost(entry) ? `<button type="button" class="btn-ghost-danger feed-delete-btn">Delete Post</button>` : ''}</div></div>`;
+      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div><button type="button" class="btn btn-secondary">Open Post</button></div>`;
     card.addEventListener('click',()=>openFeedModal(idx));
-    const openBtn = card.querySelector('.feed-open-btn');
-    if(openBtn){
-      openBtn.addEventListener('click', event => {
-        event.stopPropagation();
-        openFeedModal(idx);
-      });
-    }
-    const deleteBtn = card.querySelector('.feed-delete-btn');
-    if(deleteBtn){
-      deleteBtn.addEventListener('click', event => {
-        event.stopPropagation();
-        deleteFeedPostById(entry.id);
-      });
-    }
     track.appendChild(card);
   });
   const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
@@ -1480,11 +1310,6 @@ function openFeedModal(idx){
   document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
   document.getElementById('feedModalBody').textContent=item.body;
   document.getElementById('feedModalTags').innerHTML=item.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('');
-  const deleteBtn = document.getElementById('feedModalDelete');
-  if(deleteBtn){
-    deleteBtn.hidden = !canDeletePost(item);
-    deleteBtn.onclick = () => deleteFeedPostById(item.id);
-  }
   renderFeedComments(item.id);
   setFeedCommentFeedback('Comments stay with this camp post.');
   document.getElementById('feedModalBackdrop').classList.add('open');
