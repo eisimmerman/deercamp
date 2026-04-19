@@ -28,7 +28,7 @@
   .camp-steward .camp-member-link{background:rgba(255,255,255,.9)}
   .camp-members-row{margin-top:8px;min-height:40px}
   .camp-member-link{display:inline-flex;align-items:center;gap:9px;padding:7px 14px 7px 10px;border:1px solid rgba(95,64,33,.18);border-radius:10px;background:rgba(255,255,255,.78);color:#4b3116;font-size:.98rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:pointer}
-  .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:0 0 28px;border-radius:999px;overflow:hidden;position:relative;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800}.camp-member-badge img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;border-radius:inherit}
+  .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800}
   .camp-member-role-tag{display:inline-flex;align-items:center;min-height:18px;padding:2px 7px;border-radius:999px;background:rgba(111,77,43,.12);color:#6b4624;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .menu-btn{min-height:40px;padding:0 14px;border-radius:12px;border:0;background:rgba(255,255,255,.9);font-weight:700;color:#4b3116;cursor:pointer}
   .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
@@ -1265,10 +1265,34 @@ document.getElementById('feedCommentSubmit')?.addEventListener('click', () => {
     syncFeedButtons();
   }
 });
+function getFeedVisibleCount(){
+  return window.innerWidth<=720 ? 1 : window.innerWidth<=1100 ? 3 : 5;
+}
+function getFeedStep(){
+  const firstCard=document.querySelector('#feedTrack .feed-card');
+  if(!firstCard) return 0;
+  const styles=window.getComputedStyle(firstCard);
+  return firstCard.getBoundingClientRect().width + (parseFloat(styles.marginRight)||0) + 16;
+}
+function syncFeedPositionFromScroll(){
+  const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount');
+  if(!track) return;
+  const visible=getFeedVisibleCount();
+  const max=Math.max(0, feedItems.length - visible);
+  const step=getFeedStep();
+  const rawIndex=step ? Math.round(track.scrollLeft / step) : 0;
+  feedIndex=Math.max(0, Math.min(rawIndex, max));
+  if(count){
+    const start=feedItems.length ? Math.min(feedIndex + 1, feedItems.length) : 0;
+    const end=feedItems.length ? Math.min(feedIndex + visible, feedItems.length) : 0;
+    count.textContent=`Showing ${start}-${end} of ${feedItems.length}`;
+  }
+  syncFeedButtons();
+}
 function renderFeed(){
   const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
   feedItems=normalizePhotoEntries(); track.innerHTML="";
-  if(!feedItems.length){empty.hidden=false; count.textContent='Showing 0 of 0'; syncFeedButtons(); return;}
+  if(!feedItems.length){empty.hidden=false; if(count) count.textContent='Showing 0 of 0'; feedIndex=0; syncFeedButtons(); return;}
   empty.hidden=true;
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
@@ -1277,28 +1301,34 @@ function renderFeed(){
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
-  const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
-  count.textContent=`Showing ${Math.min(visible,feedItems.length)} of ${feedItems.length}`;
   feedIndex=0;
-  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'}); syncFeedButtons(); });
+  track.onscroll=()=>window.requestAnimationFrame(syncFeedPositionFromScroll);
+  requestAnimationFrame(()=>{
+    const trackEl=document.getElementById('feedTrack');
+    if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'});
+    syncFeedPositionFromScroll();
+  });
 }
 function syncFeedButtons(){
   const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
   if(!prev||!next) return;
-  const max=Math.max(0, feedItems.length - (window.innerWidth<=720?1:window.innerWidth<=1100?3:5));
+  const max=Math.max(0, feedItems.length - getFeedVisibleCount());
   prev.disabled=feedIndex<=0; next.disabled=feedIndex>=max;
   const mp=document.getElementById('feedModalPrev'), mn=document.getElementById('feedModalNext');
   if(mp&&mn){mp.disabled=modalFeedIndex<=0; mn.disabled=modalFeedIndex>=feedItems.length-1}
 }
 function goFeed(nextIndex){
   const track=document.getElementById('feedTrack');
-  const visible=window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+  if(!track) return;
+  const visible=getFeedVisibleCount();
   const max=Math.max(0,feedItems.length-visible);
-  feedIndex=Math.max(0,Math.min(nextIndex,max));
-  const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
+  const clampedIndex=Math.max(0,Math.min(nextIndex,max));
+  const target=document.querySelectorAll('#feedTrack .feed-card')[clampedIndex];
   if(track && target){
-    track.scrollTo({left: target.offsetLeft, behavior:'smooth'});
+    track.scrollTo({left: Math.max(0, target.offsetLeft - track.offsetLeft), behavior:'smooth'});
   }
+  feedIndex=clampedIndex;
+  window.setTimeout(syncFeedPositionFromScroll, 220);
   syncFeedButtons();
 }
 function openFeedModal(idx){
