@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeerCamp Scout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+:root {
+  --bark:#1c1208; --wood:#2c1f14; --moss:#3d5c2e; --sage:#6b7c4d;
+  --tan:#c4a97a; --cream:#f0e8d8; --rust:#a0522d; --amber:#d4820a;
+  --blood:#7a1a1a; --sky:#1a4a7a; --panel:rgba(18,10,2,0.96);
+  --teal:#1a6a5a; --purple:#4a2a7a;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'IBM Plex Mono',monospace;background:var(--bark);color:var(--cream);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+
+/* HEADER */
+header{background:linear-gradient(to right,#060302,var(--wood),#060302);border-bottom:2px solid var(--moss);padding:0 12px;height:50px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:1001;overflow-x:auto;}
+header::-webkit-scrollbar{height:0;}
+.logo{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--tan);white-space:nowrap;letter-spacing:1px;flex-shrink:0;}
+.logo em{color:var(--amber);font-style:normal;}
+.logo sup{font-size:.45rem;color:var(--sage);vertical-align:super;}
+.vr{width:1px;height:24px;background:#3a2c1e;flex-shrink:0;}
+.search-wrap{flex:1;min-width:180px;max-width:280px;position:relative;}
+.search-wrap input{width:100%;font-family:'IBM Plex Mono',monospace;font-size:.65rem;background:#140802;border:1px solid #4a3820;border-radius:5px;color:var(--cream);padding:6px 30px 6px 8px;outline:none;transition:border-color .15s;}
+.search-wrap input:focus{border-color:var(--moss);}
+.search-wrap input::placeholder{color:#4a3a20;}
+.sbtn{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sage);cursor:pointer;font-size:.8rem;}
+.sbtn:hover{color:var(--amber);}
+.mode-group{display:flex;gap:3px;background:#140802;border:1px solid #3a2c1e;border-radius:6px;padding:3px;flex-shrink:0;}
+.mode-btn{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border-radius:4px;border:none;cursor:pointer;background:transparent;color:var(--sage);transition:all .15s;white-space:nowrap;}
+.mode-btn:hover{color:var(--tan);background:#3a2c1e;}
+.mode-btn.active{background:var(--moss);color:var(--cream);}
+.mode-btn.active.mr{background:#7a3a0a;}
+.mode-btn.active.md{background:var(--sky);}
+.mode-btn.active.mb{background:var(--purple);}
+.mode-btn.active.mw{background:var(--teal);}
+.mode-btn.active.ma{background:#5a2a0a;}
+.hdr-btn{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
+.hg{background:transparent;color:var(--sage);border:1px solid #3a2c1e;}
+.hg:hover{background:#3a2c1e;color:var(--tan);}
+.hp{background:#2a4a1a;color:var(--cream);border:1px solid var(--moss);}
+.hp:hover{background:var(--moss);}
+.hrec{background:#3a1a4a;color:var(--cream);border:1px solid #7a4aaa;}
+.hrec:hover{background:#5a2a7a;}
+
+
+/* DEERCAMP APP BAR */
+.dc-bar{background:linear-gradient(to right,#050302,#120a04,#050302);border-bottom:1px solid #3a2c1e;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;z-index:1002;}
+.dc-brand{display:flex;align-items:center;gap:10px;min-width:0;}
+.dc-wordmark{font-family:'Playfair Display',serif;font-size:1rem;color:var(--tan);letter-spacing:.5px;white-space:nowrap;}
+.dc-wordmark em{color:var(--amber);font-style:normal;}
+.dc-meta{min-width:0;display:flex;flex-direction:column;gap:2px;}
+.dc-kicker{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);}
+.dc-camp{font-size:.66rem;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw;}
+.dc-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
+.dc-link{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border-radius:5px;text-decoration:none;border:1px solid #3a2c1e;color:var(--sage);background:#140802;white-space:nowrap;}
+.dc-link:hover{background:#2c1f14;color:var(--tan);}
+.dc-link.active{background:var(--moss);border-color:var(--moss);color:var(--cream);}
+@media (max-width: 820px){
+  .dc-bar{flex-direction:column;align-items:flex-start;}
+  .dc-nav{width:100%;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;}
+  .dc-camp{max-width:unset;}
+}
+
+/* MAP */
+#map{flex:1;z-index:1;}
+.leaflet-container{background:#1a2810;}
+.leaflet-control-zoom a{background:var(--wood)!important;color:var(--tan)!important;border-color:var(--moss)!important;font-family:'IBM Plex Mono',monospace!important;}
+.leaflet-control-zoom a:hover{background:var(--moss)!important;}
+.leaflet-control-attribution{background:rgba(18,10,2,.7)!important;color:#4a3a20!important;font-size:8px!important;}
+.leaflet-control-attribution a{color:var(--sage)!important;}
+.leaflet-popup-content-wrapper{background:var(--wood)!important;border:1px solid var(--moss)!important;border-radius:8px!important;color:var(--cream)!important;box-shadow:0 8px 32px rgba(0,0,0,.7)!important;}
+.leaflet-popup-tip{background:var(--wood)!important;}
+.leaflet-popup-content{margin:12px 14px!important;font-family:'IBM Plex Mono',monospace;}
+.pu-name{font-family:'Playfair Display',serif;font-size:.92rem;color:var(--tan);margin-bottom:4px;}
+.pu-type{font-size:.57rem;text-transform:uppercase;letter-spacing:.8px;color:var(--sage);margin-bottom:4px;}
+.pu-notes{font-size:.64rem;color:var(--cream);line-height:1.5;margin-bottom:6px;max-width:210px;}
+.pu-coords{font-size:.55rem;color:#5a7a3a;margin-bottom:5px;}
+.pu-wind{font-size:.6rem;color:#3abba0;margin-bottom:5px;}
+.pu-acreage{font-size:.6rem;color:#c87aff;margin-bottom:5px;}
+.pu-acts{display:flex;gap:5px;flex-wrap:wrap;}
+.pu-btn{font-family:'IBM Plex Mono',monospace;font-size:.57rem;padding:4px 8px;border-radius:4px;border:none;cursor:pointer;text-transform:uppercase;letter-spacing:.4px;font-weight:600;}
+.pu-edit{background:var(--moss);color:var(--cream);}
+.pu-edit:hover{background:var(--sage);}
+.pu-del{background:var(--blood);color:var(--cream);}
+.pu-del:hover{background:#a02020;}
+
+/* STATUS BAR */
+#status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
+
+/* FABs */
+.fab{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:1000;border-radius:20px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.6);display:none;border:none;transition:background .15s;}
+.fab.visible{display:block;}
+#fab-route{background:#7a3a0a;color:var(--cream);border:1px solid #c46a20;}
+#fab-route:hover{background:var(--rust);}
+#fab-drive{background:var(--sky);color:var(--cream);border:1px solid #4a9aff;}
+#fab-drive:hover{background:#2a5a9a;}
+#fab-bound{background:var(--purple);color:var(--cream);border:1px solid #9a6aff;}
+#fab-bound:hover{background:#6a3a9a;}
+
+/* WIND COMPASS */
+#wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
+#wind-compass svg{width:100%;height:100%;}
+
+/* SIDE PANEL */
+.panel-toggle{position:fixed;top:58px;right:0;z-index:950;background:var(--moss);color:var(--cream);border:none;border-radius:6px 0 0 6px;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;}
+.panel-toggle:hover{background:var(--sage);}
+.side-panel{position:fixed;top:50px;right:0;bottom:0;width:268px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
+.side-panel.open{transform:translateX(0);}
+.panel-hdr{padding:10px 12px;border-bottom:1px solid #3a2c1e;display:flex;align-items:center;justify-content:space-between;}
+.panel-hdr-title{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);}
+.panel-close{background:none;border:none;color:var(--sage);cursor:pointer;font-size:.9rem;}
+.panel-close:hover{color:var(--tan);}
+.panel-body{flex:1;overflow-y:auto;padding:6px;}
+.panel-body::-webkit-scrollbar{width:3px;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--moss);border-radius:2px;}
+.panel-section-label{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);padding:8px 4px 3px;}
+.stand-card{background:#221608;border:1px solid #3a2c1e;border-radius:6px;padding:9px 10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s,background .15s;}
+.stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
+.card-name{font-size:.7rem;color:var(--tan);margin-bottom:2px;}
+.card-meta{font-size:.57rem;color:var(--sage);}
+.card-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.5rem;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;}
+.panel-stats{padding:7px 12px;border-top:1px solid #3a2c1e;font-size:.57rem;color:var(--sage);display:flex;gap:10px;flex-wrap:wrap;}
+.panel-stats span{color:var(--tan);}
+
+/* RECOMMENDER PANEL */
+.rec-panel{position:fixed;top:58px;left:0;bottom:0;width:320px;background:var(--panel);border-right:2px solid #7a4aaa;z-index:900;display:flex;flex-direction:column;transform:translateX(-100%);transition:transform .25s ease;}
+.rec-panel.open{transform:translateX(0);}
+.rec-hdr{padding:12px 14px;border-bottom:1px solid #4a2a7a;display:flex;align-items:center;justify-content:space-between;}
+.rec-hdr-title{font-size:.62rem;text-transform:uppercase;letter-spacing:1px;color:#aa7aff;}
+.rec-close{background:none;border:none;color:#7a5aaa;cursor:pointer;font-size:.9rem;}
+.rec-close:hover{color:#aa7aff;}
+.rec-body{flex:1;overflow-y:auto;padding:10px;}
+.rec-body::-webkit-scrollbar{width:3px;}
+.rec-body::-webkit-scrollbar-thumb{background:#7a4aaa;border-radius:2px;}
+.rec-section{font-size:.55rem;text-transform:uppercase;letter-spacing:1px;color:#7a5aaa;margin:10px 0 5px;}
+.rec-card{background:#1e1028;border:1px solid #4a2a7a;border-radius:6px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:border-color .15s;}
+.rec-card:hover{border-color:#9a6aff;}
+.rec-card.top{border-color:#c87aff;background:#221230;}
+.rec-rank{font-size:.55rem;color:#aa7aff;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.rec-name{font-size:.72rem;color:var(--tan);margin-bottom:3px;}
+.rec-score{font-size:.6rem;color:#c87aff;}
+.rec-reason{font-size:.6rem;color:var(--sage);line-height:1.5;margin-top:4px;}
+.rec-wind-sel{background:#1e1028;border:1px solid #4a2a7a;border-radius:6px;padding:10px 12px;margin-bottom:10px;}
+.rec-wind-sel label{font-size:.57rem;text-transform:uppercase;letter-spacing:.6px;color:#7a5aaa;display:block;margin-bottom:6px;}
+.rec-dir-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;}
+.rec-dir-btn{font-family:'IBM Plex Mono',monospace;font-size:.58rem;padding:6px 4px;border-radius:4px;border:1px solid #3a1a6a;background:#140820;color:#7a5aaa;cursor:pointer;text-align:center;transition:all .15s;}
+.rec-dir-btn:hover{border-color:#7a5aaa;color:#aa7aff;}
+.rec-dir-btn.sel{background:#2a1050;border-color:#c87aff;color:#c87aff;}
+.rec-empty{font-size:.62rem;color:#5a3a7a;line-height:1.8;padding:8px 0;}
+.best-card{background:linear-gradient(180deg,#261236,#1e1028);border:1px solid #c87aff;border-radius:10px;padding:12px 13px;margin-bottom:10px;box-shadow:0 10px 24px rgba(0,0,0,.28);}
+.best-kicker{font-size:.53rem;color:#c87aff;text-transform:uppercase;letter-spacing:.8px;margin-bottom:3px;}
+.best-name{font-size:.84rem;color:var(--tan);margin-bottom:4px;}
+.best-score{font-size:.62rem;color:#e3c6ff;margin-bottom:8px;}
+.best-meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.best-chip{font-size:.54rem;padding:3px 6px;border-radius:999px;border:1px solid #5f3d88;color:#d6b8ff;background:#241132;}
+.best-section{font-size:.53rem;color:#8a67ba;text-transform:uppercase;letter-spacing:.7px;margin:8px 0 4px;}
+.best-list{font-size:.6rem;color:var(--cream);line-height:1.6;padding-left:14px;}
+.best-list li{margin-bottom:2px;}
+.best-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+.best-btn{font-family:'IBM Plex Mono',monospace;font-size:.57rem;padding:6px 8px;border-radius:5px;border:1px solid #5f3d88;background:#2a1050;color:#e7d8ff;cursor:pointer;}
+.best-btn:hover{border-color:#c87aff;color:#fff;}
+.rec-inline-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+
+/* MODALS */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:2000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{background:#1a1006;border:2px solid var(--moss);border-radius:12px;width:340px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.9);transform:translateY(8px);transition:transform .2s;max-height:90vh;overflow-y:auto;}
+.modal-overlay.open .modal{transform:translateY(0);}
+.modal h2{font-family:'Playfair Display',serif;color:var(--tan);font-size:1rem;margin-bottom:14px;}
+.fg{margin-bottom:10px;}
+label{display:block;font-size:.55rem;text-transform:uppercase;letter-spacing:.8px;color:var(--sage);margin-bottom:3px;}
+input,select,textarea{width:100%;font-family:'IBM Plex Mono',monospace;font-size:.68rem;background:#140802;border:1px solid #4a3820;border-radius:5px;color:var(--cream);padding:6px 8px;outline:none;transition:border-color .15s;}
+input:focus,select:focus,textarea:focus{border-color:var(--moss);}
+select option{background:#140802;}
+textarea{resize:vertical;min-height:55px;}
+.modal-acts{display:flex;gap:6px;margin-top:14px;justify-content:flex-end;}
+.btn{font-family:'IBM Plex Mono',monospace;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;}
+.btn-p{background:var(--moss);color:var(--cream);}
+.btn-p:hover{background:var(--sage);}
+.btn-c{background:transparent;color:var(--sage);border:1px solid #3a2c1e;}
+.btn-c:hover{background:#3a2c1e;color:var(--tan);}
+.btn-d{background:var(--blood);color:var(--cream);}
+.btn-d:hover{background:#a02020;}
+.wind-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:5px;}
+.wpb{font-family:'IBM Plex Mono',monospace;font-size:.58rem;padding:5px 3px;border-radius:4px;border:1px solid #3a2c1e;background:#140802;color:var(--sage);cursor:pointer;text-align:center;transition:all .15s;}
+.wpb:hover{border-color:var(--sage);color:var(--tan);}
+.wpb.sel{background:#1a4a3a;border-color:#3abba0;color:#3abba0;}
+
+/* ACREAGE RESULT */
+.acreage-result{background:#1a2810;border:1px solid var(--moss);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.68rem;color:#3abba0;display:none;}
+.acreage-result.show{display:block;}
+
+/* PRINT */
+@media print{
+  body{overflow:visible;height:auto;}
+  header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,#wind-compass,.modal-overlay,.print-legend-screen{display:none!important;}
+  #map{height:85vh;page-break-after:avoid;}
+  .leaflet-control-zoom{display:none!important;}
+  #print-header,#print-legend{display:block!important;}
+  #print-legend{page-break-before:avoid;}
+}
+#print-header{display:none;padding:10px 16px 6px;font-family:'Playfair Display',serif;font-size:14px;color:#000;border-bottom:1.5px solid #333;background:#fff;}
+#print-header .ph-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:#555;margin-top:2px;}
+#print-legend{display:none;padding:10px 16px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;}
+#print-legend .pl-title{font-family:'Playfair Display',serif;font-size:11px;font-weight:700;margin-bottom:8px;color:#000;border-bottom:1px solid #ccc;padding-bottom:4px;}
+#print-legend .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 16px;}
+#print-legend .pl-item{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:8.5px;}
+#print-legend .pl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+#print-legend .pl-line{width:20px;height:3px;flex-shrink:0;border-radius:2px;}
+#print-legend .pl-stats{margin-top:8px;padding-top:6px;border-top:1px solid #eee;font-size:8px;color:#555;display:flex;gap:20px;}
+</style>
+</head>
+<body>
+
+<!-- Print header (hidden screen, shown on print) -->
+<div id="print-header">
+  <strong>DeerCamp Scout</strong> — Private Camp Hunt Map &nbsp;|&nbsp; <span id="print-date"></span>
+  <div class="ph-sub" id="print-sub"></div>
+</div>
+
+<div class="dc-bar">
+  <div class="dc-brand">
+    <div class="dc-wordmark">Deer<em>Camp</em></div>
+    <div class="dc-meta">
+      <div class="dc-kicker">Private Camp Tools</div>
+      <div class="dc-camp" id="dc-camp-label">Scout</div>
+    </div>
+  </div>
+  <div class="dc-nav">
+    <a class="dc-link" id="nav-camp" href="#">Camp</a>
+    <a class="dc-link" id="nav-memories" href="#">Memories</a>
+    <a class="dc-link active" id="nav-scout" href="#">Scout</a>
+    <a class="dc-link" id="nav-members" href="#">Members</a>
+  </div>
+</div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">DeerCamp <em>Scout</em> <sup>BETA</sup></div>
+  <div class="vr"></div>
+  <div class="search-wrap">
+    <input type="text" id="search-input" placeholder="Scout address or lat, lng…"/>
+    <button class="sbtn" onclick="doSearch()">🔍</button>
+  </div>
+  <div class="vr"></div>
+  <div class="mode-group">
+    <button class="mode-btn active"  id="mode-view"  onclick="setMode('view')">👁 View</button>
+    <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
+    <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦶 Walk</button>
+    <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚗 Drive</button>
+    <button class="mode-btn mb"     id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
+    <button class="mode-btn mw"     id="mode-wind"  onclick="setMode('wind')">💨 Wind</button>
+    <button class="mode-btn ma"     id="mode-acre"  onclick="setMode('acre')">📐 Acreage</button>
+  </div>
+  <div class="vr"></div>
+  <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
+  <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
+  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
+  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+</header>
+
+<div id="map"></div>
+
+<div id="status-bar">👁 DeerCamp Scout — use the toolbar to build your private hunt map</div>
+
+<button class="fab" id="fab-route" onclick="finishPoly('route')">✓ Finish Walk Route</button>
+<button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Drive Route</button>
+<button class="fab" id="fab-bound" onclick="finishPoly('bound')">✓ Close Boundary</button>
+
+<!-- Wind compass -->
+<div id="wind-compass">
+  <svg id="compass-svg" viewBox="0 0 86 86" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="43" cy="43" r="41" fill="rgba(18,10,2,.82)" stroke="#3d5c2e" stroke-width="1.5"/>
+    <text x="43" y="13" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">N</text>
+    <text x="43" y="79" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">S</text>
+    <text x="76" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">E</text>
+    <text x="10" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">W</text>
+    <circle cx="43" cy="43" r="26" fill="none" stroke="#3a2c1e" stroke-width="1" stroke-dasharray="2 5"/>
+    <text x="43" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="7" fill="#5a4a30" id="compass-label">No Wind</text>
+    <g id="compass-arrow" transform="translate(43,43) rotate(0)">
+      <polygon points="0,-19 4,5 0,1 -4,5" fill="#3abba0" opacity=".9"/>
+      <polygon points="0,19 4,2 0,6 -4,2" fill="#2a8a7a" opacity=".6"/>
+    </g>
+  </svg>
+</div>
+
+<button class="panel-toggle" onclick="togglePanel()">STANDS</button>
+
+<!-- Side panel -->
+<div class="side-panel" id="side-panel">
+  <div class="panel-hdr">
+    <span class="panel-hdr-title">All Features</span>
+    <button class="panel-close" onclick="togglePanel()">✕</button>
+  </div>
+  <div class="panel-body" id="panel-body"></div>
+  <div class="panel-stats">
+    <div>Stands: <span id="st-s">0</span></div>
+    <div>Routes: <span id="st-r">0</span></div>
+    <div>Bounds: <span id="st-b">0</span></div>
+    <div>Acres: <span id="st-a">—</span></div>
+  </div>
+</div>
+
+<!-- Recommender panel -->
+<div class="rec-panel" id="rec-panel">
+  <div class="rec-hdr">
+    <span class="rec-hdr-title">🦌 Best Stand Today</span>
+    <button class="rec-close" onclick="toggleRec()">✕</button>
+  </div>
+  <div class="rec-body">
+    <div class="rec-wind-sel">
+      <label>Today's wind is blowing FROM:</label>
+      <div class="rec-dir-grid" id="rec-dir-grid">
+        <button class="rec-dir-btn" data-dir="N"  onclick="setRecWind('N')">N</button>
+        <button class="rec-dir-btn" data-dir="NE" onclick="setRecWind('NE')">NE</button>
+        <button class="rec-dir-btn" data-dir="E"  onclick="setRecWind('E')">E</button>
+        <button class="rec-dir-btn" data-dir="SE" onclick="setRecWind('SE')">SE</button>
+        <button class="rec-dir-btn" data-dir="S"  onclick="setRecWind('S')">S</button>
+        <button class="rec-dir-btn" data-dir="SW" onclick="setRecWind('SW')">SW</button>
+        <button class="rec-dir-btn" data-dir="W"  onclick="setRecWind('W')">W</button>
+        <button class="rec-dir-btn" data-dir="NW" onclick="setRecWind('NW')">NW</button>
+      </div>
+    </div>
+    <div class="rec-inline-grid">
+      <div class="fg">
+        <label>Hunt Time</label>
+        <select id="rec-time" onchange="setRecTime(this.value)">
+          <option value="morning">Morning</option>
+          <option value="evening">Evening</option>
+          <option value="all-day">All Day</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>Season Phase</label>
+        <select id="rec-season-phase" onchange="setRecSeason(this.value)">
+          <option value="any">Any</option>
+          <option value="early">Early</option>
+          <option value="pre-rut">Pre-Rut</option>
+          <option value="rut">Rut</option>
+          <option value="late">Late</option>
+        </select>
+      </div>
+    </div>
+    <div id="best-stand-card"><div class="rec-empty">Choose today’s wind, hunt time, and season phase to get your best stand.</div></div>
+    <div id="rec-results"><div class="rec-empty">Select today’s hunt conditions above to rank your saved stands.</div></div>
+  </div>
+</div>
+
+<!-- Print legend (hidden on screen, shown on print) -->
+<div id="print-legend">
+  <div class="pl-title">Map Legend</div>
+  <div class="pl-grid" id="pl-grid"></div>
+  <div class="pl-stats" id="pl-stats"></div>
+</div>
+
+<!-- STAND MODAL -->
+<div class="modal-overlay" id="modal-stand">
+  <div class="modal">
+    <h2 id="stand-modal-title">New Stand</h2>
+    <div class="fg"><label>Stand Name</label><input type="text" id="f-name" placeholder="e.g. Big Oak Ridge" maxlength="40"></div>
+    <div class="fg">
+      <label>Type</label>
+      <select id="f-type">
+        <option value="treestand">🌲 Treestand</option>
+        <option value="blind">🏠 Ground Blind</option>
+        <option value="ladder">🪜 Ladder Stand</option>
+        <option value="foodplot">🌾 Food Plot</option>
+        <option value="trailcam">📷 Trail Camera</option>
+        <option value="scrape">🦌 Scrape / Rub</option>
+        <option value="waypoint">📌 Waypoint</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Prevailing Wind at this Stand (blows FROM)</label>
+      <div class="wind-picker" id="stand-wind-picker">
+        <button class="wpb" data-dir="N"  onclick="pickWind('N')">↓ N</button>
+        <button class="wpb" data-dir="NE" onclick="pickWind('NE')">↙ NE</button>
+        <button class="wpb" data-dir="E"  onclick="pickWind('E')">← E</button>
+        <button class="wpb" data-dir="SE" onclick="pickWind('SE')">↖ SE</button>
+        <button class="wpb" data-dir="S"  onclick="pickWind('S')">↑ S</button>
+        <button class="wpb" data-dir="SW" onclick="pickWind('SW')">↗ SW</button>
+        <button class="wpb" data-dir="W"  onclick="pickWind('W')">→ W</button>
+        <button class="wpb" data-dir="NW" onclick="pickWind('NW')">↘ NW</button>
+        <button class="wpb" data-dir=""   onclick="pickWind('')">✕ None</button>
+      </div>
+    </div>
+    <div class="fg"><label>Best Time of Day</label>
+      <select id="f-tod">
+        <option value="">Any</option>
+        <option value="morning">Morning</option>
+        <option value="evening">Evening</option>
+        <option value="all-day">All Day</option>
+      </select>
+    </div>
+    <div class="rec-inline-grid">
+      <div class="fg"><label>Access Rating</label>
+        <select id="f-access">
+          <option value="good">Good</option>
+          <option value="excellent">Excellent</option>
+          <option value="risky">Risky</option>
+        </select>
+      </div>
+      <div class="fg"><label>Pressure</label>
+        <select id="f-pressure">
+          <option value="fresh">Fresh</option>
+          <option value="recently-hunted">Recently Hunted</option>
+          <option value="overused">Overused</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg"><label>Season Phase Fit</label>
+      <select id="f-season-phase">
+        <option value="any">Any</option>
+        <option value="early">Early</option>
+        <option value="pre-rut">Pre-Rut</option>
+        <option value="rut">Rut</option>
+        <option value="late">Late</option>
+      </select>
+    </div>
+    <div class="fg"><label>Notes</label><textarea id="f-notes" placeholder="Approach trail, bait, sightings…"></textarea></div>
+    <div class="fg"><label>Season</label><input type="text" id="f-season" placeholder="e.g. Archery 2024"></div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="closeStandModal()">Cancel</button>
+      <button class="btn btn-d" id="btn-del-stand" style="display:none" onclick="deleteStand()">Delete</button>
+      <button class="btn btn-p" onclick="saveStand()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- POLYLINE MODAL -->
+<div class="modal-overlay" id="modal-poly">
+  <div class="modal">
+    <h2 id="poly-modal-title">Name This Route</h2>
+    <div class="fg"><label>Name</label><input type="text" id="pf-name" placeholder="e.g. North Timber Loop" maxlength="40"></div>
+    <div class="fg"><label>Notes</label><textarea id="pf-notes" placeholder="Best conditions, timing…"></textarea></div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="discardPoly()">Discard</button>
+      <button class="btn btn-p" onclick="savePoly()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- WIND ARROW MODAL -->
+<div class="modal-overlay" id="modal-wind">
+  <div class="modal">
+    <h2>Place Wind Arrow</h2>
+    <div class="fg">
+      <label>Wind blowing TOWARD →</label>
+      <div class="wind-picker" id="arrow-wind-picker">
+        <button class="wpb" data-dir="N"  onclick="pickArrow('N')">↑ N</button>
+        <button class="wpb" data-dir="NE" onclick="pickArrow('NE')">↗ NE</button>
+        <button class="wpb" data-dir="E"  onclick="pickArrow('E')">→ E</button>
+        <button class="wpb" data-dir="SE" onclick="pickArrow('SE')">↘ SE</button>
+        <button class="wpb" data-dir="S"  onclick="pickArrow('S')">↓ S</button>
+        <button class="wpb" data-dir="SW" onclick="pickArrow('SW')">↙ SW</button>
+        <button class="wpb" data-dir="W"  onclick="pickArrow('W')">← W</button>
+        <button class="wpb" data-dir="NW" onclick="pickArrow('NW')">↘ NW</button>
+      </div>
+    </div>
+    <div class="fg"><label>Label (optional)</label><input type="text" id="wf-label" placeholder="e.g. Morning SW Wind" maxlength="30"></div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="closeWindModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveWindArrow()">Place Arrow</button>
+    </div>
+  </div>
+</div>
+
+<!-- ACREAGE MODAL -->
+<div class="modal-overlay" id="modal-acre">
+  <div class="modal">
+    <h2>📐 Acreage Calculator</h2>
+    <p style="font-size:.64rem;color:var(--sage);line-height:1.6;margin-bottom:12px;">
+      Click corners of your parcel on the map to measure area. Close the shape when done.
+    </p>
+    <div class="acreage-result" id="acre-result"></div>
+    <div class="fg">
+      <label>Name This Area (optional)</label>
+      <input type="text" id="af-name" placeholder="e.g. North Field" maxlength="40">
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="discardAcre()">Discard</button>
+      <button class="btn btn-p" id="btn-save-acre" onclick="saveAcre()" disabled style="opacity:.5">Save Area</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+
+const qs = new URLSearchParams(window.location.search);
+const campId = String(qs.get('campId') || localStorage.getItem('deercamp.activeCampId') || 'ourdeercamp').trim();
+function prettyCampName(value){
+  return String(value || '')
+    .replace(/[-_]+/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+const campName = String(qs.get('campName') || qs.get('camp') || prettyCampName(campId) || 'My DeerCamp').trim();
+const scoutStorageKey = `deercamp.scout.${campId}`;
+const legacyScoutStorageKey = 'sse-v4';
+const scoutExportFilename = `deercamp-scout-${campId}.json`;
+function buildCampUrl(page){
+  const u = new URL(page, window.location.href);
+  u.searchParams.set('campId', campId);
+  if (campName) u.searchParams.set('campName', campName);
+  return u.toString();
+}
+function setupDeerCampShell(){
+  document.title = `${campName} | DeerCamp Scout`;
+  const campLabel = document.getElementById('dc-camp-label');
+  if (campLabel) campLabel.textContent = `${campName} · Scout`;
+  const navMap = {
+    'nav-camp':'camp.html',
+    'nav-memories':'camp.html',
+    'nav-scout':'scout.html',
+    'nav-members':'steward-dashboard.html'
+  };
+  Object.entries(navMap).forEach(([id,page])=>{
+    const el=document.getElementById(id);
+    if(el) el.href=buildCampUrl(page);
+  });
+}
+
+const TYPE_CFG = {
+  treestand:{ color:'#a0522d', emoji:'🌲', label:'Treestand' },
+  blind:    { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
+  ladder:   { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
+  foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
+  trailcam: { color:'#5a4a80', emoji:'📷', label:'Trail Cam' },
+  scrape:   { color:'#7a3d1a', emoji:'🦌', label:'Scrape/Rub' },
+  waypoint: { color:'#2a5a7a', emoji:'📌', label:'Waypoint' },
+};
+// Opposite directions for recommender logic
+const OPP = {N:'S',NE:'SW',E:'W',SE:'NW',S:'N',SW:'NE',W:'E',NW:'SE'};
+const TOWARD_DEG = {N:180,NE:225,E:270,SE:315,S:0,SW:45,W:90,NW:135};
+const WIND_DEG   = {N:0,NE:45,E:90,SE:135,S:180,SW:225,W:270,NW:315};
+const ACCESS_LABELS = {excellent:'Excellent',good:'Good',risky:'Risky'};
+const PRESSURE_LABELS = {fresh:'Fresh', 'recently-hunted':'Recently Hunted', overused:'Overused'};
+const SEASON_PHASE_LABELS = {any:'Any', early:'Early', 'pre-rut':'Pre-Rut', rut:'Rut', late:'Late'};
+const TOD_LABELS = {'':'Any', morning:'Morning', evening:'Evening', 'all-day':'All Day'};
+
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[];
+let allLayers={};
+let mode='view', pendingLL=null, editingStandId=null;
+let selWind='', selArrow='N';
+let curPts=[],curPolyType=null,curPolyLine=null;
+let panelOpen=false, recOpen=false;
+let globalWind='', recWind='', recTime='morning', recSeason='any';
+// Acreage
+let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
+
+// ═══════════════════════════════════════════════
+// MAP INIT
+// ═══════════════════════════════════════════════
+const map = L.map('map',{center:[39.5,-98.35],zoom:5});
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
+  attribution:'Tiles © Esri — Maxar, GeoEye, USDA, USGS', maxZoom:19
+}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{
+  attribution:'', maxZoom:19, opacity:0.5
+}).addTo(map);
+
+map.on('click', e=>{
+  if (mode==='stand') { pendingLL=e.latlng; editingStandId=null; openStandModal(); }
+  else if (['route','drive','bound'].includes(mode)) addPolyPt(e.latlng);
+  else if (mode==='wind') { pendingLL=e.latlng; openWindModal(); }
+  else if (mode==='acre') addAcrePt(e.latlng);
+});
+
+// ═══════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════
+function setMode(m) {
+  mode=m;
+  ['view','stand','route','drive','bound','wind','acre'].forEach(id=>document.getElementById('mode-'+id)?.classList.remove('active'));
+  document.getElementById('mode-'+m)?.classList.add('active');
+  const msgs={
+    view:'👁 View — click any feature to see details',
+    stand:'📍 Click the map to drop a stand',
+    route:'🦶 Click points to trace a walk route, then Finish',
+    drive:'🚗 Click points to trace a drive route, then Finish',
+    bound:'🔲 Click corners of property boundary, then Close',
+    wind:'💨 Click map to place a wind arrow',
+    acre:'📐 Click corners to measure acreage, then close shape',
+  };
+  document.getElementById('status-bar').innerHTML=msgs[m]||'';
+  map.getContainer().style.cursor=m==='view'?'':'crosshair';
+  ['fab-route','fab-drive','fab-bound'].forEach(id=>document.getElementById(id).classList.remove('visible'));
+  if (!['route','drive','bound'].includes(m)) {
+    if(curPolyLine){map.removeLayer(curPolyLine);curPolyLine=null;}
+    curPts=[];curPolyType=null;
+  } else { curPts=[];curPolyType=m; }
+  if (m!=='acre') cleanupAcre();
+}
+
+// ═══════════════════════════════════════════════
+// POLYLINES
+// ═══════════════════════════════════════════════
+function polyStyle(t){
+  if(t==='drive') return{color:'#4a9aff',weight:4,opacity:.85};
+  if(t==='bound') return{color:'#c87aff',weight:3,opacity:.9,dashArray:'6,4'};
+  return{color:'#d4820a',weight:4,opacity:.85,dashArray:'9,6'};
+}
+function addPolyPt(ll){
+  curPts.push([ll.lat,ll.lng]);
+  if(curPolyLine) map.removeLayer(curPolyLine);
+  const pts=curPolyType==='bound'&&curPts.length>1?[...curPts,curPts[0]]:curPts;
+  curPolyLine=L.polyline(pts,polyStyle(curPolyType)).addTo(map);
+  const fid=curPolyType==='route'?'fab-route':curPolyType==='drive'?'fab-drive':'fab-bound';
+  if(curPts.length>=2) document.getElementById(fid).classList.add('visible');
+}
+function finishPoly(t){
+  if(curPts.length<2) return;
+  const titles={route:'Name This Walk Route',drive:'Name This Drive Route',bound:'Name This Boundary'};
+  document.getElementById('poly-modal-title').textContent=titles[t];
+  document.getElementById('pf-name').value='';
+  document.getElementById('pf-notes').value='';
+  document.getElementById('modal-poly').classList.add('open');
+}
+function savePoly(){
+  const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':'Unnamed Route');
+  const notes=document.getElementById('pf-notes').value.trim();
+  const id=Date.now(), type=curPolyType;
+  const rec={id,name,notes,type,pts:[...curPts]};
+  if(type==='bound') boundaries.push(rec); else routes.push(rec);
+  const pts=type==='bound'?[...curPts,curPts[0]]:curPts;
+  const layer=L.polyline(pts,polyStyle(type)).addTo(map).bindPopup(polyPopupHTML(rec));
+  allLayers[id]=layer;
+  curPolyLine=null;curPts=[];curPolyType=null;
+  ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
+  document.getElementById('modal-poly').classList.remove('open');
+  saveLocal();renderPanel();setMode('view');
+}
+function discardPoly(){
+  if(curPolyLine){map.removeLayer(curPolyLine);curPolyLine=null;}
+  curPts=[];curPolyType=null;
+  ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
+  document.getElementById('modal-poly').classList.remove('open');
+  setMode('view');
+}
+function polyPopupHTML(r){
+  const icons={route:'🦶',drive:'🚗',bound:'🔲'};
+  const labs={route:'Walk Route',drive:'Drive Route',bound:'Boundary'};
+  return`<div class="pu-name">${icons[r.type]||''} ${r.name}</div>
+<div class="pu-type">${labs[r.type]||r.type}</div>
+${r.notes?`<div class="pu-notes">${r.notes}</div>`:''}
+<div class="pu-acts"><button class="pu-btn pu-del" onclick="deletePoly(${r.id})">Delete</button></div>`;
+}
+function deletePoly(id){
+  if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
+  routes=routes.filter(r=>r.id!==id);
+  boundaries=boundaries.filter(r=>r.id!==id);
+  map.closePopup();saveLocal();renderPanel();
+}
+window.deletePoly=deletePoly;
+
+// ═══════════════════════════════════════════════
+// STANDS
+// ═══════════════════════════════════════════════
+function makeIcon(type){
+  const c=TYPE_CFG[type]||TYPE_CFG.treestand;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
+    <ellipse cx="18" cy="41" rx="6" ry="2.5" fill="rgba(0,0,0,.35)"/>
+    <path d="M18 39 L11 20 Q18 2 25 20 Z" fill="${c.color}" opacity=".85"/>
+    <circle cx="18" cy="17" r="11" fill="${c.color}"/>
+    <circle cx="18" cy="17" r="9"  fill="${c.color}" opacity=".5"/>
+    <text x="18" y="22" text-anchor="middle" font-size="12">${c.emoji}</text>
+  </svg>`;
+  return L.divIcon({html:svg,className:'',iconSize:[36,44],iconAnchor:[18,41],popupAnchor:[0,-38]});
+}
+function standPopupHTML(s){
+  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+  const tod=s.tod?` · ${TOD_LABELS[s.tod]||s.tod}`:'';
+  return`<div class="pu-name">${s.name}</div>
+<div class="pu-type">${c.emoji} ${c.label}${s.season?' · '+s.season:''}${tod}</div>
+${s.wind?`<div class="pu-wind">💨 Best wind from ${s.wind}</div>`:''}
+<div class="pu-notes">Access: ${ACCESS_LABELS[s.access||'good']||'Good'} · Pressure: ${PRESSURE_LABELS[s.pressure||'fresh']||'Fresh'} · Season Fit: ${SEASON_PHASE_LABELS[s.seasonPhase||'any']||'Any'}</div>
+${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
+<div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
+<div class="pu-acts">
+  <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
+  <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
+</div>`;
+}
+function addStandToMap(s){
+  const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s));
+  allLayers[s.id]=m;
+}
+function openStandModal(stand=null){
+  document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
+  document.getElementById('f-name').value=stand?.name||'';
+  document.getElementById('f-type').value=stand?.type||'treestand';
+  document.getElementById('f-notes').value=stand?.notes||'';
+  document.getElementById('f-season').value=stand?.season||'';
+  document.getElementById('f-tod').value=stand?.tod||'';
+  document.getElementById('f-access').value=stand?.access||'good';
+  document.getElementById('f-pressure').value=stand?.pressure||'fresh';
+  document.getElementById('f-season-phase').value=stand?.seasonPhase||'any';
+  selWind=stand?.wind||'';
+  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===selWind));
+  document.getElementById('btn-del-stand').style.display=stand?'inline-flex':'none';
+  document.getElementById('modal-stand').classList.add('open');
+  setTimeout(()=>document.getElementById('f-name').focus(),100);
+}
+function closeStandModal(){
+  document.getElementById('modal-stand').classList.remove('open');
+  pendingLL=null;editingStandId=null;
+}
+function pickWind(d){
+  selWind=d;
+  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
+}
+function saveStand(){
+  const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
+  const type=document.getElementById('f-type').value;
+  const notes=document.getElementById('f-notes').value.trim();
+  const season=document.getElementById('f-season').value.trim();
+  const tod=document.getElementById('f-tod').value;
+  const access=document.getElementById('f-access').value;
+  const pressure=document.getElementById('f-pressure').value;
+  const seasonPhase=document.getElementById('f-season-phase').value;
+  const wind=selWind;
+  if(editingStandId!==null){
+    const s=stands.find(s=>s.id===editingStandId);
+    if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase});
+      allLayers[s.id]?.setIcon(makeIcon(type));
+      allLayers[s.id]?.setPopupContent(standPopupHTML(s));}
+  } else {
+    const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,lat:pendingLL.lat,lng:pendingLL.lng};
+    stands.push(s);addStandToMap(s);
+  }
+  saveLocal();renderPanel();closeStandModal();
+  if(recOpen) runRecommender();
+}
+function editStandById(id){editingStandId=id;const s=stands.find(s=>s.id===id);if(s)openStandModal(s);map.closePopup();}
+window.editStandById=editStandById;
+function deleteStand(){delStandById(editingStandId);closeStandModal();}
+function delStandById(id){
+  if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
+  stands=stands.filter(s=>s.id!==id);
+  map.closePopup();saveLocal();renderPanel();
+  if(recOpen) runRecommender();
+}
+window.delStandById=delStandById;
+
+// ═══════════════════════════════════════════════
+// WIND ARROWS
+// ═══════════════════════════════════════════════
+function openWindModal(){
+  selArrow='N';
+  document.getElementById('wf-label').value='';
+  document.querySelectorAll('#arrow-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir==='N'));
+  document.getElementById('modal-wind').classList.add('open');
+}
+function closeWindModal(){document.getElementById('modal-wind').classList.remove('open');pendingLL=null;}
+function pickArrow(d){selArrow=d;document.querySelectorAll('#arrow-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));}
+function saveWindArrow(){
+  const label=document.getElementById('wf-label').value.trim();
+  const id=Date.now();
+  const wa={id,dir:selArrow,label,lat:pendingLL.lat,lng:pendingLL.lng};
+  windArrows.push(wa);addWindArrowToMap(wa);
+  globalWind=selArrow;updateCompass();
+  saveLocal();renderPanel();
+  document.getElementById('modal-wind').classList.remove('open');
+  pendingLL=null;setMode('view');
+}
+function windArrowSVG(dir){
+  const deg=TOWARD_DEG[dir]||0;
+  return`<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
+    <circle cx="26" cy="26" r="24" fill="rgba(18,10,2,.78)" stroke="#3abba0" stroke-width="1.5"/>
+    <g transform="translate(26,26) rotate(${deg})">
+      <polygon points="0,-18 5,6 0,2 -5,6" fill="#3abba0"/>
+      <polygon points="0,18 4,0 0,4 -4,0" fill="#2a8a7a" opacity=".65"/>
+    </g>
+    <text x="26" y="30" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#3abba0">${dir}</text>
+  </svg>`;
+}
+function addWindArrowToMap(wa){
+  const icon=L.divIcon({html:windArrowSVG(wa.dir),className:'',iconSize:[52,52],iconAnchor:[26,26],popupAnchor:[0,-28]});
+  const m=L.marker([wa.lat,wa.lng],{icon}).addTo(map).bindPopup(
+    `<div class="pu-name">💨 Wind: ${wa.dir}</div>
+${wa.label?`<div class="pu-notes">${wa.label}</div>`:''}
+<div class="pu-coords">📍 ${wa.lat.toFixed(5)}, ${wa.lng.toFixed(5)}</div>
+<div class="pu-acts"><button class="pu-btn pu-del" onclick="delWind(${wa.id})">Delete</button></div>`);
+  allLayers[wa.id]=m;
+}
+function delWind(id){
+  if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
+  windArrows=windArrows.filter(w=>w.id!==id);
+  map.closePopup();saveLocal();renderPanel();
+}
+window.delWind=delWind;
+function updateCompass(){
+  const arrow=document.getElementById('compass-arrow');
+  const label=document.getElementById('compass-label');
+  if(!globalWind){arrow.setAttribute('transform','translate(43,43) rotate(0)');label.textContent='No Wind';return;}
+  arrow.setAttribute('transform',`translate(43,43) rotate(${TOWARD_DEG[globalWind]||0})`);
+  label.textContent=`→${globalWind}`;
+}
+
+// ═══════════════════════════════════════════════
+// ACREAGE CALCULATOR
+// ═══════════════════════════════════════════════
+function addAcrePt(ll){
+  acrePts.push([ll.lat,ll.lng]);
+  if(acrePolyLine) map.removeLayer(acrePolyLine);
+  if(acreFillPoly) map.removeLayer(acreFillPoly);
+  if(acrePts.length<2){
+    acrePolyLine=L.circleMarker(ll,{radius:4,color:'#3abba0',fillColor:'#3abba0',fillOpacity:1}).addTo(map);
+    return;
+  }
+  const closedPts=[...acrePts,acrePts[0]];
+  acrePolyLine=L.polyline(closedPts,{color:'#3abba0',weight:2,dashArray:'5,4'}).addTo(map);
+  if(acrePts.length>=3){
+    acreFillPoly=L.polygon(acrePts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map);
+    acreCalcM2=calcPolygonArea(acrePts);
+    const acres=(acreCalcM2*0.000247105).toFixed(2);
+    const ha=(acreCalcM2/10000).toFixed(2);
+    const res=document.getElementById('acre-result');
+    res.textContent=`📐 ${acres} acres (${ha} ha)`;
+    res.classList.add('show');
+    document.getElementById('btn-save-acre').disabled=false;
+    document.getElementById('btn-save-acre').style.opacity='1';
+    document.getElementById('modal-acre').classList.add('open');
+  }
+}
+function calcPolygonArea(pts){
+  // Shoelace on spherical coords approximation
+  let area=0;
+  const R=6371000;
+  const n=pts.length;
+  for(let i=0;i<n;i++){
+    const j=(i+1)%n;
+    const lat1=pts[i][0]*Math.PI/180, lng1=pts[i][1]*Math.PI/180;
+    const lat2=pts[j][0]*Math.PI/180, lng2=pts[j][1]*Math.PI/180;
+    area+=(lng2-lng1)*(2+Math.sin(lat1)+Math.sin(lat2));
+  }
+  return Math.abs(area*R*R/2);
+}
+function saveAcre(){
+  const name=document.getElementById('af-name').value.trim()||'Measured Area';
+  const acres=(acreCalcM2*0.000247105).toFixed(2);
+  const id=Date.now();
+  const rec={id,name,pts:[...acrePts],acres:parseFloat(acres)};
+  areaPolys.push(rec);
+  // Keep the fill on the map
+  if(acreFillPoly){
+    acreFillPoly.bindPopup(`<div class="pu-name">📐 ${name}</div>
+<div class="pu-notes">${acres} acres</div>
+<div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${id})">Delete</button></div>`);
+    allLayers[id]=acreFillPoly;
+    acreFillPoly=null;
+  }
+  if(acrePolyLine){map.removeLayer(acrePolyLine);acrePolyLine=null;}
+  acrePts=[];acreCalcM2=0;
+  document.getElementById('acre-result').classList.remove('show');
+  document.getElementById('modal-acre').classList.remove('open');
+  saveLocal();renderPanel();setMode('view');
+}
+function discardAcre(){cleanupAcre();document.getElementById('modal-acre').classList.remove('open');setMode('view');}
+function cleanupAcre(){
+  if(acrePolyLine){map.removeLayer(acrePolyLine);acrePolyLine=null;}
+  if(acreFillPoly){map.removeLayer(acreFillPoly);acreFillPoly=null;}
+  acrePts=[];acreCalcM2=0;
+  document.getElementById('acre-result').classList.remove('show');
+  document.getElementById('btn-save-acre').disabled=true;
+  document.getElementById('btn-save-acre').style.opacity='.5';
+}
+function delArea(id){
+  if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
+  areaPolys=areaPolys.filter(a=>a.id!==id);
+  map.closePopup();saveLocal();renderPanel();
+}
+window.delArea=delArea;
+
+// ═══════════════════════════════════════════════
+// STAND RECOMMENDER
+// ═══════════════════════════════════════════════
+function toggleRec(){
+  recOpen=!recOpen;
+  document.getElementById('rec-panel').classList.toggle('open',recOpen);
+  if(recOpen) runRecommender();
+}
+function setRecWind(d){
+  recWind=d;
+  globalWind=d;updateCompass();
+  document.querySelectorAll('#rec-dir-grid .rec-dir-btn').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
+  saveLocal();
+  runRecommender();
+}
+function windDiff(fromDir,standDir){
+  // How many 45° steps apart are the two directions?
+  const dirs=['N','NE','E','SE','S','SW','W','NW'];
+  const a=dirs.indexOf(fromDir), b=dirs.indexOf(standDir);
+  if(a<0||b<0) return 8;
+  const diff=Math.min(Math.abs(a-b),8-Math.abs(a-b));
+  return diff;
+}
+function runRecommender(){
+  const el=document.getElementById('rec-results');
+  if(!stands.length){el.innerHTML='<div class="rec-empty">Add some stands first using 📍 Stand mode.</div>';return;}
+  if(!recWind){el.innerHTML='<div class="rec-empty">Select today\'s wind direction above.</div>';return;}
+
+  const scored=stands.map(s=>{
+    let score=0, reasons=[];
+    // Wind match: stand wind aligns with today's wind (deer scent goes away from stand)
+    if(s.wind){
+      const diff=windDiff(recWind, s.wind);
+      if(diff===0){score+=40;reasons.push('✅ Perfect wind match — your scent blows away from deer');}
+      else if(diff===1){score+=25;reasons.push('✅ Good wind — slightly off ideal');}
+      else if(diff===2){score+=10;reasons.push('⚠️ Marginal wind — partial scent concern');}
+      else if(diff>=3){score-=20;reasons.push('❌ Poor wind — scent likely reaching deer');}
+    } else {
+      score+=5;reasons.push('ℹ️ No wind preference set for this stand');
+    }
+    // Time of day bonus (just general heuristic)
+    if(s.tod==='morning') {score+=8;reasons.push('🌅 Morning stand');}
+    if(s.tod==='evening') {score+=8;reasons.push('🌆 Evening stand');}
+    if(s.tod==='all-day') {score+=12;reasons.push('☀️ All-day stand');}
+    // Type bonus
+    if(s.type==='treestand'){score+=5;reasons.push('🌲 Elevated — scent disperses better');}
+    if(s.type==='foodplot'){score+=3;reasons.push('🌾 Food plot — high deer activity');}
+    return {...s,score,reasons};
+  }).sort((a,b)=>b.score-a.score);
+
+  const best=scored[0].score;
+  let html='';
+  scored.forEach((s,i)=>{
+    const pct=best>0?Math.round((s.score/best)*100):0;
+    const isTop=i===0&&s.score>0;
+    const cfg=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+    const bar=`<div style="height:4px;background:#2a1050;border-radius:2px;margin-top:5px;overflow:hidden"><div style="height:100%;width:${Math.max(0,pct)}%;background:${s.score>20?'#c87aff':s.score>0?'#7a5aaa':'#5a2a3a'};border-radius:2px;transition:width .4s"></div></div>`;
+    html+=`<div class="rec-card${isTop?' top':''}" onclick="flyToStand(${s.id})">
+      <div class="rec-rank">${isTop?'⭐ Top Pick':'Rank #'+(i+1)}</div>
+      <div class="rec-name">${cfg.emoji} ${s.name}</div>
+      <div class="rec-score">Score: ${s.score} / ${best} pts</div>
+      ${bar}
+      <div class="rec-reason">${s.reasons.join('<br>')}</div>
+    </div>`;
+  });
+  el.innerHTML=`<div class="rec-section">Wind from ${recWind} today — ${scored.length} stand${scored.length!==1?'s':''} ranked</div>${html}`;
+}
+
+// ═══════════════════════════════════════════════
+// PANEL
+// ═══════════════════════════════════════════════
+function togglePanel(){panelOpen=!panelOpen;document.getElementById('side-panel').classList.toggle('open',panelOpen);}
+function renderPanel(){
+  const body=document.getElementById('panel-body');
+  let html='';
+  if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length){
+    html='<div style="padding:14px;color:#6b7c4d;font-size:.62rem;line-height:1.9">Nothing added yet.<br>Use the toolbar to start building your hunt map.</div>';
+  }
+  if(stands.length){
+    html+=`<div class="panel-section-label">Stands (${stands.length})</div>`;
+    html+=stands.map(s=>{
+      const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+      return`<div class="stand-card" onclick="flyToStand(${s.id})">
+        <div class="card-name">${c.emoji} ${s.name}</div>
+        <div class="card-meta">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}${s.wind?' · 💨'+s.wind:''} · ${ACCESS_LABELS[s.access||'good']} access · ${PRESSURE_LABELS[s.pressure||'fresh']}</div>
+        <div class="card-badge" style="background:${c.color}20;color:${c.color};border:1px solid ${c.color}40">${c.label}</div>
+      </div>`;
+    }).join('');
+  }
+  const allRoutes=[...routes,...boundaries];
+  if(allRoutes.length){
+    html+=`<div class="panel-section-label">Routes & Boundaries (${allRoutes.length})</div>`;
+    html+=allRoutes.map(r=>{
+      const icons={route:'🦶',drive:'🚗',bound:'🔲'};
+      const cols={route:'#d4820a',drive:'#4a9aff',bound:'#c87aff'};
+      const col=cols[r.type]||'#888';
+      return`<div class="stand-card" onclick="flyToRoute(${r.id})">
+        <div class="card-name">${icons[r.type]||''} ${r.name}</div>
+        <div class="card-meta">${r.pts.length} pts</div>
+        <div class="card-badge" style="background:${col}20;color:${col};border:1px solid ${col}40">${r.type}</div>
+      </div>`;
+    }).join('');
+  }
+  if(areaPolys.length){
+    html+=`<div class="panel-section-label">Measured Areas (${areaPolys.length})</div>`;
+    html+=areaPolys.map(a=>`<div class="stand-card">
+      <div class="card-name">📐 ${a.name}</div>
+      <div class="card-meta">${a.acres} acres</div>
+    </div>`).join('');
+  }
+  if(windArrows.length){
+    html+=`<div class="panel-section-label">Wind Arrows (${windArrows.length})</div>`;
+    html+=windArrows.map(w=>`<div class="stand-card" onclick="flyToWind(${w.id})">
+      <div class="card-name">💨 ${w.dir}${w.label?' — '+w.label:''}</div>
+      <div class="card-meta">${w.lat.toFixed(4)}, ${w.lng.toFixed(4)}</div>
+    </div>`).join('');
+  }
+  body.innerHTML=html;
+  document.getElementById('st-s').textContent=stands.length;
+  document.getElementById('st-r').textContent=routes.length;
+  document.getElementById('st-b').textContent=boundaries.length;
+  const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
+  document.getElementById('st-a').textContent=totalAcres>0?totalAcres.toFixed(1)+' ac':'—';
+}
+
+function flyToStand(id){const s=stands.find(s=>s.id===id);if(!s)return;map.flyTo([s.lat,s.lng],17,{duration:1.2});setTimeout(()=>allLayers[id]?.openPopup(),1300);}
+window.flyToStand=flyToStand;
+function flyToRoute(id){const l=allLayers[id];if(!l)return;map.flyToBounds(l.getBounds().pad(.15),{duration:1.2});}
+window.flyToRoute=flyToRoute;
+function flyToWind(id){const w=windArrows.find(w=>w.id===id);if(!w)return;map.flyTo([w.lat,w.lng],16,{duration:1.2});setTimeout(()=>allLayers[id]?.openPopup(),1300);}
+window.flyToWind=flyToWind;
+
+// ═══════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════
+function doSearch(){
+  const val=document.getElementById('search-input').value.trim();
+  if(!val) return;
+  const m=val.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
+  if(m){map.flyTo([parseFloat(m[1]),parseFloat(m[2])],16,{duration:1.5});return;}
+  fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=1`)
+    .then(r=>r.json()).then(data=>{
+      if(data?.length) map.flyTo([parseFloat(data[0].lat),parseFloat(data[0].lon)],15,{duration:1.5});
+      else{document.getElementById('status-bar').innerHTML='⚠️ Not found — try lat,lng like 43.12,-89.45';setTimeout(()=>setMode(mode),3000);}
+    }).catch(()=>{document.getElementById('status-bar').innerHTML='⚠️ Search error — try lat,lng';setTimeout(()=>setMode(mode),3000);});
+}
+document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+// ═══════════════════════════════════════════════
+// PERSIST
+// ═══════════════════════════════════════════════
+function saveLocal(){
+  try{localStorage.setItem(scoutStorageKey,JSON.stringify({campId,campName,stands,routes,boundaries,windArrows,areaPolys,recContext:{recWind,recTime,recSeason}}));}catch(e){}
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=scoutExportFilename;a.click();
+}
+function syncRecUI(){
+  document.querySelectorAll('#rec-dir-grid .rec-dir-btn').forEach(b=>b.classList.toggle('sel',b.dataset.dir===recWind));
+  const timeEl=document.getElementById('rec-time');
+  const seasonEl=document.getElementById('rec-season-phase');
+  if(timeEl) timeEl.value=recTime;
+  if(seasonEl) seasonEl.value=recSeason;
+}
+
+function importData(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands.forEach(addStandToMap);
+      [...routes,...boundaries].forEach(r=>{
+        const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
+        allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
+      });
+      windArrows.forEach(addWindArrowToMap);
+      areaPolys.forEach(a=>{
+        const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
+          .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
+        allLayers[a.id]=poly;
+      });
+      if(windArrows.length && !recWind){globalWind=windArrows[windArrows.length-1].dir;updateCompass();}
+      syncRecUI();
+      saveLocal();renderPanel();
+      if(recOpen || recWind) runRecommender();
+      const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
+      if(allPts.length) map.flyToBounds(allPts,{padding:[60,60],duration:1.5});
+    }catch(err){alert('Invalid file — import a DeerCamp Scout export JSON');}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+// ═══════════════════════════════════════════════
+// PRINT / PDF
+// ═══════════════════════════════════════════════
+function buildPrintLegend(){
+  const grid=document.getElementById('pl-grid');
+  const stats=document.getElementById('pl-stats');
+  let items='';
+  // Stand types present
+  const usedTypes=[...new Set(stands.map(s=>s.type))];
+  usedTypes.forEach(t=>{
+    const c=TYPE_CFG[t];
+    items+=`<div class="pl-item"><div class="pl-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>`;
+  });
+  // Route types
+  if(routes.some(r=>r.type==='route'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#d4820a;border-top:2px dashed #d4820a;background:none"></div>Walk Route</div>`;
+  if(routes.some(r=>r.type==='drive'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#4a9aff"></div>Drive Route</div>`;
+  if(boundaries.length)                 items+=`<div class="pl-item"><div class="pl-line" style="background:#c87aff;border-top:2px dashed #c87aff;background:none"></div>Property Boundary</div>`;
+  if(windArrows.length)                 items+=`<div class="pl-item">💨 Wind Arrow</div>`;
+  if(areaPolys.length)                  items+=`<div class="pl-item">📐 Measured Area</div>`;
+  grid.innerHTML=items;
+  const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
+  stats.innerHTML=`<div>Stands: ${stands.length}</div><div>Routes: ${routes.length}</div><div>Boundaries: ${boundaries.length}</div>${totalAcres>0?`<div>Total area: ${totalAcres.toFixed(1)} ac</div>`:''}`;
+}
+function printMap(){
+  const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('print-date').textContent=d;
+  const sub=[];
+  if(stands.length) sub.push(`${stands.length} stand${stands.length!==1?'s':''}`);
+  if(routes.length) sub.push(`${routes.length} route${routes.length!==1?'s':''}`);
+  const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
+  if(totalAcres>0) sub.push(`${totalAcres.toFixed(1)} acres measured`);
+  document.getElementById('print-sub').textContent=[campName, ...sub].filter(Boolean).join(' · ');
+  buildPrintLegend();
+  setTimeout(()=>{map.invalidateSize();window.print();},250);
+}
+
+// ═══════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    closeStandModal();closeWindModal();discardPoly();discardAcre();
+    document.getElementById('modal-poly').classList.remove('open');
+  }
+});
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+setupDeerCampShell();
+try{
+  const saved=localStorage.getItem(scoutStorageKey) || localStorage.getItem(legacyScoutStorageKey);
+  if(saved){
+    const d=JSON.parse(saved);
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands.forEach(addStandToMap);
+    [...routes,...boundaries].forEach(r=>{
+      const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
+      allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
+    });
+    windArrows.forEach(addWindArrowToMap);
+    areaPolys.forEach(a=>{
+      const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
+        .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
+      allLayers[a.id]=poly;
+    });
+    if(windArrows.length && !recWind){globalWind=windArrows[windArrows.length-1].dir;updateCompass();}
+    syncRecUI();
+    if(recOpen || recWind) runRecommender();
+    const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
+    if(allPts.length) map.flyToBounds(allPts,{padding:[60,60]});
+  }
+}catch(e){}
+syncRecUI();renderPanel();updateCompass();if(recWind) runRecommender();
+</script>
+</body>
+</html>
