@@ -39,6 +39,7 @@ header::-webkit-scrollbar{height:0;}
 .mode-btn.active.mb{background:var(--purple);}
 .mode-btn.active.mw{background:var(--teal);}
 .mode-btn.active.ma{background:#5a2a0a;}
+.route-arrow-btn.active{background:#d4820a;color:var(--cream);}
 .hdr-btn{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
 .hg{background:transparent;color:var(--sage);border:1px solid #3a2c1e;}
 .hg:hover{background:#3a2c1e;color:var(--tan);}
@@ -223,6 +224,8 @@ textarea{resize:vertical;min-height:55px;}
     <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
     <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦌 Drive Route</button>
     <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
+    <button class="mode-btn route-arrow-btn" id="route-arrow-up" onclick="setRouteEndArrow('up')">↑ End Up</button>
+    <button class="mode-btn route-arrow-btn" id="route-arrow-down" onclick="setRouteEndArrow('down')">↓ End Down</button>
     <button class="mode-btn"        id="mode-driver" onclick="setMode('driver')">D Driver</button>
     <button class="mode-btn"        id="mode-stander" onclick="setMode('stander')">S Stander</button>
     <button class="mode-btn mb"     id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
@@ -510,6 +513,7 @@ let mode='view', pendingLL=null, editingStandId=null;
 let mapFrozen=false;
 let selWind='', selArrow='N';
 let curPts=[],curPolyType=null,curPolyLine=null;
+let routeEndArrow='';
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 // Acreage
@@ -559,6 +563,7 @@ function setMode(m) {
   if (!['route','drive','bound'].includes(m)) {
     if(curPolyLine){map.removeLayer(curPolyLine);curPolyLine=null;}
     curPts=[];curPolyType=null;
+    clearRouteEndArrow();
   } else { curPts=[];curPolyType=m; }
   if (m!=='acre') cleanupAcre();
 }
@@ -578,6 +583,9 @@ function addPolyPt(ll){
   curPolyLine=L.polyline(pts,polyStyle(curPolyType)).addTo(map);
   const fid=curPolyType==='route'?'fab-route':curPolyType==='drive'?'fab-drive':'fab-bound';
   if(curPts.length>=2) document.getElementById(fid).classList.add('visible');
+  if(routeEndArrow && ['route','drive'].includes(curPolyType) && curPts.length>=2){
+    finishPoly(curPolyType);
+  }
 }
 function finishPoly(t){
   if(curPts.length<2) return;
@@ -595,12 +603,13 @@ function savePoly(){
   const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':curPolyType==='route'?'Deer Drive':'Access Route');
   const notes=document.getElementById('pf-notes').value.trim();
   const id=Date.now(), type=curPolyType;
-  const rec={id,name,notes,type,pts:[...curPts]};
+  const rec={id,name,notes,type,pts:[...curPts],endArrow:(['route','drive'].includes(curPolyType)?routeEndArrow:'')};
   if(type==='bound') boundaries.push(rec); else routes.push(rec);
   const pts=type==='bound'?[...curPts,curPts[0]]:curPts;
   const layer=L.polyline(pts,polyStyle(type)).addTo(map).bindPopup(polyPopupHTML(rec));
   allLayers[id]=layer;
   curPolyLine=null;curPts=[];curPolyType=null;
+  clearRouteEndArrow();
   ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
   document.getElementById('modal-poly').classList.remove('open');
   saveLocal();renderPanel();setMode('view');
@@ -608,6 +617,7 @@ function savePoly(){
 function discardPoly(){
   if(curPolyLine){map.removeLayer(curPolyLine);curPolyLine=null;}
   curPts=[];curPolyType=null;
+  clearRouteEndArrow();
   ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
   document.getElementById('modal-poly').classList.remove('open');
   setMode('view');
@@ -621,6 +631,7 @@ function polyPopupHTML(r){
 <div class="pu-type">${labs[r.type]||r.type}</div>
 ${len?`<div class="pu-coords">📏 Length: ${len} mile</div>`:''}
 ${dir?`<div class="pu-coords">🧭 Direction: ${dir}</div>`:''}
+${r.endArrow?`<div class="pu-coords">↕ End Marker: ${r.endArrow==='up'?'Up Arrow':'Down Arrow'}</div>`:''}
 ${r.notes?`<div class="pu-notes">${r.notes}</div>`:''}
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deletePoly(${r.id})">Delete</button></div>`;
 }
@@ -648,6 +659,30 @@ function getRouteDirection(pts){
   if(absLng < 1e-6) return ns;
   return `${dLat>=0 ? 'S' : 'N'}${dLng>=0 ? 'W' : 'E'} - ${dLat>=0 ? 'N' : 'S'}${dLng>=0 ? 'E' : 'W'}`;
 }
+function setRouteEndArrow(dir){
+  if(!['route','drive'].includes(mode)){
+    document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then tap an arrow and place the route end.';
+    setTimeout(()=>setMode(mode),2200);
+    return;
+  }
+  routeEndArrow = routeEndArrow===dir ? '' : dir;
+  syncRouteArrowButtons();
+  if(routeEndArrow){
+    document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place a ${routeEndArrow==='up'?'up':'down'} arrow and finish this route`;
+  } else {
+    setMode(mode);
+  }
+}
+function clearRouteEndArrow(){
+  routeEndArrow='';
+  syncRouteArrowButtons();
+}
+function syncRouteArrowButtons(){
+  document.getElementById('route-arrow-up')?.classList.toggle('active', routeEndArrow==='up');
+  document.getElementById('route-arrow-down')?.classList.toggle('active', routeEndArrow==='down');
+}
+window.setRouteEndArrow=setRouteEndArrow;
+
 function toggleMapFreeze(){
   mapFrozen = !mapFrozen;
   const btn = document.getElementById('btn-freeze');
