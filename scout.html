@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DeerCamp Scout</title>
+<title>Stand Scout Elite</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -46,25 +46,9 @@ header::-webkit-scrollbar{height:0;}
 .hp:hover{background:var(--moss);}
 .hrec{background:#3a1a4a;color:var(--cream);border:1px solid #7a4aaa;}
 .hrec:hover{background:#5a2a7a;}
-
-
-/* DEERCAMP APP BAR */
-.dc-bar{background:linear-gradient(to right,#050302,#120a04,#050302);border-bottom:1px solid #3a2c1e;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0;z-index:1002;}
-.dc-brand{display:flex;align-items:center;gap:10px;min-width:0;}
-.dc-wordmark{font-family:'Playfair Display',serif;font-size:1rem;color:var(--tan);letter-spacing:.5px;white-space:nowrap;}
-.dc-wordmark em{color:var(--amber);font-style:normal;}
-.dc-meta{min-width:0;display:flex;flex-direction:column;gap:2px;}
-.dc-kicker{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);}
-.dc-camp{font-size:.66rem;color:var(--cream);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:34vw;}
-.dc-nav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;}
-.dc-link{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 8px;border-radius:5px;text-decoration:none;border:1px solid #3a2c1e;color:var(--sage);background:#140802;white-space:nowrap;}
-.dc-link:hover{background:#2c1f14;color:var(--tan);}
-.dc-link.active{background:var(--moss);border-color:var(--moss);color:var(--cream);}
-@media (max-width: 820px){
-  .dc-bar{flex-direction:column;align-items:flex-start;}
-  .dc-nav{width:100%;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap;padding-bottom:2px;}
-  .dc-camp{max-width:unset;}
-}
+.hlock{background:#1f2f38;color:var(--cream);border:1px solid #4a6b7a;}
+.hlock:hover{background:#2a4552;}
+.hlock.active{background:#3a6a7a;border-color:#7ab7c8;}
 
 /* MAP */
 #map{flex:1;z-index:1;}
@@ -105,6 +89,8 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
+#map-compass{position:fixed;top:66px;left:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
 .panel-toggle{position:fixed;top:58px;right:0;z-index:950;background:var(--moss);color:var(--cream);border:none;border-radius:6px 0 0 6px;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;}
@@ -219,45 +205,32 @@ textarea{resize:vertical;min-height:55px;}
 
 <!-- Print header (hidden screen, shown on print) -->
 <div id="print-header">
-  <strong>DeerCamp Scout</strong> — Private Camp Hunt Map &nbsp;|&nbsp; <span id="print-date"></span>
+  <strong>Stand Scout Elite</strong> — Hunt Property Map &nbsp;|&nbsp; <span id="print-date"></span>
   <div class="ph-sub" id="print-sub"></div>
-</div>
-
-<div class="dc-bar">
-  <div class="dc-brand">
-    <div class="dc-wordmark">Deer<em>Camp</em></div>
-    <div class="dc-meta">
-      <div class="dc-kicker">Private Camp Tools</div>
-      <div class="dc-camp" id="dc-camp-label">Scout</div>
-    </div>
-  </div>
-  <div class="dc-nav">
-    <a class="dc-link" id="nav-camp" href="#">Camp</a>
-    <a class="dc-link" id="nav-memories" href="#">Memories</a>
-    <a class="dc-link active" id="nav-scout" href="#">Scout</a>
-    <a class="dc-link" id="nav-members" href="#">Members</a>
-  </div>
 </div>
 
 <!-- HEADER -->
 <header>
-  <div class="logo">DeerCamp <em>Scout</em> <sup>BETA</sup></div>
+  <div class="logo">Stand <em>Scout</em> <sup>ELITE</sup></div>
   <div class="vr"></div>
   <div class="search-wrap">
-    <input type="text" id="search-input" placeholder="Scout address or lat, lng…"/>
+    <input type="text" id="search-input" placeholder="Address or lat, lng…"/>
     <button class="sbtn" onclick="doSearch()">🔍</button>
   </div>
   <div class="vr"></div>
   <div class="mode-group">
     <button class="mode-btn active"  id="mode-view"  onclick="setMode('view')">👁 View</button>
     <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
-    <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦶 Walk</button>
-    <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚗 Drive</button>
+    <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦌 Drive Route</button>
+    <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
+    <button class="mode-btn"        id="mode-driver" onclick="setMode('driver')">D Driver</button>
+    <button class="mode-btn"        id="mode-stander" onclick="setMode('stander')">S Stander</button>
     <button class="mode-btn mb"     id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
     <button class="mode-btn mw"     id="mode-wind"  onclick="setMode('wind')">💨 Wind</button>
     <button class="mode-btn ma"     id="mode-acre"  onclick="setMode('acre')">📐 Acreage</button>
   </div>
   <div class="vr"></div>
+  <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
   <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
@@ -267,10 +240,10 @@ textarea{resize:vertical;min-height:55px;}
 
 <div id="map"></div>
 
-<div id="status-bar">👁 DeerCamp Scout — use the toolbar to build your private hunt map</div>
+<div id="status-bar">👁 View mode — use the toolbar to build your hunt map</div>
 
-<button class="fab" id="fab-route" onclick="finishPoly('route')">✓ Finish Walk Route</button>
-<button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Drive Route</button>
+<button class="fab" id="fab-route" onclick="finishPoly('route')">✓ Finish Deer Drive</button>
+<button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Access Route</button>
 <button class="fab" id="fab-bound" onclick="finishPoly('bound')">✓ Close Boundary</button>
 
 <!-- Wind compass -->
@@ -287,6 +260,19 @@ textarea{resize:vertical;min-height:55px;}
       <polygon points="0,-19 4,5 0,1 -4,5" fill="#3abba0" opacity=".9"/>
       <polygon points="0,19 4,2 0,6 -4,2" fill="#2a8a7a" opacity=".6"/>
     </g>
+  </svg>
+</div>
+
+<div id="map-compass">
+  <svg viewBox="0 0 70 70" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="35" cy="35" r="32" fill="rgba(18,10,2,.78)" stroke="#3d5c2e" stroke-width="1.5"/>
+    <circle cx="35" cy="35" r="18" fill="none" stroke="#3a2c1e" stroke-width="1" stroke-dasharray="2 4"/>
+    <text x="35" y="13" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#d4c29c">N</text>
+    <text x="35" y="62" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">S</text>
+    <text x="59" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">E</text>
+    <text x="11" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">W</text>
+    <polygon points="35,16 39,34 35,30 31,34" fill="#d4820a"/>
+    <polygon points="35,54 39,36 35,40 31,36" fill="#6b7c4d" opacity=".7"/>
   </svg>
 </div>
 
@@ -310,7 +296,7 @@ textarea{resize:vertical;min-height:55px;}
 <!-- Recommender panel -->
 <div class="rec-panel" id="rec-panel">
   <div class="rec-hdr">
-    <span class="rec-hdr-title">🦌 Best Stand Today</span>
+    <span class="rec-hdr-title">🦌 Stand Recommender</span>
     <button class="rec-close" onclick="toggleRec()">✕</button>
   </div>
   <div class="rec-body">
@@ -369,6 +355,7 @@ textarea{resize:vertical;min-height:55px;}
       <select id="f-type">
         <option value="treestand">🌲 Treestand</option>
         <option value="blind">🏠 Ground Blind</option>
+        <option value="boxblind">🪟 Box Blind</option>
         <option value="ladder">🪜 Ladder Stand</option>
         <option value="foodplot">🌾 Food Plot</option>
         <option value="trailcam">📷 Trail Camera</option>
@@ -437,7 +424,7 @@ textarea{resize:vertical;min-height:55px;}
 <div class="modal-overlay" id="modal-poly">
   <div class="modal">
     <h2 id="poly-modal-title">Name This Route</h2>
-    <div class="fg"><label>Name</label><input type="text" id="pf-name" placeholder="e.g. North Timber Loop" maxlength="40"></div>
+    <div class="fg"><label id="pf-name-label">Name</label><input type="text" id="pf-name" placeholder="e.g. North Timber Loop" maxlength="40"></div>
     <div class="fg"><label>Notes</label><textarea id="pf-notes" placeholder="Best conditions, timing…"></textarea></div>
     <div class="modal-acts">
       <button class="btn btn-c" onclick="discardPoly()">Discard</button>
@@ -495,48 +482,10 @@ textarea{resize:vertical;min-height:55px;}
 // ═══════════════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════════════
-
-const qs = new URLSearchParams(window.location.search);
-const campId = String(qs.get('campId') || localStorage.getItem('deercamp.activeCampId') || 'ourdeercamp').trim();
-function prettyCampName(value){
-  return String(value || '')
-    .replace(/[-_]+/g,' ')
-    .replace(/\s+/g,' ')
-    .trim()
-    .split(' ')
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
-const campName = String(qs.get('campName') || qs.get('camp') || prettyCampName(campId) || 'My DeerCamp').trim();
-const scoutStorageKey = `deercamp.scout.${campId}`;
-const legacyScoutStorageKey = 'sse-v4';
-const scoutExportFilename = `deercamp-scout-${campId}.json`;
-function buildCampUrl(page){
-  const u = new URL(page, window.location.href);
-  u.searchParams.set('campId', campId);
-  if (campName) u.searchParams.set('campName', campName);
-  return u.toString();
-}
-function setupDeerCampShell(){
-  document.title = `${campName} | DeerCamp Scout`;
-  const campLabel = document.getElementById('dc-camp-label');
-  if (campLabel) campLabel.textContent = `${campName} · Scout`;
-  const navMap = {
-    'nav-camp':'camp.html',
-    'nav-memories':'camp.html',
-    'nav-scout':'scout.html',
-    'nav-members':'steward-dashboard.html'
-  };
-  Object.entries(navMap).forEach(([id,page])=>{
-    const el=document.getElementById(id);
-    if(el) el.href=buildCampUrl(page);
-  });
-}
-
 const TYPE_CFG = {
   treestand:{ color:'#a0522d', emoji:'🌲', label:'Treestand' },
   blind:    { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
+  boxblind: { color:'#5f4b2d', emoji:'🪟', label:'Box Blind' },
   ladder:   { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
   foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
   trailcam: { color:'#5a4a80', emoji:'📷', label:'Trail Cam' },
@@ -555,9 +504,10 @@ const TOD_LABELS = {'':'Any', morning:'Morning', evening:'Evening', 'all-day':'A
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
-let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[];
+let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[],drivers=[],standers=[];
 let allLayers={};
 let mode='view', pendingLL=null, editingStandId=null;
+let mapFrozen=false;
 let selWind='', selArrow='N';
 let curPts=[],curPolyType=null,curPolyLine=null;
 let panelOpen=false, recOpen=false;
@@ -581,6 +531,8 @@ map.on('click', e=>{
   else if (['route','drive','bound'].includes(mode)) addPolyPt(e.latlng);
   else if (mode==='wind') { pendingLL=e.latlng; openWindModal(); }
   else if (mode==='acre') addAcrePt(e.latlng);
+  else if (mode==='driver') addRoleMarker('driver', e.latlng);
+  else if (mode==='stander') addRoleMarker('stander', e.latlng);
 });
 
 // ═══════════════════════════════════════════════
@@ -588,13 +540,15 @@ map.on('click', e=>{
 // ═══════════════════════════════════════════════
 function setMode(m) {
   mode=m;
-  ['view','stand','route','drive','bound','wind','acre'].forEach(id=>document.getElementById('mode-'+id)?.classList.remove('active'));
+  ['view','stand','route','drive','driver','stander','bound','wind','acre'].forEach(id=>document.getElementById('mode-'+id)?.classList.remove('active'));
   document.getElementById('mode-'+m)?.classList.add('active');
   const msgs={
     view:'👁 View — click any feature to see details',
     stand:'📍 Click the map to drop a stand',
-    route:'🦶 Click points to trace a walk route, then Finish',
-    drive:'🚗 Click points to trace a drive route, then Finish',
+    route:'🦌 Click points to trace a deer drive route, then Finish',
+    drive:'🚙 Click points to trace an access route, then Finish',
+    driver:'D Tap map to place a Driver marker',
+    stander:'S Tap map to place a Stander marker',
     bound:'🔲 Click corners of property boundary, then Close',
     wind:'💨 Click map to place a wind arrow',
     acre:'📐 Click corners to measure acreage, then close shape',
@@ -627,14 +581,18 @@ function addPolyPt(ll){
 }
 function finishPoly(t){
   if(curPts.length<2) return;
-  const titles={route:'Name This Walk Route',drive:'Name This Drive Route',bound:'Name This Boundary'};
+  const titles={route:'Deer Drive',drive:'Access Route',bound:'Name This Boundary'};
+  const labels={route:'Drive Name',drive:'Access Route Name',bound:'Boundary Name'};
+  const placeholders={route:'e.g. South Marsh Push',drive:'e.g. East Ridge Entry',bound:'e.g. South Property Line'};
   document.getElementById('poly-modal-title').textContent=titles[t];
+  document.getElementById('pf-name-label').textContent=labels[t] || 'Name';
+  document.getElementById('pf-name').placeholder=placeholders[t] || 'e.g. North Timber Loop';
   document.getElementById('pf-name').value='';
   document.getElementById('pf-notes').value='';
   document.getElementById('modal-poly').classList.add('open');
 }
 function savePoly(){
-  const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':'Unnamed Route');
+  const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':curPolyType==='route'?'Deer Drive':'Access Route');
   const notes=document.getElementById('pf-notes').value.trim();
   const id=Date.now(), type=curPolyType;
   const rec={id,name,notes,type,pts:[...curPts]};
@@ -655,10 +613,14 @@ function discardPoly(){
   setMode('view');
 }
 function polyPopupHTML(r){
-  const icons={route:'🦶',drive:'🚗',bound:'🔲'};
-  const labs={route:'Walk Route',drive:'Drive Route',bound:'Boundary'};
-  return`<div class="pu-name">${icons[r.type]||''} ${r.name}</div>
+  const icons={route:'🦌',drive:'🚙',bound:'🔲'};
+  const labs={route:'Deer Drive',drive:'Access Route',bound:'Boundary'};
+  const len = (r.type==='route' || r.type==='drive') ? getRouteMiles(r.pts).toFixed(1) : '';
+  const dir = (r.type==='route' || r.type==='drive') ? getRouteDirection(r.pts) : '';
+  return`<div class="pu-name">${r.type==='route' ? 'Deer Drive' : (icons[r.type]||'') + ' ' + r.name}</div>
 <div class="pu-type">${labs[r.type]||r.type}</div>
+${len?`<div class="pu-coords">📏 Length: ${len} mile</div>`:''}
+${dir?`<div class="pu-coords">🧭 Direction: ${dir}</div>`:''}
 ${r.notes?`<div class="pu-notes">${r.notes}</div>`:''}
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deletePoly(${r.id})">Delete</button></div>`;
 }
@@ -669,6 +631,57 @@ function deletePoly(id){
   map.closePopup();saveLocal();renderPanel();
 }
 window.deletePoly=deletePoly;
+
+function getRouteMiles(pts){
+  let meters=0;
+  for(let i=1;i<pts.length;i++){ meters += map.distance(pts[i-1], pts[i]); }
+  return meters/1609.344;
+}
+function getRouteDirection(pts){
+  if(!pts || pts.length < 2) return '—';
+  const start = pts[0], end = pts[pts.length-1];
+  const dLat = end[0]-start[0], dLng = end[1]-start[1];
+  const ns = dLat >= 0 ? 'S-N' : 'N-S';
+  const ew = dLng >= 0 ? 'W-E' : 'E-W';
+  const absLat = Math.abs(dLat), absLng = Math.abs(dLng);
+  if(absLat < 1e-6) return ew;
+  if(absLng < 1e-6) return ns;
+  return `${dLat>=0 ? 'S' : 'N'}${dLng>=0 ? 'W' : 'E'} - ${dLat>=0 ? 'N' : 'S'}${dLng>=0 ? 'E' : 'W'}`;
+}
+function toggleMapFreeze(){
+  mapFrozen = !mapFrozen;
+  const btn = document.getElementById('btn-freeze');
+  if(mapFrozen){
+    map.dragging.disable(); map.touchZoom.disable(); map.doubleClickZoom.disable(); map.scrollWheelZoom.disable(); map.boxZoom.disable(); map.keyboard.disable();
+    if(map.tap) map.tap.disable();
+    btn?.classList.add('active');
+    if(btn) btn.textContent='🔓 Unfreeze Map';
+  }else{
+    map.dragging.enable(); map.touchZoom.enable(); map.doubleClickZoom.enable(); map.scrollWheelZoom.enable(); map.boxZoom.enable(); map.keyboard.enable();
+    if(map.tap) map.tap.enable();
+    btn?.classList.remove('active');
+    if(btn) btn.textContent='📌 Freeze Map';
+  }
+}
+function roleIcon(role){
+  const cfg = role==='driver' ? {bg:'#1a4a7a', label:'D'} : {bg:'#7a1a1a', label:'S'};
+  return L.divIcon({html:`<div style="width:30px;height:30px;border-radius:999px;background:${cfg.bg};border:2px solid #f0e8d8;color:#fff;display:flex;align-items:center;justify-content:center;font:700 14px IBM Plex Mono,monospace;box-shadow:0 4px 12px rgba(0,0,0,.45)">${cfg.label}</div>`, className:'', iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-14]});
+}
+function addRoleMarker(role, ll){
+  const rec = {id: Date.now()+Math.floor(Math.random()*1000), role, lat: ll.lat, lng: ll.lng};
+  const popupTitle = role==='driver' ? 'Driver' : 'Stander';
+  const marker = L.marker([ll.lat,ll.lng], {icon: roleIcon(role)}).addTo(map).bindPopup(`<div class="pu-name">${popupTitle}</div><div class="pu-coords">📍 ${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${role}')">Delete</button></div>`);
+  allLayers[rec.id]=marker;
+  (role==='driver' ? drivers : standers).push(rec);
+  saveLocal(); renderPanel(); setMode('view');
+}
+function deleteRoleMarker(id, role){
+  if(allLayers[id]){ map.removeLayer(allLayers[id]); delete allLayers[id]; }
+  if(role==='driver') drivers = drivers.filter(item=>item.id!==id);
+  else standers = standers.filter(item=>item.id!==id);
+  map.closePopup(); saveLocal(); renderPanel();
+}
+window.deleteRoleMarker=deleteRoleMarker;
 
 // ═══════════════════════════════════════════════
 // STANDS
@@ -982,13 +995,13 @@ function renderPanel(){
   if(allRoutes.length){
     html+=`<div class="panel-section-label">Routes & Boundaries (${allRoutes.length})</div>`;
     html+=allRoutes.map(r=>{
-      const icons={route:'🦶',drive:'🚗',bound:'🔲'};
+      const icons={route:'🦌',drive:'🚙',bound:'🔲'};
       const cols={route:'#d4820a',drive:'#4a9aff',bound:'#c87aff'};
       const col=cols[r.type]||'#888';
       return`<div class="stand-card" onclick="flyToRoute(${r.id})">
         <div class="card-name">${icons[r.type]||''} ${r.name}</div>
-        <div class="card-meta">${r.pts.length} pts</div>
-        <div class="card-badge" style="background:${col}20;color:${col};border:1px solid ${col}40">${r.type}</div>
+        <div class="card-meta">${getRouteMiles(r.pts).toFixed(1)} mile · ${getRouteDirection(r.pts)}</div>
+        <div class="card-badge" style="background:${col}20;color:${col};border:1px solid ${col}40">${r.type==='route'?'deer drive':r.type==='drive'?'access route':r.type}</div>
       </div>`;
     }).join('');
   }
@@ -998,6 +1011,10 @@ function renderPanel(){
       <div class="card-name">📐 ${a.name}</div>
       <div class="card-meta">${a.acres} acres</div>
     </div>`).join('');
+  }
+  if(drivers.length || standers.length){
+    html+=`<div class="panel-section-label">Positions (${drivers.length + standers.length})</div>`;
+    html+=[...drivers.map(m=>({...m, label:'Driver'})), ...standers.map(m=>({...m, label:'Stander'}))].map(m=>`<div class="stand-card" onclick="flyToRole(${m.id})"><div class="card-name">${m.role==='driver'?'D':'S'} ${m.label}</div><div class="card-meta">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div></div>`).join('');
   }
   if(windArrows.length){
     html+=`<div class="panel-section-label">Wind Arrows (${windArrows.length})</div>`;
@@ -1020,6 +1037,8 @@ function flyToRoute(id){const l=allLayers[id];if(!l)return;map.flyToBounds(l.get
 window.flyToRoute=flyToRoute;
 function flyToWind(id){const w=windArrows.find(w=>w.id===id);if(!w)return;map.flyTo([w.lat,w.lng],16,{duration:1.2});setTimeout(()=>allLayers[id]?.openPopup(),1300);}
 window.flyToWind=flyToWind;
+function flyToRole(id){ const item=[...drivers,...standers].find(m=>m.id===id); if(!item) return; map.flyTo([item.lat,item.lng],16,{duration:1.2}); setTimeout(()=>allLayers[id]?.openPopup(),1300); }
+window.flyToRole=flyToRole;
 
 // ═══════════════════════════════════════════════
 // SEARCH
@@ -1041,11 +1060,11 @@ document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key=
 // PERSIST
 // ═══════════════════════════════════════════════
 function saveLocal(){
-  try{localStorage.setItem(scoutStorageKey,JSON.stringify({campId,campName,stands,routes,boundaries,windArrows,areaPolys,recContext:{recWind,recTime,recSeason}}));}catch(e){}
+  try{localStorage.setItem('sse-v4',JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,recContext:{recWind,recTime,recSeason}}));}catch(e){}
 }
 function exportData(){
-  const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys},null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=scoutExportFilename;a.click();
+  const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,recContext:{recWind,recTime,recSeason}},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stand-scout-elite.json';a.click();
 }
 function syncRecUI(){
   document.querySelectorAll('#rec-dir-grid .rec-dir-btn').forEach(b=>b.classList.toggle('sel',b.dataset.dir===recWind));
@@ -1062,13 +1081,15 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>{
         const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
         allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
       });
       windArrows.forEach(addWindArrowToMap);
+      drivers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('driver')}).addTo(map).bindPopup(`<div class="pu-name">Driver</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'driver')">Delete</button></div>`); allLayers[item.id]=marker; });
+      standers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('stander')}).addTo(map).bindPopup(`<div class="pu-name">Stander</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'stander')">Delete</button></div>`); allLayers[item.id]=marker; });
       areaPolys.forEach(a=>{
         const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
           .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
@@ -1080,7 +1101,7 @@ function importData(e){
       if(recOpen || recWind) runRecommender();
       const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
       if(allPts.length) map.flyToBounds(allPts,{padding:[60,60],duration:1.5});
-    }catch(err){alert('Invalid file — import a DeerCamp Scout export JSON');}
+    }catch(err){alert('Invalid file — export from Stand Scout Elite only');}
   };
   r.readAsText(file);e.target.value='';
 }
@@ -1099,10 +1120,12 @@ function buildPrintLegend(){
     items+=`<div class="pl-item"><div class="pl-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>`;
   });
   // Route types
-  if(routes.some(r=>r.type==='route'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#d4820a;border-top:2px dashed #d4820a;background:none"></div>Walk Route</div>`;
-  if(routes.some(r=>r.type==='drive'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#4a9aff"></div>Drive Route</div>`;
+  if(routes.some(r=>r.type==='route'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#d4820a;border-top:2px dashed #d4820a;background:none"></div>Deer Drive</div>`;
+  if(routes.some(r=>r.type==='drive'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#4a9aff"></div>Access Route</div>`;
   if(boundaries.length)                 items+=`<div class="pl-item"><div class="pl-line" style="background:#c87aff;border-top:2px dashed #c87aff;background:none"></div>Property Boundary</div>`;
   if(windArrows.length)                 items+=`<div class="pl-item">💨 Wind Arrow</div>`;
+  if(drivers.length)                    items+=`<div class="pl-item">D Driver</div>`;
+  if(standers.length)                   items+=`<div class="pl-item">S Stander</div>`;
   if(areaPolys.length)                  items+=`<div class="pl-item">📐 Measured Area</div>`;
   grid.innerHTML=items;
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
@@ -1116,7 +1139,7 @@ function printMap(){
   if(routes.length) sub.push(`${routes.length} route${routes.length!==1?'s':''}`);
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
   if(totalAcres>0) sub.push(`${totalAcres.toFixed(1)} acres measured`);
-  document.getElementById('print-sub').textContent=[campName, ...sub].filter(Boolean).join(' · ');
+  document.getElementById('print-sub').textContent=sub.join(' · ');
   buildPrintLegend();
   setTimeout(()=>{map.invalidateSize();window.print();},250);
 }
@@ -1134,18 +1157,19 @@ document.addEventListener('keydown',e=>{
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
-setupDeerCampShell();
 try{
-  const saved=localStorage.getItem(scoutStorageKey) || localStorage.getItem(legacyScoutStorageKey);
+  const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
       const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
       allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
     });
     windArrows.forEach(addWindArrowToMap);
+    drivers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('driver')}).addTo(map).bindPopup(`<div class="pu-name">Driver</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'driver')">Delete</button></div>`); allLayers[item.id]=marker; });
+    standers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('stander')}).addTo(map).bindPopup(`<div class="pu-name">Stander</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'stander')">Delete</button></div>`); allLayers[item.id]=marker; });
     areaPolys.forEach(a=>{
       const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
         .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
