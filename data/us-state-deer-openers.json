@@ -1,0 +1,393 @@
+
+
+
+That fixed everything...except...it changed the CampFeed Archive back to all 16 cards instead of two rows of 5 each
+
+I’m checking the camp file logic for the archive cap so I can give you the exact fix instead of guessing.
+
+I found the regression: the archive grid styling stayed at 5 columns, but the render logic lost the 10-card page slice, so it’s dumping the full archive again.
+
+Thought for 56s
+Yep — the grid CSS is still set for 5 columns, but the cap that keeps the archive to 10 cards per page is what got lost. The working paged version uses const archivePageSize = 10; and renders from pagedArchiveEntries, not the full filtered array. 
+
+ 
+
+ 
+
+
+In camp.html, inside your CampFeed script, make sure this line exists:
+
+const archivePageSize = 10;
+Then replace your current renderArchiveFeed() body with this version:
+
+const renderArchiveFeed = () => {
+  const searchTerm = String(searchInput.value || "").trim().toLowerCase();
+  const sortMode = sortSelect.value || "newest";
+
+  const archivePool = allFeedEntries.slice(3);
+
+  filteredEntries = archivePool
+    .filter(entry => {
+      if (!searchTerm) return true;
+      return entry.searchBlob.includes(searchTerm);
+    })
+    .filter(entry => {
+      if (activeFilter === "all") return true;
+      if (["photo", "audio", "video"].includes(activeFilter)) {
+        return entry.mediaType === activeFilter;
+      }
+      return entry.category === activeFilter;
+    })
+    .sort((a, b) =>
+      sortMode === "oldest"
+        ? a.createdAtMs - b.createdAtMs
+        : b.createdAtMs - a.createdAtMs
+    );
+
+  const totalArchivePosts = filteredEntries.length;
+  const maxPageIndex = Math.max(0, Math.ceil(totalArchivePosts / archivePageSize) - 1);
+  archivePageIndex = Math.min(archivePageIndex, maxPageIndex);
+
+  const pageStart = archivePageIndex * archivePageSize;
+  const pagedArchiveEntries = filteredEntries.slice(pageStart, pageStart + archivePageSize);
+  const pageFirst = totalArchivePosts ? pageStart + 4 : 0;
+  const pageLast = totalArchivePosts ? pageStart + 3 + pagedArchiveEntries.length : 0;
+
+  resultsCount.textContent = totalArchivePosts
+    ? `Archive showing ${formatFeedCount(pageFirst)}–${formatFeedCount(pageLast)} of ${formatFeedCount(totalArchivePosts)} older post${totalArchivePosts === 1 ? "" : "s"}`
+    : "No archived posts";
+
+  if (archivePageLabel) {
+    archivePageLabel.textContent = totalArchivePosts
+      ? `Archive page ${archivePageIndex + 1} of ${maxPageIndex + 1}`
+      : "Archive page 0 of 0";
+  }
+
+  if (archivePrevBtn) archivePrevBtn.disabled = archivePageIndex <= 0;
+  if (archiveNextBtn) archiveNextBtn.disabled = archivePageIndex >= maxPageIndex || !totalArchivePosts;
+
+  archiveList.innerHTML = "";
+
+  if (!pagedArchiveEntries.length) {
+    const empty = document.createElement("div");
+    empty.className = "feed-empty-state";
+    empty.innerHTML = totalArchivePosts
+      ? `<strong>No posts on this archive page.</strong><p>Use Previous 10 to go back through older CampFeed posts.</p>`
+      : `
+        <strong>No posts matched your search.</strong>
+        <p>Try another keyword or clear filters to browse the full CampFeed archive.</p>
+      `;
+    archiveList.appendChild(empty);
+    return;
+  }
+
+  pagedArchiveEntries.forEach(entry => {
+    const card = document.createElement("article");
+    card.className = "feed-archive-card";
+
+    const media = document.createElement("div");
+    media.className = "feed-archive-media";
+    if (entry.imageFit === "contain") media.classList.add("is-contain");
+
+    if (entry.image) {
+      const image = document.createElement("img");
+      image.src = entry.image;
+      image.alt = entry.title || "Feed image";
+      image.loading = "lazy";
+      media.appendChild(image);
+    } else {
+      media.innerHTML = `<div class="feed-empty-state" style="height:100%;display:flex;align-items:center;justify-content:center;">No image for this post yet.</div>`;
+    }
+
+    const copy = document.createElement("div");
+    copy.className = "feed-archive-copy";
+
+    const topline = document.createElement("div");
+    topline.className = "feed-archive-topline";
+
+    const mediaBadge = document.createElement("span");
+    mediaBadge.className = "feed-archive-badge";
+    mediaBadge.textContent = entry.mediaType === "note" ? "Post" : entry.mediaType;
+
+    const categoryBadge = document.createElement("span");
+    categoryBadge.className = "feed-archive-badge";
+    categoryBadge.textContent = (entry.category || "field-note").replace(/-/g, " ");
+
+    topline.appendChild(mediaBadge);
+    topline.appendChild(categoryBadge);
+
+    const title = document.createElement("h4");
+    title.className = "feed-archive-title";
+    title.textContent = entry.title || "Field Update";
+
+    const meta = document.createElement("p");
+    meta.className = "feed-archive-meta";
+    meta.textContent = entry.meta || "Published from DeerCamp App";
+
+    const body = document.createElement("p");
+    body.className = "feed-archive-body";
+    body.textContent = getExcerpt(entry.body || "Published from DeerCamp App.");
+
+    const actions = document.createElement("div");
+    actions.className = "feed-archive-actions";
+
+    const openBtn = document.createElement("button");
+    openBtn.type = "button";
+    openBtn.className = "feed-card-open";
+    openBtn.textContent = "Open Post";
+    openBtn.addEventListener("click", () => openFeedModal(entry.id, "archive"));
+
+    actions.appendChild(openBtn);
+
+    copy.appendChild(topline);
+    copy.appendChild(title);
+    copy.appendChild(meta);
+    copy.appendChild(body);
+    copy.appendChild(actions);
+
+    card.appendChild(media);
+    card.appendChild(copy);
+    archiveList.appendChild(card);
+  });
+};
+That restores the two rows of 5 behavior by limiting each archive page to 10 cards. The 5-column archive grid itself is already correct. 
+
+
+If you want, I can give you the exact git add / commit / push commands next.
+
+
+give me the full, updated camp file to download and also the add/commit/push commands
+
+I’m pulling the latest camp file from your file library, patching the archive paging back to 10 cards, and I’ll hand you a ready-to-download file plus the git commands.
+
+Thought for 52s
+Here’s the updated download from your file library with the CampFeed Archive paged back to 10 cards per page and the Previous 10 / Next 10 controls in place: 
+
+
+That file is the newer paged version created on March 29, 2026, and it includes the archive page controls plus the pagedArchiveEntries slice logic, which is the fix that restores two rows of 5 instead of all 16 cards rendering at once. 
+
+ 
+
+
+Use these commands in your DeerCamp project folder:
+
+git add camp.html
+git commit -m "Restore CampFeed archive pagination to 10 cards per page"
+git push origin main
+If you also changed steward-dashboard.html in the same round and want both pushed together, use:
+
+git add camp.html steward-dashboard.html
+git commit -m "Restore CampFeed archive pagination and sync steward updates"
+git push origin main
+
+ugh, where's the download file?
+
+I’m grabbing the current camp.html, patching it into a real downloadable file, and I’ll post the link right here.
+
+Thought for 54s
+I missed attaching it in the last message.
+
+Here’s the updated file directly:
+
+
+camp-feed-archive-paged-20260329.html
+File
+It’s the camp-feed-archive-paged-20260329.html file from today, and the archive render logic includes pagedArchiveEntries plus the page-size logic that limits the archive to 10 cards at a time. 
+
+ 
+
+
+Use these commands after you replace your local camp.html with that file:
+
+git add camp.html
+git commit -m "Restore CampFeed archive pagination to 10 cards per page"
+git push origin main
+
+It still hasn't corrected the 16 posts down to 2 rows of 5 in the CampFeed Archive, even after replacing the file and a hard refresh
+
+I’m verifying the actual file content now, because this sounds like the render function still references the full archive array somewhere instead of the paged slice.
+
+I found the mismatch. Your actual camp.html is still the old version, while the fixed archive code is sitting in a separate file with a different filename.
+
+Thought for 57s
+I checked the actual files, and the problem is clear:
+
+Your current camp.html is still the old version. It still says
+
+resultsCount.textContent = `${filteredEntries.length} post${filteredEntries.length === 1 ? "" : "s"}`;
+...
+filteredEntries.forEach(entry => {
+which means it will always render all 16 archive posts. 
+
+
+The fixed file is a separate file named camp-feed-archive-paged-20260329.html, and that one uses:
+
+const pagedArchiveEntries = filteredEntries.slice(pageStart, pageStart + archivePageSize);
+...
+pagedArchiveEntries.forEach(entry => {
+which is the correct 10-post / 2 rows of 5 behavior. 
+
+
+So the fix did not fail — it just never made it into the real root camp.html. The file you need is here:
+
+
+camp-feed-archive-paged-20260329.html
+File
+
+camp.html
+File
+Do this exactly in your DeerCamp root folder:
+
+Copy-Item .\camp-feed-archive-paged-20260329.html .\camp.html -Force
+git add camp.html
+git commit -m "Restore CampFeed archive pagination to 10 posts"
+git push origin main
+Then verify inside camp.html by searching for:
+
+pagedArchiveEntries
+If that text is not in camp.html, it is still the wrong file.
+
+
+ok, that worked for the CampFeed Archive...but...now the calendar season opening dates aren't there for a camp created for Eau Claire, WI
+
+I’m checking the calendar logic in the actual camp.html you just promoted, because the archive fix likely brought over an older season-opener data path.
+
+Thought for 1m 15s
+I found the regression.
+
+Your Wisconsin opener data is present and valid: archery 2026-09-12, gun 2026-11-21, and muzzleloader 2026-11-30 are in us-state-deer-openers.json. 
+
+
+The newer build.html also uses the current DeerCamp season lookup year and saves calendarEvents, calendarMeta, and siteSeasonLookupYear into campData when a camp is created. 
+
+
+And the newer camp-hotfix-20260329.html adds the missing calendar fallback merge so official season opener dates still appear even when the saved camp data is missing those events.
+
+So what happened is: when you copied in the archive-paged camp.html, you restored the archive fix but also rolled back the newer calendar fallback logic. Based on the files I found, the clean fix is to replace three root files together, not just camp.html.
+
+
+camp-hotfix-20260329.html
+File
+
+build.html
+File
+
+us-state-deer-openers.json
+File
+Do these replacements in your DeerCamp root:
+
+Copy-Item .\camp-hotfix-20260329.html .\camp.html -Force
+Copy-Item .\build.html .\build.html.bak -ErrorAction SilentlyContinue
+Copy-Item .\data\us-state-deer-openers.json .\data\us-state-deer-openers.json.bak -ErrorAction SilentlyContinue
+Then replace:
+
+camp.html with camp-hotfix-20260329.html
+
+build.html with the March 29 build.html
+
+data\us-state-deer-openers.json with the March 29 us-state-deer-openers.json
+
+After that, clear the old generated camp data before testing a fresh Eau Claire build, because old localStorage can keep the empty calendar:
+
+localStorage.removeItem("campData");
+localStorage.removeItem("generatedCamp");
+localStorage.removeItem("deercamp.activeCampId");
+location.reload();
+Then create a new Eau Claire, WI camp again.
+
+Git commands after the file replacements:
+
+git add camp.html build.html data/us-state-deer-openers.json
+git commit -m "Restore WI season opener calendar dates and keep archive pagination fix"
+git push origin main
+If you want, I’ll give you the exact “search for this / confirm this line exists” checks for all 3 files before you commit.
+
+
+provide us-state-deer-openers.json as a downloadable file instead of a code block
+
+I’m pulling the actual JSON file content into a real download so you can drop it straight into data/us-state-deer-openers.json.
+
+Thought for 28s
+Here it is as a file:
+
+
+us-state-deer-openers.final.json
+File
+Use the us-state-deer-openers.final.json file and rename it to us-state-deer-openers.json in your local data folder. It includes Wisconsin with 2026-09-12, 2026-11-21, and 2026-11-30. 
+
+
+
+
+
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+{
+  "updatedAt": "2026-03-23",
+  "notes": "Populate this file from current official state wildlife agency regulations. Only officially published statewide opener dates should be included. States with unpublished dates should remain absent or have an empty seasons array. If a state has only 1 or 2 confirmed season opener dates, publish only those confirmed records. ZIP-specific exceptions may be stored under zipOverrides. Only seasons present in a state's seasons array will appear on CampCalendar.",
+  "states": {
+    "MN": {
+      "stateName": "Minnesota",
+      "source": "Minnesota DNR hunting season dates",
+      "seasons": [
+        {
+          "type": "archery",
+          "date": "2026-09-19",
+          "title": "Minnesota Archery Deer Opener",
+          "description": "Statewide deer archery opener.",
+          "icon": "🏹"
+        },
+        {
+          "type": "firearm",
+          "date": "2026-11-07",
+          "title": "Minnesota Firearms Deer Opener",
+          "description": "Statewide deer firearms opener across the main A-season permit areas.",
+          "icon": "🔫"
+        },
+        {
+          "type": "muzzleloader",
+          "date": "2026-11-28",
+          "title": "Minnesota Muzzleloader Deer Opener",
+          "description": "Statewide muzzleloader deer opener.",
+          "icon": "💥"
+        }
+      ],
+      "zipOverrides": {}
+    },
+    "WI": {
+      "stateName": "Wisconsin",
+      "source": "Wisconsin DNR deer season dates",
+      "seasons": [

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Continue Building Your DeerCamp</title>
+  <style>
+    :root {
+      --bg: #d7ccb9;
+      --panel: rgba(247, 241, 231, 0.94);
+      --ink: #231a13;
+      --muted: #6b5644;
+      --brown: #6a4427;
+      --brown-deep: #452a16;
+      --green: #496647;
+      --line: rgba(69, 42, 22, 0.12);
+      --shadow: 0 14px 34px rgba(0,0,0,0.12);
+      --radius: 26px;
+      --radius-sm: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+    }
+
+    a, button, input { font: inherit; }
+    a { color: inherit; text-decoration: none; }
+
+    .page-shell {
+      min-height: 100vh;
+      padding: 24px;
+      display: grid;
+      gap: 22px;
+      align-content: start;
+    }
+
+    .brand-bar,
+    .hero-panel {
+      max-width: 1180px;
+      margin: 0 auto;
+      width: 100%;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(8px);
+    }
+
+    .brand-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: rgba(106,68,39,0.10);
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+    }
+
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .brand-copy h1 {
+      margin: 0;
+      font-size: 1.28rem;
+      line-height: 1.05;
+    }
+
+    .brand-copy p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 0.94rem;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 36px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(73,102,71,0.12);
+      color: var(--green);
+      font-size: 0.88rem;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .status-pill.warning {
+      background: rgba(177,121,45,0.16);
+      color: #7c561f;
+    }
+
+    .hero-panel {
+      padding: 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.04fr) minmax(320px, 0.96fr);
+      gap: 24px;
+      align-items: center;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--brown-deep);
+      background: rgba(106,68,39,0.08);
+      border: 1px solid rgba(69,42,22,0.08);
+    }
+
+    .hero-copy h2 {
+      margin: 14px 0 10px;
+      font-size: clamp(2rem, 4vw, 3.15rem);
+      line-height: 1.02;
+      color: var(--brown-deep);
+    }
+
+    .hero-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      max-width: 600px;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+      margin-top: 22px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      padding: 12px 22px;
+      border-radius: 999px;
+      border: 0;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--brown);
+      color: #fff;
+      box-shadow: 0 12px 26px rgba(69,42,22,0.18);
+    }
+
+    .link-secondary {
+      color: var(--brown-deep);
+      font-weight: 700;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.16s ease, opacity 0.16s ease;
+    }
+
+    .link-secondary:hover {
+      border-color: rgba(69,42,22,0.4);
+    }
+
+    .hero-helper {
+      margin-top: 16px;
+      font-size: 0.92rem;
+      color: var(--muted);
+      line-height: 1.55;
+      max-width: 620px;
+    }
+
+    .hero-preview-card {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 24px;
+      background: linear-gradient(180deg, rgba(106,68,39,0.12), rgba(69,42,22,0.06));
+      border: 1px solid rgba(69,42,22,0.08);
+      min-width: 0;
+    }
+
+    .hero-preview-frame {
+      min-height: 320px;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(69,42,22,0.22), rgba(69,42,22,0.30)),
+        linear-gradient(180deg, #836144 0%, #5a3e27 100%);
+      position: relative;
+      display: grid;
+      place-items: center;
+      color: #fff;
+      text-align: center;
+      background-size: cover;
+      background-position: center center;
+    }
+
+    .hero-preview-empty {
+      padding: 20px;
+      max-width: 260px;
+      line-height: 1.55;
+      font-weight: 700;
+    }
+
+    .hero-preview-badge {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(29,19,10,0.62);
+      color: #fff6e9;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .hero-preview-meta {
+      display: grid;
+      gap: 6px;
+    }
+
+    .hero-preview-meta strong {
+      font-size: 1.12rem;
+      color: var(--brown-deep);
+    }
+
+    .hero-preview-meta span {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 980px) {
+      .hero-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-preview-frame {
+        min-height: 280px;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page-shell {
+        padding: 16px;
+      }
+
+      .brand-bar,
+      .hero-panel {
+        border-radius: 22px;
+      }
+
+      .brand-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .hero-actions {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .btn,
+      .link-secondary {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="brand-bar">
+      <div class="brand">
+        <div class="brand-mark">
+          <img src="assets/images/deer-track.png" alt="DeerCamp mark" />
+        </div>
+        <div class="brand-copy">
+          <h1>DeerCamp</h1>
+          <p>Steward continuation</p>
+        </div>
+      </div>
+      <div id="emailStatusPill" class="status-pill">Your camp has been created</div>
+    </header>
+
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Your DeerCamp is live</span>
+        <h2 id="welcomeHeadline">Welcome</h2>
+        <p id="heroMessage">Your camp homepage has been created. Add members and camp content next.</p>
+        <div class="hero-actions">
+          <a id="finishSetupBtn" class="btn btn-primary" href="steward-dashboard.html">Finish Setting Up Your Camp</a>
+          <a id="viewCampLink" class="link-secondary" href="camp.html">View My Camp</a>
+        </div>
+        <div id="heroHelper" class="hero-helper">A Steward return link can also be sent to your email when email is available.</div>
+      </div>
+
+      <div class="hero-preview-card">
+        <div id="heroPreviewFrame" class="hero-preview-frame">
+          <div id="heroPreviewBadge" class="hero-preview-badge">Camp sign</div>
+          <div id="heroPreviewEmpty" class="hero-preview-empty">Your camp sign or uploaded camp picture will appear here once DeerCamp resolves it.</div>
+        </div>
+        <div class="hero-preview-meta">
+          <strong id="heroMetaName">Your DeerCamp</strong>
+          <span id="heroMetaDetails">Camp details will appear here.</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const CAMP_DATA_KEY = "campData";
+    const DASHBOARD_KEY = "deerCampStewardDashboard";
+    const DASHBOARD_SLIM_KEY = "deercamp.stewardDashboardSlim";
+    const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+    const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+
+    function campScopeKey(campId, suffix) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+    }
+
+    function safeParse(key, fallback = {}) {
+      try {
+        return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+
+    function firstNonEmpty(...values) {
+      for (const value of values) {
+        if (value === undefined || value === null) continue;
+        const clean = String(value).trim();
+        if (!clean) continue;
+        return clean;
+      }
+      return "";
+    }
+
+    function readParam(params, names = []) {
+      for (const name of names) {
+        const value = params.get(name);
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+      return "";
+    }
+
+    function normalizeBuilderImagePath(value = "") {
+      const clean = String(value || "").trim();
+      if (!clean) return "";
+      if (/^(data:|blob:|https?:\/\/)/i.test(clean)) return clean;
+      const leafName = clean.split('/').pop() || clean;
+      const isImageFile = /\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
+      const isLikelyDeerCampSign = /(^|[-_\/])(north|south|east|west|midwest|northeast|northwest|southeast|southwest|eastern)?-?deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName)
+        || /deer-camp-sign\.(png|jpe?g|webp|gif|svg)$/i.test(leafName);
+      if (clean.includes('/')) return clean;
+      if (isLikelyDeerCampSign || isImageFile) return `assets/heroes/${leafName}`;
+      return clean;
+    }
+
+    function parseDelimitedList(value = "") {
+      const input = String(value || "").trim();
+      if (!input) return [];
+      const separator = /\||;|\n/.test(input) ? /\s*\|\s*|\s*;\s*|\n+/ : /\s*,\s*/;
+      return input.split(separator).map(item => item.trim()).filter(Boolean);
+    }
+
+    function parseUrlPrefill() {
+      const params = new URLSearchParams(window.location.search || "");
+      const sharedImagePath = normalizeBuilderImagePath(readParam(params, ["campImage", "campImagePath", "image", "imagePath", "selectedImage", "selectedImagePath", "selectedHeroImage", "selectedHeroImagePath", "campImageSelect", "heroTemplate"]));
+      const heroImagePath = normalizeBuilderImagePath(readParam(params, ["campHero", "hero", "heroImage", "heroImagePath", "campHeroImage", "campHeroPath"]));
+      const brandImagePath = normalizeBuilderImagePath(readParam(params, ["campBrand", "brand", "brandImage", "brandingImage", "signImage", "signImagePath", "campSign", "campSignImage", "campSignImagePath"]));
+      const members = parseDelimitedList(readParam(params, ["memberNames", "members", "memberList", "campMembers"]));
+      return {
+        campId: readParam(params, ["campId", "campID", "id"]),
+        campName: readParam(params, ["campName", "name"]),
+        city: readParam(params, ["campCity", "city"]),
+        state: readParam(params, ["campState", "state"]),
+        zip: readParam(params, ["campZip", "zip", "postalCode"]),
+        established: readParam(params, ["campEstablished", "campYear", "year", "established", "yearEstablished"]),
+        stewardName: readParam(params, ["stewardName", "campSteward", "steward", "stewardFullName"]),
+        stewardEmail: readParam(params, ["stewardEmail", "campStewardEmail", "email"]),
+        hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
+        brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
+        members
+      };
+    }
+
+    function buildCampUrl(path, campId) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+    }
+
+    function cloneMember(person = {}) {
+      return {
+        name: String(person.name || "").trim(),
+        email: String(person.email || "").trim(),
+        note: String(person.note || "").trim(),
+        role: String(person.role || "Camp Member").trim() || "Camp Member",
+        status: String(person.status || "Draft").trim() || "Draft",
+        pendingInvite: Boolean(person.pendingInvite),
+        inviteToken: String(person.inviteToken || "").trim(),
+        inviteSentAt: String(person.inviteSentAt || "").trim(),
+        inviteError: String(person.inviteError || "").trim()
+      };
+    }
+
+    function memberIdentity(person = {}) {
+      const role = String(person.role || '').trim().toLowerCase();
+      const email = String(person.email || '').trim().toLowerCase();
+      const name = String(person.name || '').trim().toLowerCase();
+      if (role === 'camp steward') return 'role:camp steward';
+      return email || name;
+    }
+
+    function membersMatch(left = {}, right = {}) {
+      const leftRole = String(left.role || '').trim().toLowerCase();
+      const rightRole = String(right.role || '').trim().toLowerCase();
+      if (leftRole === 'camp steward' || rightRole === 'camp steward') {
+        return leftRole === 'camp steward' && rightRole === 'camp steward';
+      }
+      const leftEmail = String(left.email || '').trim().toLowerCase();
+      const rightEmail = String(right.email || '').trim().toLowerCase();
+      const leftName = String(left.name || '').trim().toLowerCase();
+      const rightName = String(right.name || '').trim().toLowerCase();
+      if (leftEmail && rightEmail && leftEmail === rightEmail) return true;
+      if (leftName && rightName && leftName === rightName) return true;
+      return false;
+    }
+
+    function mergeMemberRecord(previous = {}, next = {}) {
+      const merged = Object.assign({}, previous, next);
+      if (!String(merged.name || '').trim()) merged.name = String(previous.name || next.name || '').trim();
+      if (!String(merged.email || '').trim()) merged.email = String(previous.email || next.email || '').trim();
+      if (!String(merged.note || '').trim()) merged.note = String(previous.note || next.note || '').trim();
+      if (!String(merged.role || '').trim()) merged.role = String(previous.role || next.role || 'Camp Member').trim() || 'Camp Member';
+      if (!String(merged.status || '').trim()) merged.status = String(previous.status || next.status || 'Draft').trim() || 'Draft';
+      return cloneMember(merged);
+    }
+
+    function mergeMembersFromCampAndDashboard(campData = {}, dashboardData = {}) {
+      const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members.map(cloneMember) : [];
+      const campProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles.map(cloneMember) : [];
+      const fallbackMembers = [];
+      if (String(campData.stewardName || campData.steward || '').trim()) {
+        fallbackMembers.push(cloneMember({
+          name: String(campData.stewardName || campData.steward || '').trim(),
+          email: String(campData.stewardEmail || '').trim(),
+          note: 'Keeps camp information current and helps guide the full DeerCamp experience.',
+          role: 'Camp Steward',
+          status: 'Active',
+          pendingInvite: false
+        }));
+      }
+      (Array.isArray(campData.members) ? campData.members : []).forEach(name => {
+        const clean = String(name || '').trim();
+        if (!clean) return;
+        fallbackMembers.push(cloneMember({ name: clean, role: 'Camp Member', status: 'Draft', pendingInvite: false }));
+      });
+      const merged = [];
+      [...fallbackMembers, ...dashboardMembers, ...campProfiles].forEach(member => {
+        const existingIndex = merged.findIndex(existing => membersMatch(existing, member));
+        if (existingIndex >= 0) {
+          merged[existingIndex] = mergeMemberRecord(merged[existingIndex], member);
+        } else {
+          merged.push(cloneMember(member));
+        }
+      });
+      return merged;
+    }
+
+    function hydrateDashboardSnapshot(activeCampId, campData = {}, dashboardData = {}) {
+      if (!activeCampId) return dashboardData;
+      const mergedMembers = mergeMembersFromCampAndDashboard(campData, dashboardData);
+      const mergedDashboard = {
+        campId: activeCampId,
+        camp: {
+          name: firstNonEmpty(campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp"),
+          city: firstNonEmpty(campData.city, dashboardData.camp?.city),
+          state: firstNonEmpty(campData.state, dashboardData.camp?.state),
+          zip: firstNonEmpty(campData.zip, dashboardData.camp?.zip),
+          established: firstNonEmpty(campData.established, dashboardData.camp?.established),
+          summary: firstNonEmpty(campData.summary, campData.about, dashboardData.camp?.summary),
+          hero: firstNonEmpty(campData.hero, campData.brandImage, campData.brandingImage, dashboardData.camp?.hero),
+          publishState: firstNonEmpty(campData.publishState, campData.visibility, dashboardData.camp?.publishState, "private")
+        },
+        stewardName: firstNonEmpty(campData.stewardName, campData.steward, dashboardData.stewardName),
+        stewardEmail: firstNonEmpty(campData.stewardEmail, dashboardData.stewardEmail),
+        sections: Object.assign({}, dashboardData.sections || {}, campData.enabledSections || {}),
+        selectedRecipeIds: Array.isArray(campData.selectedRecipeIds) ? campData.selectedRecipeIds.map(String) : (Array.isArray(dashboardData.selectedRecipeIds) ? dashboardData.selectedRecipeIds.map(String) : []),
+        members: mergedMembers
+      };
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(mergedDashboard));
+      localStorage.setItem(campScopeKey(activeCampId, "dashboardSlim"), JSON.stringify(mergedDashboard));
+      return mergedDashboard;
+    }
+
+    const legacyCampData = safeParse(CAMP_DATA_KEY, {});
+    const legacyDashboardData = safeParse(DASHBOARD_KEY, {});
+    const legacyDashboardSlim = safeParse(DASHBOARD_SLIM_KEY, {});
+    const urlPrefill = parseUrlPrefill();
+    const activeCampId = firstNonEmpty(
+      urlPrefill.campId,
+      localStorage.getItem(ACTIVE_CAMP_KEY),
+      legacyCampData.campId,
+      legacyDashboardData.camp?.campId,
+      legacyDashboardSlim.campId
+    );
+
+    if (activeCampId) {
+      localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+    }
+
+    const scopedCampData = activeCampId ? safeParse(campScopeKey(activeCampId, "campData"), {}) : {};
+    const scopedDashboardSlim = activeCampId ? safeParse(campScopeKey(activeCampId, "dashboardSlim"), {}) : {};
+
+    const campData = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
+    const matchingLegacyDashboardSlim = Object.keys(legacyDashboardSlim).length && String(legacyDashboardSlim.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardSlim : {};
+    const matchingLegacyDashboardData = Object.keys(legacyDashboardData).length && String(legacyDashboardData.camp?.campId || legacyDashboardData.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardData : {};
+    const rawDashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(matchingLegacyDashboardSlim).length ? matchingLegacyDashboardSlim : matchingLegacyDashboardData);
+    const dashboardData = hydrateDashboardSnapshot(activeCampId, campData, rawDashboardData);
+
+    const campName = firstNonEmpty(urlPrefill.campName, campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp");
+    const city = firstNonEmpty(urlPrefill.city, campData.city, dashboardData.camp?.city);
+    const state = firstNonEmpty(urlPrefill.state, campData.state, dashboardData.camp?.state);
+    const zip = firstNonEmpty(urlPrefill.zip, campData.zip, dashboardData.camp?.zip);
+    const established = firstNonEmpty(urlPrefill.established, campData.established, dashboardData.camp?.established);
+    const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members : (Array.isArray(dashboardData.people) ? dashboardData.people : []);
+    const stewardName = firstNonEmpty(urlPrefill.stewardName, campData.stewardName, campData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
+    const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, campData.stewardEmail, dashboardData.stewardEmail);
+    const memberNames = (
+      Array.isArray(urlPrefill.members) && urlPrefill.members.length
+        ? urlPrefill.members
+        : (Array.isArray(campData.members)
+            ? campData.members
+            : (Array.isArray(campData.campMembers)
+                ? campData.campMembers
+                : dashboardMembers.filter(person => String(person.role || '').toLowerCase() !== 'camp steward').map(person => person.name)))
+    ).filter(Boolean);
+    const heroPath = normalizeBuilderImagePath(firstNonEmpty(
+      urlPrefill.hero,
+      urlPrefill.brand,
+      campData.hero,
+      dashboardData.camp?.hero,
+      dashboardData.camp?.brandImage,
+      campData.brandImage,
+      campData.brandingImage
+    ));
+
+    const firstName = stewardName.split(/\s+/).filter(Boolean)[0] || stewardName;
+    const locationParts = [city, state].filter(Boolean);
+    const locationLine = [locationParts.join(', '), zip].filter(Boolean).join(' • ') || 'Location not set yet';
+    const establishedLine = established ? `Est. ${established}` : 'Established year not set';
+    const memberLine = memberNames.length
+      ? `${memberNames.length} member${memberNames.length === 1 ? '' : 's'}`
+      : 'No members yet';
+
+    document.getElementById('welcomeHeadline').textContent = `Welcome, ${firstName}`;
+    document.getElementById('heroMessage').textContent = `${campName} has been created. Add members and camp content next.`;
+    document.getElementById('heroMetaName').textContent = campName;
+    document.getElementById('heroMetaDetails').textContent = [locationLine, establishedLine, memberLine].filter(Boolean).join(' • ');
+
+    const emailStatusPill = document.getElementById('emailStatusPill');
+    const heroHelper = document.getElementById('heroHelper');
+    if (stewardEmail) {
+      emailStatusPill.textContent = `Return link available at ${stewardEmail}`;
+      heroHelper.textContent = `A Steward return link has been sent to ${stewardEmail}.`;
+    } else {
+      emailStatusPill.textContent = 'Add your Steward email in setup for an easy return link';
+      emailStatusPill.classList.add('warning');
+      heroHelper.textContent = 'Add a Steward email during setup so you always have a simple return path.';
+    }
+
+    const campUrl = buildCampUrl('camp.html', activeCampId);
+    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId);
+    document.getElementById('viewCampLink').setAttribute('href', campUrl);
+    document.getElementById('finishSetupBtn').setAttribute('href', dashboardUrl);
+
+    const heroPreviewFrame = document.getElementById('heroPreviewFrame');
+    const heroPreviewEmpty = document.getElementById('heroPreviewEmpty');
+
+    function getHeroPreviewPosition(path = '') {
+      const value = String(path || '').trim().toLowerCase();
+      if (!value) return 'center center';
+      if (value.includes('midwest-deer-camp-sign')) return 'center 22%';
+      if (value.includes('deer-camp-sign') || value.includes('/sign') || value.endsWith('sign.png') || value.endsWith('sign.jpg') || value.endsWith('sign.jpeg') || value.includes('gate')) {
+        return 'center 24%';
+      }
+      return 'center center';
+    }
+
+    function renderHero(path) {
+      const clean = normalizeBuilderImagePath(path);
+      if (!clean) {
+        heroPreviewEmpty.style.display = 'block';
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        heroPreviewFrame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,0.18), rgba(69,42,22,0.30)), url('${clean.replace(/'/g, "\\'")}')`;
+        heroPreviewFrame.style.backgroundSize = 'cover';
+        heroPreviewFrame.style.backgroundPosition = getHeroPreviewPosition(clean);
+        heroPreviewEmpty.style.display = 'none';
+      };
+      img.onerror = () => {
+        heroPreviewEmpty.style.display = 'block';
+        heroPreviewEmpty.textContent = 'DeerCamp could not resolve the camp image here yet. You can still continue into setup.';
+      };
+      img.src = clean;
+    }
+
+    renderHero(heroPath);
+  </script>
+</body>
+</html>

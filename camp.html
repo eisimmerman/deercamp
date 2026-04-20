@@ -1,0 +1,1577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeerCamp</title>
+<style>
+  :root{
+    --bg:#d8cfbf; --panel:#f7f1e7; --panel-2:#efe4d2; --ink:#231a13; --muted:#6b5644;
+    --brown:#6a4427; --brown-deep:#452a16; --green:#496647; --line:rgba(69,42,22,.12);
+    --shadow:0 12px 28px rgba(0,0,0,.12); --radius:24px; --radius-sm:18px; --header-h:118px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;overflow-x:hidden;background:var(--bg);font-family:Arial,Helvetica,sans-serif;color:var(--ink)}
+  body.modal-open{overflow:hidden}
+  a,button,input,textarea,select{font:inherit}
+  .camp-header{position:fixed;top:0;left:0;right:0;z-index:1000;background:url('assets/textures/wood.jpg') center/cover no-repeat;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+  .header-inner{position:relative;display:flex;align-items:center;justify-content:center;gap:18px;padding:12px 24px;min-height:92px;background:linear-gradient(180deg, rgba(60,37,18,.18), rgba(60,37,18,.08))}
+  .header-left,.header-right{position:absolute;top:12px;flex:0 0 auto}
+  .header-left{left:12px}
+  .brand-home-link{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;text-decoration:none;line-height:0}
+  .brand-home-link:focus-visible{outline:3px solid rgba(255,255,255,.92);outline-offset:3px}
+  .header-right{right:12px}
+  .header-center{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 72px 0}
+  .deer-icon{width:48px;height:48px;border-radius:12px}
+  .camp-title{margin:0;text-align:center;color:#fff;font-size:2rem;font-weight:800;text-shadow:0 3px 10px rgba(0,0,0,.22)}
+  .camp-meta{color:#fff;opacity:.94;text-shadow:0 2px 8px rgba(0,0,0,.22);font-weight:700}
+  .camp-steward,.camp-members-row{display:flex;justify-content:center;width:100%}
+  .camp-steward{margin-top:10px}
+  .camp-steward .camp-member-link{background:rgba(255,255,255,.9)}
+  .camp-members-row{margin-top:8px;min-height:40px}
+  .camp-member-link{display:inline-flex;align-items:center;gap:9px;padding:7px 14px 7px 10px;border:1px solid rgba(95,64,33,.18);border-radius:10px;background:rgba(255,255,255,.78);color:#4b3116;font-size:.98rem;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:pointer}
+  .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800}
+  .camp-member-role-tag{display:inline-flex;align-items:center;min-height:18px;padding:2px 7px;border-radius:999px;background:rgba(111,77,43,.12);color:#6b4624;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .menu-btn{min-height:40px;padding:0 14px;border-radius:12px;border:0;background:rgba(255,255,255,.9);font-weight:700;color:#4b3116;cursor:pointer}
+  .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
+  .menu.open{display:block}
+  .menu a{display:block;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:700}
+  .menu a:hover{background:rgba(124,79,35,.08)}
+  .hero{--hero-image:none;position:relative;display:flex;align-items:center;justify-content:center;width:100%;height:clamp(220px,22vw,300px);margin-top:var(--header-h);background:#4b3826;overflow:hidden}
+  .hero-blur{position:absolute;inset:-6%;background-image:var(--hero-image);background-size:cover;background-position:center;filter:blur(28px) saturate(1.03) brightness(.72);transform:scale(1.12);opacity:.94}
+  .hero-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:12px clamp(16px,3vw,34px) 14px}
+  .hero-main-image{display:block;width:min(64vw,980px);max-width:calc(100vw - 36px);height:clamp(160px,16vw,230px);border-radius:22px;object-fit:cover;object-position:center 22%;box-shadow:0 16px 34px rgba(0,0,0,.24)}
+  .hero:after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(to bottom,rgba(12,9,6,.14)0%,rgba(12,9,6,.06)26%,rgba(12,9,6,.04)58%,rgba(12,9,6,.28)100%)}
+  .page{padding:24px clamp(16px,3vw,34px) 44px}
+  .content-section{background:linear-gradient(180deg, rgba(250,242,230,.82), rgba(244,234,218,.74));border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius);padding:18px 22px 22px;margin-bottom:22px;scroll-margin-top:calc(var(--header-h) - 8px)}
+  .content-section h2{margin:0 0 10px;color:var(--brown-deep)}
+  .section-helper{margin:0 0 18px;color:var(--muted);line-height:1.6}
+  .two-col{display:grid;grid-template-columns:minmax(300px,.96fr) minmax(320px,1fr);gap:18px;align-items:start}
+  .panel{background:rgba(255,255,255,.46);border:1px solid rgba(69,42,22,.08);border-radius:var(--radius-sm);padding:18px}
+  .panel h4{margin:0 0 12px}
+  .form-grid{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px 18px;align-items:start}
+  .form-side,.form-main{display:grid;gap:14px}
+  .form-row{display:grid;gap:8px}
+  .label{color:#7b5a33;font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .input,.textarea,.select{width:100%;min-height:50px;padding:0 14px;border-radius:16px;border:1px solid rgba(98,72,44,.18);background:rgba(255,255,255,.88);color:#3f2a15}
+  .textarea{min-height:150px;padding:14px;resize:vertical;line-height:1.45}
+  .btn{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 18px;border:0;border-radius:999px;background:var(--brown);color:#fff8ef;font-weight:800;cursor:pointer;box-shadow:0 8px 18px rgba(73,48,25,.16)}
+  .btn-secondary{background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12);box-shadow:none}
+  .feedback{color:var(--muted);line-height:1.55;font-size:.96rem}
+  .feedback.is-error{color:#8b2d1d;font-weight:700}
+  .inline-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+  .content-panel{display:none;gap:14px}
+  .content-panel.active{display:grid}
+  .recent-list,.calendar-event-list{display:grid;gap:10px}
+  .recent-updates-shell{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:12px;align-items:start}
+  .recent-nav{display:grid;gap:10px;align-content:start}
+  .recent-nav .arrow{width:44px;height:44px}
+  .recent-list{min-height:0}
+  .recent-card,.calendar-card,.tradition-card,.recipe-card,.feed-card{padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1)}
+  .recent-title,.calendar-title,.tradition-title,.recipe-title{margin:0 0 6px;font-size:1.06rem;font-weight:800;color:#3a2717}
+  .recent-meta,.calendar-meta,.tradition-meta,.recipe-meta{margin:0 0 6px;color:#6b4624;font-size:.88rem;font-weight:700}
+  .recent-body,.calendar-body,.tradition-body,.recipe-body{margin:0;color:#4b3116;line-height:1.5}
+  .feed-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.82rem;font-weight:800}
+  .carousel{overflow:hidden}
+  .carousel-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 64px)/5);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
+  .carousel-track::-webkit-scrollbar{display:none}
+  .feed-card{scroll-snap-align:start;overflow:hidden;padding:0}
+  .feed-card-media img{display:block;width:100%;aspect-ratio:16/11;object-fit:cover;background:#e9decf}
+  .feed-card-copy{display:grid;gap:10px;padding:16px}
+  .feed-kicker{margin:0;color:#7b5a33;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .feed-title{margin:0;font-size:1.12rem}
+  .feed-meta{margin:0;color:#5b3d1e;font-size:.94rem;font-weight:700;opacity:.82}
+  .feed-body{margin:0;line-height:1.55;opacity:.92}
+  .feed-tags{display:flex;flex-wrap:wrap;gap:8px}
+  .tag{display:inline-flex;align-items:center;min-height:30px;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.6);color:#5b3d1e;font-size:.82rem;font-weight:700}
+  .arrow{width:42px;height:42px;border:0;border-radius:999px;background:rgba(109,77,42,.12);color:#4b3116;font-size:1.1rem;font-weight:800;cursor:pointer}
+  .arrow:disabled{opacity:.42;cursor:default}
+  .empty{padding:18px;border-radius:18px;background:rgba(255,248,237,.8);color:#5a4331;line-height:1.55;box-shadow:inset 0 0 0 1px rgba(98,72,44,.08)}
+  .recipes-grid,.traditions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+  .recipe-card button,.feed-card button{justify-self:start}
+  .recipe-modal-backdrop,.member-modal-backdrop,.feed-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
+  .recipe-modal-backdrop.open,.member-modal-backdrop.open,.feed-modal-backdrop.open{display:block}
+  .recipe-modal,.member-modal,.feed-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
+  .recipe-modal.open,.member-modal.open,.feed-modal.open{display:flex}
+  .recipe-modal-card,.feed-modal-card{position:relative;width:min(920px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24)}
+  .feed-modal-card{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
+  .feed-modal-media img{width:100%;height:100%;min-height:100%;object-fit:cover;background:#e9decf}
+  .feed-modal-content,.recipe-modal-content{display:grid;gap:14px;padding:18px 18px 20px;position:relative}
+  .close{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(0,0,0,.08);font-size:1.45rem;cursor:pointer}
+  .recipe-modal-card{width:min(760px,100%)}
+  .recipe-modal-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 0 14px}
+  .stat{padding:9px 11px;border-radius:13px;background:rgba(125,92,50,.08)}
+  .stat-label{display:block;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;opacity:.7;margin-bottom:4px}
+  .stat-value{font-weight:700}
+  .recipe-columns{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .block{padding:12px;border-radius:14px;background:rgba(255,255,255,.46)}
+  .list{margin:0;padding-left:18px;line-height:1.45}
+  .member-modal-card{position:relative;width:min(760px,calc(100vw - 28px));background:#f7f0e4;border-radius:22px;box-shadow:0 18px 44px rgba(0,0,0,.2);padding:18px;max-height:calc(100vh - var(--header-h) - 36px);overflow:auto}.member-role-block,.member-list-block{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48)}.member-role-label,.member-section-title{margin:0 0 8px;color:#7b5a33;font-size:.8rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.member-role-value{margin:0;color:#3f2a15;font-size:1rem;font-weight:700;line-height:1.35}.member-modal-list{margin:0;padding-left:18px;line-height:1.45}.member-modal-list li+li{margin-top:6px}.member-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.member-detail-card{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}.member-detail-card .member-detail-row{grid-template-columns:minmax(132px,152px) minmax(0,1fr)}
+  .member-header{display:flex;gap:12px;margin:0 44px 12px 0;align-items:center}
+  .avatar{display:inline-flex;align-items:center;justify-content:center;width:58px;height:58px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:1rem;font-weight:800;overflow:hidden;background-size:cover;background-position:center center}
+  .avatar img{display:block;width:100%;height:100%;object-fit:cover}
+  .member-section{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}
+  .member-detail-row{display:grid;grid-template-columns:minmax(132px,152px) minmax(0,1fr);gap:10px}
+  .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
+  .calendar-main,.calendar-side{background:rgba(252,246,236,.72);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(0,0,0,.08)}
+  .calendar-side{display:grid;grid-template-columns:minmax(250px,.72fr) minmax(520px,1.28fr);gap:18px}
+  .calendar-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+  .weekday{text-align:center;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.66;padding-bottom:4px}
+  .day{min-height:58px;padding:6px 6px 4px;border:1px solid rgba(97,70,38,.12);border-radius:14px;background:rgba(255,255,255,.62);cursor:pointer}
+  .day.empty{background:rgba(255,255,255,.2);cursor:default;pointer-events:none}
+  .day.selected{border-color:rgba(114,70,30,.55);box-shadow:inset 0 0 0 2px rgba(114,70,30,.18)}
+  .day-num{font-size:.88rem;font-weight:800}
+  .day-dots{display:flex;gap:4px;min-height:10px;margin-top:8px}
+  .dot{width:8px;height:8px;border-radius:999px;background:#7a4723}
+  .selected-date{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.98rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .cinematic-footer{display:block;width:100%;line-height:0;overflow:hidden}
+  .footer-logo{display:block;width:100%;height:auto}
+
+  .carousel{max-width:1040px;margin:0 auto;overflow:hidden}
+  .feed-card-media img{display:block;width:100%;aspect-ratio:4/3;max-height:240px;object-fit:cover;background:#e9decf}
+  .feed-comments{display:grid;gap:12px;margin-top:4px;padding-top:8px;border-top:1px solid rgba(69,42,22,.1)}
+  .feed-comments h4{margin:0;color:#452a16}
+  .feed-comments-list{display:grid;gap:10px;max-height:180px;overflow:auto}
+  .feed-comment{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.52);border:1px solid rgba(69,42,22,.08)}
+  .feed-comment-meta{margin:0 0 4px;color:#6b4624;font-size:.82rem;font-weight:700}
+  .feed-comment-body{margin:0;line-height:1.45}
+  .feed-comments-form{display:grid;gap:10px}
+  .feed-comments-row{display:grid;grid-template-columns:minmax(170px,240px) auto;gap:10px;align-items:start}.feed-comments-row .btn{align-self:start}.feed-comments-text{width:100%;min-height:148px;resize:vertical}
+  .feed-comments-empty{color:#6b5644;line-height:1.5}
+  .calendar-event-shell{display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:12px;align-items:start}
+  .calendar-event-nav{display:grid;gap:10px;align-content:start}
+  .members-section-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px}
+  .members-section-card{display:grid;gap:10px;padding:14px 16px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1);text-align:left;cursor:pointer}
+  .member-name-row{display:flex;align-items:center;gap:10px;font-weight:800;color:#3a2717}
+  .member-note{margin:0;color:#5b3d1e;line-height:1.45}
+  .members-trigger{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:0 16px;border-radius:999px;border:1px solid rgba(95,64,33,.18);background:rgba(255,255,255,.86);color:#4b3116;font-size:.95rem;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.12);cursor:pointer}
+  .members-sheet{display:none;position:fixed;inset:0;z-index:1304;align-items:flex-end;justify-content:center;padding:0}
+  .members-sheet.open{display:flex}
+  .members-sheet-card{position:relative;width:min(760px,100%);max-height:min(78vh,720px);overflow:auto;padding:22px 18px 24px;background:#f7f0e4;border-radius:24px 24px 0 0;box-shadow:0 -18px 44px rgba(0,0,0,.22)}
+  .members-sheet-handle{width:64px;height:6px;border-radius:999px;background:rgba(69,42,22,.18);margin:0 auto 14px}
+  .members-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 42px 16px 0}
+  .members-sheet-title{margin:0;color:#452a16;font-size:1.35rem}
+  .members-sheet-subtitle{margin:4px 0 0;color:#6b5644;line-height:1.5}
+  
+  .mobile-hero-header{display:none}
+  .mobile-hero-bg,.mobile-hero-overlay,.mobile-top-bar,.mobile-hero-center,.mobile-bottom-row{display:none}
+
+  @media (max-width:720px){
+    :root{--mobile-hero-h:410px}
+    .hero{display:none}
+    .camp-header{
+      display:block;position:fixed;top:0;left:0;right:0;height:0;background:transparent;
+      box-shadow:none;border:0;overflow:visible;z-index:1300;pointer-events:none;
+    }
+    .header-inner{display:none}
+    .mobile-hero-header{
+      display:block;position:relative;width:100%;height:var(--mobile-hero-h);overflow:hidden;
+      background:linear-gradient(180deg,#54412f 0%, #6b5845 38%, #95836d 100%);
+    }
+    .mobile-hero-bg{
+      display:block;position:absolute;inset:0;
+      background-size:cover;background-repeat:no-repeat;background-position:center center;
+      transform:none;opacity:.94;
+    }
+    .mobile-hero-overlay{
+      display:block;position:absolute;inset:0;
+      background:
+        linear-gradient(to bottom, rgba(39,26,16,.18) 0%, rgba(39,26,16,.08) 20%, rgba(39,26,16,.10) 58%, rgba(39,26,16,.18) 100%),
+        linear-gradient(to bottom, rgba(229,214,191,.10), rgba(229,214,191,.02));
+      pointer-events:none;
+    }
+    .mobile-top-bar{
+      display:flex;position:fixed;top:12px;left:12px;right:12px;align-items:flex-start;justify-content:space-between;z-index:1310;pointer-events:auto;
+    }
+    .mobile-top-bar.scrolled .mobile-pill,
+    .mobile-top-bar.scrolled .mobile-hoof{
+      box-shadow:0 10px 24px rgba(0,0,0,.24);
+    }
+    .mobile-hoof{
+      width:42px;height:42px;border-radius:11px;box-shadow:0 6px 16px rgba(0,0,0,.22);flex:0 0 auto;
+    }
+    .mobile-actions-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;max-width:52vw;}
+    .mobile-pill{
+      min-height:40px;padding:0 14px;border:1px solid rgba(95,64,33,.18);border-radius:999px;
+      background:rgba(255,249,241,.94);color:#4b3116;font-size:.9rem;font-weight:800;
+      display:inline-flex;align-items:center;gap:7px;box-shadow:0 6px 18px rgba(0,0,0,.18);
+      backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease;
+      cursor:pointer;
+    }
+    .mobile-pill:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.2)}
+    .mobile-pill:active{transform:scale(.98);box-shadow:0 4px 10px rgba(0,0,0,.18);background:rgba(255,255,255,.96)}
+    .mobile-menu-pill,.mobile-members-pill{justify-content:center}
+    .mobile-hero-center{
+      display:block;position:absolute;left:50%;top:226px;transform:translateX(-50%);width:min(90vw,370px);z-index:4;
+      text-align:center;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.36);
+    }
+    .mobile-title{margin:0;display:grid;gap:2px;justify-items:center;line-height:.98}
+    .mobile-title span:first-child{font-size:1.12rem;font-weight:800;letter-spacing:.01em}
+    .mobile-title span:last-child{font-size:1.62rem;font-weight:800;letter-spacing:.01em}
+    .mobile-title span:only-child{font-size:1.62rem;font-weight:800;letter-spacing:.01em}
+    .mobile-meta{margin-top:8px;font-size:.82rem;font-weight:700;line-height:1.2;opacity:.98}
+    .mobile-bottom-row{
+      display:flex;position:absolute;left:12px;right:12px;bottom:18px;z-index:4;align-items:center;justify-content:space-between;gap:12px;
+    }
+    .mobile-steward-pill{
+      min-height:58px;padding:8px 14px 8px 10px;border-radius:18px;align-items:center;gap:10px;flex:0 1 auto;max-width:calc(50% - 6px);
+    }
+    .mobile-steward-badge{width:32px;height:32px;font-size:.78rem;flex:0 0 auto;}
+    .mobile-steward-copy{display:grid;gap:2px;text-align:left;line-height:1;min-width:0;}
+    .mobile-steward-name{font-size:.94rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .mobile-steward-role{font-size:.64rem;font-weight:800;letter-spacing:.08em;opacity:.72;}
+    .mobile-members-pill{min-height:58px;padding:0 18px;border-radius:18px;flex:0 0 auto;min-width:170px;max-width:calc(50% - 6px);}
+    .page{padding-top:18px}
+    .content-section{scroll-margin-top:20px}
+    .menu{
+      top:92px;right:12px;left:auto;min-width:220px;max-width:calc(100vw - 24px);
+      background:rgba(255,250,244,.98);box-shadow:0 18px 36px rgba(0,0,0,.24);
+      transform:translateY(-8px);opacity:0;pointer-events:auto;
+      transition:opacity .2s ease, transform .2s ease;
+      display:block;
+      z-index:1305;
+    }
+    .menu.open{opacity:1;transform:translateY(0);pointer-events:auto}
+  }
+
+  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
+  @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
+  .form-actions-full{display:grid;gap:8px;align-content:start}
+</style>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="firebase-web.js"></script>
+</head>
+<body>
+<section class="mobile-hero-header" id="mobileHeroHeader" aria-label="Camp mobile hero">
+  <div class="mobile-hero-bg" id="mobileHeroBg"></div>
+  <div class="mobile-hero-overlay"></div>
+
+  <div class="mobile-top-bar">
+    <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
+    <div class="mobile-actions-right">
+      <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
+    </div>
+  </div>
+
+  <div class="mobile-hero-center">
+    <h1 class="mobile-title" id="mobileCampName">
+      <span>Camp</span>
+      <span>DeerCamp</span>
+    </h1>
+    <div class="mobile-meta" id="mobileCampLocation"></div>
+  </div>
+
+  <div class="mobile-bottom-row">
+    <button id="mobileStewardButton" class="mobile-pill mobile-steward-pill" type="button" hidden>
+      <span class="camp-member-badge mobile-steward-badge">DC</span>
+      <span class="mobile-steward-copy">
+        <span class="mobile-steward-name" id="mobileStewardName">Camp Steward</span>
+        <span class="mobile-steward-role">STEWARD</span>
+      </span>
+    </button>
+    <button id="mobileMembersToggle" class="mobile-pill mobile-members-pill" type="button" hidden>☰ Members (0)</button>
+  </div>
+</section>
+<header class="camp-header">
+  <div class="header-inner">
+    <div class="header-left"><a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="deer-icon" alt="DeerCamp icon"></a></div>
+    <div class="header-center">
+      <div class="camp-title" id="campName"></div>
+      <div class="camp-meta" id="campLocation"></div>
+      <div class="camp-steward" id="campSteward"></div>
+      <div class="camp-members-row" id="campMembersRow"></div>
+    </div>
+    <div class="header-right">
+      <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
+    </div>
+  </div>
+  <nav id="menu" class="menu"></nav>
+</header>
+
+<section class="hero" id="heroImage">
+  <div class="hero-blur"></div>
+  <div class="hero-stage">
+    <img id="heroMainImage" class="hero-main-image" alt="Camp hero sign or image">
+  </div>
+</section>
+
+<div class="page" id="content"></div>
+
+<footer class="cinematic-footer">
+  <img src="assets/branding/deercamp-footer.png" class="footer-logo" alt="DeerCamp footer">
+</footer>
+
+<div id="feedModalBackdrop" class="feed-modal-backdrop"></div>
+<div id="feedModal" class="feed-modal" aria-hidden="true">
+  <div class="feed-modal-card" role="dialog" aria-modal="true">
+    <div id="feedModalMedia" class="feed-modal-media"></div>
+    <div class="feed-modal-content">
+      <button type="button" id="feedModalClose" class="close" aria-label="Close post">×</button>
+      <p id="feedModalKicker" class="feed-kicker"></p>
+      <h3 id="feedModalTitle"></h3>
+      <p id="feedModalMeta" class="feed-meta"></p>
+      <p id="feedModalBody" class="feed-body"></p>
+      <div id="feedModalTags" class="feed-tags"></div>
+      <div class="feed-comments">
+        <h4>Comments</h4>
+        <div id="feedCommentsList" class="feed-comments-list"></div>
+        <div id="feedCommentsEmpty" class="feed-comments-empty">No comments yet. Add one below.</div>
+        <div class="feed-comments-form">
+          <div class="feed-comments-row">
+            <select id="feedCommentAuthor" class="select"></select>
+            <button type="button" id="feedCommentSubmit" class="btn">Add Comment</button>
+          </div>
+          <textarea id="feedCommentText" class="textarea feed-comments-text" placeholder="Add a comment about this post."></textarea>
+          <div id="feedCommentFeedback" class="feedback">Comments stay with this camp post.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="button" id="feedModalPrev" class="btn btn-secondary">← Previous</button>
+        <button type="button" id="feedModalNext" class="btn btn-secondary">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="recipeModalBackdrop" class="recipe-modal-backdrop"></div>
+<div id="recipeModal" class="recipe-modal" aria-hidden="true">
+  <div class="recipe-modal-card">
+    <div class="recipe-modal-content">
+      <button id="closeRecipeModal" class="close" type="button" aria-label="Close recipe">×</button>
+      <div>
+        <p id="recipeModalSubtitle" class="feed-kicker">Camp Recipe</p>
+        <h3 id="recipeModalTitle" style="margin:0 0 8px;font-size:1.45rem;"></h3>
+        <p id="recipeModalDescription" style="margin:0;line-height:1.42;"></p>
+      </div>
+      <div class="recipe-modal-stats">
+        <div class="stat"><span class="stat-label">Time</span><span id="recipeModalTime" class="stat-value">—</span></div>
+        <div class="stat"><span class="stat-label">Serves</span><span id="recipeModalServes" class="stat-value">—</span></div>
+        <div class="stat"><span class="stat-label">Difficulty</span><span id="recipeModalDifficulty" class="stat-value">—</span></div>
+      </div>
+      <div class="recipe-columns">
+        <div class="block"><h4>Ingredients</h4><ul id="recipeModalIngredients" class="list"></ul></div>
+        <div class="block"><h4>Method</h4><ol id="recipeModalSteps" class="list"></ol></div>
+      </div>
+      <div class="recipe-columns">
+        <div class="block"><h4>Serve It Right</h4><ul id="recipeModalServing" class="list"></ul></div>
+        <div class="block"><h4>Camp Tips</h4><ul id="recipeModalTips" class="list"></ul></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="memberModalBackdrop" class="member-modal-backdrop"></div>
+<div id="memberModal" class="member-modal" aria-hidden="true">
+  <div class="member-modal-card">
+    <button id="closeMemberModal" class="close" type="button" aria-label="Close member profile">×</button>
+    <div class="member-header">
+      <div id="memberModalAvatar" class="avatar">CM</div>
+      <div>
+        <h3 id="memberModalName" style="margin:0;font-size:1.45rem;"></h3>
+        <p id="memberModalRole" style="margin:6px 0 0;color:#5b3d1e;font-weight:700;"></p>
+      </div>
+    </div>
+    <div class="member-role-block">
+      <p class="member-role-label" id="memberModalResponsibilitiesLabel">Role & responsibilities</p>
+      <p class="member-role-value" id="memberModalRoleLine">Camp member details</p>
+      <ul id="memberModalResponsibilities" class="member-modal-list"></ul>
+    </div>
+    <div class="member-detail-grid">
+      <div class="member-detail-card">
+        <div class="member-detail-row"><div><strong>Name</strong></div><div id="memberModalDetailName">—</div></div>
+        <div class="member-detail-row"><div><strong>Email</strong></div><div id="memberModalDetailEmail">—</div></div>
+        <div class="member-detail-row"><div><strong>Joined</strong></div><div id="memberModalYearJoined">—</div></div>
+        <div class="member-detail-row"><div><strong>Nickname</strong></div><div id="memberModalNickname">—</div></div>
+      </div>
+      <div class="member-detail-card">
+        <div class="member-detail-row"><div><strong>Favorite Stand</strong></div><div id="memberModalStand">—</div></div>
+        <div class="member-detail-row"><div><strong>Favorite Gear</strong></div><div id="memberModalGear">—</div></div>
+        <div class="member-detail-row"><div><strong>Harvest Highlight</strong></div><div id="memberModalHarvest">—</div></div>
+        <div class="member-detail-row"><div><strong>Best Camp Memory</strong></div><div id="memberModalMemory">—</div></div>
+      </div>
+    </div>
+    <div class="member-list-block">
+      <p class="member-section-title">Specialty & note</p>
+      <div class="member-detail-row"><div><strong>Specialty</strong></div><div id="memberModalSpecialty">—</div></div>
+      <div class="member-detail-row"><div><strong>Note</strong></div><div id="memberModalDetailNote">—</div></div>
+    </div>
+    <div class="member-section">
+      <div class="member-detail-row"><div><strong>Member card edits</strong></div><div>Member-only editing will be added with secure sign-in.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="membersSheetBackdrop" class="member-modal-backdrop"></div>
+<div id="membersSheet" class="members-sheet" aria-hidden="true">
+  <div class="members-sheet-card" role="dialog" aria-modal="true" aria-label="Camp members">
+    <div class="members-sheet-handle"></div>
+    <button id="closeMembersSheet" class="close" type="button" aria-label="Close members">×</button>
+    <div class="members-sheet-head">
+      <div>
+        <h3 class="members-sheet-title">Camp Members</h3>
+        <p class="members-sheet-subtitle">Open any member to view their DeerCamp profile.</p>
+      </div>
+    </div>
+    <div id="membersSheetList" class="members-section-grid"></div>
+  </div>
+</div>
+
+<script>
+const CAMP_DATA_KEY="campData", ACTIVE_CAMP_KEY="deercamp.activeCampId", CAMP_SCOPE_PREFIX="deercamp.camps.", DASHBOARD_KEY="deerCampStewardDashboard";
+const STARTER_RECIPES = [
+  {id:"starter-recipe-1",title:"Skillet Eggs & Sausage Hash",description:"One pan, hot fire, full belly — ready before first light.",time:"20 min",serves:"4",difficulty:"Easy",ingredients:["1 lb breakfast sausage links or patties","6 large eggs","1 can (15 oz) diced potatoes, drained","1 small onion, rough chopped","Salt, pepper, garlic powder","2 tbsp butter or oil"],steps:["Brown sausage in skillet over medium-high heat. Set aside, leave drippings.","Add butter, onion, and potatoes. Cook until golden and slightly crispy, 8–10 min.","Crumble sausage back in. Make wells and crack eggs directly into them.","Season well. Cover with foil and cook until eggs set, about 5 min."],serving:["Serve hot before first light.","Best with strong camp coffee."],tips:["Use a lid from a pot or foil as a cover. No fancy lids needed out here."]},
+  {id:"starter-recipe-2",title:"Campfire Pancakes with Syrup",description:"Stack 'em high. Simple batter, big satisfaction.",time:"15 min",serves:"4",difficulty:"Easy",ingredients:["2 cups pancake mix (just-add-water kind)","1½ cups water (adjust as needed)","2 tbsp vegetable oil","Maple syrup or honey for serving","Butter for the pan"],steps:["Whisk pancake mix, water, and oil until just combined — lumps are fine.","Heat griddle or skillet over medium heat. Melt a pat of butter.","Pour ¼ cup batter per pancake. Cook until bubbles form and edges look set, about 2 min.","Flip once; cook another 1–2 min. Serve with syrup."],serving:["Serve in warm stacks with butter and syrup.","Keep the finished pancakes near the fire, not over it."],tips:["Keep cooked pancakes warm by stacking them on a plate set near (not over) the fire."]},
+  {id:"starter-recipe-3",title:"Smoked Meat Flatbread Wraps",description:"Minimal prep, maximum fuel for the afternoon stand.",time:"10 min",serves:"4",difficulty:"Easy",ingredients:["Large flour tortillas (4–6)","½ lb smoked or deli sliced meat (venison, beef, or turkey)","Sliced cheese (cheddar or pepper jack)","Mustard or mayo packets","Pickles or canned jalapeños"],steps:["Lay tortilla flat. Spread mustard or mayo across the middle.","Layer meat and cheese generously.","Add pickles or jalapeños. Roll tightly, tucking in the sides.","Wrap in foil or eat immediately. Slice in half for easy handling."],serving:["Slice in half for easy carry to the stand.","Best served cold from the cooler or lunch tote."],tips:["Prep these the night before and wrap in foil — they hold well in a cooler all morning."]},
+  {id:"starter-recipe-4",title:"Quick Camp Chili",description:"Open cans, dump, simmer — done. Warms you to the bone.",time:"25 min",serves:"4–6",difficulty:"Easy",ingredients:["1 lb ground venison or beef","2 cans (15 oz each) chili-style beans","1 can (15 oz) diced tomatoes","1 packet chili seasoning mix","Salt and hot sauce to taste"],steps:["Brown ground meat in a pot over the fire or stove. Drain excess fat.","Add beans (with liquid), diced tomatoes, and chili seasoning packet.","Stir well and bring to a boil. Reduce heat and simmer 15 min.","Taste, adjust salt and hot sauce, and serve with crackers or bread."],serving:["Serve with crackers, bread, or a spoon right from the pot.","Great as a next-day reheat after the evening hunt."],tips:["This tastes even better the next day — make a double batch for dinner and reheat for lunch."]},
+  {id:"starter-recipe-5",title:"Backstrap Steaks with Garlic Butter",description:"The crown jewel of deer camp. Keep it simple, let the meat shine.",time:"20 min",serves:"4",difficulty:"Medium",ingredients:["2 lbs venison backstrap, cut into 1-inch medallions","4 tbsp butter","4 garlic cloves, smashed","Salt and coarse black pepper","Fresh or dried rosemary (optional)","2 tbsp oil for the pan"],steps:["Pat medallions dry. Season generously with salt and pepper on both sides.","Heat oil in cast iron until shimmering hot. Sear medallions 2–3 min per side. Do not crowd the pan.","Reduce heat. Add butter, garlic, and rosemary. Tilt pan and spoon butter over steaks for 1 min.","Remove and rest 5 min before eating. Medium-rare is best for backstrap."],serving:["Rest the medallions before slicing and serving.","Excellent with camp potatoes or grilled vegetables."],tips:["Venison backstrap overcooks fast. Pull it when the inside still looks slightly pink — it carries over from the heat."]},
+  {id:"starter-recipe-6",title:"Venison & Pasta Skillet",description:"Hearty, filling, and made in one pan. The whole camp will approve.",time:"30 min",serves:"4–6",difficulty:"Easy",ingredients:["1 lb ground venison","12 oz penne or rotini pasta","1 jar (24 oz) marinara sauce","2 cups water","1 tsp garlic powder, 1 tsp Italian seasoning","Shredded parmesan or mozzarella for topping"],steps:["Brown ground venison in a deep skillet or pot. Season with garlic powder and Italian seasoning.","Pour in marinara sauce and water. Stir and bring to a boil.","Add dry pasta directly into the pot. Stir frequently and cook 12–14 min until pasta is tender.","Top with cheese and cover off heat for 2 min to melt. Serve straight from the pan."],serving:["Top with parmesan or mozzarella and serve from the skillet.","Pair with crusty bread or crackers."],tips:["Add a pinch of red pepper flakes for kick. Crusty bread or crackers make excellent companions."]},
+  {id:"starter-recipe-7",title:"Foil Pack Venison & Veggies",description:"Wrap it up, throw it in the coals, walk away. No dishes.",time:"35 min",serves:"4",difficulty:"Easy",ingredients:["1½ lbs venison stew meat or thin-cut pieces","2 cans (15 oz) mixed vegetables, drained","1 packet onion soup mix","4 tbsp butter, cut into pats","Salt and pepper","Heavy-duty aluminum foil"],steps:["Tear 4 large sheets of heavy foil. Layer double for strength.","Divide meat and veggies among the sheets. Sprinkle soup mix over each. Top with a pat of butter.","Fold foil tightly, sealing all edges to trap steam.","Place on hot coals (not open flame). Cook 25–30 min, flipping once halfway through."],serving:["Let the foil packs rest briefly before opening.","Serve straight from the pack for easy cleanup."],tips:["Use gloves or tongs — packs get very hot. Let rest 3 min before opening to avoid steam burns."]},
+  {id:"starter-recipe-8",title:"Dutch Oven Deer Camp Stew",description:"Slow and steady over the fire. Stick-to-your-ribs satisfaction.",time:"1.5 hrs",serves:"6–8",difficulty:"Medium",ingredients:["2 lbs venison stew meat, cubed","2 cans (10.5 oz) cream of mushroom soup","1 can (15 oz) beef broth","1 bag (16 oz) frozen mixed vegetables","1 packet dry onion soup mix","Salt and pepper"],steps:["Season venison cubes with salt and pepper. Brown in batches in the Dutch oven.","Add soup, broth, onion soup mix, and vegetables. Stir to combine.","Cover and hang over fire or set on coals with coals on the lid too.","Simmer 60–90 min, stirring occasionally, until meat is fork-tender."],serving:["Serve over instant mashed potatoes or with thick bread.","Perfect for warming up after a long cold sit."],tips:["Serve over instant mashed potatoes or with thick slices of bread for a complete, warming meal after a cold day in the stand."]}
+];
+const ROLE_TEMPLATES = {
+  "camp steward": {
+    title: "Camp Steward",
+    roleLine: "Keeps camp information current and helps guide the full DeerCamp experience.",
+    responsibilitiesLabel: "Steward responsibilities",
+    responsibilities: [
+      "Camp administrator",
+      "Adds and deletes camp roster names, sends DeerCamp invites, and removes non-current members.",
+      "Adds and changes content across approved camp sections.",
+      "Curates camp stories, recipes, and season records."
+    ]
+  },
+  "camp member": {
+    title: "Camp Member",
+    roleLine: "Adds field content and helps keep camp traditions alive.",
+    responsibilitiesLabel: "Member contributions",
+    responsibilities: [
+      "Adds field content through DeerCamp app or camp page.",
+      "Contributes memories, recipes, and story ideas for featured camp content.",
+      "Can comment on CampFeed posts and add events when enabled by the Steward."
+    ]
+  }
+};
+function getRoleTemplate(role = "Camp Member") {
+  const key = String(role || "Camp Member").trim().toLowerCase();
+  return ROLE_TEMPLATES[key] || ROLE_TEMPLATES["camp member"];
+}
+function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
+  const roleTemplate = getRoleTemplate(member.role || fallbackRole);
+  return {
+    name: String(member.name || "").trim(),
+    role: String(member.role || roleTemplate.title).trim() || roleTemplate.title,
+    roleLine: String(member.roleLine || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
+    responsibilitiesLabel: String(member.responsibilitiesLabel || roleTemplate.responsibilitiesLabel).trim() || roleTemplate.responsibilitiesLabel,
+    responsibilities: Array.isArray(member.responsibilities) && member.responsibilities.length ? member.responsibilities.map(item => String(item).trim()).filter(Boolean) : [...roleTemplate.responsibilities],
+    email: String(member.email || "").trim(),
+    yearJoined: String(member.yearJoined || "—").trim() || "—",
+    favoriteStand: String(member.favoriteStand || "—").trim() || "—",
+    favoriteGear: String(member.favoriteGear || "—").trim() || "—",
+    nickname: String(member.nickname || "—").trim() || "—",
+    harvestHighlight: String(member.harvestHighlight || "—").trim() || "—",
+    bestCampMemory: String(member.bestCampMemory || "—").trim() || "—",
+    specialty: String(member.specialty || "—").trim() || "—",
+    note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
+    photo: String(member.photo || member.profilePhoto || member.avatar || "").trim()
+  };
+}
+
+function getCampIdFromUrl(){try{return String(new URLSearchParams(window.location.search).get("campId")||"").trim()}catch{return ""}}
+function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?`${CAMP_SCOPE_PREFIX}${c}.${suffix}`:""}
+function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
+async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
+function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
+function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
+let data = {};
+const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
+const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
+
+(async function(){
+localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+await hydrateCampFromCloud(activeCampId);
+
+let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
+let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
+data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
+data.campId = activeCampId;
+
+const enabledSections = Object.assign({
+  campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campmaps:false
+}, data.enabledSections || {});
+let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
+let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
+let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
+let calendarEvents = (Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
+  date:String(e.date||"").trim(),
+  title:String(e.title||"Camp Event").trim(),
+  member:String(e.member||"").trim(),
+  description:String(e.description||"").trim(),
+  icon:String(e.icon||"").trim(),
+  source:String(e.source||"").trim()
+})).filter(e=>e.date && e.title);
+let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).filter(item => {
+  if(!item || typeof item !== "object") return false;
+  const id = String(item.id || "").trim();
+  return Boolean(item.custom) || /^recipe-/.test(id);
+});
+let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
+let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
+let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+
+const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
+const LEGACY_SEED_TITLES = new Set([
+  "spike buck by the road",
+  "big buck by the road",
+  "three does in the shooting lane"
+]);
+
+function hasModernTimestamp(item = {}) {
+  const rawCreatedAtMs = Number(item.createdAtMs);
+  const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+  return (Number.isFinite(rawCreatedAtMs) && rawCreatedAtMs >= LEGACY_FEED_CUTOFF_MS)
+    || (Number.isFinite(parsedCreatedAtMs) && parsedCreatedAtMs >= LEGACY_FEED_CUTOFF_MS);
+}
+
+function isLegacySeedFeedItem(item = {}) {
+  const title = String(item.title || "").trim().toLowerCase();
+  const author = String(item.author || item.member || "").trim().toLowerCase();
+  if (!title) return false;
+  if (LEGACY_SEED_TITLES.has(title) && !hasModernTimestamp(item)) return true;
+  if (author === "camp member" && !hasModernTimestamp(item)) return true;
+  return false;
+}
+
+feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
+campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
+
+function getEventIdentity(event = {}) {
+  return [
+    String(event.date || "").trim(),
+    String(event.title || "").trim().toLowerCase(),
+    String(event.description || "").trim().toLowerCase()
+  ].join("|");
+}
+
+function normalizeCalendarEvents(events = []) {
+  const keep = [];
+  const seen = new Set();
+  (Array.isArray(events) ? events : []).forEach((event) => {
+    if(!event || typeof event !== "object") return;
+    const normalized = {
+      date: String(event.date || "").trim(),
+      title: String(event.title || "Camp Event").trim() || "Camp Event",
+      member: String(event.member || "Camp Member").trim() || "Camp Member",
+      description: String(event.description || "").trim(),
+      icon: String(event.icon || "").trim(),
+      source: String(event.source || "").trim()
+    };
+    if(!normalized.date || !normalized.title) return;
+    if (/^Camp Event$/i.test(normalized.title) && /statewide/i.test(normalized.description)) return;
+    const key = [normalized.date, normalized.title.toLowerCase(), normalized.description.toLowerCase()].join('|');
+    if(seen.has(key)) return;
+    seen.add(key);
+    keep.push(normalized);
+  });
+  return keep.sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")) || String(a.title||"").localeCompare(String(b.title||"")));
+}
+
+function normalizeContentSubmissions(items = [], events = []) {
+  const eventSummaries = new Set(
+    normalizeCalendarEvents(events).map(ev => `${formatDateHuman(ev.date)} • ${ev.description || 'Camp event submitted.'}`.toLowerCase())
+  );
+  const cleaned = [];
+  const seen = new Set();
+  (Array.isArray(items) ? items : []).forEach((item) => {
+    if(!item || typeof item !== "object") return;
+    const next = Object.assign({}, item);
+    const type = String(next.type || "").toLowerCase();
+    const title = String(next.title || "").trim();
+    const summary = String(next.summary || "").trim();
+    if(type === "event" && /^Camp Event -- added to CampCalendar$/i.test(title)) {
+      if (/statewide/i.test(summary) || eventSummaries.has(summary.toLowerCase())) return;
+    }
+    const key = [type, title.toLowerCase(), String(next.member||"").toLowerCase(), summary.toLowerCase()].join("|");
+    if(seen.has(key)) return;
+    seen.add(key);
+    cleaned.push(next);
+  });
+  return cleaned;
+}
+
+calendarEvents = normalizeCalendarEvents(calendarEvents);
+contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents);
+
+function persist(){
+  data.enabledSections = Object.assign({}, enabledSections);
+  data.selectedRecipeIds = selectedRecipeIds.slice();
+  data.contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents).slice(0,30);
+  data.calendarEvents = normalizeCalendarEvents(calendarEvents).slice();
+  data.recipeObjects = customRecipes.slice();
+  data.traditions = traditions.slice();
+  data.feedComments = Object.assign({}, feedComments);
+  data.feedEntries = feedEntries.slice(0,12).map(entry => {
+    const nextEntry = Object.assign({}, entry);
+    if (String(nextEntry.mediaType || "").toLowerCase() === "photo") {
+      delete nextEntry.audio;
+      delete nextEntry.audioUrl;
+      delete nextEntry.audioSources;
+    }
+    return nextEntry;
+  });
+  data.campPhotoGallery = campPhotoGallery.slice(0,12);
+
+  const write = () => {
+    localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+    localStorage.setItem(campScopeKey(activeCampId,"campData"), JSON.stringify(data));
+  };
+
+  try{
+    write();
+  }catch(error){
+    data.feedEntries = data.feedEntries.slice(0,9);
+    data.campPhotoGallery = data.campPhotoGallery.slice(0,6);
+    data.contentSubmissions = data.contentSubmissions.slice(0,15);
+    write();
+  }
+
+  try{
+    const dash = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {}));
+    if(dash && typeof dash==="object"){
+      dash.sections = Object.assign({}, dash.sections||{}, enabledSections);
+      dash.selectedRecipeIds = selectedRecipeIds.slice();
+      localStorage.setItem(campScopeKey(activeCampId,"dashboardSlim"), JSON.stringify(dash));
+      localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(dash));
+    }
+  }catch{}
+  Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
+}
+function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+function formatLocation(){
+  const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
+  const parts=[]; if(city||state) parts.push([city,state].filter(Boolean).join(", ")); if(zip) parts.push(zip);
+  const loc=parts.join(" "); return loc + (data.established?` • Est. ${data.established}`:"");
+}
+function resolveHeroPath(v){
+  const raw=String(v||data.hero||data.brandImage||"").trim();
+  if(!raw) return "assets/heroes/midwest-deer-camp-sign.png";
+  if(/^(https?:|data:|blob:|\/|\.\/|\.\.\/|assets\/)/i.test(raw)) return raw;
+  if(/\.(png|jpe?g|webp|gif|svg)$/i.test(raw)) return `assets/heroes/${raw.replace(/^\/+/,"")}`;
+  return raw;
+}
+document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
+document.getElementById("campLocation").textContent = formatLocation();
+const heroPath = resolveHeroPath();
+document.getElementById("heroImage").style.setProperty("--hero-image", `url('${heroPath}')`);
+document.getElementById("heroMainImage").src = heroPath;
+const mobileCampName=document.getElementById("mobileCampName");
+const mobileCampLocation=document.getElementById("mobileCampLocation");
+const mobileHeroBg=document.getElementById("mobileHeroBg");
+if(mobileCampName){
+  const campLabel = String(data.name || data.campName || "DeerCamp").trim() || "DeerCamp";
+  mobileCampName.innerHTML = `<span>${esc(campLabel)}</span>`;
+}
+if(mobileCampLocation) mobileCampLocation.textContent = formatLocation();
+if(mobileHeroBg) mobileHeroBg.style.backgroundImage = `url('${heroPath}')`;
+
+const memberProfiles = Array.isArray(data.memberProfiles)
+  ? data.memberProfiles.filter(m => {
+      const status = String(m && m.status || "Active").trim().toLowerCase();
+      return status !== "removed";
+    })
+  : [];
+const publicMemberProfiles = memberProfiles.filter(m => {
+  const status = String(m && m.status || "Active").trim().toLowerCase();
+  const role = String(m && m.role || "").trim().toLowerCase();
+  if (role === "camp steward") return true;
+  return status === "active" || status === "accepted";
+});
+function normalizeRoster(members = []) {
+  const seen = new Map();
+  (Array.isArray(members) ? members : []).forEach(member => {
+    if(!member || typeof member !== 'object') return;
+    const role = String(member.role || 'Camp Member').trim() || 'Camp Member';
+    const roleKey = role.toLowerCase();
+    const name = String(member.name || '').trim();
+    const email = String(member.email || '').trim().toLowerCase();
+    const key = roleKey === 'camp steward' ? 'role:camp steward' : (email ? `member:${email}` : `member:${name.toLowerCase()}`);
+    if(!key || !name) return;
+    const previous = seen.get(key) || {};
+    seen.set(key, Object.assign({}, previous, member, {
+      name: name || String(previous.name || '').trim(),
+      email: String(member.email || previous.email || '').trim(),
+      note: String(member.note || previous.note || '').trim(),
+      role
+    }));
+  });
+  return Array.from(seen.values()).sort((a,b) => {
+    const aSteward = String(a.role || '').toLowerCase() === 'camp steward' ? 0 : 1;
+    const bSteward = String(b.role || '').toLowerCase() === 'camp steward' ? 0 : 1;
+    if (aSteward !== bSteward) return aSteward - bSteward;
+    return String(a.name || '').localeCompare(String(b.name || ''));
+  });
+}
+const stewardFallbackProfile = {
+  name:String(data.stewardName||data.steward||"").trim(),
+  role:"Camp Steward",
+  email:String(data.stewardEmail||"").trim(),
+  note:"Keeps camp information current and helps guide the full DeerCamp experience."
+};
+
+const roster = normalizeRoster([
+  ...(stewardFallbackProfile.name ? [stewardFallbackProfile] : []),
+  ...publicMemberProfiles
+]);
+const stewardWrap=document.getElementById("campSteward");
+const membersRowWrap=document.getElementById("campMembersRow");
+const membersSheetList=document.getElementById("membersSheetList");
+const membersSheet=document.getElementById("membersSheet");
+const membersSheetBackdrop=document.getElementById("membersSheetBackdrop");
+const closeMembersSheetBtn=document.getElementById("closeMembersSheet");
+const stewardMember=roster.find(member=>String(member.role||"").toLowerCase()==="camp steward") || null;
+const additionalMembers=roster.filter(member=>String(member.role||"").toLowerCase()!=="camp steward");
+
+function buildHeaderMemberButton(member, isSteward=false){
+  const btn=document.createElement("button"); btn.className="camp-member-link"; btn.type="button";
+  btn.innerHTML=`<span class="camp-member-badge">${esc(initials(member.name))}</span><span>${esc(member.name)} ${isSteward?'<span class="camp-member-role-tag">Steward</span>':''}</span>`;
+  btn.addEventListener("click",()=>openMemberModal(member));
+  return btn;
+}
+
+if(stewardMember && stewardWrap){
+  stewardWrap.appendChild(buildHeaderMemberButton(stewardMember, true));
+}
+const mobileStewardButton=document.getElementById("mobileStewardButton");
+const mobileStewardName=document.getElementById("mobileStewardName");
+if(stewardMember && mobileStewardButton && mobileStewardName){
+  mobileStewardButton.hidden = false;
+  mobileStewardButton.querySelector(".mobile-steward-badge").textContent = initials(stewardMember.name);
+  mobileStewardName.textContent = stewardMember.name || "Camp Steward";
+  mobileStewardButton.addEventListener("click",()=>openMemberModal(stewardMember));
+}
+
+function closeMembersSheet(){
+  membersSheet.classList.remove("open");
+  membersSheetBackdrop.classList.remove("open");
+  membersSheet.setAttribute("aria-hidden","true");
+  document.body.classList.remove("modal-open");
+}
+
+function openMembersSheet(){
+  if(!membersSheetList) return;
+  membersSheetList.innerHTML = "";
+  additionalMembers.forEach(member=>{
+    const card=document.createElement("button");
+    card.type="button";
+    card.className="members-section-card";
+    card.innerHTML=`<div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)}</span></div><p class="member-note">${esc(member.note || member.role || "Camp Member")}</p>`;
+    card.addEventListener("click",()=>{
+      closeMembersSheet();
+      openMemberModal(member);
+    });
+    membersSheetList.appendChild(card);
+  });
+  membersSheet.classList.add("open");
+  membersSheetBackdrop.classList.add("open");
+  membersSheet.setAttribute("aria-hidden","false");
+  document.body.classList.add("modal-open");
+}
+
+if(additionalMembers.length && membersRowWrap){
+  const trigger=document.createElement("button");
+  trigger.className="members-trigger";
+  trigger.type="button";
+  trigger.textContent=`Members (${additionalMembers.length})`;
+  trigger.addEventListener("click",openMembersSheet);
+  membersRowWrap.appendChild(trigger);
+}
+const mobileMembersToggle=document.getElementById("mobileMembersToggle");
+if(mobileMembersToggle){
+  if(additionalMembers.length){
+    mobileMembersToggle.hidden = false;
+    mobileMembersToggle.textContent = `☰ Members (${additionalMembers.length})`;
+    mobileMembersToggle.addEventListener("click", openMembersSheet);
+  } else {
+    mobileMembersToggle.hidden = true;
+  }
+}
+
+closeMembersSheetBtn?.addEventListener("click", closeMembersSheet);
+membersSheetBackdrop?.addEventListener("click", closeMembersSheet);
+
+
+const menu=document.getElementById("menu"), menuToggle=document.getElementById("menuToggle");
+const mobileMenuToggle=document.getElementById("mobileMenuToggle");
+const mobileTopBar=document.querySelector(".mobile-top-bar");
+function syncMobileStickyMenu(){
+  if(!mobileTopBar || window.innerWidth > 720) return;
+  mobileTopBar.classList.toggle("scrolled", window.scrollY > 80);
+}
+window.addEventListener("scroll", syncMobileStickyMenu, { passive:true });
+window.addEventListener("resize", syncMobileStickyMenu);
+syncMobileStickyMenu();
+function toggleMenuVisibility(nextState){
+  const shouldOpen = typeof nextState === "boolean" ? nextState : !menu.classList.contains("open");
+  menu.classList.toggle("open", shouldOpen);
+  menuToggle?.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+  mobileMenuToggle?.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+}
+menuToggle.addEventListener("click",()=>toggleMenuVisibility());
+mobileMenuToggle?.addEventListener("click",()=>toggleMenuVisibility());
+document.addEventListener("click",e=>{
+  if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false)
+});
+function bindMenuLinks(){
+  menu.querySelectorAll('a[href^="#"]').forEach(link=>{
+    link.addEventListener('click', event=>{
+      event.preventDefault();
+      const target = document.querySelector(link.getAttribute('href'));
+      menu.classList.remove('open');
+      if(!target) return;
+      const headerOffset = Math.max(0, (document.querySelector('.camp-header')?.offsetHeight || 0) - 8);
+      const top = window.scrollY + target.getBoundingClientRect().top - headerOffset;
+      window.scrollTo({top, behavior:'smooth'});
+      if(history && history.replaceState) history.replaceState(null, '', link.getAttribute('href'));
+    });
+  });
+}
+function renderMenu(){
+  menu.innerHTML = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
+  bindMenuLinks();
+}
+
+function renderMemberResponsibilityList(items = []){
+  const list = document.getElementById("memberModalResponsibilities");
+  if(!list) return;
+  list.innerHTML = (Array.isArray(items) ? items : []).map(item => `<li>${esc(item)}</li>`).join("");
+}
+function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
+  const photo = String(member?.photo || member?.profilePhoto || member?.avatar || "").trim();
+  if(photo){
+    return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}">`;
+  }
+  return esc(initials(member?.name || fallbackLabel));
+}
+function openMemberModal(member){
+  const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
+  document.getElementById("memberModalAvatar").innerHTML=renderAvatarMarkup(profile, profile.role || "Camp Member");
+  document.getElementById("memberModalName").textContent=profile.name||"Camp Member";
+  document.getElementById("memberModalRole").textContent=profile.role||"Camp Member";
+  document.getElementById("memberModalRoleLine").textContent=profile.roleLine||profile.note||"Camp member details";
+  document.getElementById("memberModalResponsibilitiesLabel").textContent=profile.responsibilitiesLabel||"Role & responsibilities";
+  renderMemberResponsibilityList(profile.responsibilities || []);
+  document.getElementById("memberModalDetailName").textContent=profile.name||"—";
+  document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
+  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
+  document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
+  document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
+  document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
+  document.getElementById("memberModalHarvest").textContent=profile.harvestHighlight||"—";
+  document.getElementById("memberModalMemory").textContent=profile.bestCampMemory||"—";
+  document.getElementById("memberModalSpecialty").textContent=profile.specialty||"—";
+  document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
+  document.getElementById("memberModal").classList.add("open");
+  document.getElementById("memberModalBackdrop").classList.add("open");
+  document.body.classList.add("modal-open");
+}
+function closeMemberModal(){document.getElementById("memberModal").classList.remove("open");document.getElementById("memberModalBackdrop").classList.remove("open");document.body.classList.remove("modal-open")}
+document.getElementById("closeMemberModal").onclick=closeMemberModal; document.getElementById("memberModalBackdrop").onclick=closeMemberModal;
+document.addEventListener("keydown", event=>{ if(event.key === "Escape"){ if(document.getElementById("memberModal").classList.contains("open")) closeMemberModal(); if(membersSheet.classList.contains("open")) closeMembersSheet(); }});
+
+function visibleSections(){
+  const base=[
+    {key:"campfeed",title:"CampFeed"},
+    {key:"campupdate",title:"CampUpdate"},
+    {key:"campmembers",title:"CampMembers"},
+    {key:"campcalendar",title:"CampCalendar"},
+    {key:"camptraditions",title:"CampTraditions"},
+    {key:"camprecipes",title:"CampRecipes"},
+  ];
+  return base.filter(s=>{
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes"};
+    if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    return !!enabledSections[map[s.key]];
+  });
+}
+renderMenu();
+function getCommentsForPost(postId = "") {
+  const key = String(postId || "").trim();
+  const items = key && Array.isArray(feedComments[key]) ? feedComments[key] : [];
+  return items.slice().sort((a,b)=>Number(a.createdAtMs||0)-Number(b.createdAtMs||0));
+}
+function normalizePhotoEntries(){
+  const items=[];
+  const seen=new Set();
+  const galleryMap = new Map(campPhotoGallery.map(item => [String(item.id||"").trim(), item]));
+  let orderIndex = 0;
+  const push=item=>{
+    if (isLegacySeedFeedItem(item)) return;
+    const image=String(item.image||item.img||"").trim();
+    if(!image) return;
+    const fallbackId = slugify(`${item.title || 'camp-picture'}-${orderIndex + 1}`) || `photo-${orderIndex + 1}`;
+    const stableId = String(item.id || item.imageRef || fallbackId).trim();
+    const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
+    const comments = getCommentsForPost(stableId);
+    const rawCreatedAtMs = Number(item.createdAtMs);
+    const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+    const createdAtMs = Number.isFinite(rawCreatedAtMs)
+      ? rawCreatedAtMs
+      : (Number.isFinite(parsedCreatedAtMs) ? parsedCreatedAtMs : orderIndex);
+    const createdAt = String(item.createdAt || (Number.isFinite(parsedCreatedAtMs) ? new Date(parsedCreatedAtMs).toISOString() : '1970-01-01T00:00:00.000Z'));
+    items.push({
+      id:stableId,
+      title:String(item.title||"Camp picture").trim(),
+      body:String(item.body||item.caption||"Camp picture posted from DeerCamp.").trim(),
+      image,
+      author:String(item.author||item.member||"Camp Member").trim(),
+      createdAt,
+      createdAtMs,
+      tags:Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"],
+      comments,
+      _order: orderIndex++
+    });
+  };
+  feedEntries.forEach(e=>{
+    const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
+    const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
+    if(media==="photo" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
+  });
+  campPhotoGallery.forEach(p=>push({id:p.id,title:p.title,caption:p.caption,image:p.image,member:p.member,createdAt:p.createdAt,createdAtMs:p.createdAtMs,tags:p.tags}));
+  return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
+}
+function normalizeRecentUpdates(){
+  const officialCalendarUpdates = normalizeCalendarEvents(calendarEvents).map(ev=>({
+    type:"event",
+    title:`${ev.title} -- added to CampCalendar`,
+    member:ev.member || "DeerCamp",
+    summary:`${formatDateHuman(ev.date)} • ${ev.description||"Camp event submitted."}`,
+    createdAt:`${ev.date}T12:00:00`,
+    createdAtMs:new Date(`${ev.date}T12:00:00`).getTime(),
+    priority: 0
+  }));
+  const recentPosts = normalizeContentSubmissions(contentSubmissions, calendarEvents)
+    .filter(i=>String(i.type||"").toLowerCase()!=="photo")
+    .map(item => Object.assign({ priority: 1 }, item));
+  const merged=[...recentPosts, ...officialCalendarUpdates];
+  const dedupe=new Map();
+  merged.forEach((item,idx)=>{
+    const key=[item.type,item.title,item.summary].join("|").toLowerCase();
+    if(!dedupe.has(key)) dedupe.set(key,{...item, id:item.id||`update-${idx}`});
+  });
+  return Array.from(dedupe.values())
+    .sort((a,b)=>Number(b.priority||0)-Number(a.priority||0) || Number(b.createdAtMs||0)-Number(a.createdAtMs||0))
+    .slice(0,8);
+}
+function formatDateHuman(dateKey){const d=new Date(`${dateKey}T12:00:00`); if(Number.isNaN(d.getTime())) return dateKey; return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
+function getSelectedStarterRecipes(){
+  if (!Array.isArray(selectedRecipeIds) || !selectedRecipeIds.length) return [];
+  return STARTER_RECIPES.filter(recipe =>
+    selectedRecipeIds.includes(String(recipe.id || "").trim())
+  );
+}
+function getAllRecipes(){
+  const out = [];
+  const seen = new Set();
+  [...getSelectedStarterRecipes(), ...customRecipes].forEach((r,idx)=>{
+    const rec = typeof r === "string" ? {id:`custom-${idx}`, title:r} : r;
+    const title = String(rec.title||rec.name||"Camp Recipe").trim();
+    if(!title || seen.has(title.toLowerCase())) return; seen.add(title.toLowerCase());
+    out.push({
+      id:String(rec.id||`recipe-${idx}`),
+      title,
+      description:String(rec.description||"Member-submitted camp recipe.").trim(),
+      time:String(rec.time||"—").trim()||"—",
+      serves:String(rec.serves||"—").trim()||"—",
+      difficulty:String(rec.difficulty||"—").trim()||"—",
+      ingredients:Array.isArray(rec.ingredients)?rec.ingredients.filter(Boolean):(String(rec.ingredients||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+      steps:Array.isArray(rec.steps)?rec.steps.filter(Boolean):(String(rec.steps||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+      serving:Array.isArray(rec.serving)?rec.serving.filter(Boolean):(String(rec.serving||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+      tips:Array.isArray(rec.tips)?rec.tips.filter(Boolean):(String(rec.tips||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+      custom: !String(rec.id||"").startsWith("starter-recipe-")
+    });
+  });
+  return out;
+}
+const content=document.getElementById("content");
+visibleSections().forEach(section=>{
+  const container=document.createElement("section");
+  container.className="content-section"; container.id=section.key;
+  if(section.key==="campupdate"){
+    container.innerHTML=`
+      <h2>CampUpdate</h2>
+      <p class="section-helper">Members can post a picture, tradition, or recipe. Pictures post into CampFeed. Traditions and recipes appear here in Recent CampUpdates and also cross-post into their permanent camp sections. Calendar events are added in CampCalendar and also appear here.</p>
+      <div class="two-col">
+        <div class="panel">
+          <h4>Post a CampUpdate</h4>
+          <p class="section-helper" style="margin-top:0">Choose your name, choose a post type, and add it once. Pictures post into CampFeed. Traditions and recipes post here and into the right camp section. Use CampCalendar to add events.</p>
+          <form id="campUpdateForm" class="form-grid">
+            <div class="form-side">
+              <label class="form-row"><span class="label">Submitted By</span><select id="updateMember" class="select"></select></label>
+              <label class="form-row"><span class="label">Section</span><select id="updateType" class="select"><option value="photo">Picture</option><option value="recipe">Recipe</option><option value="tradition">Tradition</option></select></label>
+            </div>
+            <div class="form-main">
+              <div id="panelPhoto" class="content-panel active">
+                <label class="form-row"><span class="label">Picture Title</span><input id="photoTitle" class="input" type="text" placeholder="Big buck by the road"></label>
+                <label class="form-row"><span class="label">Picture</span><input id="photoFile" class="input" type="file" accept="image/*"></label>
+                <label class="form-row"><span class="label">Caption</span><textarea id="photoCaption" class="textarea" placeholder="Quick note about what happened in this moment."></textarea></label>
+              </div>
+              <div id="panelRecipe" class="content-panel">
+                <label class="form-row"><span class="label">Recipe Title</span><input id="recipeTitle" class="input" type="text" placeholder="Bruce's Bombastic Backstraps"></label>
+                <div class="inline-3">
+                  <label class="form-row"><span class="label">Time</span><input id="recipeTime" class="input" type="text" placeholder="30 min"></label>
+                  <label class="form-row"><span class="label">Serves</span><input id="recipeServes" class="input" type="text" placeholder="6"></label>
+                  <label class="form-row"><span class="label">Difficulty</span><input id="recipeDifficulty" class="input" type="text" placeholder="Easy"></label>
+                </div>
+                <label class="form-row"><span class="label">Short Description</span><textarea id="recipeDescription" class="textarea" placeholder="The camp-table version of a favorite deer recipe."></textarea></label>
+                <label class="form-row"><span class="label">Ingredients (one per line)</span><textarea id="recipeIngredients" class="textarea" placeholder="2 lbs backstrap&#10;1 cup flour&#10;Salt and pepper"></textarea></label>
+                <label class="form-row"><span class="label">Steps (one per line)</span><textarea id="recipeSteps" class="textarea" placeholder="Slice the meat&#10;Season well&#10;Cook in cast iron until done"></textarea></label>
+              </div>
+              <div id="panelTradition" class="content-panel">
+                <label class="form-row"><span class="label">Tradition Title</span><input id="traditionTitle" class="input" type="text" placeholder="Opening Morning Coffee"></label>
+                <label class="form-row"><span class="label">Description</span><textarea id="traditionDescription" class="textarea" placeholder="The quiet coffee ritual before first light that starts every season right."></textarea></label>
+                <label class="form-row"><span class="label">Optional Link</span><input id="traditionUrl" class="input" type="url" placeholder="https://..."></label>
+              </div>
+              <div class="form-actions-full"><button type="submit" class="btn">Post to Camp</button><div id="updateFeedback" class="feedback">Pick a post type, fill in the details, and send it into camp.</div></div>
+            </div>
+          </form>
+        </div>
+        <div class="panel">
+          <h4>Recent CampUpdates</h4>
+          <div class="recent-updates-shell">
+            <div id="recentUpdates" class="recent-list"></div>
+            <div class="recent-nav">
+              <button id="recentPrev" class="arrow" type="button" aria-label="Previous 5 updates">▲</button>
+              <button id="recentNext" class="arrow" type="button" aria-label="Next 5 updates">▼</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } else if(section.key==="campfeed"){
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampFeed</h2><p class="section-helper" style="margin:8px 0 0">Recent camp pictures with navigation for older posts.</p></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+          <span id="feedCount" class="pill">Showing 0 of 0</span>
+          <button id="feedPrev" class="arrow" type="button">◀</button>
+          <button id="feedNext" class="arrow" type="button">▶</button>
+        </div>
+      </div>
+      <div class="carousel"><div id="feedTrack" class="carousel-track"></div></div>
+      <div id="feedEmpty" class="empty" hidden>No camp pictures yet. Add one through CampUpdate.</div>`;
+  } else if(section.key==="camptraditions"){
+    container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
+  } else if(section.key==="camprecipes"){
+    container.innerHTML=`<h2>CampRecipes</h2><p class="section-helper">Recipes selected by the Steward or added through CampUpdate.</p><div id="recipesGrid" class="recipes-grid"></div>`;
+  } else if(section.key==="campmembers"){
+    container.innerHTML=`
+      <h2>CampMembers</h2>
+      <p class="section-helper">The camp crew shown on the site. The Steward always appears first. Invited members appear after they join.</p>
+      <div class="members-section-copy">
+        <div id="campMembersGrid" class="members-section-grid"></div>
+      </div>`;
+  } else if(section.key==="campcalendar"){
+    container.innerHTML=`
+      <h2>CampCalendar</h2>
+      <div class="calendar-shell">
+        <div class="calendar-main">
+          <div class="calendar-header">
+            <button id="calendarPrev" class="arrow" type="button">◀</button>
+            <h3 id="calendarMonthLabel" style="margin:0"></h3>
+            <button id="calendarNext" class="arrow" type="button">▶</button>
+          </div>
+          <div id="calendarGrid" class="calendar-grid"></div>
+        </div>
+        <div class="calendar-side">
+          <div class="calendar-main">
+            <h4 style="margin-top:0">Current / selected events</h4>
+            <div class="calendar-event-shell">
+              <div id="calendarEventList" class="calendar-event-list"></div>
+              <div class="calendar-event-nav">
+                <button id="calendarEventsPrev" class="arrow" type="button" aria-label="Previous 3 events">▲</button>
+                <button id="calendarEventsNext" class="arrow" type="button" aria-label="Next 3 events">▼</button>
+              </div>
+            </div>
+          </div>
+          <div class="calendar-main">
+            <h4 style="margin-top:0">Add a Camp Event</h4>
+            <p class="section-helper" style="margin-top:0">Members can add setup days, meals, work weekends, scouting reminders, and other camp events.</p>
+            <div id="calendarSelectedDate" class="selected-date">Selected Date: None</div>
+            <form id="calendarMemberEventForm" class="form-grid" style="margin-top:16px">
+              <div class="form-side">
+                <label class="form-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
+              </div>
+              <div class="form-main">
+                <label class="form-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Final Setup"></label>
+                <label class="form-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
+                <div class="form-actions-full"><button id="calendarMemberEventSubmit" class="btn" type="submit">Add Event</button><div id="calendarMemberEventFeedback" class="feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div></div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>`;
+  }
+  content.appendChild(container);
+});
+function renderCampMembersSection(){
+  const grid=document.getElementById('campMembersGrid'); if(!grid) return;
+  const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
+    {name:String(data.stewardName||data.steward||"Camp Steward"), role:"Camp Steward", email:String(data.stewardEmail||"").trim(), note:"Keeps camp information current and helps guide the full DeerCamp experience."}
+  ]).filter(Boolean);
+  grid.innerHTML = members.length ? members.map((member,idx)=>`<button type="button" class="members-section-card" data-member-card="${idx}"><div class="member-name-row"><span class="camp-member-badge">${esc(initials(member.name))}</span><span>${esc(member.name||'Camp Member')}</span></div><div><span class="camp-member-role-tag">${esc((member.role||'Camp Member').replace(/camp\s+/i,'Camp '))}</span></div><p class="member-note">${esc(member.note || member.email || 'Camp member details available here.')}</p></button>`).join('') : '<p class="empty">No camp members yet.</p>';
+  grid.querySelectorAll('[data-member-card]').forEach(btn=>btn.addEventListener('click',()=>openMemberModal(members[Number(btn.dataset.memberCard)])));
+}
+
+function populateMemberSelects(){
+  const names=roster.map(r=>r.name).filter(Boolean);
+  ['updateMember','calendarMemberSelect'].forEach(id=>{
+    const select=document.getElementById(id); if(!select) return;
+    const prev=select.value; select.innerHTML="";
+    names.forEach(n=>{const o=document.createElement('option'); o.value=n; o.textContent=n; select.appendChild(o)});
+    if(prev && names.includes(prev)) select.value=prev;
+  });
+}
+function setUpdatePanel(type){
+  const ids={photo:'panelPhoto',recipe:'panelRecipe',tradition:'panelTradition'};
+  Object.entries(ids).forEach(([k,id])=>{const el=document.getElementById(id); if(el) el.classList.toggle('active', k===type)});
+}
+function setUpdateFeedback(msg,err=false){const el=document.getElementById('updateFeedback'); if(el){el.textContent=msg; el.classList.toggle('is-error',!!err)}}
+function setCalendarFeedback(msg,err=false){const el=document.getElementById('calendarMemberEventFeedback'); if(el){el.textContent=msg; el.classList.toggle('is-error',!!err)}}
+
+if(document.getElementById('updateType')){
+  populateMemberSelects();
+  document.getElementById('updateType').addEventListener('change',e=>setUpdatePanel(e.target.value));
+  setUpdatePanel('photo');
+  document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
+    e.preventDefault();
+    try{
+    const type=document.getElementById('updateType').value;
+    const member=document.getElementById('updateMember').value;
+    const createdAt=new Date().toISOString(), createdAtMs=Date.now();
+    if(!member){setUpdateFeedback('Choose who is posting this update.', true); return;}
+    if(type==='photo'){
+      const title=String(document.getElementById('photoTitle').value||'').trim();
+      const file=document.getElementById('photoFile').files[0];
+      const caption=String(document.getElementById('photoCaption').value||'').trim();
+      if(!title){setUpdateFeedback('Add a picture title before posting.', true); return;}
+      if(!file){setUpdateFeedback('Choose a picture first.', true); return;}
+      const image = await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>{
+          const img = new Image();
+          img.onload=()=>{
+            const maxWidth = 900;
+            const maxHeight = 900;
+            const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height);
+            const width = Math.max(1, Math.round(img.width * scale));
+            const height = Math.max(1, Math.round(img.height * scale));
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            if(!ctx){ resolve(reader.result); return; }
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0,0,width,height);
+            ctx.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.52));
+          };
+          img.onerror=()=>resolve(reader.result);
+          img.src=String(reader.result||"");
+        };
+        reader.onerror=()=>reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      const photoId=`campphoto-${createdAtMs}`;
+      const photo={id:photoId,title,caption,member,image,createdAt,createdAtMs,tags:["Picture","CampUpdate"]};
+      campPhotoGallery.unshift(photo);
+      feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs});
+      try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try a smaller image.', true); return; }
+      renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
+    }
+    if(type==='recipe'){
+      const title=String(document.getElementById('recipeTitle').value||'').trim();
+      if(!title){setUpdateFeedback('Add a recipe title before saving.', true); return;}
+      const rec={id:`recipe-${createdAtMs}`,title,description:String(document.getElementById('recipeDescription').value||'').trim()||`Recipe submitted by ${member}.`,time:String(document.getElementById('recipeTime').value||'').trim()||'—',serves:String(document.getElementById('recipeServes').value||'').trim()||'—',difficulty:String(document.getElementById('recipeDifficulty').value||'').trim()||'—',ingredients:String(document.getElementById('recipeIngredients').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),steps:String(document.getElementById('recipeSteps').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),serving:[`Submitted by ${member}`],tips:["Member suggestion from the camp page."]};
+      customRecipes.unshift(rec);
+      contentSubmissions.unshift({type:'recipe',member,title:`${title} -- added to CampRecipes`,summary:rec.description,createdAt,createdAtMs});
+      try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
+      renderRecipes(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to Recent CampUpdates and CampRecipes.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
+    }
+    const title=String(document.getElementById('traditionTitle').value||'').trim();
+    if(!title){setUpdateFeedback('Add a tradition title before saving.', true); return;}
+    const tradition={label:title,description:String(document.getElementById('traditionDescription').value||'').trim()||'Member-submitted camp tradition.',url:String(document.getElementById('traditionUrl').value||'').trim()};
+    traditions.unshift(tradition);
+    contentSubmissions.unshift({type:'tradition',member,title:`${title} -- added to CampTraditions`,summary:tradition.description,createdAt,createdAtMs});
+    try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
+    renderTraditions(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to Recent CampUpdates and CampTraditions.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo');
+    } catch(error){
+      console.error('CampUpdate submit failed', error);
+      setUpdateFeedback('CampUpdate could not post. Please try again.', true);
+    }
+  });
+}
+const CURRENT_UPDATE_PAGE_SIZE = 3;
+let feedItems = normalizePhotoEntries(), feedIndex=0, modalFeedIndex=-1;
+
+function setFeedCommentFeedback(message, isError = false){
+  const el = document.getElementById('feedCommentFeedback');
+  if(!el) return;
+  el.textContent = message;
+  el.classList.toggle('is-error', !!isError);
+}
+
+function renderFeedComments(postId = ''){
+  const list = document.getElementById('feedCommentsList');
+  const empty = document.getElementById('feedCommentsEmpty');
+  const authorSelect = document.getElementById('feedCommentAuthor');
+  if(!list || !empty || !authorSelect) return;
+  const comments = getCommentsForPost(postId);
+  const names = roster.map(r=>r.name).filter(Boolean);
+  authorSelect.innerHTML = names.length ? names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
+  list.innerHTML = comments.map(comment => `<div class="feed-comment"><p class="feed-comment-meta">${esc(comment.author || 'Camp Member')} • ${esc(new Date(comment.createdAtMs || Date.now()).toLocaleString())}</p><p class="feed-comment-body">${esc(comment.text || '')}</p></div>`).join('');
+  empty.hidden = comments.length > 0;
+}
+
+document.getElementById('feedCommentSubmit')?.addEventListener('click', () => {
+  const item = feedItems[modalFeedIndex];
+  if(!item) return;
+  const author = String(document.getElementById('feedCommentAuthor')?.value || '').trim() || 'Camp Member';
+  const text = String(document.getElementById('feedCommentText')?.value || '').trim();
+  if(!text){
+    setFeedCommentFeedback('Add a comment before posting.', true);
+    return;
+  }
+  const next = {
+    author,
+    text,
+    createdAt: new Date().toISOString(),
+    createdAtMs: Date.now()
+  };
+  const key = String(item.id || '').trim();
+  if(!Array.isArray(feedComments[key])) feedComments[key] = [];
+  feedComments[key].push(next);
+  try{ persist(); }catch(error){ setFeedCommentFeedback('Comment could not save. Please try again.', true); return; }
+  document.getElementById('feedCommentText').value = '';
+  setFeedCommentFeedback('Comment added.');
+  renderFeed();
+  const refreshedIndex = feedItems.findIndex(entry => String(entry.id || '') === key);
+  if (refreshedIndex >= 0) {
+    openFeedModal(refreshedIndex);
+    setFeedCommentFeedback('Comment added.');
+  } else {
+    renderFeedComments(key);
+    syncFeedButtons();
+  }
+});
+function renderFeed(){
+  const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
+  feedItems=normalizePhotoEntries(); track.innerHTML="";
+  if(!feedItems.length){empty.hidden=false; count.textContent='Showing 0 of 0'; syncFeedButtons(); return;}
+  empty.hidden=true;
+  feedItems.forEach((entry,idx)=>{
+    const card=document.createElement('article'); card.className='feed-card';
+    card.innerHTML=`<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>
+      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div><button type="button" class="btn btn-secondary">Open Post</button></div>`;
+    card.addEventListener('click',()=>openFeedModal(idx));
+    track.appendChild(card);
+  });
+  const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+  count.textContent=`Showing ${Math.min(visible,feedItems.length)} of ${feedItems.length}`;
+  feedIndex=0;
+  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'}); syncFeedButtons(); });
+}
+function syncFeedButtons(){
+  const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
+  if(!prev||!next) return;
+  const max=Math.max(0, feedItems.length - (window.innerWidth<=720?1:window.innerWidth<=1100?3:5));
+  prev.disabled=feedIndex<=0; next.disabled=feedIndex>=max;
+  const mp=document.getElementById('feedModalPrev'), mn=document.getElementById('feedModalNext');
+  if(mp&&mn){mp.disabled=modalFeedIndex<=0; mn.disabled=modalFeedIndex>=feedItems.length-1}
+}
+function goFeed(nextIndex){
+  const track=document.getElementById('feedTrack');
+  const visible=window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+  const max=Math.max(0,feedItems.length-visible);
+  feedIndex=Math.max(0,Math.min(nextIndex,max));
+  const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
+  if(track && target){
+    track.scrollTo({left: target.offsetLeft, behavior:'smooth'});
+  }
+  syncFeedButtons();
+}
+function openFeedModal(idx){
+  modalFeedIndex=idx; const item=feedItems[idx]; if(!item) return;
+  document.getElementById('feedModalMedia').innerHTML=item.image?`<img src="${esc(item.image)}" alt="${esc(item.title)}">`:"";
+  document.getElementById('feedModalKicker').textContent='CampUpdate • Picture';
+  document.getElementById('feedModalTitle').textContent=item.title;
+  document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
+  document.getElementById('feedModalBody').textContent=item.body;
+  document.getElementById('feedModalTags').innerHTML=item.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('');
+  renderFeedComments(item.id);
+  setFeedCommentFeedback('Comments stay with this camp post.');
+  document.getElementById('feedModalBackdrop').classList.add('open');
+  document.getElementById('feedModal').classList.add('open');
+  document.body.classList.add('modal-open');
+  syncFeedButtons();
+}
+function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); modalFeedIndex=-1}
+document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedIndex-1));
+document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
+document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
+document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
+window.addEventListener('resize', ()=>{renderFeed(); syncFeedButtons();});
+document.addEventListener('click', event=>{
+  if(event.target && event.target.id === 'recentPrev'){
+    recentUpdatesOffset = Math.max(0, recentUpdatesOffset - CURRENT_UPDATE_PAGE_SIZE);
+    renderRecentUpdates();
+  }
+  if(event.target && event.target.id === 'recentNext'){
+    recentUpdatesOffset = recentUpdatesOffset + CURRENT_UPDATE_PAGE_SIZE;
+    renderRecentUpdates();
+  }
+});
+
+let recentUpdatesOffset = 0;
+function renderRecentUpdates(){
+  const list=document.getElementById('recentUpdates'); if(!list) return;
+  const prevBtn=document.getElementById('recentPrev');
+  const nextBtn=document.getElementById('recentNext');
+  const items=normalizeRecentUpdates();
+  const pageSize = CURRENT_UPDATE_PAGE_SIZE;
+  if(recentUpdatesOffset < 0) recentUpdatesOffset = 0;
+  if(recentUpdatesOffset >= items.length) recentUpdatesOffset = Math.max(0, items.length - pageSize);
+  const visible = items.slice(recentUpdatesOffset, recentUpdatesOffset + pageSize);
+  list.innerHTML = visible.length ? visible.map(item=>`
+    <div class="recent-card">
+      <p class="recent-title">${esc(item.title||'CampUpdate')}</p>
+      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
+      <p class="recent-body">${esc(item.summary||'New update posted to camp.')}</p>
+    </div>`).join('') : '<p class="empty">No CampUpdates yet. New traditions, recipes, and calendar events will appear here first.</p>';
+  if(prevBtn && nextBtn){
+    const needsPaging = items.length > pageSize;
+    prevBtn.hidden = !needsPaging;
+    nextBtn.hidden = !needsPaging;
+    prevBtn.disabled = recentUpdatesOffset <= 0;
+    nextBtn.disabled = recentUpdatesOffset + pageSize >= items.length;
+  }
+}
+function renderTraditions(){
+  const grid=document.getElementById('traditionsGrid'); if(!grid) return;
+  grid.innerHTML = traditions.length ? traditions.map((t,idx)=>`
+    <div class="tradition-card">
+      <p class="tradition-title">${esc(t.label||t.title||`Tradition ${idx+1}`)}</p>
+      <p class="tradition-body">${esc(t.description||'Member-submitted camp tradition.')}</p>
+      ${t.url?`<p class="tradition-meta"><a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Open link</a></p>`:''}
+    </div>`).join('') : '<p class="empty">No camp traditions yet. Add one through CampUpdate.</p>';
+}
+let recipeModalData=[];
+function renderRecipes(){
+  const grid=document.getElementById('recipesGrid'); if(!grid) return;
+  recipeModalData = getAllRecipes();
+  grid.innerHTML = recipeModalData.length ? recipeModalData.map((r,idx)=>`
+    <div class="recipe-card">
+      <p class="recipe-title">${esc(r.title)}</p>
+      <p class="recipe-body">${esc(r.description||'Camp recipe.')}</p>
+      <button type="button" class="btn btn-secondary" data-recipe-index="${idx}">Open Recipe</button>
+    </div>`).join('') : '<p class="empty">No camp recipes selected yet. Turn on recipe titles in the Steward Dashboard or add one through CampUpdate.</p>';
+  grid.querySelectorAll('[data-recipe-index]').forEach(btn=>btn.addEventListener('click',()=>openRecipeModal(Number(btn.dataset.recipeIndex))));
+}
+function openRecipeModal(idx){
+  const r=recipeModalData[idx]; if(!r) return;
+  document.getElementById('recipeModalSubtitle').textContent = r.custom ? 'Camp Recipe' : 'Starter Camp Recipe';
+  document.getElementById('recipeModalTitle').textContent = r.title;
+  document.getElementById('recipeModalDescription').textContent = r.description || 'Camp recipe.';
+  document.getElementById('recipeModalTime').textContent = r.time || '—';
+  document.getElementById('recipeModalServes').textContent = r.serves || '—';
+  document.getElementById('recipeModalDifficulty').textContent = r.difficulty || '—';
+  ['Ingredients','Steps','Serving','Tips'].forEach((name,i)=>{
+    const ids=['recipeModalIngredients','recipeModalSteps','recipeModalServing','recipeModalTips'];
+    const lists=[r.ingredients,r.steps,r.serving,r.tips];
+    const el=document.getElementById(ids[i]); el.innerHTML=(lists[i]&&lists[i].length?lists[i]:['Add details later.']).map(v=>`<li>${esc(v)}</li>`).join('');
+  });
+  document.getElementById('recipeModalBackdrop').classList.add('open'); document.getElementById('recipeModal').classList.add('open'); document.body.classList.add('modal-open');
+}
+function closeRecipeModal(){document.getElementById('recipeModalBackdrop').classList.remove('open');document.getElementById('recipeModal').classList.remove('open');document.body.classList.remove('modal-open')}
+document.getElementById('closeRecipeModal').onclick=closeRecipeModal; document.getElementById('recipeModalBackdrop').onclick=closeRecipeModal;
+
+function ensureStateSeasonOpeners(){
+  const stateCode=String(data.state||data.campState||'').trim().toUpperCase();
+  if(stateCode!=='WI') return;
+  const year=(new Date()).getFullYear();
+  const official=[
+    {date:`${year}-09-12`, title:'Archery/Bow Opener', member:'DeerCamp', description:'Wisconsin statewide archery / bow opener.', icon:'🏹', source:'official'},
+    {date:`${year}-11-21`, title:'Deer Gun/Rifle Opener', member:'DeerCamp', description:'Wisconsin statewide deer gun / rifle opener.', icon:'🦌', source:'official'},
+    {date:`${year}-11-30`, title:'Deer Black Powder/Muzzleloader Opener', member:'DeerCamp', description:'Wisconsin statewide black powder / muzzleloader opener.', icon:'🔥', source:'official'}
+  ];
+  official.forEach(ev=>{
+    const exists=calendarEvents.some(item=>String(item.date||'')===ev.date && String(item.title||'').toLowerCase()===ev.title.toLowerCase());
+    if(!exists) calendarEvents.push(ev);
+  });
+  calendarEvents = calendarEvents.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.title||'').localeCompare(String(b.title||'')));
+}
+ensureStateSeasonOpeners();
+calendarEvents = normalizeCalendarEvents(calendarEvents);
+contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents);
+
+let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=(calendarEvents[0]?.date || "");
+function populateCalendarGrid(){
+  const grid=document.getElementById('calendarGrid'), label=document.getElementById('calendarMonthLabel'); if(!grid||!label) return;
+  label.textContent=calendarCursor.toLocaleDateString(undefined,{month:'long',year:'numeric'});
+  grid.innerHTML='';
+  ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const w=document.createElement('div');w.className='weekday';w.textContent=d;grid.appendChild(w)});
+  const year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
+  const first=new Date(year,month,1), offset=first.getDay(), days=new Date(year,month+1,0).getDate();
+  const byDate={}; calendarEvents.forEach(ev=>{(byDate[ev.date] ||= []).push(ev)});
+  for(let i=0;i<offset;i++){const e=document.createElement('button');e.className='day empty';grid.appendChild(e)}
+  for(let day=1;day<=days;day++){
+    const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const cell=document.createElement('button'); cell.type='button'; cell.className='day'+(selectedDateKey===dateKey?' selected':'');
+    const dots=(byDate[dateKey]||[]).slice(0,3).map(()=>'<span class="dot"></span>').join('');
+    cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
+    cell.addEventListener('click',()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; populateCalendarGrid(); renderCalendarEvents(); updateSelectedDateChip();});
+    grid.appendChild(cell);
+  }
+}
+function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
+let calendarEventsOffset = 0;
+function renderCalendarEvents(){
+  const list=document.getElementById('calendarEventList'); if(!list) return;
+  const prevBtn = document.getElementById('calendarEventsPrev');
+  const nextBtn = document.getElementById('calendarEventsNext');
+  const items=(selectedDateKey?normalizeCalendarEvents(calendarEvents).filter(ev=>ev.date===selectedDateKey):normalizeCalendarEvents(calendarEvents)).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const pageSize = CURRENT_UPDATE_PAGE_SIZE;
+  if(calendarEventsOffset < 0) calendarEventsOffset = 0;
+  if(calendarEventsOffset >= items.length) calendarEventsOffset = Math.max(0, items.length - pageSize);
+  const visible = items.slice(calendarEventsOffset, calendarEventsOffset + pageSize);
+  list.innerHTML = visible.length ? visible.map(ev=>`<div class="calendar-card"><p class="calendar-title">${esc(ev.title)}</p><p class="calendar-meta">${esc(selectedDateKey?(ev.member||'Camp Member'):formatDateHuman(ev.date))}</p><p class="calendar-body">${esc(ev.description||'No additional details yet.')}</p></div>`).join('') : '<p class="empty">Tap any calendar day to view or add camp events.</p>';
+  if(prevBtn && nextBtn){
+    const needsPaging = items.length > pageSize;
+    prevBtn.hidden = !needsPaging;
+    nextBtn.hidden = !needsPaging;
+    prevBtn.disabled = calendarEventsOffset <= 0;
+    nextBtn.disabled = calendarEventsOffset + pageSize >= items.length;
+  }
+}
+if(document.getElementById('calendarPrev')){
+  populateMemberSelects(); updateSelectedDateChip(); populateCalendarGrid(); renderCalendarEvents();
+  document.getElementById('calendarPrev').addEventListener('click',()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});
+  document.getElementById('calendarNext').addEventListener('click',()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});
+  document.getElementById('calendarEventsPrev')?.addEventListener('click',()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();});
+  document.getElementById('calendarEventsNext')?.addEventListener('click',()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();});
+  document.getElementById('calendarMemberEventForm').addEventListener('submit',e=>{
+    e.preventDefault();
+    const title=String(document.getElementById('calendarMemberEventTitle').value||'').trim();
+    const description=String(document.getElementById('calendarMemberEventDetails').value||'').trim();
+    const member=String(document.getElementById('calendarMemberSelect').value||'').trim();
+    if(!selectedDateKey){setCalendarFeedback('Tap a calendar day first so DeerCamp knows where to place this event.', true); return;}
+    if(!member){setCalendarFeedback('Choose who is adding the event from the camp roster.', true); return;}
+    if(!title){setCalendarFeedback('Add an event title before saving.', true); return;}
+    calendarEvents.push({date:selectedDateKey,title,member,description,icon:"",source:'member'});
+    const createdAt=new Date().toISOString(), createdAtMs=Date.now();
+    contentSubmissions.unshift({type:'event',member,title:`${title} -- added to CampCalendar`,summary:`${formatDateHuman(selectedDateKey)} • ${description || 'Camp event submitted.'}`,createdAt,createdAtMs});
+    try{ persist(); }catch(error){ setCalendarFeedback('CampCalendar could not save that event. Please try again.', true); return; }
+    calendarEvents = normalizeCalendarEvents(calendarEvents); populateCalendarGrid(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
+  });
+}
+
+function buildCampRefreshSnapshot(payload = {}){
+  return JSON.stringify({
+    selectedRecipeIds: Array.isArray(payload.selectedRecipeIds) ? payload.selectedRecipeIds : [],
+    contentSubmissions: Array.isArray(payload.contentSubmissions) ? payload.contentSubmissions : [],
+    calendarEvents: Array.isArray(payload.calendarEvents) ? payload.calendarEvents : (Array.isArray(payload.events) ? payload.events : []),
+    recipeObjects: Array.isArray(payload.recipeObjects) ? payload.recipeObjects : [],
+    traditions: Array.isArray(payload.traditions) ? payload.traditions : [],
+    feedComments: payload.feedComments && typeof payload.feedComments === "object" ? payload.feedComments : {},
+    feedEntries: Array.isArray(payload.feedEntries) ? payload.feedEntries : [],
+    campPhotoGallery: Array.isArray(payload.campPhotoGallery) ? payload.campPhotoGallery : [],
+    memberProfiles: Array.isArray(payload.memberProfiles) ? payload.memberProfiles : [],
+    members: Array.isArray(payload.members) ? payload.members : [],
+    campMembers: Array.isArray(payload.campMembers) ? payload.campMembers : []
+  });
+}
+
+let lastCampRefreshSnapshot = buildCampRefreshSnapshot(data);
+
+function replaceArrayContents(target, nextItems){
+  target.length = 0;
+  (Array.isArray(nextItems) ? nextItems : []).forEach(item => target.push(item));
+}
+
+async function pullLatestCampDataSilently(){
+  try{
+    const cloudData = await hydrateCampFromCloud(activeCampId);
+    if(!cloudData || typeof cloudData !== "object") return;
+
+    const nextScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+    const nextLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+    const nextData = Object.keys(nextScoped).length ? nextScoped : nextLegacy;
+    if(!nextData || typeof nextData !== "object") return;
+
+    const nextSnapshot = buildCampRefreshSnapshot(nextData);
+    if(nextSnapshot === lastCampRefreshSnapshot) return;
+
+    Object.keys(data).forEach(key => { delete data[key]; });
+    Object.assign(data, nextData, { campId: activeCampId });
+
+    selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
+    contentSubmissions = normalizeContentSubmissions(Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [], Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events) ? data.events : []));
+    feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
+    calendarEvents = normalizeCalendarEvents((Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
+      date:String(e.date||"").trim(),
+      title:String(e.title||"Camp Event").trim(),
+      member:String(e.member||"").trim(),
+      description:String(e.description||"").trim(),
+      icon:String(e.icon||"").trim(),
+      source:String(e.source||"").trim()
+    })).filter(e=>e.date && e.title));
+    customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).filter(item => {
+      if(!item || typeof item !== "object") return false;
+      const id = String(item.id || "").trim();
+      return Boolean(item.custom) || /^recipe-/.test(id);
+    });
+    traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
+    feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
+    campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+    feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
+    campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
+
+    document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
+    document.getElementById("campLocation").textContent = formatLocation();
+    const nextHeroPath = resolveHeroPath();
+    document.getElementById("heroImage").style.setProperty("--hero-image", `url('${nextHeroPath}')`);
+    document.getElementById("heroMainImage").src = nextHeroPath;
+
+    renderMenu();
+    populateMemberSelects();
+    renderFeed();
+    recentUpdatesOffset = 0;
+    renderRecentUpdates();
+    renderCampMembersSection();
+    renderTraditions();
+    renderRecipes();
+    populateCalendarGrid();
+    calendarEventsOffset = 0;
+    renderCalendarEvents();
+    updateSelectedDateChip();
+
+    lastCampRefreshSnapshot = nextSnapshot;
+  }catch(error){
+    console.warn("Silent camp refresh skipped.", error);
+  }
+}
+
+setInterval(() => {
+  if(document.hidden) return;
+  if(document.body.classList.contains("modal-open")) return;
+  pullLatestCampDataSilently();
+}, 10000);
+
+renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes();
+})();
+</script>
+</body>
+</html>

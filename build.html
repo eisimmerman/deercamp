@@ -1,0 +1,2141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Build Your Camp</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .or-divider {
+    width: 100%;
+    text-align: center;
+    color: #6b4b2a;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    opacity: 0.9;
+  }
+
+  .zip-status {
+    margin-top: 6px;
+    font-size: 0.9rem;
+    color: #6b4b2a;
+    opacity: 0.85;
+  }
+
+  .sign-builder-note {
+    margin: 4px 0 0;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: #5f4327;
+  }
+
+  .sign-suggestion-status {
+    margin-top: 6px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    color: #5f4327;
+  }
+
+  .hero-preview-wrap {
+    width: 100%;
+  }
+
+  .hero-preview-frame {
+    position: relative;
+    width: 100%;
+    min-height: 320px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: linear-gradient(180deg, rgba(75, 56, 38, 0.92) 0%, rgba(216, 207, 191, 0.9) 100%);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  }
+
+  .hero-preview-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.10) 0%,
+      rgba(0, 0, 0, 0.02) 48%,
+      rgba(18, 14, 10, 0.18) 100%
+    );
+  }
+
+  .hero-preview-image {
+    position: relative;
+    z-index: 0;
+    display: block;
+    width: 100%;
+    height: 320px;
+    object-fit: contain;
+    object-position: center center;
+    background: transparent;
+  }
+
+  .hero-preview-overlay {
+    position: absolute;
+    inset: auto 16px 16px 16px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .hero-preview-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(47, 31, 18, 0.72);
+    color: #fff6e9;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(6px);
+  }
+
+  .hero-preview-copy {
+    max-width: min(92%, 540px);
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(29, 19, 10, 0.62);
+    color: #fff7ec;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.20);
+    backdrop-filter: blur(8px);
+  }
+
+  .hero-preview-title {
+    font-size: clamp(1.2rem, 1.8vw, 1.6rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-preview-meta {
+    margin-top: 6px;
+    font-size: 0.95rem;
+    line-height: 1.4;
+    color: rgba(255, 247, 236, 0.92);
+  }
+
+  .hero-preview-status {
+    margin-top: 8px;
+    font-size: 0.92rem;
+    color: #6b4b2a;
+    line-height: 1.4;
+  }
+
+  .hero-preview-status.is-warning {
+    color: #7a2f1c;
+    font-weight: 700;
+  }
+
+  .recipe-builder-wrap {
+    width: 100%;
+  }
+
+  .recipe-builder-note {
+    margin: 0 0 10px;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    color: #5f4327;
+  }
+
+  .recipe-builder-status {
+    margin-bottom: 10px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #6b4b2a;
+  }
+
+  .recipe-name-preview {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .recipe-name-chip {
+    padding: 12px 14px;
+    border-radius: 16px;
+    background: rgba(251, 245, 233, 0.88);
+    border: 1px solid rgba(98, 72, 44, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  .recipe-name-chip strong {
+    display: block;
+    color: #4b3116;
+    font-size: 1rem;
+    line-height: 1.25;
+  }
+
+  .recipe-name-chip span {
+    display: block;
+    margin-top: 4px;
+    color: #7b5a33;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tradition-builder-wrap {
+    width: 100%;
+  }
+
+  .tradition-builder-note {
+    margin: 0 0 12px;
+    font-size: 0.93rem;
+    line-height: 1.5;
+    color: #5f4327;
+  }
+
+  .tradition-starter-groups {
+    display: grid;
+    gap: 14px;
+  }
+
+  .tradition-starter-group {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(251, 245, 233, 0.82);
+    border: 1px solid rgba(98, 72, 44, 0.10);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.05);
+  }
+
+  .tradition-starter-group-title {
+    margin: 0 0 10px;
+    color: #7b5a33;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .tradition-option-list {
+    display: grid;
+    gap: 10px;
+  }
+
+  .tradition-option {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    align-items: start;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.56);
+  }
+
+  .tradition-option input {
+    margin-top: 3px;
+  }
+
+  .tradition-option strong {
+    display: block;
+    color: #4b3116;
+    line-height: 1.2;
+  }
+
+  .tradition-option span {
+    display: block;
+    margin-top: 4px;
+    color: #6a4d2d;
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  .tradition-custom-row {
+    margin-top: 12px;
+  }
+
+  .tradition-builder-status {
+    margin-top: 10px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    color: #6b4b2a;
+  }
+
+  .field-helper {
+    margin-top: 6px;
+    font-size: 0.88rem;
+    line-height: 1.4;
+    color: #6b4b2a;
+    opacity: 0.9;
+  }
+
+
+  @media (max-width: 768px) {
+    .hero-preview-frame {
+      min-height: 280px;
+    }
+
+    .hero-preview-image {
+      height: 280px;
+    }
+
+    .hero-preview-overlay {
+      inset: auto 12px 12px 12px;
+      gap: 8px;
+    }
+
+    .hero-preview-copy {
+      max-width: 100%;
+      padding: 12px 14px;
+    }
+
+    .hero-preview-meta {
+      font-size: 0.9rem;
+    }
+
+    .recipe-name-preview {
+      grid-template-columns: 1fr;
+    }
+
+    .tradition-option {
+      grid-template-columns: 20px 1fr;
+      padding: 10px;
+    }
+
+  }
+
+  .season-opener-status {
+    margin-top: 8px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    color: #5f4327;
+  }
+
+  .season-opener-status.is-warning {
+    color: #7a2f1c;
+    font-weight: 700;
+  }
+
+</style>
+
+<script src="firebase-web.js"></script>
+</head>
+
+<body>
+
+<div class="build-container">
+
+  <h1>Create Your Camp</h1>
+  <p class="subtitle">Build your Deer Camp in minutes — no setup required</p>
+
+  <form id="campForm">
+
+    <div class="form-section">
+      <h2>Camp Info</h2>
+
+      <div class="form-row">
+        <label>Camp Name</label>
+        <input id="campName" placeholder="Camp Name">
+      </div>
+
+      <div class="form-row">
+        <label>City</label>
+        <input id="campCity" placeholder="City">
+      </div>
+
+      <div class="form-row">
+        <label>State</label>
+        <input id="campState" placeholder="State or 2-letter code">
+      </div>
+
+      <div class="form-row">
+        <label>Zip Code</label>
+        <div style="width:100%;">
+          <input id="campZip" placeholder="Zip Code">
+          <div id="zipStatus" class="zip-status"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Established</label>
+        <div style="width:100%;">
+          <input id="campYear" placeholder="e.g. 1984">
+          <div class="field-helper">Camp established year is for display only. The calendar uses the current DeerCamp build year for official season opener dates.</div>
+          <div id="seasonOpenerStatus" class="season-opener-status">Calendar will only show official statewide hunting season opener dates for the current DeerCamp build year once the camp is created.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>Camp Sign</h2>
+
+      <div class="form-row">
+        <label>Regional Sign</label>
+        <div>
+          <select id="campImageSelect">
+            <option value="northeast-deer-camp-sign.png">Northeast Deer Camp Sign</option>
+            <option value="southeast-deer-camp-sign.png">Southeast Deer Camp Sign</option>
+            <option value="south-deer-camp-sign.png">South Deer Camp Sign</option>
+            <option value="eastern-deer-camp-sign.png">Eastern Deer Camp Sign</option>
+            <option value="midwest-deer-camp-sign.png">Midwest Deer Camp Sign</option>
+            <option value="southwest-deer-camp-sign.png">Southwest Deer Camp Sign</option>
+            <option value="western-deer-camp-sign.png">Western Deer Camp Sign</option>
+            <option value="northwest-deer-camp-sign.png">Northwest Deer Camp Sign</option>
+          </select>
+          <div class="sign-builder-note">Your state will auto-suggest a regional DeerCamp sign. You can still switch to any other region.</div>
+          <div id="signSuggestionStatus" class="sign-suggestion-status"></div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label></label>
+        <div class="or-divider">Or</div>
+      </div>
+
+      <div class="form-row">
+        <label>Upload Your<br>Camp Picture</label>
+        <input type="file" id="campImageUpload" accept="image/*">
+      </div>
+
+      <div class="form-row">
+        <label>Sign Preview</label>
+        <div class="hero-preview-wrap">
+          <div class="hero-preview-frame">
+            <img id="heroPreviewImage" class="hero-preview-image" alt="Selected DeerCamp sign preview">
+            <div class="hero-preview-overlay">
+              <div id="heroPreviewBadge" class="hero-preview-badge">Regional DeerCamp Sign</div>
+              <div class="hero-preview-copy">
+                <div id="heroPreviewTitle" class="hero-preview-title">Your Camp Name</div>
+                <div id="heroPreviewMeta" class="hero-preview-meta">City, State • Est. Year</div>
+              </div>
+            </div>
+          </div>
+          <div id="heroPreviewStatus" class="hero-preview-status"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2>People</h2>
+
+      <div class="form-row">
+        <label>Camp Steward</label>
+        <div>
+          <input id="campSteward" placeholder="camp administrator">
+          <div class="field-helper">Steward sets up, invites members and manages camp content.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Steward Email</label>
+        <div>
+          <input id="campStewardEmail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com">
+          <div class="field-helper">Used to send the DeerCamp welcome email and setup link.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Camp Members</label>
+        <div>
+          <input id="campMembers" placeholder="separate names with commas">
+          <div class="field-helper">These names appear after the steward and open member details when tapped.</div>
+        </div>
+      </div>
+
+      <input type="hidden" id="campTraditionsCustom" value="">
+      <input type="hidden" id="campDeerDrives" value="">
+    </div>
+
+    <button type="submit" class="build-btn">Build My Camp</button>
+
+  </form>
+
+</div>
+
+<script>
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read uploaded image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+const HERO_ASSET_BASE = "assets/heroes/";
+const HERO_FALLBACK_FILE = "midwest-deer-camp-sign.png";
+const SIGN_LIBRARY = [
+  { file: "northeast-deer-camp-sign.png", label: "Northeast Deer Camp Sign", regionKey: "northeast", regionLabel: "Northeast" },
+  { file: "southeast-deer-camp-sign.png", label: "Southeast Deer Camp Sign", regionKey: "southeast", regionLabel: "Southeast" },
+  { file: "south-deer-camp-sign.png", label: "South Deer Camp Sign", regionKey: "south", regionLabel: "South" },
+  { file: "eastern-deer-camp-sign.png", label: "Eastern Deer Camp Sign", regionKey: "eastern", regionLabel: "Eastern" },
+  { file: "midwest-deer-camp-sign.png", label: "Midwest Deer Camp Sign", regionKey: "midwest", regionLabel: "Midwest" },
+  { file: "southwest-deer-camp-sign.png", label: "Southwest Deer Camp Sign", regionKey: "southwest", regionLabel: "Southwest" },
+  { file: "western-deer-camp-sign.png", label: "Western Deer Camp Sign", regionKey: "western", regionLabel: "Western" },
+  { file: "northwest-deer-camp-sign.png", label: "Northwest Deer Camp Sign", regionKey: "northwest", regionLabel: "Northwest" }
+];
+const SIGN_LIBRARY_BY_FILE = Object.fromEntries(SIGN_LIBRARY.map((entry) => [entry.file, entry]));
+const STATE_TO_SIGN_FILE = {
+  CT: "northeast-deer-camp-sign.png",
+  ME: "northeast-deer-camp-sign.png",
+  MA: "northeast-deer-camp-sign.png",
+  NH: "northeast-deer-camp-sign.png",
+  NJ: "northeast-deer-camp-sign.png",
+  NY: "northeast-deer-camp-sign.png",
+  PA: "northeast-deer-camp-sign.png",
+  RI: "northeast-deer-camp-sign.png",
+  VT: "northeast-deer-camp-sign.png",
+
+  AL: "southeast-deer-camp-sign.png",
+  FL: "southeast-deer-camp-sign.png",
+  GA: "southeast-deer-camp-sign.png",
+  NC: "southeast-deer-camp-sign.png",
+  SC: "southeast-deer-camp-sign.png",
+  TN: "southeast-deer-camp-sign.png",
+
+  AR: "south-deer-camp-sign.png",
+  KY: "south-deer-camp-sign.png",
+  LA: "south-deer-camp-sign.png",
+  MS: "south-deer-camp-sign.png",
+  OK: "south-deer-camp-sign.png",
+  TX: "south-deer-camp-sign.png",
+
+  DC: "eastern-deer-camp-sign.png",
+  DE: "eastern-deer-camp-sign.png",
+  MD: "eastern-deer-camp-sign.png",
+  VA: "eastern-deer-camp-sign.png",
+  WV: "eastern-deer-camp-sign.png",
+
+  IA: "midwest-deer-camp-sign.png",
+  IL: "midwest-deer-camp-sign.png",
+  IN: "midwest-deer-camp-sign.png",
+  KS: "midwest-deer-camp-sign.png",
+  MI: "midwest-deer-camp-sign.png",
+  MN: "midwest-deer-camp-sign.png",
+  MO: "midwest-deer-camp-sign.png",
+  ND: "midwest-deer-camp-sign.png",
+  NE: "midwest-deer-camp-sign.png",
+  OH: "midwest-deer-camp-sign.png",
+  SD: "midwest-deer-camp-sign.png",
+  WI: "midwest-deer-camp-sign.png",
+
+  AZ: "southwest-deer-camp-sign.png",
+  NM: "southwest-deer-camp-sign.png",
+  NV: "southwest-deer-camp-sign.png",
+  UT: "southwest-deer-camp-sign.png",
+
+  CA: "western-deer-camp-sign.png",
+  CO: "western-deer-camp-sign.png",
+  HI: "western-deer-camp-sign.png",
+  MT: "western-deer-camp-sign.png",
+  WY: "western-deer-camp-sign.png",
+
+  AK: "northwest-deer-camp-sign.png",
+  ID: "northwest-deer-camp-sign.png",
+  OR: "northwest-deer-camp-sign.png",
+  WA: "northwest-deer-camp-sign.png"
+};
+
+const stateMap = {
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+  "district of columbia": "DC"
+};
+
+const STATE_NAME_BY_CODE = Object.fromEntries(
+  Object.entries(stateMap).map(([name, code]) => [code, name.replace(/\w/g, char => char.toUpperCase())])
+);
+
+const ZIP_LOOKUP_OVERRIDES = {
+  "eau claire|WI": ["54701", "54702", "54703"],
+  "holcombe|WI": ["54745"],
+  "minong|WI": ["54859"],
+  "neillsville|WI": ["54456"],
+  "rush city|MN": ["55069"],
+  "eagan|MN": ["55121"]
+};
+
+function normalizeCityLookupKey(value = "") {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ");
+}
+
+function getZipOverride(city, stateCode) {
+  const key = `${normalizeCityLookupKey(city)}|${String(stateCode || "").trim().toUpperCase()}`;
+  return Array.isArray(ZIP_LOOKUP_OVERRIDES[key]) ? ZIP_LOOKUP_OVERRIDES[key].slice() : [];
+}
+
+function slugifyCampId(value = "") {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+}
+
+function deriveCampIdFromBuilder(values = {}) {
+  const parts = [values.name, values.city, values.state, values.zip]
+    .map(item => String(item || "").trim())
+    .filter(Boolean);
+
+  return slugifyCampId(parts.join("-")) || "ourdeercamp";
+}
+
+const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+
+function buildCampUrl(path, campId) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+}
+
+function buildBuilderResumeUrl(path, payload = {}) {
+  const url = new URL(path, window.location.href);
+  const entries = [
+    ["campId", payload.campId],
+    ["campName", payload.campName],
+    ["campCity", payload.city],
+    ["campState", payload.state],
+    ["campZip", payload.zip],
+    ["campYear", payload.campYear],
+    ["campSteward", payload.stewardName],
+    ["campStewardEmail", payload.stewardEmail],
+    ["campMembers", payload.campMembers],
+    ["campTraditionsCustom", payload.campTraditionsCustom],
+    ["campDeerDrives", payload.campDeerDrives],
+    ["heroTemplate", payload.heroTemplate],
+    ["campHero", payload.campHero],
+    ["campBrand", payload.campBrand],
+    ["memberNames", payload.memberNames],
+    ["campDescription", payload.campDescription]
+  ];
+  entries.forEach(([key, value]) => {
+    const clean = String(value || "").trim();
+    if (clean) url.searchParams.set(key, clean);
+  });
+  const query = url.searchParams.toString();
+  return `${url.pathname}${query ? `?${query}` : ""}`;
+}
+
+function campScopeKey(campId, suffix) {
+  const cleanCampId = String(campId || "").trim();
+  return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+}
+
+
+const STARTER_FEED_ENTRIES = [
+  {
+    title: "Three Does in the Shooting Lane",
+    kicker: "CampFeed Example",
+    meta: "Lower trail camera lane • Eric voice note",
+    body: "Three does drifted through the shooting lane on the winter trail, giving camp a clean first look at daylight movement in the woods.",
+    image: "assets/feed/winter-trail-deer.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/winter-trail-deer.mp3",
+    tags: ["Real photo", "Audio update", "Trail movement"]
+  },
+  {
+    title: "Big buck by the road",
+    kicker: "Roadside Sighting",
+    meta: "Camp road edge • Field audio note",
+    body: "A mature buck stepped out by the road and paused in the open long enough for a clean photo and a quick audio update back to camp.",
+    image: "assets/feed/big-buck-near-road.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/big-buck-near-road.mp3",
+    tags: ["Big buck", "Road edge", "Audio update"]
+  },
+  {
+    title: "Spike buck by the road",
+    kicker: "Young Buck Sighting",
+    meta: "Roadside timber • Quick camp note",
+    body: "A spike buck slipped along the roadside cover, making a good watch-and-pass moment and a solid addition to the CampFeed presentation.",
+    image: "assets/feed/can't-shoot-spike-buck.jpg",
+    imageFit: "contain",
+    audio: "assets/feed/can't-shoot-spike-buck.mp3",
+    tags: ["Spike buck", "Road edge", "Audio update"]
+  }
+];
+
+const STARTER_CAMP_CARDS = [
+  { title: "Packers & Burgers Night", source: "Camp Steward", image: "campcards/images/packers-burgers.png", caption: "The kind of night where the burgers are hot, the Packers are on, and nobody leaves the table early." },
+  { title: "First Coffee at Camp", source: "Camp Steward", image: "campcards/images/first-coffee.png", caption: "The first mug of camp coffee before daylight and before the woods wake up." },
+  { title: "Campfire Camaraderie", source: "Camp Steward", image: "campcards/images/campfire-camaraderie.png", caption: "Stories, laughter, and the kind of campfire talk that becomes tradition." },
+  { title: "Fall Scouting Loop", source: "Camp Steward", image: "campcards/images/fall-scouting.png", caption: "An evening scouting walk that sets the tone for the whole season." }
+];
+
+const STARTER_WALL_OF_FAME = [
+  {
+    id: "memory-1",
+    title: "Brittney's First Deer",
+    winner: "Brittney",
+    year: "2025",
+    image: "campcards/images/brittneys-first-deer.png",
+    audio: "campcards/audio/brittneys-first-deer.mp3",
+    caption: "A first deer and the kind of memory the whole camp wants preserved.",
+    story: "Wall of Fame starter for the annual bow season winner."
+  },
+  {
+    id: "memory-2",
+    title: "Grandpa's Biggest Buck",
+    winner: "Grandpa",
+    year: "2025",
+    image: "campcards/images/grandpas-biggest-buck.png",
+    audio: "campcards/audio/grandpas-biggest-buck.mp3",
+    caption: "The buck everybody talks about long after the season closes.",
+    story: "Wall of Fame starter for the annual gun season winner."
+  },
+  {
+    id: "memory-3",
+    title: "Camp Tracker",
+    winner: "Camp Tracker",
+    year: "2025",
+    image: "campcards/images/camp-tracker.png",
+    audio: "campcards/audio/camp-tracker.mp3",
+    caption: "A season-closing memory preserved for the camp archive.",
+    story: "Wall of Fame starter for the annual muzzle loader winner."
+  }
+];
+
+const CAMP_RECIPE_ADJECTIVES = [
+  "Legendary",
+  "Backwoods",
+  "Smokehouse",
+  "First-Light",
+  "Buck Pole",
+  "Iron Skillet",
+  "Trailside",
+  "Northwoods",
+  "Campfire",
+  "Ridge-Run",
+  "Cold-Front",
+  "Fireline"
+];
+
+const STARTER_TRADITIONS = [
+  { group: "Opening Camp", label: "Pre-Opener Campfire Meal", description: "The shared meal that marks the true start of camp before opening day." },
+  { group: "Opening Camp", label: "Opening Morning Coffee", description: "Strong coffee, low voices, and final plans before first light." },
+  { group: "Opening Camp", label: "First Fire of the Season", description: "Lighting the stove, campfire, or cabin hearth that means camp is officially open." },
+  { group: "Camp Rituals", label: "Deer Hanging Pole Ritual", description: "The first buck on the pole, photos, stories, and camp pride." },
+  { group: "Camp Rituals", label: "Story-Telling Hour", description: "Nightly retelling of hunts, near-misses, legends, and old camp lore." },
+  { group: "Camp Rituals", label: "Card Games After Dark", description: "Euchre, poker, cribbage, or whatever keeps camp laughing late." },
+  { group: "Camp Rituals", label: "Buck Pole Photo", description: "The official photo moment that preserves each season's harvest memories." },
+  { group: "Legacy & Meaning", label: "New Hunter Initiation", description: "A respectful or fun tradition for first-time hunters joining camp." },
+  { group: "Legacy & Meaning", label: "The Empty Chair", description: "A quiet way many camps remember members who are gone but still part of every season." },
+  { group: "Legacy & Meaning", label: "Honor the Elders", description: "A moment where longtime members tell how camp began and what it stands for." }
+];
+const STARTER_TRADITIONS_BY_LABEL = Object.fromEntries(STARTER_TRADITIONS.map(item => [item.label.toLowerCase(), item]));
+
+const STEWARD_RESPONSIBILITIES = [
+  "Camp administrator",
+  "Adds and deletes camp roster names, sends DeerCamp invites, and removes non-current members.",
+  "Adds and changes content across approved camp sections.",
+  "Curates CampWallofFame and CampCards content.",
+  "Helps manage traditions, deer drives, recipes, and season-to-season camp records."
+];
+
+const MEMBER_RESPONSIBILITIES = [
+  "Adds field content through DeerCamp app.",
+  "Adds content to approved sections by Camp Steward.",
+  "Adds comments to CampFeed posts.",
+  "Uploads photos, notes, and optional audio from the field.",
+  "Contributes memories, recipes, deer drive participation, and story ideas for featured camp content."
+];
+
+function parseCommaNames(value = "") {
+  return String(value || "")
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function buildDefaultMemberProfile(name, role = "Camp Member") {
+  const isSteward = role === "Camp Steward";
+  return {
+    name: String(name || "").trim(),
+    role,
+    roleTitle: isSteward ? "Camp administrator" : "Camp Member",
+    responsibilities: isSteward ? [...STEWARD_RESPONSIBILITIES] : [...MEMBER_RESPONSIBILITIES],
+    yearJoined: "—",
+    favoriteStand: "—",
+    favoriteGear: "—",
+    nickname: "—",
+    harvestHighlight: "—",
+    bestCampMemory: "—",
+    specialty: "—",
+    note: isSteward ? "Keeps camp information current and helps guide the full DeerCamp experience." : "Add member details later."
+  };
+}
+
+function getRosterNamesFromBuilder() {
+  const steward = String(document.getElementById("campSteward")?.value || "").trim();
+  const members = parseCommaNames(document.getElementById("campMembers")?.value || "");
+  return [steward, ...members].filter(Boolean);
+}
+
+
+function createTraditionOptionMarkup(item, index) {
+  const safeId = `tradition-option-${index}`;
+  return `
+    <label class="tradition-option" for="${safeId}">
+      <input type="checkbox" id="${safeId}" class="tradition-option-checkbox" data-tradition-label="${item.label}" data-tradition-group="${item.group}">
+      <div>
+        <strong>${item.label}</strong>
+        <span>${item.description}</span>
+      </div>
+    </label>
+  `;
+}
+
+function renderTraditionStarterOptions() {
+  const target = document.getElementById("traditionStarterGroups");
+  if (!target) return;
+
+  const grouped = STARTER_TRADITIONS.reduce((acc, item) => {
+    if (!acc[item.group]) acc[item.group] = [];
+    acc[item.group].push(item);
+    return acc;
+  }, {});
+
+  target.innerHTML = Object.entries(grouped).map(([group, items], groupIndex) => `
+    <div class="tradition-starter-group">
+      <div class="tradition-starter-group-title">${group}</div>
+      <div class="tradition-option-list">
+        ${items.map((item, itemIndex) => createTraditionOptionMarkup(item, `${groupIndex}-${itemIndex}`)).join("")}
+      </div>
+    </div>
+  `).join("");
+
+  target.querySelectorAll(".tradition-option-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", updateTraditionBuilderStatus);
+  });
+}
+
+function getSelectedStarterTraditions() {
+  return Array.from(document.querySelectorAll(".tradition-option-checkbox:checked"))
+    .map((checkbox) => {
+      const label = checkbox.dataset.traditionLabel || "";
+      const group = checkbox.dataset.traditionGroup || "Camp Traditions";
+      const known = STARTER_TRADITIONS_BY_LABEL[label.toLowerCase()];
+      return known ? { ...known } : { group, label, description: "A custom camp tradition." };
+    });
+}
+
+function parseCustomTraditions() {
+  const input = document.getElementById("campTraditionsCustom");
+  if (!input) return [];
+
+  return input.value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((label) => ({
+      group: "Custom Traditions",
+      label,
+      description: "A camp tradition added by this camp's steward or members."
+    }));
+}
+
+function collectSelectedTraditions() {
+  const combined = [...getSelectedStarterTraditions(), ...parseCustomTraditions()];
+  const seen = new Set();
+
+  return combined.filter((item) => {
+    const key = String(item.label || "").trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function updateTraditionBuilderStatus() {
+  const status = document.getElementById("traditionBuilderStatus");
+  if (!status) return;
+
+  const starterCount = getSelectedStarterTraditions().length;
+  const customCount = parseCustomTraditions().length;
+  const total = starterCount + customCount;
+
+  if (!total) {
+    status.textContent = "No traditions selected yet. Pick from the starter list or add your own.";
+    return;
+  }
+
+  status.textContent = `${starterCount} starter tradition${starterCount === 1 ? "" : "s"} selected` +
+    `${customCount ? ` • ${customCount} custom tradition${customCount === 1 ? "" : "s"} added` : ""}` +
+    ` • ${total} total tradition${total === 1 ? "" : "s"} will appear on your camp page.`;
+}
+
+const AUTO_RECIPE_LIBRARY = [
+  {
+    "meal": "Breakfast",
+    "icon": "🥚",
+    "baseTitle": "Skillet Eggs & Sausage Hash",
+    "description": "One pan, hot fire, full belly — ready before first light.",
+    "time": "20 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Cast iron skillet",
+    "ingredients": [
+      "1 lb breakfast sausage links or patties",
+      "6 large eggs",
+      "1 can (15 oz) diced potatoes, drained",
+      "1 small onion, rough chopped",
+      "Salt, pepper, garlic powder",
+      "2 tbsp butter or oil"
+    ],
+    "steps": [
+      "Brown sausage in skillet over medium-high heat. Set aside, leave drippings.",
+      "Add butter, onion, and potatoes. Cook until golden and slightly crispy, 8–10 min.",
+      "Crumble sausage back in. Make wells and crack eggs directly into them.",
+      "Season well. Cover with foil and cook until eggs set, about 5 min."
+    ],
+    "serving": [
+      "Serve hot before first light.",
+      "Best with strong camp coffee."
+    ],
+    "tips": [
+      "Use a lid from a pot or foil as a cover. No fancy lids needed out here."
+    ]
+  },
+  {
+    "meal": "Breakfast",
+    "icon": "🥞",
+    "baseTitle": "Campfire Pancakes with Syrup",
+    "description": "Stack 'em high. Simple batter, big satisfaction.",
+    "time": "15 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Griddle or skillet",
+    "ingredients": [
+      "2 cups pancake mix (just-add-water kind)",
+      "1½ cups water (adjust as needed)",
+      "2 tbsp vegetable oil",
+      "Maple syrup or honey for serving",
+      "Butter for the pan"
+    ],
+    "steps": [
+      "Whisk pancake mix, water, and oil until just combined — lumps are fine.",
+      "Heat griddle or skillet over medium heat. Melt a pat of butter.",
+      "Pour ¼ cup batter per pancake. Cook until bubbles form and edges look set, about 2 min.",
+      "Flip once; cook another 1–2 min. Serve with syrup."
+    ],
+    "serving": [
+      "Serve in warm stacks with butter and syrup.",
+      "Keep the finished pancakes near the fire, not over it."
+    ],
+    "tips": [
+      "Keep cooked pancakes warm by stacking them on a plate set near (not over) the fire."
+    ]
+  },
+  {
+    "meal": "Lunch",
+    "icon": "🥪",
+    "baseTitle": "Smoked Meat Flatbread Wraps",
+    "description": "Minimal prep, maximum fuel for the afternoon stand.",
+    "time": "10 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "No heat needed",
+    "ingredients": [
+      "Large flour tortillas (4–6)",
+      "½ lb smoked or deli sliced meat (venison, beef, or turkey)",
+      "Sliced cheese (cheddar or pepper jack)",
+      "Mustard or mayo packets",
+      "Pickles or canned jalapeños"
+    ],
+    "steps": [
+      "Lay tortilla flat. Spread mustard or mayo across the middle.",
+      "Layer meat and cheese generously.",
+      "Add pickles or jalapeños. Roll tightly, tucking in the sides.",
+      "Wrap in foil or eat immediately. Slice in half for easy handling."
+    ],
+    "serving": [
+      "Slice in half for easy carry to the stand.",
+      "Best served cold from the cooler or lunch tote."
+    ],
+    "tips": [
+      "Prep these the night before and wrap in foil — they hold well in a cooler all morning."
+    ]
+  },
+  {
+    "meal": "Lunch",
+    "icon": "🍲",
+    "baseTitle": "Quick Camp Chili",
+    "description": "Open cans, dump, simmer — done. Warms you to the bone.",
+    "time": "25 min",
+    "serves": "4–6",
+    "difficulty": "Easy",
+    "equipment": "Pot over fire",
+    "ingredients": [
+      "1 lb ground venison or beef",
+      "2 cans (15 oz each) chili-style beans",
+      "1 can (15 oz) diced tomatoes",
+      "1 packet chili seasoning mix",
+      "Salt and hot sauce to taste"
+    ],
+    "steps": [
+      "Brown ground meat in a pot over the fire or stove. Drain excess fat.",
+      "Add beans (with liquid), diced tomatoes, and chili seasoning packet.",
+      "Stir well and bring to a boil. Reduce heat and simmer 15 min.",
+      "Taste, adjust salt and hot sauce, and serve with crackers or bread."
+    ],
+    "serving": [
+      "Serve with crackers, bread, or a spoon right from the pot.",
+      "Great as a next-day reheat after the evening hunt."
+    ],
+    "tips": [
+      "This tastes even better the next day — make a double batch for dinner and reheat for lunch."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🥩",
+    "baseTitle": "Backstrap Steaks with Garlic Butter",
+    "description": "The crown jewel of deer camp. Keep it simple, let the meat shine.",
+    "time": "20 min",
+    "serves": "4",
+    "difficulty": "Medium",
+    "equipment": "Cast iron or grill",
+    "ingredients": [
+      "2 lbs venison backstrap, cut into 1-inch medallions",
+      "4 tbsp butter",
+      "4 garlic cloves, smashed",
+      "Salt and coarse black pepper",
+      "Fresh or dried rosemary (optional)",
+      "2 tbsp oil for the pan"
+    ],
+    "steps": [
+      "Pat medallions dry. Season generously with salt and pepper on both sides.",
+      "Heat oil in cast iron until shimmering hot. Sear medallions 2–3 min per side. Do not crowd the pan.",
+      "Reduce heat. Add butter, garlic, and rosemary. Tilt pan and spoon butter over steaks for 1 min.",
+      "Remove and rest 5 min before eating. Medium-rare is best for backstrap."
+    ],
+    "serving": [
+      "Rest the medallions before slicing and serving.",
+      "Excellent with camp potatoes or grilled vegetables."
+    ],
+    "tips": [
+      "Venison backstrap overcooks fast. Pull it when the inside still looks slightly pink — it carries over from the heat."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🍝",
+    "baseTitle": "Venison & Pasta Skillet",
+    "description": "Hearty, filling, and made in one pan. The whole camp will approve.",
+    "time": "30 min",
+    "serves": "4–6",
+    "difficulty": "Easy",
+    "equipment": "Large pot or deep skillet",
+    "ingredients": [
+      "1 lb ground venison",
+      "12 oz penne or rotini pasta",
+      "1 jar (24 oz) marinara sauce",
+      "2 cups water",
+      "1 tsp garlic powder, 1 tsp Italian seasoning",
+      "Shredded parmesan or mozzarella for topping"
+    ],
+    "steps": [
+      "Brown ground venison in a deep skillet or pot. Season with garlic powder and Italian seasoning.",
+      "Pour in marinara sauce and water. Stir and bring to a boil.",
+      "Add dry pasta directly into the pot. Stir frequently and cook 12–14 min until pasta is tender.",
+      "Top with cheese and cover off heat for 2 min to melt. Serve straight from the pan."
+    ],
+    "serving": [
+      "Top with parmesan or mozzarella and serve from the skillet.",
+      "Pair with crusty bread or crackers."
+    ],
+    "tips": [
+      "Add a pinch of red pepper flakes for kick. Crusty bread or crackers make excellent companions."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🫙",
+    "baseTitle": "Foil Pack Venison & Veggies",
+    "description": "Wrap it up, throw it in the coals, walk away. No dishes.",
+    "time": "35 min",
+    "serves": "4",
+    "difficulty": "Easy",
+    "equipment": "Campfire coals",
+    "ingredients": [
+      "1½ lbs venison stew meat or thin-cut pieces",
+      "2 cans (15 oz) mixed vegetables, drained",
+      "1 packet onion soup mix",
+      "4 tbsp butter, cut into pats",
+      "Salt and pepper",
+      "Heavy-duty aluminum foil"
+    ],
+    "steps": [
+      "Tear 4 large sheets of heavy foil. Layer double for strength.",
+      "Divide meat and veggies among the sheets. Sprinkle soup mix over each. Top with a pat of butter.",
+      "Fold foil tightly, sealing all edges to trap steam.",
+      "Place on hot coals (not open flame). Cook 25–30 min, flipping once halfway through."
+    ],
+    "serving": [
+      "Let the foil packs rest briefly before opening.",
+      "Serve straight from the pack for easy cleanup."
+    ],
+    "tips": [
+      "Use gloves or tongs — packs get very hot. Let rest 3 min before opening to avoid steam burns."
+    ]
+  },
+  {
+    "meal": "Dinner",
+    "icon": "🫕",
+    "baseTitle": "Dutch Oven Deer Camp Stew",
+    "description": "Slow and steady over the fire. Stick-to-your-ribs satisfaction.",
+    "time": "1.5 hrs",
+    "serves": "6–8",
+    "difficulty": "Medium",
+    "equipment": "Dutch oven & coals",
+    "ingredients": [
+      "2 lbs venison stew meat, cubed",
+      "2 cans (10.5 oz) cream of mushroom soup",
+      "1 can (15 oz) beef broth",
+      "1 bag (16 oz) frozen mixed vegetables",
+      "1 packet dry onion soup mix",
+      "Salt and pepper"
+    ],
+    "steps": [
+      "Season venison cubes with salt and pepper. Brown in batches in the Dutch oven.",
+      "Add soup, broth, onion soup mix, and vegetables. Stir to combine.",
+      "Cover and hang over fire or set on coals with coals on the lid too.",
+      "Simmer 60–90 min, stirring occasionally, until meat is fork-tender."
+    ],
+    "serving": [
+      "Serve over instant mashed potatoes or with thick bread.",
+      "Perfect for warming up after a long cold sit."
+    ],
+    "tips": [
+      "Serve over instant mashed potatoes or with thick slices of bread for a complete, warming meal after a cold day in the stand."
+    ]
+  }
+];
+
+
+function getFirstName(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "Camp";
+  const token = clean.split(/\s+/)[0].replace(/[^A-Za-z'\-]/g, "");
+  return token || "Camp";
+}
+
+function buildPersonalizedRecipeTitle(owner, adjective, baseTitle) {
+  if (!owner || owner === "Camp") {
+    return `${adjective} ${baseTitle}`;
+  }
+  return `${owner}'s ${adjective} ${baseTitle}`;
+}
+
+function buildAutoRecipeObjects(memberNames = []) {
+  const owners = (Array.isArray(memberNames) ? memberNames : [])
+    .map(getFirstName)
+    .filter(Boolean);
+
+  const cycleOwners = owners.length ? owners : ["Camp"];
+
+  return AUTO_RECIPE_LIBRARY.map((recipe, index) => {
+    const owner = cycleOwners[index % cycleOwners.length];
+    const adjective = CAMP_RECIPE_ADJECTIVES[index % CAMP_RECIPE_ADJECTIVES.length];
+
+    return {
+      subtitle: owner === "Camp"
+        ? `${recipe.meal} • DeerCamp Classic`
+        : `${recipe.meal} • ${owner}'s Camp Recipe`,
+      title: buildPersonalizedRecipeTitle(owner, adjective, recipe.baseTitle),
+      description: recipe.description,
+      time: recipe.time,
+      serves: recipe.serves,
+      difficulty: recipe.difficulty,
+      ingredients: [...recipe.ingredients],
+      steps: [...recipe.steps],
+      serving: [...recipe.serving],
+      tips: [...recipe.tips],
+      meal: recipe.meal,
+      owner,
+      adjective,
+      sourceTitle: recipe.baseTitle,
+      icon: recipe.icon,
+      equipment: recipe.equipment
+    };
+  });
+}
+
+const heroSelect = document.getElementById("campImageSelect");
+const heroUploadInput = document.getElementById("campImageUpload");
+const heroPreviewImage = document.getElementById("heroPreviewImage");
+const heroPreviewStatus = document.getElementById("heroPreviewStatus");
+const signSuggestionStatus = document.getElementById("signSuggestionStatus");
+const heroPreviewBadge = document.getElementById("heroPreviewBadge");
+const heroPreviewTitle = document.getElementById("heroPreviewTitle");
+const heroPreviewMeta = document.getElementById("heroPreviewMeta");
+const recipeBuilderStatus = document.getElementById("recipeBuilderStatus");
+const recipeNamePreview = document.getElementById("recipeNamePreview");
+
+let uploadedHeroDataUrl = "";
+let resolvedSelectHero = heroSelect.value || HERO_FALLBACK_FILE;
+let lastAutoSelectedSignFile = resolvedSelectHero;
+let userHasManuallyChangedSign = false;
+
+function buildHeroAssetPath(fileName) {
+  return `${HERO_ASSET_BASE}${fileName}`;
+}
+
+function setHeroPreviewStatus(message, isWarning = false) {
+  heroPreviewStatus.textContent = message;
+  heroPreviewStatus.classList.toggle("is-warning", Boolean(isWarning));
+}
+
+function setSignSuggestionStatus(message) {
+  signSuggestionStatus.textContent = message;
+}
+
+function getSelectedSignDefinition() {
+  return SIGN_LIBRARY_BY_FILE[heroSelect.value] || SIGN_LIBRARY_BY_FILE[HERO_FALLBACK_FILE] || SIGN_LIBRARY[0];
+}
+
+function getSelectedHeroLabel() {
+  return getSelectedSignDefinition().label;
+}
+
+function getSelectedHeroRegionLabel() {
+  return getSelectedSignDefinition().regionLabel;
+}
+
+function getSuggestedSignDefinition(stateCode) {
+  const file = STATE_TO_SIGN_FILE[stateCode] || HERO_FALLBACK_FILE;
+  return SIGN_LIBRARY_BY_FILE[file] || SIGN_LIBRARY_BY_FILE[HERO_FALLBACK_FILE] || SIGN_LIBRARY[0];
+}
+
+function getPreviewCampName() {
+  const name = document.getElementById("campName").value.trim();
+  return name || "Your Camp Name";
+}
+
+function getPreviewCampMeta() {
+  const city = document.getElementById("campCity").value.trim();
+  const state = document.getElementById("campState").value.trim();
+  const year = document.getElementById("campYear").value.trim();
+  const location = [city, state].filter(Boolean).join(", ");
+  if (location && year) return `${location} • Est. ${year}`;
+  if (location) return location;
+  if (year) return `Established ${year}`;
+  return "City, State • Est. Year";
+}
+
+function updateHeroPreviewCopy() {
+  const sign = getSelectedSignDefinition();
+  heroPreviewBadge.textContent = `${sign.regionLabel} Regional DeerCamp Sign`;
+  heroPreviewTitle.textContent = getPreviewCampName();
+  heroPreviewMeta.textContent = getPreviewCampMeta();
+}
+
+function previewSelectedHero() {
+  uploadedHeroDataUrl = "";
+  heroUploadInput.value = "";
+
+  const selectedFile = heroSelect.value || HERO_FALLBACK_FILE;
+  resolvedSelectHero = selectedFile;
+
+  heroPreviewImage.dataset.mode = "library";
+  heroPreviewImage.dataset.requestedFile = selectedFile;
+  heroPreviewImage.src = buildHeroAssetPath(selectedFile);
+
+  updateHeroPreviewCopy();
+  setHeroPreviewStatus(`Previewing ${getSelectedHeroLabel()}. This sign will become your DeerCamp hero unless you upload your own image.`, false);
+}
+
+async function previewUploadedHero() {
+  const file = heroUploadInput.files[0];
+
+  if (!file) {
+    previewSelectedHero();
+    return;
+  }
+
+  try {
+    uploadedHeroDataUrl = await readFileAsDataURL(file);
+    heroPreviewImage.dataset.mode = "upload";
+    heroPreviewImage.dataset.requestedFile = file.name;
+    heroPreviewImage.src = uploadedHeroDataUrl;
+    updateHeroPreviewCopy();
+    setHeroPreviewStatus(`Previewing uploaded hero: ${file.name}. Uploaded image will override the regional sign on your camp page.`, false);
+  } catch (error) {
+    uploadedHeroDataUrl = "";
+    setHeroPreviewStatus("Uploaded image could not be previewed. Reverting to the selected DeerCamp sign.", true);
+    previewSelectedHero();
+  }
+}
+
+function applySuggestedSignFromState({ force = false } = {}) {
+  const stateCode = normalizeState(document.getElementById("campState").value);
+
+  if (!stateCode) {
+    setSignSuggestionStatus("");
+    return;
+  }
+
+  const suggestedSign = getSuggestedSignDefinition(stateCode);
+  const currentSign = getSelectedSignDefinition();
+  const canAutoApply = force || !userHasManuallyChangedSign || heroSelect.value === lastAutoSelectedSignFile;
+
+  if (canAutoApply && heroSelect.value !== suggestedSign.file) {
+    heroSelect.value = suggestedSign.file;
+    resolvedSelectHero = suggestedSign.file;
+    lastAutoSelectedSignFile = suggestedSign.file;
+
+    if (!heroUploadInput.files.length) {
+      previewSelectedHero();
+    } else {
+      updateHeroPreviewCopy();
+    }
+
+    setSignSuggestionStatus(`Auto-selected ${suggestedSign.label} for ${stateCode}. You can override it with any other regional sign.`);
+    return;
+  }
+
+  if (currentSign.file === suggestedSign.file) {
+    lastAutoSelectedSignFile = suggestedSign.file;
+    setSignSuggestionStatus(`Recommended for ${stateCode}: ${suggestedSign.label}.`);
+    return;
+  }
+
+  setSignSuggestionStatus(`Recommended for ${stateCode}: ${suggestedSign.label}. Keeping your selected ${currentSign.label}.`);
+}
+
+heroPreviewImage.addEventListener("error", () => {
+  const mode = heroPreviewImage.dataset.mode || "library";
+
+  if (mode === "upload") {
+    uploadedHeroDataUrl = "";
+    setHeroPreviewStatus("Uploaded image could not be loaded. Reverting to the selected DeerCamp sign.", true);
+    previewSelectedHero();
+    return;
+  }
+
+  const requestedFile = heroPreviewImage.dataset.requestedFile || heroSelect.value || HERO_FALLBACK_FILE;
+
+  if (requestedFile === HERO_FALLBACK_FILE) {
+    setHeroPreviewStatus(`Fallback sign preview could not be loaded. Verify assets/heroes/${HERO_FALLBACK_FILE} exists.`, true);
+    return;
+  }
+
+  resolvedSelectHero = HERO_FALLBACK_FILE;
+  heroPreviewImage.dataset.mode = "library";
+  heroPreviewImage.dataset.requestedFile = HERO_FALLBACK_FILE;
+  heroPreviewImage.src = buildHeroAssetPath(HERO_FALLBACK_FILE);
+  updateHeroPreviewCopy();
+  setHeroPreviewStatus(
+    `${getSelectedHeroLabel()} could not be loaded. Previewing the fallback DeerCamp sign until the matching file is restored.`,
+    true
+  );
+});
+
+heroPreviewImage.addEventListener("load", () => {
+  if ((heroPreviewImage.dataset.mode || "library") === "library") {
+    const requestedFile = heroPreviewImage.dataset.requestedFile || heroSelect.value || HERO_FALLBACK_FILE;
+    resolvedSelectHero = requestedFile;
+  }
+});
+function normalizeState(value) {
+  const clean = (value || "").trim().toLowerCase();
+  if (!clean) return "";
+  if (clean.length === 2) return clean.toUpperCase();
+  return stateMap[clean] || "";
+}
+
+const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
+
+function splitFullName(value = "") {
+  const clean = String(value || "").trim().replace(/\s+/g, " ");
+  if (!clean) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const parts = clean.split(" ");
+  const firstName = parts.shift() || "";
+  const lastName = parts.join(" ");
+  return { firstName, lastName };
+}
+
+function getFirstNonEmptyQueryValue(params, keys = []) {
+  for (const key of keys) {
+    const value = params.get(key);
+    if (value && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return "";
+}
+
+function applyPrefillValuesFromUrl() {
+  const params = new URLSearchParams(window.location.search || "");
+  if (!Array.from(params.keys()).length) return;
+
+  const stewardNameFromParts = [
+    getFirstNonEmptyQueryValue(params, ["stewardFirstName"]),
+    getFirstNonEmptyQueryValue(params, ["stewardLastName"])
+  ].filter(Boolean).join(" ").trim();
+
+  const fieldMappings = [
+    { id: "campName", keys: ["campName"] },
+    { id: "campCity", keys: ["campCity", "city"] },
+    { id: "campState", keys: ["campState", "state"] },
+    { id: "campZip", keys: ["campZip", "zip"] },
+    { id: "campYear", keys: ["campYear", "established"] },
+    { id: "campSteward", keys: ["campSteward", "stewardName"] },
+    { id: "campStewardEmail", keys: ["campStewardEmail", "stewardEmail", "email"] },
+    { id: "campMembers", keys: ["campMembers"] },
+    { id: "campTraditionsCustom", keys: ["campTraditionsCustom"] },
+    { id: "campDeerDrives", keys: ["campDeerDrives"] }
+  ];
+
+  fieldMappings.forEach(({ id, keys }) => {
+    const input = document.getElementById(id);
+    if (!input || String(input.value || "").trim()) return;
+
+    const value = getFirstNonEmptyQueryValue(params, keys);
+    if (value) {
+      input.value = value;
+    }
+  });
+
+  const stewardInput = document.getElementById("campSteward");
+  if (stewardInput && !String(stewardInput.value || "").trim() && stewardNameFromParts) {
+    stewardInput.value = stewardNameFromParts;
+  }
+
+  const signFile = getFirstNonEmptyQueryValue(params, ["campImageSelect", "heroTemplate"]);
+  if (signFile && SIGN_LIBRARY_BY_FILE[signFile]) {
+    heroSelect.value = signFile;
+    resolvedSelectHero = signFile;
+    lastAutoSelectedSignFile = signFile;
+  }
+}
+
+async function triggerStewardWelcomeEmail(payload = {}) {
+  const stewardEmail = String(payload.stewardEmail || "").trim();
+  if (!stewardEmail) {
+    return { ok: false, skipped: true, reason: "missing-steward-email" };
+  }
+
+  const response = await fetch(WELCOME_EMAIL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    keepalive: true,
+    body: JSON.stringify(payload)
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch (error) {
+    data = {};
+  }
+
+  if (!response.ok || data.ok === false) {
+    const message = data.error || `Welcome email request failed (${response.status}).`;
+    throw new Error(message);
+  }
+
+  return data;
+}
+
+
+const OFFICIAL_DEER_SEASON_OPENERS_URLS = [
+  "data/us-state-deer-openers.json",
+  "data/deer-season-openers.json"
+];
+let officialSeasonOpenersCache = null;
+
+async function loadOfficialSeasonOpeners() {
+  if (officialSeasonOpenersCache) {
+    return officialSeasonOpenersCache;
+  }
+
+  for (const url of OFFICIAL_DEER_SEASON_OPENERS_URLS) {
+    try {
+      const response = await fetch(`${url}?ts=${Date.now()}`, {
+        cache: "no-store"
+      });
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const payload = await response.json();
+      if (payload && typeof payload === "object") {
+        officialSeasonOpenersCache = payload;
+        return officialSeasonOpenersCache;
+      }
+    } catch (error) {
+      // Try the next data source.
+    }
+  }
+
+  officialSeasonOpenersCache = {};
+  return officialSeasonOpenersCache;
+}
+
+function getCurrentSeasonLookupDate() {
+  return new Date();
+}
+
+function getCurrentSeasonLookupYear() {
+  return String(getCurrentSeasonLookupDate().getFullYear());
+}
+
+function getCurrentSeasonLookupLabel() {
+  return getCurrentSeasonLookupDate().toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric"
+  });
+}
+
+function normalizeSeasonType(value) {
+  const clean = String(value || "").trim().toLowerCase();
+  if (!clean) return "";
+  if (clean.includes("arch")) return "archery";
+  if (clean.includes("bow")) return "archery";
+  if (clean.includes("muzzle")) return "muzzleloader";
+  if (clean.includes("black powder")) return "muzzleloader";
+  if (clean.includes("firearm")) return "gun";
+  if (clean.includes("rifle")) return "gun";
+  if (clean.includes("gun")) return "gun";
+  return clean;
+}
+
+function buildOfficialEventsFromLegacyRecord(seasonRecord) {
+  if (!seasonRecord || !seasonRecord.seasons) return [];
+
+  const seasonOrder = ["archery", "gun", "muzzleloader"];
+
+  return seasonOrder
+    .map((seasonKey) => {
+      const season = seasonRecord.seasons[seasonKey];
+      if (!season || !season.opener) return null;
+
+      return {
+        name: season.label,
+        date: season.opener,
+        type: "season-opener",
+        description: `${season.label} • Official opener`,
+        source: seasonRecord.source || "Official state wildlife agency",
+        sourceUrl: seasonRecord.sourceUrl || ""
+      };
+    })
+    .filter(Boolean);
+}
+
+function buildOfficialEventsFromStateSchema(stateEntry, yearKey) {
+  if (!stateEntry || !Array.isArray(stateEntry.seasons)) {
+    return [];
+  }
+
+  const seasonOrder = ["archery", "gun", "muzzleloader"];
+  const bestByType = new Map();
+
+  stateEntry.seasons.forEach((season) => {
+    const normalizedType = normalizeSeasonType(season.type || season.label || season.title || "");
+    const opener = String(season.date || season.opener || "").trim();
+    if (!normalizedType || !opener || !seasonOrder.includes(normalizedType)) return;
+    if (!opener.startsWith(`${yearKey}-`)) return;
+    if (String(season.scopeNote || "").trim()) return;
+
+    if (!bestByType.has(normalizedType)) {
+      const defaultLabelMap = {
+        archery: "Bow / Archery Opener",
+        gun: "Gun / Rifle Opener",
+        muzzleloader: "Black Powder / Muzzleloader Opener"
+      };
+
+      bestByType.set(normalizedType, {
+        name: season.title || season.label || defaultLabelMap[normalizedType],
+        date: opener,
+        type: "season-opener",
+        description: season.description || `${defaultLabelMap[normalizedType]} • Official opener`,
+        source: stateEntry.source || "Official state wildlife agency",
+        sourceUrl: stateEntry.sourceUrl || ""
+      });
+    }
+  });
+
+  return seasonOrder
+    .map((seasonKey) => bestByType.get(seasonKey) || null)
+    .filter(Boolean);
+}
+
+async function buildOfficialSeasonCalendarEvents(stateValue, yearValue = getCurrentSeasonLookupYear()) {
+  const stateCode = normalizeState(stateValue);
+  const yearKey = String(yearValue || getCurrentSeasonLookupYear()).trim();
+  const lookup = await loadOfficialSeasonOpeners();
+
+  if (!stateCode || !yearKey || !lookup || typeof lookup !== "object") {
+    return [];
+  }
+
+  if (lookup.states && lookup.states[stateCode]) {
+    return buildOfficialEventsFromStateSchema(lookup.states[stateCode], yearKey);
+  }
+
+  const stateLookup = lookup[stateCode] || null;
+  const seasonRecord = stateLookup && yearKey ? stateLookup[yearKey] : null;
+  return buildOfficialEventsFromLegacyRecord(seasonRecord);
+}
+
+async function updateSeasonOpenerStatus() {
+  const statusEl = document.getElementById("seasonOpenerStatus");
+  if (!statusEl) return;
+
+  const stateValue = document.getElementById("campState").value.trim();
+  const stateCode = normalizeState(stateValue);
+  const seasonYear = getCurrentSeasonLookupYear();
+
+  if (!stateValue) {
+    statusEl.textContent = `Calendar will only show official statewide hunting season opener dates once the camp is created.`;
+    statusEl.classList.remove("is-warning");
+    return;
+  }
+
+  if (!stateCode) {
+    statusEl.textContent = `Enter a valid state to load official ${seasonYear} opener dates for Bow/Archery, Gun/Rifle, and Muzzleloader seasons tied to this DeerCamp site build.`;
+    statusEl.classList.add("is-warning");
+    return;
+  }
+
+  const officialEvents = await buildOfficialSeasonCalendarEvents(stateValue, seasonYear);
+
+  if (!officialEvents.length) {
+    statusEl.textContent = `No official opener dates are loaded yet for ${stateCode} in ${seasonYear} for DeerCamp sites created in ${getCurrentSeasonLookupLabel()}. The calendar will stay empty until that state's confirmed data is added.`;
+    statusEl.classList.add("is-warning");
+    return;
+  }
+
+  const openerSummary = officialEvents
+    .map(event => `${event.name}: ${event.date}`)
+    .join(" • ");
+
+  statusEl.textContent = `Official opener dates loaded for ${stateCode} ${seasonYear} based on the DeerCamp site build date (${getCurrentSeasonLookupLabel()}) — ${openerSummary}`;
+  statusEl.classList.remove("is-warning");
+}
+
+function debounce(fn, wait = 500) {
+  let timeoutId;
+  return (...args) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), wait);
+  };
+}
+
+function getZipCodesFromResponse(data) {
+  const codes = new Set();
+
+  if (data && typeof data["post code"] === "string") {
+    codes.add(data["post code"]);
+  }
+
+  if (data && Array.isArray(data.places)) {
+    data.places.forEach((place) => {
+      if (place && typeof place["post code"] === "string") {
+        codes.add(place["post code"]);
+      }
+    });
+  }
+
+  return Array.from(codes).filter(Boolean);
+}
+
+function extractZipCodesFromNominatimResults(results = []) {
+  const codes = new Set();
+  (Array.isArray(results) ? results : []).forEach((result) => {
+    const postcode = String(result?.address?.postcode || "").trim();
+    const match = postcode.match(/\d{5}/);
+    if (match) codes.add(match[0]);
+  });
+  return Array.from(codes);
+}
+
+async function fetchZipCodesForCityState(city, stateCode) {
+  const endpoint = `https://api.zippopotam.us/us/${stateCode}/${encodeURIComponent(city)}`;
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return getZipCodesFromResponse(data);
+}
+
+async function fetchZipCodesFromGeocoder(city, stateCode) {
+  const stateName = STATE_NAME_BY_CODE[stateCode] || stateCode;
+  const query = encodeURIComponent(`${city}, ${stateName}, USA`);
+  const endpoint = `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=5&q=${query}`;
+  const response = await fetch(endpoint, {
+    method: "GET",
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    return [];
+  }
+
+  const data = await response.json();
+  return extractZipCodesFromNominatimResults(data);
+}
+
+async function autofillZip(forceReplace = false) {
+  const cityInput = document.getElementById("campCity");
+  const stateInput = document.getElementById("campState");
+  const zipInput = document.getElementById("campZip");
+  const zipStatus = document.getElementById("zipStatus");
+
+  const city = cityInput.value.trim();
+  const stateCode = normalizeState(stateInput.value);
+
+  zipStatus.textContent = "";
+
+  if (!city || !stateCode) {
+    return;
+  }
+
+  const requestKey = `${normalizeCityLookupKey(city)}|${stateCode}`;
+  if (!forceReplace && zipInput.dataset.lookupKey === requestKey && zipInput.value.trim()) {
+    return;
+  }
+
+  zipStatus.textContent = "Looking up ZIP...";
+
+  try {
+    let postalCodes = getZipOverride(city, stateCode);
+
+    if (!postalCodes.length) {
+      postalCodes = await fetchZipCodesForCityState(city, stateCode);
+    }
+
+    if (!postalCodes.length && city.includes(".")) {
+      postalCodes = await fetchZipCodesForCityState(city.replace(/\./g, ""), stateCode);
+    }
+
+    if (!postalCodes.length && city.includes("-")) {
+      postalCodes = await fetchZipCodesForCityState(city.replace(/-/g, " "), stateCode);
+    }
+
+    if (!postalCodes.length) {
+      postalCodes = await fetchZipCodesFromGeocoder(city, stateCode);
+    }
+
+    if (!postalCodes.length) {
+      zipStatus.textContent = "ZIP not found automatically. You can still enter it manually.";
+      return;
+    }
+
+    const shouldReplace = forceReplace || !zipInput.value.trim() || zipInput.dataset.autofilled === "true";
+
+    if (shouldReplace) {
+      zipInput.value = postalCodes[0];
+      zipInput.dataset.autofilled = "true";
+      zipInput.dataset.lookupKey = requestKey;
+    }
+
+    if (postalCodes.length === 1) {
+      zipStatus.textContent = `ZIP auto-filled: ${postalCodes[0]}`;
+    } else {
+      zipStatus.textContent = `ZIP auto-filled: ${postalCodes[0]} • Other possible ZIPs: ${postalCodes.slice(1).join(", ")}`;
+    }
+  } catch (error) {
+    zipStatus.textContent = "Could not auto-fill ZIP right now. You can still enter it manually.";
+  }
+}
+
+function getMemberNamesFromBuilder() {
+  return getRosterNamesFromBuilder();
+}
+
+function renderRecipePreview() {
+  if (!recipeBuilderStatus || !recipeNamePreview) return;
+
+  const memberNames = getMemberNamesFromBuilder();
+  const recipes = buildAutoRecipeObjects(memberNames);
+
+  recipeBuilderStatus.textContent = memberNames.length
+    ? `${memberNames.length} camp roster member${memberNames.length === 1 ? "" : "s"} loaded • DeerCamp will personalize all 8 recipe cards and loop back through the roster as needed.`
+    : "Add a camp steward and members and DeerCamp will personalize all 8 recipe cards. Until then, the preview uses camp-style default names.";
+
+  recipeNamePreview.innerHTML = "";
+
+  recipes.forEach(recipe => {
+    const chip = document.createElement("div");
+    chip.className = "recipe-name-chip";
+
+    const title = document.createElement("strong");
+    title.textContent = recipe.title;
+
+    const meta = document.createElement("span");
+    meta.textContent = `${recipe.meal} • ${recipe.time} • ${recipe.equipment}`;
+
+    chip.appendChild(title);
+    chip.appendChild(meta);
+    recipeNamePreview.appendChild(chip);
+  });
+}
+
+const debouncedAutofillZip = debounce(() => autofillZip(false), 500);
+
+document.getElementById("campCity").addEventListener("input", debouncedAutofillZip);
+document.getElementById("campState").addEventListener("input", debouncedAutofillZip);
+document.getElementById("campCity").addEventListener("blur", () => autofillZip(false));
+document.getElementById("campState").addEventListener("blur", () => autofillZip(false));
+document.getElementById("campCity").addEventListener("change", () => autofillZip(false));
+document.getElementById("campState").addEventListener("change", () => autofillZip(false));
+document.getElementById("campZip").addEventListener("focus", () => autofillZip(false));
+document.getElementById("campZip").addEventListener("input", () => {
+  const zipInput = document.getElementById("campZip");
+  zipInput.dataset.autofilled = "false";
+});
+
+document.getElementById("campName").addEventListener("input", updateHeroPreviewCopy);
+document.getElementById("campSteward").addEventListener("input", renderRecipePreview);
+document.getElementById("campMembers").addEventListener("input", renderRecipePreview);
+document.getElementById("campCity").addEventListener("input", () => {
+  updateHeroPreviewCopy();
+});
+document.getElementById("campYear").addEventListener("input", () => {
+  updateHeroPreviewCopy();
+  updateSeasonOpenerStatus();
+});
+document.getElementById("campState").addEventListener("input", () => {
+  updateHeroPreviewCopy();
+  applySuggestedSignFromState();
+  updateSeasonOpenerStatus();
+});
+document.getElementById("campState").addEventListener("blur", () => {
+  applySuggestedSignFromState();
+  updateSeasonOpenerStatus();
+});
+document.getElementById("campState").addEventListener("change", () => {
+  applySuggestedSignFromState({ force: true });
+  updateSeasonOpenerStatus();
+});
+
+heroSelect.addEventListener("change", () => {
+  userHasManuallyChangedSign = true;
+  previewSelectedHero();
+});
+heroUploadInput.addEventListener("change", previewUploadedHero);
+applyPrefillValuesFromUrl();
+previewSelectedHero();
+applySuggestedSignFromState({ force: true });
+updateSeasonOpenerStatus();
+renderTraditionStarterOptions();
+document.getElementById("campTraditionsCustom").addEventListener("input", updateTraditionBuilderStatus);
+updateTraditionBuilderStatus();
+renderRecipePreview();
+
+
+function incrementCreatedCampCounter(campId) {
+  const COUNTER_KEY = "deercamp.createdCount";
+  const IDS_KEY = "deercamp.createdCampIds";
+
+  try {
+    const cleanCampId = String(campId || "").trim();
+    const storedIds = JSON.parse(localStorage.getItem(IDS_KEY) || "[]");
+    const ids = Array.isArray(storedIds) ? storedIds.filter(Boolean) : [];
+
+    if (cleanCampId && !ids.includes(cleanCampId)) {
+      ids.push(cleanCampId);
+      localStorage.setItem(IDS_KEY, JSON.stringify(ids));
+      localStorage.setItem(COUNTER_KEY, String(ids.length));
+      return;
+    }
+
+    if (!cleanCampId) {
+      const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
+      const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+      localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+    }
+  } catch (error) {
+    const numericCount = Number.parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10);
+    const safeCount = Number.isNaN(numericCount) || numericCount < 0 ? 0 : numericCount;
+    localStorage.setItem(COUNTER_KEY, String(safeCount + 1));
+  }
+}
+
+document.getElementById("campForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  await autofillZip(false);
+
+  const name = document.getElementById("campName").value.trim();
+  const city = document.getElementById("campCity").value.trim();
+  const state = document.getElementById("campState").value.trim();
+  const zip = document.getElementById("campZip").value.trim();
+  const year = document.getElementById("campYear").value.trim();
+
+  const stewardName = document.getElementById("campSteward").value.trim();
+  const stewardEmail = document.getElementById("campStewardEmail").value.trim();
+  const campMembers = parseCommaNames(document.getElementById("campMembers").value);
+  const rosterNames = [stewardName, ...campMembers].filter(Boolean);
+
+  const memberProfiles = [];
+  if (stewardName) {
+    memberProfiles.push(buildDefaultMemberProfile(stewardName, "Camp Steward"));
+  }
+  campMembers.forEach((memberName) => {
+    memberProfiles.push(buildDefaultMemberProfile(memberName, "Camp Member"));
+  });
+
+  const traditions = collectSelectedTraditions();
+
+  const deerDrives = document.getElementById("campDeerDrives").value
+    .split(",")
+    .map(item => item.trim())
+    .filter(Boolean);
+
+  const recipeObjects = buildAutoRecipeObjects(rosterNames);
+  const recipeNames = recipeObjects.map(recipe => recipe.title);
+
+  const selectedSign = getSelectedSignDefinition();
+  const selectedSignAssetPath = buildHeroAssetPath(selectedSign.file || HERO_FALLBACK_FILE);
+  const campId = deriveCampIdFromBuilder({ name, city, state, zip });
+
+  let hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
+
+  if (heroUploadInput.files.length > 0) {
+    try {
+      hero = uploadedHeroDataUrl || await readFileAsDataURL(heroUploadInput.files[0]);
+    } catch (error) {
+      alert("Uploaded image could not be processed. Using selected image instead.");
+      hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
+    }
+  }
+
+  const location = [city, state].filter(Boolean).join(", ");
+  const seasonYear = getCurrentSeasonLookupYear();
+  const calendarEvents = await buildOfficialSeasonCalendarEvents(state, seasonYear);
+  const calendarMeta = {
+    lookupType: "official-state-season-openers",
+    stateCode: normalizeState(state),
+    year: seasonYear,
+    hasOfficialData: calendarEvents.length > 0
+  };
+
+  const campData = {
+    campId,
+    name,
+    city,
+    state,
+    zip,
+    location,
+    established: year,
+    hero,
+    heroMode: heroUploadInput.files.length > 0 ? "uploaded-image" : "regional-sign",
+    heroRegion: selectedSign.regionLabel,
+    heroTemplate: selectedSign.file,
+    heroTemplateLabel: selectedSign.label,
+    stewardName,
+    stewardEmail,
+    campMembers: campMembers.slice(),
+    members: campMembers.slice(),
+    memberProfiles,
+    traditions,
+    deerDrives,
+    feedEntries: STARTER_FEED_ENTRIES,
+    campCards: STARTER_CAMP_CARDS,
+    memories: STARTER_WALL_OF_FAME,
+    wallOfFame: STARTER_WALL_OF_FAME,
+    recipes: recipeObjects,
+    recipeNames,
+    recipeObjects,
+    calendarEvents,
+    calendarMeta,
+    siteCreatedAt: new Date().toISOString(),
+    siteSeasonLookupYear: seasonYear,
+    siteSeasonLookupMonthLabel: getCurrentSeasonLookupLabel()
+  };
+
+  localStorage.setItem("campData", JSON.stringify(campData));
+  localStorage.setItem(ACTIVE_CAMP_KEY, campId);
+  const scopedCampDataKey = campScopeKey(campId, "campData");
+  if (scopedCampDataKey) {
+    localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
+  }
+
+  const initialDashboardSlim = {
+    campId,
+    camp: {
+      campId,
+      name,
+      city,
+      state,
+      zip,
+      established: year,
+      summary: "",
+      hero,
+      publishState: "private"
+    },
+    stewardName,
+    stewardEmail,
+    sections: {
+      campfeed: true,
+      campupdate: true,
+      calendar: true,
+      traditions: true,
+      camprecipes: true
+    },
+    selectedRecipeIds: [],
+    members: memberProfiles.map((member) => ({
+      ...member,
+      email: String(member.email || "").trim(),
+      note: String(member.note || "").trim(),
+      role: String(member.role || "Camp Member").trim() || "Camp Member",
+      status: String(member.status || (String(member.role || "").toLowerCase() === "camp steward" ? "Active" : "Draft")).trim(),
+      pendingInvite: false,
+      inviteToken: "",
+      inviteSentAt: "",
+      inviteError: ""
+    })),
+    people: memberProfiles.map((member) => ({
+      ...member,
+      email: String(member.email || "").trim(),
+      note: String(member.note || "").trim(),
+      role: String(member.role || "Camp Member").trim() || "Camp Member",
+      status: String(member.status || (String(member.role || "").toLowerCase() === "camp steward" ? "Active" : "Draft")).trim(),
+      pendingInvite: false,
+      inviteToken: "",
+      inviteSentAt: "",
+      inviteError: ""
+    })),
+    pendingInvites: []
+  };
+  localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(initialDashboardSlim));
+  const scopedDashboardSlimKey = campScopeKey(campId, "dashboardSlim");
+  if (scopedDashboardSlimKey) {
+    localStorage.setItem(scopedDashboardSlimKey, JSON.stringify(initialDashboardSlim));
+  }
+
+  Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(campId, campData)).catch(() => {});
+
+  incrementCreatedCampCounter(campId);
+
+  const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
+  const welcomePayload = {
+    campId,
+    campName: name,
+    city,
+    state: normalizeState(state) || state,
+    zip,
+    campYear: year,
+    stewardName,
+    stewardFirstName,
+    stewardLastName,
+    stewardEmail,
+    campMembers: campMembers.join(", "),
+    campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
+    campDeerDrives: deerDrives.join(", "),
+    heroTemplate: selectedSign.file,
+    campHero: selectedSignAssetPath,
+    campBrand: selectedSignAssetPath,
+    memberNames: campMembers.join(", "),
+    campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
+    send: true
+  };
+
+  if (stewardEmail) {
+    try {
+      const welcomeResult = await Promise.race([
+        triggerStewardWelcomeEmail(welcomePayload),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Welcome email timed out.")), 3500))
+      ]);
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+        ok: true,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        subject: welcomeResult?.subject || "",
+        setupLink: welcomeResult?.setupLink || ""
+      }));
+    } catch (error) {
+      console.error("Steward welcome email failed:", error);
+      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+        ok: false,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        error: error.message || "Welcome email failed."
+      }));
+    }
+  } else {
+    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
+      ok: false,
+      sentAt: new Date().toISOString(),
+      error: "No steward email provided."
+    }));
+  }
+
+  window.location.href = buildBuilderResumeUrl("buildyourcamp.html", welcomePayload);
+});
+</script>
+</body>
+</html>
