@@ -50,6 +50,14 @@ header::-webkit-scrollbar{height:0;}
 .hlock{background:#1f2f38;color:var(--cream);border:1px solid #4a6b7a;}
 .hlock:hover{background:#2a4552;}
 .hlock.active{background:#3a6a7a;border-color:#7ab7c8;}
+.role-legend{position:fixed;top:56px;right:12px;z-index:1000;display:flex;gap:10px;align-items:center;background:rgba(18,10,2,.92);border:1px solid #3a2c1e;border-radius:999px;padding:6px 10px;font-family:'IBM Plex Mono',monospace;font-size:.56rem;color:var(--cream);box-shadow:0 6px 18px rgba(0,0,0,.35);}
+.role-legend-item{display:flex;align-items:center;gap:5px;white-space:nowrap;}
+.role-legend-dot{width:16px;height:16px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:.52rem;font-weight:700;border:1.5px solid #f0e8d8;}
+.role-legend-dot.driver{background:#2b6cb0;color:#fff;}
+.role-legend-dot.stander{background:#f4d03f;color:#231a13;}
+.route-end-icon{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:2px solid #f0e8d8;font:700 14px 'IBM Plex Mono',monospace;box-shadow:0 4px 12px rgba(0,0,0,.35);}
+.route-end-icon.route{background:#d4820a;color:#fff8ef;}
+.route-end-icon.drive{background:#4a9aff;color:#fff8ef;}
 
 /* MAP */
 #map{flex:1;z-index:1;}
@@ -185,7 +193,7 @@ textarea{resize:vertical;min-height:55px;}
 /* PRINT */
 @media print{
   body{overflow:visible;height:auto;}
-  header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,#wind-compass,.modal-overlay,.print-legend-screen{display:none!important;}
+  header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,#wind-compass,.modal-overlay,.print-legend-screen,.role-legend{display:none!important;}
   #map{height:85vh;page-break-after:avoid;}
   .leaflet-control-zoom{display:none!important;}
   #print-header,#print-legend{display:block!important;}
@@ -243,6 +251,11 @@ textarea{resize:vertical;min-height:55px;}
 <div id="map"></div>
 
 <div id="status-bar">👁 View mode — use the toolbar to build your hunt map</div>
+
+<div class="role-legend" id="role-legend" aria-label="Driver and Stander legend">
+  <span class="role-legend-item"><span class="role-legend-dot driver">D</span> Blue Circle (Driver)</span>
+  <span class="role-legend-item"><span class="role-legend-dot stander">S</span> Yellow Circle (Stander)</span>
+</div>
 
 <button class="fab" id="fab-route" onclick="finishPoly('route')">✓ Finish Deer Drive</button>
 <button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Access Route</button>
@@ -612,6 +625,33 @@ function polyStyle(t){
   if(t==='bound') return{color:'#c87aff',weight:3,opacity:.9,dashArray:'6,4'};
   return{color:'#d4820a',weight:4,opacity:.85,dashArray:'9,6'};
 }
+function routeEndIcon(type, endArrow){
+  if(!endArrow) return null;
+  const arrowChar = endArrow==='up' ? '↑' : '↓';
+  return L.divIcon({
+    html:`<div class="route-end-icon ${type==='route'?'route':'drive'}">${arrowChar}</div>`,
+    className:'',
+    iconSize:[26,26],
+    iconAnchor:[13,13],
+    popupAnchor:[0,-12]
+  });
+}
+function createRouteLayer(rec){
+  const pts = rec.type==='bound' ? [...rec.pts, rec.pts[0]] : rec.pts;
+  const line = L.polyline(pts, polyStyle(rec.type));
+  const popup = polyPopupHTML(rec);
+  line.bindPopup(popup);
+  if((rec.type==='route' || rec.type==='drive') && rec.endArrow && Array.isArray(rec.pts) && rec.pts.length){
+    const last = rec.pts[rec.pts.length-1];
+    const marker = L.marker(last, {icon: routeEndIcon(rec.type, rec.endArrow)}).bindPopup(popup);
+    const group = L.featureGroup([line, marker]).addTo(map);
+    allLayers[rec.id] = group;
+    return group;
+  }
+  const group = L.featureGroup([line]).addTo(map);
+  allLayers[rec.id] = group;
+  return group;
+}
 function addPolyPt(ll){
   curPts.push([ll.lat,ll.lng]);
   if(curPolyLine) map.removeLayer(curPolyLine);
@@ -641,9 +681,7 @@ function savePoly(){
   const id=Date.now(), type=curPolyType;
   const rec={id,name,notes,type,pts:[...curPts],endArrow:(['route','drive'].includes(curPolyType)?routeEndArrow:'')};
   if(type==='bound') boundaries.push(rec); else routes.push(rec);
-  const pts=type==='bound'?[...curPts,curPts[0]]:curPts;
-  const layer=L.polyline(pts,polyStyle(type)).addTo(map).bindPopup(polyPopupHTML(rec));
-  allLayers[id]=layer;
+  createRouteLayer(rec);
   curPolyLine=null;curPts=[];curPolyType=null;
   clearRouteEndArrow();
   ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
@@ -1216,10 +1254,7 @@ function importData(e){
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
       stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
-      [...routes,...boundaries].forEach(r=>{
-        const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
-        allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
-      });
+      [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
       drivers.forEach(addRoleMarkerRecord);
       standers.forEach(addRoleMarkerRecord);
