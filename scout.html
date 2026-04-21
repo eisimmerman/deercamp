@@ -106,7 +106,7 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
-#map-compass{position:fixed;top:60px;left:58px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass{position:fixed;top:66px;right:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
@@ -268,6 +268,9 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
+  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
+  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
 <div id="map"></div>
@@ -477,7 +480,7 @@ textarea{resize:vertical;min-height:55px;}
     </div>
     <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
       <div>
-        <label>Drivers</label>
+        <label>Drivers/Pushers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-driver-1" placeholder="Driver 1">
           <input type="text" id="ddb-driver-2" placeholder="Driver 2">
@@ -487,7 +490,7 @@ textarea{resize:vertical;min-height:55px;}
         </div>
       </div>
       <div>
-        <label>Standers</label>
+        <label>Standers/Blockers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-stander-1" placeholder="Stander 1">
           <input type="text" id="ddb-stander-2" placeholder="Stander 2">
@@ -617,9 +620,9 @@ function setMode(m) {
   const msgs={
     view:'👁 View — click any feature to see details',
     stand:'📍 Click the map to drop a stand',
-    route:'🦌 Click points to trace a deer drive route, then tap End Arrow to finish',
-    drive:'🚙 Click points to trace an access route, then tap End Arrow to finish',
-    deerdrivebuilder:'🧩 Tap map to build Drivers and Standers for a Deer Drive',
+    route:'🦌 Click points to trace a deer drive route, then Finish',
+    drive:'🚙 Click points to trace an access route, then Finish',
+    deerdrivebuilder:'🧩 Tap map to build Drivers/Pushers and Standers/Blockers for a Deer Drive',
     bound:'🔲 Click corners of property boundary, then Close',
     wind:'💨 Click map to place a wind arrow',
     acre:'📐 Click corners to measure acreage, then close shape',
@@ -685,11 +688,7 @@ function addPolyPt(ll){
 function finishPoly(t){
   if(curPts.length<2) return;
   if(['route','drive'].includes(t)){
-    mode = t;
-    curPolyType = t;
-    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose an end arrow now to finish this route`;
-    const palette = document.getElementById('end-arrow-palette');
-    if(palette) palette.classList.add('open');
+    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose End Arrow, then tap the route end to finish`;
     return;
   }
   const titles={bound:'Name This Boundary'};
@@ -778,24 +777,16 @@ function toggleEndArrowPalette(){
   document.getElementById('end-arrow-palette')?.classList.toggle('open');
 }
 function setRouteEndArrow(dir){
-  const activeType = ['route','drive'].includes(curPolyType) ? curPolyType : (['route','drive'].includes(mode) ? mode : '');
-  if(!activeType){
+  if(!['route','drive'].includes(mode)){
     document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then choose an end arrow.';
-    document.getElementById('end-arrow-palette')?.classList.remove('open');
+    setTimeout(()=>setMode(mode),2200);
     return;
   }
-  if(curPts.length < 2){
-    document.getElementById('status-bar').innerHTML=`${activeType==='route'?'🦌 Deer Drive':'🚙 Access Route'} — draw at least 2 points, then choose an end arrow.`;
-    document.getElementById('end-arrow-palette')?.classList.remove('open');
-    return;
-  }
-  mode = activeType;
-  curPolyType = activeType;
   routeEndArrow = dir;
   syncRouteArrowButtons();
-  document.getElementById('status-bar').innerHTML=`${activeType==='route'?'🦌 Deer Drive':'🚙 Access Route'} — ${({'up':'up','down':'down','left':'left','right':'right'}[dir]||dir)} end arrow placed`;
   document.getElementById('end-arrow-palette')?.classList.remove('open');
-  finalizeRouteWithArrow(activeType);
+  const label = {up:'up',down:'down',left:'left',right:'right'}[routeEndArrow] || routeEndArrow;
+  document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place a ${label} arrow and finish this route`;
 }
 function clearRouteEndArrow(){
   routeEndArrow='';
@@ -864,17 +855,14 @@ function openDeerDriveBuilderFromToolbar(){
   deerDriveAnchor = map.getCenter();
   setMode('deerdrivebuilder');
   openDeerDriveBuilderModal();
-  document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder — add names, then drag circles into final positions on the map';
+  document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder — add or edit Drivers/Pushers and Standers/Blockers, then drag circles into final positions';
 }
 
 function openDeerDriveBuilderModal(){
-  const existingDriveName = (drivers[0]?.driveName || standers[0]?.driveName || 'Deer Drive');
-  document.getElementById('ddb-name').value = existingDriveName;
-  const driverNames = drivers.map(item => item.name).filter(Boolean).slice(0,5);
-  const standerNames = standers.map(item => item.name).filter(Boolean).slice(0,5);
+  document.getElementById('ddb-name').value='';
   for(let i=1;i<=5;i++){
-    document.getElementById(`ddb-driver-${i}`).value = driverNames[i-1] || '';
-    document.getElementById(`ddb-stander-${i}`).value = standerNames[i-1] || '';
+    document.getElementById(`ddb-driver-${i}`).value='';
+    document.getElementById(`ddb-stander-${i}`).value='';
   }
   document.getElementById('modal-deerdrive-builder').classList.add('open');
 }
@@ -907,15 +895,20 @@ function saveDeerDriveBuilder(){
   const driveName = document.getElementById('ddb-name').value.trim() || 'Deer Drive';
   const driverNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-driver-${i+1}`).value.trim()).filter(Boolean);
   const standerNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-stander-${i+1}`).value.trim()).filter(Boolean);
-  if(!driverNames.length && !standerNames.length){
-    document.getElementById('status-bar').innerHTML='Add at least one Driver or Stander name to build the Deer Drive.';
-    return;
-  }
 
   drivers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
   standers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
   drivers = [];
   standers = [];
+
+  if(!driverNames.length && !standerNames.length){
+    closeDeerDriveBuilderModal();
+    saveLocal();
+    renderPanel();
+    setMode('view');
+    document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder cleared.';
+    return;
+  }
 
   const newDrivers = buildRoleRecords('driver', driverNames, driveName, deerDriveAnchor, 10);
   const newStanders = buildRoleRecords('stander', standerNames, driveName, deerDriveAnchor, 200);
