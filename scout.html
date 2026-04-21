@@ -39,6 +39,7 @@ header::-webkit-scrollbar{height:0;}
 .mode-btn.active.mb{background:var(--purple);}
 .mode-btn.active.mw{background:var(--teal);}
 .mode-btn.active.ma{background:#5a2a0a;}
+.mode-btn.disabled{opacity:.35;pointer-events:none;filter:saturate(.45);}
 .route-arrow-btn.active{background:#d4820a;color:var(--cream);}
 .end-arrow-wrap{position:relative;display:flex;align-items:center;flex-shrink:0;}
 .end-arrow-palette{position:absolute;top:calc(100% + 6px);left:0;display:none;gap:6px;padding:6px;border-radius:8px;background:rgba(18,10,2,.96);border:1px solid #3a2c1e;box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:1200;}
@@ -264,22 +265,11 @@ textarea{resize:vertical;min-height:55px;}
   </div>
   <div class="vr"></div>
   <div class="mode-group">
-    <button class="mode-btn active"  id="mode-view"  onclick="setMode('view')">👁 View</button>
-    <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
-    <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦌 Drive Route</button>
-    <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
-    <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">🧩 DeerDrive Builder</button>
-    <button class="mode-btn mw" id="mode-wind" onclick="setMode('wind')">💨 Wind</button>
-  </div>
-  <div class="end-arrow-wrap">
-    <button class="hdr-btn hg" id="btn-end-arrow" onclick="toggleEndArrowPalette()">↕ End Arrow</button>
-    <div class="end-arrow-palette" id="end-arrow-palette">
-      <button class="end-arrow-opt" data-dir="up" onclick="setRouteEndArrow('up')">↑</button>
-      <button class="end-arrow-opt" data-dir="down" onclick="setRouteEndArrow('down')">↓</button>
-      <button class="end-arrow-opt" data-dir="left" onclick="setRouteEndArrow('left')">←</button>
-      <button class="end-arrow-opt" data-dir="right" onclick="setRouteEndArrow('right')">→</button>
-      <button class="end-arrow-opt clear" onclick="clearRouteEndArrow()">Clear</button>
-    </div>
+    <button class="mode-btn active" id="mode-view" onclick="setMode('view')">👁 View</button>
+    <button class="mode-btn" id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
+    <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">🧩 1. DeerDrive Builder</button>
+    <button class="mode-btn disabled" id="btn-set-drive" onclick="toggleSetDrive()">✅ 2. Set Drive</button>
+    <button class="mode-btn mr disabled" id="btn-auto-route" onclick="autoDrawDriveRoutes()">🦌 3. Auto-Draw Drive Route</button>
   </div>
   <div class="menu-badges" aria-label="Driver and Stander key">
     <div class="menu-badge-wrap">
@@ -338,12 +328,12 @@ textarea{resize:vertical;min-height:55px;}
   </svg>
 </div>
 
-<button class="panel-toggle" onclick="togglePanel()">STANDS</button>
+<button class="panel-toggle" onclick="togglePanel()">DeerDrives / Stands</button>
 
 <!-- Side panel -->
 <div class="side-panel" id="side-panel">
   <div class="panel-hdr">
-    <span class="panel-hdr-title">All Features</span>
+    <span class="panel-hdr-title">DeerDrives / DeerStands</span>
     <button class="panel-close" onclick="togglePanel()">✕</button>
   </div>
   <div class="panel-body" id="panel-body"></div>
@@ -636,6 +626,7 @@ let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:''};
+let driveSet=false;
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
 
@@ -870,6 +861,51 @@ document.addEventListener('click',e=>{
   if(wrap && !wrap.contains(e.target)) document.getElementById('end-arrow-palette')?.classList.remove('open');
 });
 
+
+function updateDriveFlowUI(){
+  const hasMarkers = !!(drivers.length || standers.length);
+  const setBtn = document.getElementById('btn-set-drive');
+  const autoBtn = document.getElementById('btn-auto-route');
+  if(setBtn){
+    setBtn.classList.toggle('disabled', !hasMarkers);
+    setBtn.classList.toggle('active', driveSet);
+    setBtn.textContent = driveSet ? '🔒 2. Set Drive' : '✅ 2. Set Drive';
+  }
+  if(autoBtn){
+    autoBtn.classList.toggle('disabled', !(hasMarkers && driveSet));
+  }
+  [...drivers, ...standers].forEach(rec=>{
+    const marker = allLayers[rec.id];
+    if(marker && marker.dragging){
+      if(driveSet) marker.dragging.disable();
+      else marker.dragging.enable();
+    }
+  });
+}
+function toggleSetDrive(){
+  if(!(drivers.length || standers.length)){
+    document.getElementById('status-bar').innerHTML='Build a DeerDrive first, then set the drive.';
+    return;
+  }
+  driveSet = !driveSet;
+  updateDriveFlowUI();
+  saveLocal();
+  document.getElementById('status-bar').innerHTML = driveSet
+    ? '✅ Drive set. Next: tap 3. Auto-Draw Drive Route.'
+    : '🧩 Drive unlocked. Drag Driver/Pusher and Stander/Blocker markers to adjust.';
+}
+function autoDrawDriveRoutes(){
+  if(!(drivers.length || standers.length)){
+    document.getElementById('status-bar').innerHTML='Build a DeerDrive first.';
+    return;
+  }
+  if(!driveSet){
+    document.getElementById('status-bar').innerHTML='Tap 2. Set Drive before Auto-Draw Drive Route.';
+    return;
+  }
+  document.getElementById('status-bar').innerHTML='🦌 Auto-Draw Drive Route will be wired next. This stable build keeps the map safe.';
+}
+
 function toggleMapFreeze(){
   mapFrozen = !mapFrozen;
   const btn = document.getElementById('btn-freeze');
@@ -900,7 +936,7 @@ function rolePopupHTML(rec){
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${rec.role}')">Delete</button></div>`;
 }
 function addRoleMarkerRecord(rec){
-  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.initial), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
+  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.initial), draggable:!driveSet}).addTo(map).bindPopup(rolePopupHTML(rec));
   marker.on('dragend', evt=>{
     const ll = evt.target.getLatLng();
     rec.lat = ll.lat;
@@ -917,9 +953,10 @@ function closeDeerDriveBuilderModal(){
 }
 function openDeerDriveBuilderFromToolbar(){
   deerDriveAnchor = map.getCenter();
+  panelOpen=false;document.getElementById('side-panel').classList.remove('open');
   setMode('deerdrivebuilder');
   openDeerDriveBuilderModal();
-  document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder — add names, then drag circles into final positions on the map';
+  document.getElementById('status-bar').innerHTML='🧩 Step 1: build your DeerDrive, then drag circles into final positions.';
 }
 
 function syncDeerDriveWindUI(){
@@ -1012,16 +1049,20 @@ function saveDeerDriveBuilder(){
   const newStanders = buildRoleRecords('stander', standerNames, driveName, deerDriveAnchor, 200);
   newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
   newStanders.forEach(rec=>{ standers.push(rec); addRoleMarkerRecord(rec); });
+  driveSet=false;
   closeDeerDriveBuilderModal();
   saveLocal();
   renderPanel();
+  updateDriveFlowUI();
   setMode('view');
+  document.getElementById('status-bar').innerHTML='✅ DeerDrive placed. Next: drag circles, then tap 2. Set Drive.';
 }
 function deleteRoleMarker(id, role){
   if(allLayers[id]){ map.removeLayer(allLayers[id]); delete allLayers[id]; }
   if(role==='driver') drivers = drivers.filter(item=>item.id!==id);
   else standers = standers.filter(item=>item.id!==id);
-  map.closePopup(); saveLocal(); renderPanel();
+  if(!(drivers.length || standers.length)) driveSet = false;
+  map.closePopup(); saveLocal(); renderPanel(); updateDriveFlowUI();
 }
 function clearAllMarks(){
   const total = stands.length + routes.length + boundaries.length + windArrows.length + areaPolys.length + drivers.length + standers.length;
@@ -1046,11 +1087,13 @@ function clearAllMarks(){
   acrePts = [];
   acreCalcM2 = 0;
   deerDriveAnchor = null;
+  driveSet = false;
   clearRouteEndArrow();
   map.closePopup();
   cleanupAcre();
   saveLocal();
   renderPanel();
+  updateDriveFlowUI();
   document.getElementById('status-bar').innerHTML='🧹 Cleared all marks on the map.';
 }
 window.deleteRoleMarker=deleteRoleMarker;
@@ -1390,7 +1433,19 @@ function renderPanel(){
   const body=document.getElementById('panel-body');
   let html='';
   if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length&&!drivers.length&&!standers.length){
-    html='<div style="padding:14px;color:#6b7c4d;font-size:.62rem;line-height:1.9">Nothing added yet.<br>Use the toolbar to start building your hunt map.</div>';
+    html=`<div style="padding:14px;color:#6b7c4d;font-size:.62rem;line-height:1.85">
+      <div class="panel-section-label" style="padding-left:0">DeerDrives</div>
+      <div style="margin-bottom:14px">
+        1. DeerDrive Builder — create your drive and place Driver/Pusher and Stander/Blocker markers.<br>
+        2. Set Drive — lock the drive when marker positions look right.<br>
+        3. Auto-Draw Drive Route — next step in the guided DeerDrive flow.
+      </div>
+      <div class="panel-section-label" style="padding-left:0">DeerStands</div>
+      <div>
+        Use Stand to drop and save stand locations, notes, best wind, and season details.<br>
+        Saved stands stay here and can later be added into your DeerCamp planning flow.
+      </div>
+    </div>`;
   }
   if(stands.length){
     html+=`<div class="panel-section-label">Stands (${stands.length})</div>`;
@@ -1441,6 +1496,7 @@ function renderPanel(){
   document.getElementById('st-b').textContent=boundaries.length;
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
   document.getElementById('st-a').textContent=totalAcres>0?totalAcres.toFixed(1)+' ac':'—';
+  updateDriveFlowUI();
 }
 
 function flyToStand(id){const s=stands.find(s=>s.id===id);if(!s)return;map.flyTo([s.lat,s.lng],17,{duration:1.2});setTimeout(()=>allLayers[id]?.openPopup(),1300);}
@@ -1472,10 +1528,10 @@ document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key=
 // PERSIST
 // ═══════════════════════════════════════════════
 function saveLocal(){
-  try{localStorage.setItem('sse-v4',JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,recContext:{recWind,recTime,recSeason}}));}catch(e){}
+  try{localStorage.setItem('sse-v4',JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,driveSet,recContext:{recWind,recTime,recSeason}}));}catch(e){}
 }
 function exportData(){
-  const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,recContext:{recWind,recTime,recSeason}},null,2)],{type:'application/json'});
+  const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,driveSet,recContext:{recWind,recTime,recSeason}},null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='stand-scout-elite.json';a.click();
 }
 function syncRecUI(){
@@ -1493,7 +1549,7 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:''}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:''}, d.deerDrivePlan||{});driveSet=!!d.driveSet;recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
@@ -1570,7 +1626,7 @@ try{
   const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:''}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:''}, d.deerDrivePlan||{});driveSet=!!d.driveSet;recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
       const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
@@ -1591,7 +1647,7 @@ try{
     if(allPts.length) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
-syncRecUI();renderPanel();updateCompass();if(recWind) runRecommender();
+syncRecUI();renderPanel();updateCompass();updateDriveFlowUI();if(recWind) runRecommender();
 </script>
 </body>
 </html>
