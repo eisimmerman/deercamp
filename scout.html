@@ -40,6 +40,12 @@ header::-webkit-scrollbar{height:0;}
 .mode-btn.active.mw{background:var(--teal);}
 .mode-btn.active.ma{background:#5a2a0a;}
 .route-arrow-btn.active{background:#d4820a;color:var(--cream);}
+.end-arrow-wrap{position:relative;display:flex;align-items:center;flex-shrink:0;}
+.end-arrow-palette{position:absolute;top:calc(100% + 6px);left:0;display:none;gap:6px;padding:6px;border-radius:8px;background:rgba(18,10,2,.96);border:1px solid #3a2c1e;box-shadow:0 10px 24px rgba(0,0,0,.35);z-index:1200;}
+.end-arrow-palette.open{display:flex;}
+.end-arrow-opt{min-width:32px;min-height:32px;padding:0 8px;border-radius:6px;border:1px solid #3a2c1e;background:#140802;color:#f0e8d8;font:700 16px "IBM Plex Mono",monospace;cursor:pointer;}
+.end-arrow-opt:hover,.end-arrow-opt.active{border-color:#d4820a;color:#fff;background:#2b1808;}
+.end-arrow-opt.clear{font-size:.58rem;min-width:auto;padding:0 10px;}
 .hdr-btn{font-family:'IBM Plex Mono',monospace;font-size:.56rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:5px 9px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;}
 .hg{background:transparent;color:var(--sage);border:1px solid #3a2c1e;}
 .hg:hover{background:#3a2c1e;color:var(--tan);}
@@ -58,8 +64,8 @@ header::-webkit-scrollbar{height:0;}
 .menu-badge.stander{background:#f4e600;color:#231a13;border-color:rgba(0,0,0,.18);} 
 
 .route-end-icon{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:2px solid #f0e8d8;font:700 14px 'IBM Plex Mono',monospace;box-shadow:0 4px 12px rgba(0,0,0,.35);}
-.route-end-icon.route{background:#d4820a;color:#fff8ef;}
-.route-end-icon.drive{background:#4a9aff;color:#fff8ef;}
+.route-end-icon.route{background:#111;color:#fff8ef;font-size:12px;}
+.route-end-icon.drive{background:#111;color:#fff8ef;font-size:12px;}
 
 /* MAP */
 #map{flex:1;z-index:1;}
@@ -100,7 +106,7 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
-#map-compass{position:fixed;top:66px;right:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass{position:fixed;top:60px;left:58px;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
@@ -237,6 +243,16 @@ textarea{resize:vertical;min-height:55px;}
     <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">🧩 DeerDrive Builder</button>
     <button class="mode-btn mw" id="mode-wind" onclick="setMode('wind')">💨 Wind</button>
   </div>
+  <div class="end-arrow-wrap">
+    <button class="hdr-btn hg" id="btn-end-arrow" onclick="toggleEndArrowPalette()">↕ End Arrow</button>
+    <div class="end-arrow-palette" id="end-arrow-palette">
+      <button class="end-arrow-opt" data-dir="up" onclick="setRouteEndArrow('up')">↑</button>
+      <button class="end-arrow-opt" data-dir="down" onclick="setRouteEndArrow('down')">↓</button>
+      <button class="end-arrow-opt" data-dir="left" onclick="setRouteEndArrow('left')">←</button>
+      <button class="end-arrow-opt" data-dir="right" onclick="setRouteEndArrow('right')">→</button>
+      <button class="end-arrow-opt clear" onclick="clearRouteEndArrow()">Clear</button>
+    </div>
+  </div>
   <div class="menu-badges" aria-label="Driver and Stander key">
     <div class="menu-badge-wrap">
       <span class="menu-badge driver">D/P</span>
@@ -252,8 +268,6 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
-  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
-  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
@@ -632,7 +646,8 @@ function polyStyle(t){
 }
 function routeEndIcon(type, endArrow){
   if(!endArrow) return null;
-  const arrowChar = endArrow==='up' ? '↑' : '↓';
+  const arrowMap = {up:'↑',down:'↓',left:'←',right:'→'};
+  const arrowChar = arrowMap[endArrow] || '↑';
   return L.divIcon({
     html:`<div class="route-end-icon ${type==='route'?'route':'drive'}">${arrowChar}</div>`,
     className:'',
@@ -665,14 +680,18 @@ function addPolyPt(ll){
   const fid=curPolyType==='route'?'fab-route':curPolyType==='drive'?'fab-drive':'fab-bound';
   if(curPts.length>=2) document.getElementById(fid).classList.add('visible');
   if(routeEndArrow && ['route','drive'].includes(curPolyType) && curPts.length>=2){
-    finishPoly(curPolyType);
+    finalizeRouteWithArrow(curPolyType);
   }
 }
 function finishPoly(t){
   if(curPts.length<2) return;
-  const titles={route:'Deer Drive',drive:'Access Route',bound:'Name This Boundary'};
-  const labels={route:'Drive Name',drive:'Access Route Name',bound:'Boundary Name'};
-  const placeholders={route:'e.g. South Marsh Push',drive:'e.g. East Ridge Entry',bound:'e.g. South Property Line'};
+  if(['route','drive'].includes(t)){
+    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose End Arrow, then tap the route end to finish`;
+    return;
+  }
+  const titles={bound:'Name This Boundary'};
+  const labels={bound:'Boundary Name'};
+  const placeholders={bound:'e.g. South Property Line'};
   document.getElementById('poly-modal-title').textContent=titles[t];
   document.getElementById('pf-name-label').textContent=labels[t] || 'Name';
   document.getElementById('pf-name').placeholder=placeholders[t] || 'e.g. North Timber Loop';
@@ -680,14 +699,28 @@ function finishPoly(t){
   document.getElementById('pf-notes').value='';
   document.getElementById('modal-poly').classList.add('open');
 }
+function finalizeRouteWithArrow(type){
+  if(!['route','drive'].includes(type) || curPts.length<2 || !routeEndArrow) return;
+  const nextCount = routes.filter(r=>r.type===type).length + 1;
+  const name = type==='route' ? `Deer Drive ${nextCount}` : `Access Route ${nextCount}`;
+  const rec={id:Date.now(),name,notes:'',type,pts:[...curPts],endArrow:routeEndArrow};
+  routes.push(rec);
+  createRouteLayer(rec);
+  if(curPolyLine){ map.removeLayer(curPolyLine); curPolyLine=null; }
+  curPts=[]; curPolyType=null;
+  clearRouteEndArrow();
+  ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
+  saveLocal(); renderPanel(); setMode('view');
+}
 function savePoly(){
-  const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':curPolyType==='route'?'Deer Drive':'Access Route');
+  const name=document.getElementById('pf-name').value.trim()||(curPolyType==='bound'?'Property Boundary':'Route');
   const notes=document.getElementById('pf-notes').value.trim();
   const id=Date.now(), type=curPolyType;
-  const rec={id,name,notes,type,pts:[...curPts],endArrow:(['route','drive'].includes(curPolyType)?routeEndArrow:'')};
+  const rec={id,name,notes,type,pts:[...curPts],endArrow:''};
   if(type==='bound') boundaries.push(rec); else routes.push(rec);
   createRouteLayer(rec);
-  curPolyLine=null;curPts=[];curPolyType=null;
+  if(curPolyLine){ map.removeLayer(curPolyLine); curPolyLine=null; }
+  curPts=[];curPolyType=null;
   clearRouteEndArrow();
   ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
   document.getElementById('modal-poly').classList.remove('open');
@@ -710,7 +743,7 @@ function polyPopupHTML(r){
 <div class="pu-type">${labs[r.type]||r.type}</div>
 ${len?`<div class="pu-coords">📏 Length: ${len} mile</div>`:''}
 ${dir?`<div class="pu-coords">🧭 Direction: ${dir}</div>`:''}
-${r.endArrow?`<div class="pu-coords">↕ End Marker: ${r.endArrow==='up'?'Up Arrow':'Down Arrow'}</div>`:''}
+${r.endArrow?`<div class="pu-coords">↕ End Marker: ${({up:'Up',down:'Down',left:'Left',right:'Right'}[r.endArrow]||r.endArrow)} Arrow</div>`:''}
 ${r.notes?`<div class="pu-notes">${r.notes}</div>`:''}
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deletePoly(${r.id})">Delete</button></div>`;
 }
@@ -738,29 +771,38 @@ function getRouteDirection(pts){
   if(absLng < 1e-6) return ns;
   return `${dLat>=0 ? 'S' : 'N'}${dLng>=0 ? 'W' : 'E'} - ${dLat>=0 ? 'N' : 'S'}${dLng>=0 ? 'E' : 'W'}`;
 }
+function toggleEndArrowPalette(){
+  document.getElementById('end-arrow-palette')?.classList.toggle('open');
+}
 function setRouteEndArrow(dir){
   if(!['route','drive'].includes(mode)){
-    document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then tap an arrow and place the route end.';
+    document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then choose an end arrow.';
     setTimeout(()=>setMode(mode),2200);
     return;
   }
-  routeEndArrow = routeEndArrow===dir ? '' : dir;
+  routeEndArrow = dir;
   syncRouteArrowButtons();
-  if(routeEndArrow){
-    document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place a ${routeEndArrow==='up'?'up':'down'} arrow and finish this route`;
-  } else {
-    setMode(mode);
-  }
+  document.getElementById('end-arrow-palette')?.classList.remove('open');
+  const label = {up:'up',down:'down',left:'left',right:'right'}[routeEndArrow] || routeEndArrow;
+  document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place a ${label} arrow and finish this route`;
 }
 function clearRouteEndArrow(){
   routeEndArrow='';
   syncRouteArrowButtons();
+  document.getElementById('end-arrow-palette')?.classList.remove('open');
 }
 function syncRouteArrowButtons(){
-  document.getElementById('route-arrow-up')?.classList.toggle('active', routeEndArrow==='up');
-  document.getElementById('route-arrow-down')?.classList.toggle('active', routeEndArrow==='down');
+  document.querySelectorAll('#end-arrow-palette .end-arrow-opt[data-dir]').forEach(btn=>btn.classList.toggle('active', btn.dataset.dir===routeEndArrow));
+  const btn=document.getElementById('btn-end-arrow');
+  const arrowMap={up:'↑',down:'↓',left:'←',right:'→'};
+  if(btn) btn.textContent = routeEndArrow ? `${arrowMap[routeEndArrow]||'↕'} End Arrow` : '↕ End Arrow';
 }
 window.setRouteEndArrow=setRouteEndArrow;
+window.clearRouteEndArrow=clearRouteEndArrow;
+document.addEventListener('click',e=>{
+  const wrap=document.querySelector('.end-arrow-wrap');
+  if(wrap && !wrap.contains(e.target)) document.getElementById('end-arrow-palette')?.classList.remove('open');
+});
 
 function toggleMapFreeze(){
   mapFrozen = !mapFrozen;
