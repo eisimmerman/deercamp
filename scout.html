@@ -226,8 +226,7 @@ textarea{resize:vertical;min-height:55px;}
     <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
     <button class="mode-btn route-arrow-btn" id="route-arrow-up" onclick="setRouteEndArrow('up')">↑ End Up</button>
     <button class="mode-btn route-arrow-btn" id="route-arrow-down" onclick="setRouteEndArrow('down')">↓ End Down</button>
-    <button class="mode-btn"        id="mode-driver" onclick="setMode('driver')">D Driver</button>
-    <button class="mode-btn"        id="mode-stander" onclick="setMode('stander')">S Stander</button>
+    <button class="mode-btn"        id="mode-deerdrivebuilder" title="Tap to Build" onclick="setMode('deerdrivebuilder')">🧩 DeerDrive</button>
     <button class="mode-btn mb"     id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
     <button class="mode-btn mw"     id="mode-wind"  onclick="setMode('wind')">💨 Wind</button>
     <button class="mode-btn ma"     id="mode-acre"  onclick="setMode('acre')">📐 Acreage</button>
@@ -434,6 +433,44 @@ textarea{resize:vertical;min-height:55px;}
       <button class="btn btn-p" onclick="savePoly()">Save</button>
     </div>
   </div>
+
+</div>
+
+<!-- DEERDRIVE BUILDER MODAL -->
+<div class="modal-overlay" id="modal-deerdrive-builder">
+  <div class="modal" style="width:460px;max-width:94vw;">
+    <h2>DeerDrive Builder</h2>
+    <div class="fg">
+      <label>Drive Name</label>
+      <input type="text" id="ddb-name" placeholder="e.g. South Marsh Push" maxlength="40">
+    </div>
+    <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
+      <div>
+        <label>Drivers</label>
+        <div style="display:grid;gap:8px;">
+          <input type="text" id="ddb-driver-1" placeholder="Driver 1">
+          <input type="text" id="ddb-driver-2" placeholder="Driver 2">
+          <input type="text" id="ddb-driver-3" placeholder="Driver 3">
+          <input type="text" id="ddb-driver-4" placeholder="Driver 4">
+          <input type="text" id="ddb-driver-5" placeholder="Driver 5">
+        </div>
+      </div>
+      <div>
+        <label>Standers</label>
+        <div style="display:grid;gap:8px;">
+          <input type="text" id="ddb-stander-1" placeholder="Stander 1">
+          <input type="text" id="ddb-stander-2" placeholder="Stander 2">
+          <input type="text" id="ddb-stander-3" placeholder="Stander 3">
+          <input type="text" id="ddb-stander-4" placeholder="Stander 4">
+          <input type="text" id="ddb-stander-5" placeholder="Stander 5">
+        </div>
+      </div>
+    </div>
+    <div class="modal-acts">
+      <button class="btn btn-c" onclick="closeDeerDriveBuilderModal()">Cancel</button>
+      <button class="btn btn-p" onclick="saveDeerDriveBuilder()">OK</button>
+    </div>
+  </div>
 </div>
 
 <!-- WIND ARROW MODAL -->
@@ -510,6 +547,7 @@ const TOD_LABELS = {'':'Any', morning:'Morning', evening:'Evening', 'all-day':'A
 let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[],drivers=[],standers=[];
 let allLayers={};
 let mode='view', pendingLL=null, editingStandId=null;
+let deerDriveAnchor=null;
 let mapFrozen=false;
 let selWind='', selArrow='N';
 let curPts=[],curPolyType=null,curPolyLine=null;
@@ -535,8 +573,7 @@ map.on('click', e=>{
   else if (['route','drive','bound'].includes(mode)) addPolyPt(e.latlng);
   else if (mode==='wind') { pendingLL=e.latlng; openWindModal(); }
   else if (mode==='acre') addAcrePt(e.latlng);
-  else if (mode==='driver') addRoleMarker('driver', e.latlng);
-  else if (mode==='stander') addRoleMarker('stander', e.latlng);
+  else if (mode==='deerdrivebuilder') { deerDriveAnchor=e.latlng; openDeerDriveBuilderModal(); }
 });
 
 // ═══════════════════════════════════════════════
@@ -544,15 +581,14 @@ map.on('click', e=>{
 // ═══════════════════════════════════════════════
 function setMode(m) {
   mode=m;
-  ['view','stand','route','drive','driver','stander','bound','wind','acre'].forEach(id=>document.getElementById('mode-'+id)?.classList.remove('active'));
+  ['view','stand','route','drive','deerdrivebuilder','bound','wind','acre'].forEach(id=>document.getElementById('mode-'+id)?.classList.remove('active'));
   document.getElementById('mode-'+m)?.classList.add('active');
   const msgs={
     view:'👁 View — click any feature to see details',
     stand:'📍 Click the map to drop a stand',
     route:'🦌 Click points to trace a deer drive route, then Finish',
     drive:'🚙 Click points to trace an access route, then Finish',
-    driver:'D Tap map to place a Driver marker',
-    stander:'S Tap map to place a Stander marker',
+    deerdrivebuilder:'🧩 Tap map to build Drivers and Standers for a Deer Drive',
     bound:'🔲 Click corners of property boundary, then Close',
     wind:'💨 Click map to place a wind arrow',
     acre:'📐 Click corners to measure acreage, then close shape',
@@ -698,17 +734,76 @@ function toggleMapFreeze(){
     if(btn) btn.textContent='📌 Freeze Map';
   }
 }
-function roleIcon(role){
-  const cfg = role==='driver' ? {bg:'#1a4a7a', label:'D'} : {bg:'#7a1a1a', label:'S'};
-  return L.divIcon({html:`<div style="width:30px;height:30px;border-radius:999px;background:${cfg.bg};border:2px solid #f0e8d8;color:#fff;display:flex;align-items:center;justify-content:center;font:700 14px IBM Plex Mono,monospace;box-shadow:0 4px 12px rgba(0,0,0,.45)">${cfg.label}</div>`, className:'', iconSize:[30,30], iconAnchor:[15,15], popupAnchor:[0,-14]});
+function roleIcon(role, initial=''){
+  const cfg = role==='driver'
+    ? {bg:'#2b6cb0', color:'#fff', fallback:'D'}
+    : {bg:'#f4d03f', color:'#231a13', fallback:'S'};
+  const label = String(initial || cfg.fallback).trim().slice(0,1).toUpperCase() || cfg.fallback;
+  return L.divIcon({html:`<div style="width:32px;height:32px;border-radius:999px;background:${cfg.bg};border:2px solid #f0e8d8;color:${cfg.color};display:flex;align-items:center;justify-content:center;font:700 14px IBM Plex Mono,monospace;box-shadow:0 4px 12px rgba(0,0,0,.45)">${label}</div>`, className:'', iconSize:[32,32], iconAnchor:[16,16], popupAnchor:[0,-14]});
 }
-function addRoleMarker(role, ll){
-  const rec = {id: Date.now()+Math.floor(Math.random()*1000), role, lat: ll.lat, lng: ll.lng};
-  const popupTitle = role==='driver' ? 'Driver' : 'Stander';
-  const marker = L.marker([ll.lat,ll.lng], {icon: roleIcon(role)}).addTo(map).bindPopup(`<div class="pu-name">${popupTitle}</div><div class="pu-coords">📍 ${ll.lat.toFixed(5)}, ${ll.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${role}')">Delete</button></div>`);
+function rolePopupHTML(rec){
+  const title = rec.role==='driver' ? 'Driver' : 'Stander';
+  return `<div class="pu-name">${title}: ${rec.name || title}</div>
+<div class="pu-type">${rec.driveName ? 'Deer Drive · ' + rec.driveName : title}</div>
+<div class="pu-coords">📍 ${rec.lat.toFixed(5)}, ${rec.lng.toFixed(5)}</div>
+<div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${rec.role}')">Delete</button></div>`;
+}
+function addRoleMarkerRecord(rec){
+  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.initial), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
+  marker.on('dragend', evt=>{
+    const ll = evt.target.getLatLng();
+    rec.lat = ll.lat;
+    rec.lng = ll.lng;
+    evt.target.setPopupContent(rolePopupHTML(rec));
+    saveLocal();
+    renderPanel();
+  });
   allLayers[rec.id]=marker;
-  (role==='driver' ? drivers : standers).push(rec);
-  saveLocal(); renderPanel(); setMode('view');
+}
+function closeDeerDriveBuilderModal(){
+  document.getElementById('modal-deerdrive-builder').classList.remove('open');
+  deerDriveAnchor = null;
+}
+function openDeerDriveBuilderModal(){
+  document.getElementById('ddb-name').value='';
+  for(let i=1;i<=5;i++){
+    document.getElementById(`ddb-driver-${i}`).value='';
+    document.getElementById(`ddb-stander-${i}`).value='';
+  }
+  document.getElementById('modal-deerdrive-builder').classList.add('open');
+}
+function buildRoleRecords(role, names, driveName, anchor, startIndex){
+  const yStep = 0.00018, xOffset = role==='driver' ? -0.00022 : 0.00022;
+  return names.map((name, idx)=>{
+    const initial = String(name).trim().slice(0,1).toUpperCase() || (role==='driver' ? 'D' : 'S');
+    return {
+      id: Date.now() + startIndex + idx + Math.floor(Math.random()*1000),
+      role,
+      name: String(name).trim(),
+      initial,
+      driveName,
+      lat: anchor.lat + ((idx - (names.length-1)/2) * yStep),
+      lng: anchor.lng + xOffset
+    };
+  });
+}
+function saveDeerDriveBuilder(){
+  if(!deerDriveAnchor) return;
+  const driveName = document.getElementById('ddb-name').value.trim() || 'Deer Drive';
+  const driverNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-driver-${i+1}`).value.trim()).filter(Boolean);
+  const standerNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-stander-${i+1}`).value.trim()).filter(Boolean);
+  if(!driverNames.length && !standerNames.length){
+    document.getElementById('status-bar').innerHTML='Add at least one Driver or Stander name to build the Deer Drive.';
+    return;
+  }
+  const newDrivers = buildRoleRecords('driver', driverNames, driveName, deerDriveAnchor, 10);
+  const newStanders = buildRoleRecords('stander', standerNames, driveName, deerDriveAnchor, 200);
+  newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
+  newStanders.forEach(rec=>{ standers.push(rec); addRoleMarkerRecord(rec); });
+  closeDeerDriveBuilderModal();
+  saveLocal();
+  renderPanel();
+  setMode('view');
 }
 function deleteRoleMarker(id, role){
   if(allLayers[id]){ map.removeLayer(allLayers[id]); delete allLayers[id]; }
@@ -717,6 +812,9 @@ function deleteRoleMarker(id, role){
   map.closePopup(); saveLocal(); renderPanel();
 }
 window.deleteRoleMarker=deleteRoleMarker;
+window.openDeerDriveBuilderModal=openDeerDriveBuilderModal;
+window.closeDeerDriveBuilderModal=closeDeerDriveBuilderModal;
+window.saveDeerDriveBuilder=saveDeerDriveBuilder;
 
 // ═══════════════════════════════════════════════
 // STANDS
@@ -1012,7 +1110,7 @@ function togglePanel(){panelOpen=!panelOpen;document.getElementById('side-panel'
 function renderPanel(){
   const body=document.getElementById('panel-body');
   let html='';
-  if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length){
+  if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length&&!drivers.length&&!standers.length){
     html='<div style="padding:14px;color:#6b7c4d;font-size:.62rem;line-height:1.9">Nothing added yet.<br>Use the toolbar to start building your hunt map.</div>';
   }
   if(stands.length){
@@ -1048,8 +1146,8 @@ function renderPanel(){
     </div>`).join('');
   }
   if(drivers.length || standers.length){
-    html+=`<div class="panel-section-label">Positions (${drivers.length + standers.length})</div>`;
-    html+=[...drivers.map(m=>({...m, label:'Driver'})), ...standers.map(m=>({...m, label:'Stander'}))].map(m=>`<div class="stand-card" onclick="flyToRole(${m.id})"><div class="card-name">${m.role==='driver'?'D':'S'} ${m.label}</div><div class="card-meta">${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div></div>`).join('');
+    html+=`<div class="panel-section-label">DeerDrive Builder (${drivers.length + standers.length})</div>`;
+    html+=[...drivers, ...standers].map(m=>`<div class="stand-card" onclick="flyToRole(${m.id})"><div class="card-name">${m.role==='driver'?'D':'S'} ${m.name || (m.role==='driver'?'Driver':'Stander')}</div><div class="card-meta">${m.driveName || 'Deer Drive'} · ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div></div>`).join('');
   }
   if(windArrows.length){
     html+=`<div class="panel-section-label">Wind Arrows (${windArrows.length})</div>`;
@@ -1123,8 +1221,8 @@ function importData(e){
         allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
       });
       windArrows.forEach(addWindArrowToMap);
-      drivers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('driver')}).addTo(map).bindPopup(`<div class="pu-name">Driver</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'driver')">Delete</button></div>`); allLayers[item.id]=marker; });
-      standers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('stander')}).addTo(map).bindPopup(`<div class="pu-name">Stander</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'stander')">Delete</button></div>`); allLayers[item.id]=marker; });
+      drivers.forEach(addRoleMarkerRecord);
+      standers.forEach(addRoleMarkerRecord);
       areaPolys.forEach(a=>{
         const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
           .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
@@ -1159,8 +1257,8 @@ function buildPrintLegend(){
   if(routes.some(r=>r.type==='drive'))  items+=`<div class="pl-item"><div class="pl-line" style="background:#4a9aff"></div>Access Route</div>`;
   if(boundaries.length)                 items+=`<div class="pl-item"><div class="pl-line" style="background:#c87aff;border-top:2px dashed #c87aff;background:none"></div>Property Boundary</div>`;
   if(windArrows.length)                 items+=`<div class="pl-item">💨 Wind Arrow</div>`;
-  if(drivers.length)                    items+=`<div class="pl-item">D Driver</div>`;
-  if(standers.length)                   items+=`<div class="pl-item">S Stander</div>`;
+  if(drivers.length)                    items+=`<div class="pl-item">Blue Driver markers</div>`;
+  if(standers.length)                   items+=`<div class="pl-item">Yellow Stander markers</div>`;
   if(areaPolys.length)                  items+=`<div class="pl-item">📐 Measured Area</div>`;
   grid.innerHTML=items;
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
@@ -1203,8 +1301,8 @@ try{
       allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
     });
     windArrows.forEach(addWindArrowToMap);
-    drivers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('driver')}).addTo(map).bindPopup(`<div class="pu-name">Driver</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'driver')">Delete</button></div>`); allLayers[item.id]=marker; });
-    standers.forEach(item=>{ const marker=L.marker([item.lat,item.lng],{icon:roleIcon('stander')}).addTo(map).bindPopup(`<div class="pu-name">Stander</div><div class="pu-coords">📍 ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${item.id}, 'stander')">Delete</button></div>`); allLayers[item.id]=marker; });
+    drivers.forEach(addRoleMarkerRecord);
+    standers.forEach(addRoleMarkerRecord);
     areaPolys.forEach(a=>{
       const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
         .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
