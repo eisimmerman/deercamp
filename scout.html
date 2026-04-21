@@ -241,7 +241,6 @@ textarea{resize:vertical;min-height:55px;}
     <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦌 Drive Route</button>
     <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
     <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">🧩 DeerDrive Builder</button>
-    <button class="mode-btn mb" id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
     <button class="mode-btn mw" id="mode-wind" onclick="setMode('wind')">💨 Wind</button>
   </div>
   <div class="end-arrow-wrap">
@@ -269,9 +268,6 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
-  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
-  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
-  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
 <div id="map"></div>
@@ -621,8 +617,8 @@ function setMode(m) {
   const msgs={
     view:'👁 View — click any feature to see details',
     stand:'📍 Click the map to drop a stand',
-    route:'🦌 Click points to trace a deer drive route, then Finish',
-    drive:'🚙 Click points to trace an access route, then Finish',
+    route:'🦌 Click points to trace a deer drive route, then tap End Arrow to finish',
+    drive:'🚙 Click points to trace an access route, then tap End Arrow to finish',
     deerdrivebuilder:'🧩 Tap map to build Drivers and Standers for a Deer Drive',
     bound:'🔲 Click corners of property boundary, then Close',
     wind:'💨 Click map to place a wind arrow',
@@ -689,7 +685,11 @@ function addPolyPt(ll){
 function finishPoly(t){
   if(curPts.length<2) return;
   if(['route','drive'].includes(t)){
-    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose End Arrow to finish this route`;
+    mode = t;
+    curPolyType = t;
+    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose an end arrow now to finish this route`;
+    const palette = document.getElementById('end-arrow-palette');
+    if(palette) palette.classList.add('open');
     return;
   }
   const titles={bound:'Name This Boundary'};
@@ -778,20 +778,24 @@ function toggleEndArrowPalette(){
   document.getElementById('end-arrow-palette')?.classList.toggle('open');
 }
 function setRouteEndArrow(dir){
-  if(!['route','drive'].includes(mode)){
+  const activeType = ['route','drive'].includes(curPolyType) ? curPolyType : (['route','drive'].includes(mode) ? mode : '');
+  if(!activeType){
     document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then choose an end arrow.';
     document.getElementById('end-arrow-palette')?.classList.remove('open');
     return;
   }
-  if(curPolyType !== mode || curPts.length < 2){
-    document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — draw at least 2 points, then choose an end arrow.`;
+  if(curPts.length < 2){
+    document.getElementById('status-bar').innerHTML=`${activeType==='route'?'🦌 Deer Drive':'🚙 Access Route'} — draw at least 2 points, then choose an end arrow.`;
     document.getElementById('end-arrow-palette')?.classList.remove('open');
     return;
   }
+  mode = activeType;
+  curPolyType = activeType;
   routeEndArrow = dir;
   syncRouteArrowButtons();
+  document.getElementById('status-bar').innerHTML=`${activeType==='route'?'🦌 Deer Drive':'🚙 Access Route'} — ${({'up':'up','down':'down','left':'left','right':'right'}[dir]||dir)} end arrow placed`;
   document.getElementById('end-arrow-palette')?.classList.remove('open');
-  finalizeRouteWithArrow(mode);
+  finalizeRouteWithArrow(activeType);
 }
 function clearRouteEndArrow(){
   routeEndArrow='';
