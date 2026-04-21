@@ -308,6 +308,7 @@ textarea{resize:vertical;min-height:55px;}
     <text x="35" y="62" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">S</text>
     <text x="59" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">E</text>
     <text x="11" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">W</text>
+    <text x="35" y="38" text-anchor="middle" font-family="IBM Plex Mono" font-size="7" fill="#5a4a30">Map</text>
     <polygon points="35,16 39,34 35,30 31,34" fill="#d4820a"/>
     <polygon points="35,54 39,36 35,40 31,36" fill="#6b7c4d" opacity=".7"/>
   </svg>
@@ -860,11 +861,101 @@ function addRoleMarkerRecord(rec){
     rec.lat = ll.lat;
     rec.lng = ll.lng;
     evt.target.setPopupContent(rolePopupHTML(rec));
+    rebuildDeerDriveOverlay();
     saveLocal();
     renderPanel();
   });
   allLayers[rec.id]=marker;
 }
+
+function removeDeerDriveOverlay(){
+  ['__deerdrive_border','__deerdrive_lanes'].forEach(key=>{
+    if(allLayers[key]){
+      try{ map.removeLayer(allLayers[key]); }catch(e){}
+      delete allLayers[key];
+    }
+  });
+}
+function deerDriveHull(points){
+  if(points.length < 3) return points.map(p=>[p.lat,p.lng]);
+  const pts = points.map(p=>({x:p.lng,y:p.lat})).sort((a,b)=>a.x===b.x ? a.y-b.y : a.x-b.x);
+  const cross = (o,a,b)=> (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x);
+  const lower=[];
+  for(const p of pts){
+    while(lower.length>=2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper=[];
+  for(const p of pts.slice().reverse()){
+    while(upper.length>=2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  const hull = lower.slice(0,-1).concat(upper.slice(0,-1));
+  return hull.map(p=>[p.y,p.x]);
+}
+function buildDeerDriveBorder(){
+  const pts = [...drivers, ...standers];
+  if(pts.length < 2) return null;
+  if(pts.length === 2){
+    const bounds = L.latLngBounds(pts.map(p=>[p.lat,p.lng])).pad(0.18);
+    const sw = bounds.getSouthWest(), ne = bounds.getNorthEast();
+    return [[sw.lat, sw.lng],[ne.lat, sw.lng],[ne.lat, ne.lng],[sw.lat, ne.lng]];
+  }
+  return deerDriveHull(pts);
+}
+function buildDeerDriveLanePairs(){
+  const ds = [...drivers].sort((a,b)=>a.lng===b.lng ? b.lat-a.lat : a.lng-b.lng);
+  const ss = [...standers].sort((a,b)=>a.lng===b.lng ? b.lat-a.lat : a.lng-b.lng);
+  const n = ds.length, m = ss.length;
+  const laneCount = Math.min(n, m);
+  if(!laneCount) return [];
+  const pairs = [];
+  if(laneCount === 1){
+    pairs.push([ds[0], ss[0]]);
+    return pairs;
+  }
+  for(let i=0;i<laneCount;i++){
+    const di = Math.round(i * (n - 1) / (laneCount - 1));
+    const si = Math.round(i * (m - 1) / (laneCount - 1));
+    pairs.push([ds[di], ss[si]]);
+  }
+  return pairs;
+}
+function rebuildDeerDriveOverlay(){
+  removeDeerDriveOverlay();
+  const allPeople = [...drivers, ...standers];
+  if(!allPeople.length) return;
+
+  const borderPts = buildDeerDriveBorder();
+  if(borderPts && borderPts.length >= 3){
+    const border = L.polygon(borderPts,{
+      color:'#7abf6a',
+      weight:2,
+      opacity:.95,
+      fillColor:'#7abf6a',
+      fillOpacity:.06,
+      dashArray:'8,6',
+      interactive:false
+    }).addTo(map);
+    allLayers['__deerdrive_border'] = border;
+  }
+
+  const lanePairs = buildDeerDriveLanePairs();
+  if(lanePairs.length){
+    const laneLayers = lanePairs.map(([driver, stander]) =>
+      L.polyline([[driver.lat, driver.lng],[stander.lat, stander.lng]],{
+        color:'#d4820a',
+        weight:3,
+        opacity:.9,
+        dashArray:'10,7',
+        interactive:false
+      })
+    );
+    const laneGroup = L.featureGroup(laneLayers).addTo(map);
+    allLayers['__deerdrive_lanes'] = laneGroup;
+  }
+}
+
 function closeDeerDriveBuilderModal(){
   document.getElementById('modal-deerdrive-builder').classList.remove('open');
   deerDriveAnchor = null;
@@ -924,6 +1015,7 @@ function saveDeerDriveBuilder(){
 
   if(!driverNames.length && !standerNames.length){
     closeDeerDriveBuilderModal();
+    rebuildDeerDriveOverlay();
     saveLocal();
     renderPanel();
     setMode('view');
@@ -936,6 +1028,7 @@ function saveDeerDriveBuilder(){
   newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
   newStanders.forEach(rec=>{ standers.push(rec); addRoleMarkerRecord(rec); });
   closeDeerDriveBuilderModal();
+  rebuildDeerDriveOverlay();
   saveLocal();
   renderPanel();
   setMode('view');
@@ -944,6 +1037,7 @@ function deleteRoleMarker(id, role){
   if(allLayers[id]){ map.removeLayer(allLayers[id]); delete allLayers[id]; }
   if(role==='driver') drivers = drivers.filter(item=>item.id!==id);
   else standers = standers.filter(item=>item.id!==id);
+  rebuildDeerDriveOverlay();
   map.closePopup(); saveLocal(); renderPanel();
 }
 function clearAllMarks(){
@@ -1422,6 +1516,7 @@ function importData(e){
       windArrows.forEach(addWindArrowToMap);
       drivers.forEach(addRoleMarkerRecord);
       standers.forEach(addRoleMarkerRecord);
+      rebuildDeerDriveOverlay();
       areaPolys.forEach(a=>{
         const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
           .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
@@ -1502,6 +1597,7 @@ try{
     windArrows.forEach(addWindArrowToMap);
     drivers.forEach(addRoleMarkerRecord);
     standers.forEach(addRoleMarkerRecord);
+    rebuildDeerDriveOverlay();
     areaPolys.forEach(a=>{
       const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
         .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
