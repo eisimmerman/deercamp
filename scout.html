@@ -106,7 +106,7 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
-#map-compass{position:fixed;top:66px;right:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass{position:fixed;top:60px;left:58px;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
@@ -268,8 +268,6 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
-  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
-  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
@@ -480,7 +478,7 @@ textarea{resize:vertical;min-height:55px;}
     </div>
     <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
       <div>
-        <label>Drivers/Pushers</label>
+        <label>Drivers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-driver-1" placeholder="Driver 1">
           <input type="text" id="ddb-driver-2" placeholder="Driver 2">
@@ -490,7 +488,7 @@ textarea{resize:vertical;min-height:55px;}
         </div>
       </div>
       <div>
-        <label>Standers/Blockers</label>
+        <label>Standers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-stander-1" placeholder="Stander 1">
           <input type="text" id="ddb-stander-2" placeholder="Stander 2">
@@ -622,7 +620,7 @@ function setMode(m) {
     stand:'📍 Click the map to drop a stand',
     route:'🦌 Click points to trace a deer drive route, then Finish',
     drive:'🚙 Click points to trace an access route, then Finish',
-    deerdrivebuilder:'🧩 Tap map to build Drivers/Pushers and Standers/Blockers for a Deer Drive',
+    deerdrivebuilder:'🧩 Tap map to build Drivers and Standers for a Deer Drive',
     bound:'🔲 Click corners of property boundary, then Close',
     wind:'💨 Click map to place a wind arrow',
     acre:'📐 Click corners to measure acreage, then close shape',
@@ -855,7 +853,7 @@ function openDeerDriveBuilderFromToolbar(){
   deerDriveAnchor = map.getCenter();
   setMode('deerdrivebuilder');
   openDeerDriveBuilderModal();
-  document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder — add or edit Drivers/Pushers and Standers/Blockers, then drag circles into final positions';
+  document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder — add names, then drag circles into final positions on the map';
 }
 
 function openDeerDriveBuilderModal(){
@@ -882,34 +880,14 @@ function buildRoleRecords(role, names, driveName, anchor, startIndex){
   });
 }
 function saveDeerDriveBuilder(){
-  if(!deerDriveAnchor){
-    if(drivers.length || standers.length){
-      const points = [...drivers, ...standers];
-      const avgLat = points.reduce((sum, item) => sum + item.lat, 0) / points.length;
-      const avgLng = points.reduce((sum, item) => sum + item.lng, 0) / points.length;
-      deerDriveAnchor = L.latLng(avgLat, avgLng);
-    } else {
-      deerDriveAnchor = map.getCenter();
-    }
-  }
+  if(!deerDriveAnchor) return;
   const driveName = document.getElementById('ddb-name').value.trim() || 'Deer Drive';
   const driverNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-driver-${i+1}`).value.trim()).filter(Boolean);
   const standerNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-stander-${i+1}`).value.trim()).filter(Boolean);
-
-  drivers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
-  standers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
-  drivers = [];
-  standers = [];
-
   if(!driverNames.length && !standerNames.length){
-    closeDeerDriveBuilderModal();
-    saveLocal();
-    renderPanel();
-    setMode('view');
-    document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder cleared.';
+    document.getElementById('status-bar').innerHTML='Add at least one Driver or Stander name to build the Deer Drive.';
     return;
   }
-
   const newDrivers = buildRoleRecords('driver', driverNames, driveName, deerDriveAnchor, 10);
   const newStanders = buildRoleRecords('stander', standerNames, driveName, deerDriveAnchor, 200);
   newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
