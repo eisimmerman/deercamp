@@ -257,6 +257,8 @@ textarea{resize:vertical;min-height:55px;}
   <span class="role-legend-item"><span class="role-legend-dot stander">S</span> Yellow Circle (Stander)</span>
 </div>
 
+<button class="hdr-btn hg" id="btn-clear-deerdrive" onclick="clearAllDeerDrive()">🧹 Clear All</button>
+
 <button class="fab" id="fab-route" onclick="finishPoly('route')">✓ Finish Deer Drive</button>
 <button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Access Route</button>
 <button class="fab" id="fab-bound" onclick="finishPoly('bound')">✓ Close Boundary</button>
@@ -849,7 +851,23 @@ function deleteRoleMarker(id, role){
   else standers = standers.filter(item=>item.id!==id);
   map.closePopup(); saveLocal(); renderPanel();
 }
+function clearAllDeerDrive(){
+  const total = drivers.length + standers.length;
+  if(!total){
+    document.getElementById('status-bar').innerHTML='No Drivers or Standers to clear.';
+    return;
+  }
+  drivers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
+  standers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
+  drivers = [];
+  standers = [];
+  map.closePopup();
+  saveLocal();
+  renderPanel();
+  document.getElementById('status-bar').innerHTML='🧹 Cleared all Drivers and Standers.';
+}
 window.deleteRoleMarker=deleteRoleMarker;
+window.clearAllDeerDrive=clearAllDeerDrive;
 window.openDeerDriveBuilderModal=openDeerDriveBuilderModal;
 window.closeDeerDriveBuilderModal=closeDeerDriveBuilderModal;
 window.saveDeerDriveBuilder=saveDeerDriveBuilder;
