@@ -50,11 +50,10 @@ header::-webkit-scrollbar{height:0;}
 .hlock{background:#1f2f38;color:var(--cream);border:1px solid #4a6b7a;}
 .hlock:hover{background:#2a4552;}
 .hlock.active{background:#3a6a7a;border-color:#7ab7c8;}
-.legend-chip{display:flex;align-items:center;gap:12px;background:#140802;border:1px solid #3a2c1e;border-radius:999px;padding:4px 10px;flex-shrink:0;}
-.legend-badge{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;font:700 .7rem 'IBM Plex Mono',monospace;}
-.legend-badge.driver{background:linear-gradient(180deg,#6f38ff 0%, #4f2bd4 100%);color:#fff;}
-.legend-badge.stander{background:#f5ea00;color:#000;}
-.legend-sep{color:#6b7c4d;font-size:.7rem;}
+.menu-badges{display:flex;gap:8px;align-items:center;flex-shrink:0;}
+.menu-badge{width:46px;height:46px;border-radius:999px;display:flex;align-items:center;justify-content:center;font:700 11px 'IBM Plex Mono',monospace;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,.35);border:2px solid rgba(255,255,255,.18);}
+.menu-badge.driver{background:#6b32ff;}
+.menu-badge.stander{background:#f4e600;color:#231a13;border-color:rgba(0,0,0,.18);}
 .route-end-icon{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:2px solid #f0e8d8;font:700 14px 'IBM Plex Mono',monospace;box-shadow:0 4px 12px rgba(0,0,0,.35);}
 .route-end-icon.route{background:#d4820a;color:#fff8ef;}
 .route-end-icon.drive{background:#4a9aff;color:#fff8ef;}
@@ -232,13 +231,14 @@ textarea{resize:vertical;min-height:55px;}
     <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
     <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">🦌 Drive Route</button>
     <button class="mode-btn md"     id="mode-drive" onclick="setMode('drive')">🚙 Access Route</button>
-    <button class="mode-btn route-arrow-btn" id="route-arrow-up" onclick="setRouteEndArrow('up')">↑ End Up</button>
-    <button class="mode-btn route-arrow-btn" id="route-arrow-down" onclick="setRouteEndArrow('down')">↓ End Down</button>
-    <button class="mode-btn"        id="mode-deerdrivebuilder" title="Tap to Build" onclick="setMode('deerdrivebuilder')">🧩 DeerDrive</button>
-    <button class="mode-btn mb"     id="mode-bound" onclick="setMode('bound')">🔲 Boundary</button>
-    <button class="mode-btn mw"     id="mode-wind"  onclick="setMode('wind')">💨 Wind</button>
-    <button class="mode-btn ma"     id="mode-acre"  onclick="setMode('acre')">📐 Acreage</button>
+    <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="setMode('deerdrivebuilder')">🧩 DeerDrive Builder</button>
+    <button class="mode-btn mw" id="mode-wind" onclick="setMode('wind')">💨 Wind</button>
   </div>
+  <div class="menu-badges" aria-label="Driver and Stander key">
+    <span class="menu-badge driver">D/P</span>
+    <span class="menu-badge stander">S/B</span>
+  </div>
+  <button class="hdr-btn hg" id="btn-clear-deerdrive" onclick="clearAllMarks()">🧹 Clear All</button>
   <div class="vr"></div>
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
@@ -845,15 +845,13 @@ function deleteRoleMarker(id, role){
   else standers = standers.filter(item=>item.id!==id);
   map.closePopup(); saveLocal(); renderPanel();
 }
-function clearAllDeerDrive(){
+function clearAllMarks(){
   const total = stands.length + routes.length + boundaries.length + windArrows.length + areaPolys.length + drivers.length + standers.length;
   if(!total){
-    document.getElementById('status-bar').innerHTML='Nothing on the map to clear.';
+    document.getElementById('status-bar').innerHTML='No marks on the map to clear.';
     return;
   }
-  Object.keys(allLayers).forEach(id=>{
-    if(allLayers[id]) map.removeLayer(allLayers[id]);
-  });
+  Object.values(allLayers).forEach(layer=>{ try{ map.removeLayer(layer); }catch(e){} });
   allLayers = {};
   stands = [];
   routes = [];
@@ -862,23 +860,23 @@ function clearAllDeerDrive(){
   areaPolys = [];
   drivers = [];
   standers = [];
-  if(curPolyLine){ map.removeLayer(curPolyLine); curPolyLine = null; }
-  cleanupAcre();
+  if(curPolyLine){ try{ map.removeLayer(curPolyLine); }catch(e){} curPolyLine = null; }
+  if(acrePolyLine){ try{ map.removeLayer(acrePolyLine); }catch(e){} acrePolyLine = null; }
+  if(acreFillPoly){ try{ map.removeLayer(acreFillPoly); }catch(e){} acreFillPoly = null; }
   curPts = [];
   curPolyType = null;
-  pendingLL = null;
-  editingStandId = null;
+  acrePts = [];
+  acreCalcM2 = 0;
   deerDriveAnchor = null;
   clearRouteEndArrow();
-  ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
   map.closePopup();
+  cleanupAcre();
   saveLocal();
   renderPanel();
-  setMode('view');
   document.getElementById('status-bar').innerHTML='🧹 Cleared all marks on the map.';
 }
 window.deleteRoleMarker=deleteRoleMarker;
-window.clearAllDeerDrive=clearAllDeerDrive;
+window.clearAllMarks=clearAllMarks;
 window.openDeerDriveBuilderModal=openDeerDriveBuilderModal;
 window.closeDeerDriveBuilderModal=closeDeerDriveBuilderModal;
 window.saveDeerDriveBuilder=saveDeerDriveBuilder;
