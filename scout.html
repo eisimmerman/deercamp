@@ -106,7 +106,7 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
-#map-compass{position:fixed;top:66px;right:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass{position:fixed;top:66px;left:58px;right:auto;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
@@ -272,9 +272,6 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
-  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
-  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
-  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
 <div id="map"></div>
@@ -484,7 +481,7 @@ textarea{resize:vertical;min-height:55px;}
     </div>
     <div class="fg" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start;">
       <div>
-        <label>Drivers</label>
+        <label>Drivers/Pushers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-driver-1" placeholder="Driver 1">
           <input type="text" id="ddb-driver-2" placeholder="Driver 2">
@@ -494,7 +491,7 @@ textarea{resize:vertical;min-height:55px;}
         </div>
       </div>
       <div>
-        <label>Standers</label>
+        <label>Standers/Blockers</label>
         <div style="display:grid;gap:8px;">
           <input type="text" id="ddb-stander-1" placeholder="Stander 1">
           <input type="text" id="ddb-stander-2" placeholder="Stander 2">
@@ -590,6 +587,7 @@ let mapFrozen=false;
 let selWind='', selArrowFrom='', selArrowTo='';
 let curPts=[],curPolyType=null,curPolyLine=null;
 let routeEndArrow='';
+let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 // Acreage
@@ -608,6 +606,9 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
 
 map.on('click', e=>{
   if (mode==='stand') { pendingLL=e.latlng; editingStandId=null; openStandModal(); }
+  else if (['route','drive'].includes(mode) && awaitingRouteEndPlacement && routeEndArrow) {
+    finalizeRouteWithArrow(mode, e.latlng);
+  }
   else if (['route','drive','bound'].includes(mode)) addPolyPt(e.latlng);
   else if (mode==='wind') { pendingLL=e.latlng; openWindModal(); }
   else if (mode==='acre') addAcrePt(e.latlng);
@@ -638,6 +639,7 @@ function setMode(m) {
     if(curPolyLine){map.removeLayer(curPolyLine);curPolyLine=null;}
     curPts=[];curPolyType=null;
     clearRouteEndArrow();
+    awaitingRouteEndPlacement=false;
   } else { curPts=[];curPolyType=m; }
   if (m!=='acre') cleanupAcre();
 }
@@ -685,14 +687,11 @@ function addPolyPt(ll){
   curPolyLine=L.polyline(pts,polyStyle(curPolyType)).addTo(map);
   const fid=curPolyType==='route'?'fab-route':curPolyType==='drive'?'fab-drive':'fab-bound';
   if(curPts.length>=2) document.getElementById(fid).classList.add('visible');
-  if(routeEndArrow && ['route','drive'].includes(curPolyType) && curPts.length>=2){
-    finalizeRouteWithArrow(curPolyType);
-  }
 }
 function finishPoly(t){
   if(curPts.length<2) return;
   if(['route','drive'].includes(t)){
-    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — choose End Arrow, then tap the route end to finish`;
+    document.getElementById('status-bar').innerHTML=`${t==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap End Arrow to choose a direction, then tap the route end`;
     return;
   }
   const titles={bound:'Name This Boundary'};
@@ -705,8 +704,15 @@ function finishPoly(t){
   document.getElementById('pf-notes').value='';
   document.getElementById('modal-poly').classList.add('open');
 }
-function finalizeRouteWithArrow(type){
+function finalizeRouteWithArrow(type, endLatLng=null){
   if(!['route','drive'].includes(type) || curPts.length<2 || !routeEndArrow) return;
+  if(endLatLng){
+    const last = curPts[curPts.length-1];
+    const lastLatLng = Array.isArray(last) ? L.latLng(last[0], last[1]) : L.latLng(last.lat, last.lng);
+    if(map.distance(lastLatLng, endLatLng) > 1){
+      curPts.push([endLatLng.lat, endLatLng.lng]);
+    }
+  }
   const nextCount = routes.filter(r=>r.type===type).length + 1;
   const name = type==='route' ? `Deer Drive ${nextCount}` : `Access Route ${nextCount}`;
   const rec={id:Date.now(),name,notes:'',type,pts:[...curPts],endArrow:routeEndArrow};
@@ -714,6 +720,7 @@ function finalizeRouteWithArrow(type){
   createRouteLayer(rec);
   if(curPolyLine){ map.removeLayer(curPolyLine); curPolyLine=null; }
   curPts=[]; curPolyType=null;
+  awaitingRouteEndPlacement=false;
   clearRouteEndArrow();
   ['fab-route','fab-drive','fab-bound'].forEach(i=>document.getElementById(i).classList.remove('visible'));
   saveLocal(); renderPanel(); setMode('view');
@@ -782,18 +789,25 @@ function toggleEndArrowPalette(){
 }
 function setRouteEndArrow(dir){
   if(!['route','drive'].includes(mode)){
-    document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first, then choose an end arrow.';
-    setTimeout(()=>setMode(mode),2200);
+    document.getElementById('status-bar').innerHTML='↕ Choose Deer Drive or Access Route first.';
+    document.getElementById('end-arrow-palette')?.classList.remove('open');
+    return;
+  }
+  if(curPolyType !== mode || curPts.length < 2){
+    document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — draw the route first, then tap End Arrow`;
+    document.getElementById('end-arrow-palette')?.classList.remove('open');
     return;
   }
   routeEndArrow = dir;
+  awaitingRouteEndPlacement = true;
   syncRouteArrowButtons();
   document.getElementById('end-arrow-palette')?.classList.remove('open');
-  const label = {up:'up',down:'down',left:'left',right:'right'}[routeEndArrow] || routeEndArrow;
-  document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place a ${label} arrow and finish this route`;
+  const label = {up:'↑',down:'↓',left:'←',right:'→'}[routeEndArrow] || routeEndArrow;
+  document.getElementById('status-bar').innerHTML=`${mode==='route'?'🦌 Deer Drive':'🚙 Access Route'} — tap the route end to place ${label} and finish`;
 }
 function clearRouteEndArrow(){
   routeEndArrow='';
+  awaitingRouteEndPlacement=false;
   syncRouteArrowButtons();
   document.getElementById('end-arrow-palette')?.classList.remove('open');
 }
@@ -863,10 +877,13 @@ function openDeerDriveBuilderFromToolbar(){
 }
 
 function openDeerDriveBuilderModal(){
-  document.getElementById('ddb-name').value='';
+  const existingDriveName = (drivers[0]?.driveName || standers[0]?.driveName || '');
+  document.getElementById('ddb-name').value = existingDriveName;
+  const driverNames = drivers.map(item => item.name).filter(Boolean).slice(0,5);
+  const standerNames = standers.map(item => item.name).filter(Boolean).slice(0,5);
   for(let i=1;i<=5;i++){
-    document.getElementById(`ddb-driver-${i}`).value='';
-    document.getElementById(`ddb-stander-${i}`).value='';
+    document.getElementById(`ddb-driver-${i}`).value = driverNames[i-1] || '';
+    document.getElementById(`ddb-stander-${i}`).value = standerNames[i-1] || '';
   }
   document.getElementById('modal-deerdrive-builder').classList.add('open');
 }
@@ -886,14 +903,34 @@ function buildRoleRecords(role, names, driveName, anchor, startIndex){
   });
 }
 function saveDeerDriveBuilder(){
-  if(!deerDriveAnchor) return;
+  if(!deerDriveAnchor){
+    if(drivers.length || standers.length){
+      const points = [...drivers, ...standers];
+      const avgLat = points.reduce((sum, item) => sum + item.lat, 0) / points.length;
+      const avgLng = points.reduce((sum, item) => sum + item.lng, 0) / points.length;
+      deerDriveAnchor = L.latLng(avgLat, avgLng);
+    } else {
+      deerDriveAnchor = map.getCenter();
+    }
+  }
   const driveName = document.getElementById('ddb-name').value.trim() || 'Deer Drive';
   const driverNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-driver-${i+1}`).value.trim()).filter(Boolean);
   const standerNames = Array.from({length:5}, (_,i)=>document.getElementById(`ddb-stander-${i+1}`).value.trim()).filter(Boolean);
+
+  drivers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
+  standers.forEach(item=>{ if(allLayers[item.id]){ map.removeLayer(allLayers[item.id]); delete allLayers[item.id]; } });
+  drivers = [];
+  standers = [];
+
   if(!driverNames.length && !standerNames.length){
-    document.getElementById('status-bar').innerHTML='Add at least one Driver or Stander name to build the Deer Drive.';
+    closeDeerDriveBuilderModal();
+    saveLocal();
+    renderPanel();
+    setMode('view');
+    document.getElementById('status-bar').innerHTML='🧩 DeerDrive Builder cleared all Drivers/Pushers and Standers/Blockers.';
     return;
   }
+
   const newDrivers = buildRoleRecords('driver', driverNames, driveName, deerDriveAnchor, 10);
   const newStanders = buildRoleRecords('stander', standerNames, driveName, deerDriveAnchor, 200);
   newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
@@ -1080,7 +1117,7 @@ function saveWindArrow(){
   pendingLL=null;setMode('view');
 }
 function windArrowSVG(dir,label=''){
-  const deg=TOWARD_DEG[dir]||0;
+  const deg=WIND_DEG[dir]||0;
   return`<div class="wind-marker-wrap">
     <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
       <circle cx="26" cy="26" r="24" fill="rgba(18,10,2,.78)" stroke="#3abba0" stroke-width="1.5"/>
@@ -1096,10 +1133,19 @@ function windArrowSVG(dir,label=''){
 function addWindArrowToMap(wa){
   const icon=L.divIcon({html:windArrowSVG(wa.toDir || wa.dir, wa.label),className:'',iconSize:[90,70],iconAnchor:[26,26],popupAnchor:[0,-28]});
   const popupTitle = wa.label || `${wa.fromDir || wa.dir} to ${wa.toDir || wa.dir}`;
-  const m=L.marker([wa.lat,wa.lng],{icon}).addTo(map).bindPopup(
-    `<div class="pu-name">💨 Wind: ${popupTitle}</div>
+  const popupHtml = () => `<div class="pu-name">💨 Wind: ${popupTitle}</div>
 <div class="pu-coords">📍 ${wa.lat.toFixed(5)}, ${wa.lng.toFixed(5)}</div>
-<div class="pu-acts"><button class="pu-btn pu-del" onclick="delWind(${wa.id})">Delete</button></div>`);
+<div class="pu-notes">Large pointed end = where the wind is going to. Smaller end = where it is coming from.</div>
+<div class="pu-acts"><button class="pu-btn pu-del" onclick="delWind(${wa.id})">Delete</button></div>`;
+  const m=L.marker([wa.lat,wa.lng],{icon, draggable:true}).addTo(map).bindPopup(popupHtml());
+  m.on('dragend', evt=>{
+    const ll = evt.target.getLatLng();
+    wa.lat = ll.lat;
+    wa.lng = ll.lng;
+    evt.target.setPopupContent(popupHtml());
+    saveLocal();
+    renderPanel();
+  });
   allLayers[wa.id]=m;
 }
 function delWind(id){
