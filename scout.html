@@ -106,7 +106,7 @@ header::-webkit-scrollbar{height:0;}
 /* WIND COMPASS */
 #wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
 #wind-compass svg{width:100%;height:100%;}
-#map-compass{position:fixed;top:60px;left:58px;z-index:950;width:70px;height:70px;pointer-events:none;}
+#map-compass{position:fixed;top:66px;right:14px;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
@@ -194,6 +194,10 @@ textarea{resize:vertical;min-height:55px;}
 .wpb:hover{border-color:var(--sage);color:var(--tan);}
 .wpb.sel{background:#1a4a3a;border-color:#3abba0;color:#3abba0;}
 
+
+.wind-marker-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.wind-marker-label{font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(18,10,2,.86);color:var(--cream);white-space:nowrap;border:1px solid #3a2c1e;box-shadow:0 2px 8px rgba(0,0,0,.35);}
+
 /* ACREAGE RESULT */
 .acreage-result{background:#1a2810;border:1px solid var(--moss);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.68rem;color:#3abba0;display:none;}
 .acreage-result.show{display:block;}
@@ -268,6 +272,8 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
   <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
   <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
+  <button class="hdr-btn hg"   onclick="exportData()">💾 Export</button>
+  <button class="hdr-btn hg"   onclick="document.getElementById('import-file').click()">📂 Import</button>
   <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
 </header>
 
@@ -510,7 +516,7 @@ textarea{resize:vertical;min-height:55px;}
   <div class="modal">
     <h2>Place Wind Arrow</h2>
     <div class="fg">
-      <label>Wind blowing TOWARD →</label>
+      <label id="wind-direction-label">Wind Blowing From</label>
       <div class="wind-picker" id="arrow-wind-picker">
         <button class="wpb" data-dir="N"  onclick="pickArrow('N')">↑ N</button>
         <button class="wpb" data-dir="NE" onclick="pickArrow('NE')">↗ NE</button>
@@ -522,7 +528,7 @@ textarea{resize:vertical;min-height:55px;}
         <button class="wpb" data-dir="NW" onclick="pickArrow('NW')">↘ NW</button>
       </div>
     </div>
-    <div class="fg"><label>Label (optional)</label><input type="text" id="wf-label" placeholder="e.g. Morning SW Wind" maxlength="30"></div>
+    <div class="fg"><label>Label</label><input type="text" id="wf-label" placeholder="" maxlength="30" readonly></div>
     <div class="modal-acts">
       <button class="btn btn-c" onclick="closeWindModal()">Cancel</button>
       <button class="btn btn-p" onclick="saveWindArrow()">Place Arrow</button>
@@ -581,7 +587,7 @@ let allLayers={};
 let mode='view', pendingLL=null, editingStandId=null;
 let deerDriveAnchor=null;
 let mapFrozen=false;
-let selWind='', selArrow='N';
+let selWind='', selArrowFrom='', selArrowTo='';
 let curPts=[],curPolyType=null,curPolyLine=null;
 let routeEndArrow='';
 let panelOpen=false, recOpen=false;
@@ -1031,40 +1037,67 @@ window.delStandById=delStandById;
 // ═══════════════════════════════════════════════
 // WIND ARROWS
 // ═══════════════════════════════════════════════
+function updateWindModalUI(){
+  const directionLabel=document.getElementById('wind-direction-label');
+  const input=document.getElementById('wf-label');
+  const buttons=document.querySelectorAll('#arrow-wind-picker .wpb');
+  const selectingTo=!!selArrowFrom;
+  if(directionLabel) directionLabel.textContent = selectingTo ? 'To' : 'Wind Blowing From';
+  if(input) input.value = selArrowFrom ? `${selArrowFrom} to ${selArrowTo||''}`.trim() : '';
+  buttons.forEach(btn=>{
+    const dir=btn.dataset.dir;
+    btn.classList.toggle('sel', (!selectingTo && dir===selArrowFrom) || (selectingTo && dir===selArrowTo));
+  });
+}
 function openWindModal(){
-  selArrow='N';
-  document.getElementById('wf-label').value='';
-  document.querySelectorAll('#arrow-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir==='N'));
+  selArrowFrom='';
+  selArrowTo='';
+  updateWindModalUI();
   document.getElementById('modal-wind').classList.add('open');
 }
 function closeWindModal(){document.getElementById('modal-wind').classList.remove('open');pendingLL=null;}
-function pickArrow(d){selArrow=d;document.querySelectorAll('#arrow-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));}
+function pickArrow(d){
+  if(!selArrowFrom){
+    selArrowFrom=d;
+    selArrowTo='';
+  }else{
+    selArrowTo=d;
+  }
+  updateWindModalUI();
+}
 function saveWindArrow(){
-  const label=document.getElementById('wf-label').value.trim();
+  if(!selArrowFrom || !selArrowTo){
+    document.getElementById('status-bar').innerHTML='💨 Choose both From and To directions before placing the wind arrow';
+    return;
+  }
+  const label=`${selArrowFrom} to ${selArrowTo}`;
   const id=Date.now();
-  const wa={id,dir:selArrow,label,lat:pendingLL.lat,lng:pendingLL.lng};
+  const wa={id,dir:selArrowTo,fromDir:selArrowFrom,toDir:selArrowTo,label,lat:pendingLL.lat,lng:pendingLL.lng};
   windArrows.push(wa);addWindArrowToMap(wa);
-  globalWind=selArrow;updateCompass();
+  globalWind=selArrowFrom;updateCompass();
   saveLocal();renderPanel();
   document.getElementById('modal-wind').classList.remove('open');
   pendingLL=null;setMode('view');
 }
-function windArrowSVG(dir){
+function windArrowSVG(dir,label=''){
   const deg=TOWARD_DEG[dir]||0;
-  return`<svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
-    <circle cx="26" cy="26" r="24" fill="rgba(18,10,2,.78)" stroke="#3abba0" stroke-width="1.5"/>
-    <g transform="translate(26,26) rotate(${deg})">
-      <polygon points="0,-18 5,6 0,2 -5,6" fill="#3abba0"/>
-      <polygon points="0,18 4,0 0,4 -4,0" fill="#2a8a7a" opacity=".65"/>
-    </g>
-    <text x="26" y="30" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#3abba0">${dir}</text>
-  </svg>`;
+  return`<div class="wind-marker-wrap">
+    <svg xmlns="http://www.w3.org/2000/svg" width="52" height="52" viewBox="0 0 52 52">
+      <circle cx="26" cy="26" r="24" fill="rgba(18,10,2,.78)" stroke="#3abba0" stroke-width="1.5"/>
+      <g transform="translate(26,26) rotate(${deg})">
+        <polygon points="0,-18 5,6 0,2 -5,6" fill="#3abba0"/>
+        <polygon points="0,18 4,0 0,4 -4,0" fill="#2a8a7a" opacity=".65"/>
+      </g>
+      <text x="26" y="30" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#3abba0">${dir}</text>
+    </svg>
+    ${label?`<div class="wind-marker-label">${label}</div>`:''}
+  </div>`;
 }
 function addWindArrowToMap(wa){
-  const icon=L.divIcon({html:windArrowSVG(wa.dir),className:'',iconSize:[52,52],iconAnchor:[26,26],popupAnchor:[0,-28]});
+  const icon=L.divIcon({html:windArrowSVG(wa.toDir || wa.dir, wa.label),className:'',iconSize:[90,70],iconAnchor:[26,26],popupAnchor:[0,-28]});
+  const popupTitle = wa.label || `${wa.fromDir || wa.dir} to ${wa.toDir || wa.dir}`;
   const m=L.marker([wa.lat,wa.lng],{icon}).addTo(map).bindPopup(
-    `<div class="pu-name">💨 Wind: ${wa.dir}</div>
-${wa.label?`<div class="pu-notes">${wa.label}</div>`:''}
+    `<div class="pu-name">💨 Wind: ${popupTitle}</div>
 <div class="pu-coords">📍 ${wa.lat.toFixed(5)}, ${wa.lng.toFixed(5)}</div>
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="delWind(${wa.id})">Delete</button></div>`);
   allLayers[wa.id]=m;
@@ -1275,7 +1308,7 @@ function renderPanel(){
   if(windArrows.length){
     html+=`<div class="panel-section-label">Wind Arrows (${windArrows.length})</div>`;
     html+=windArrows.map(w=>`<div class="stand-card" onclick="flyToWind(${w.id})">
-      <div class="card-name">💨 ${w.dir}${w.label?' — '+w.label:''}</div>
+      <div class="card-name">💨 ${w.label || ((w.fromDir||w.dir) + ' to ' + (w.toDir||w.dir))}</div>
       <div class="card-meta">${w.lat.toFixed(4)}, ${w.lng.toFixed(4)}</div>
     </div>`).join('');
   }
