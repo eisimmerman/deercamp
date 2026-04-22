@@ -110,10 +110,14 @@ header::-webkit-scrollbar{height:0;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
-.panel-toggle{position:fixed;top:58px;right:0;z-index:950;background:var(--moss);color:var(--cream);border:none;border-radius:6px 0 0 6px;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;}
+.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;display:none;}
 .panel-toggle:hover{background:var(--sage);}
-.side-panel{position:fixed;top:50px;right:0;bottom:0;width:268px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
+.panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
+.panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
+.side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
 .side-panel.open{transform:translateX(0);}
+.side-panel.left{left:0;right:auto;border-left:none;border-right:2px solid var(--moss);transform:translateX(-100%);}
+.side-panel.left.open{transform:translateX(0);}
 .panel-hdr{padding:10px 12px;border-bottom:1px solid #3a2c1e;display:flex;align-items:center;justify-content:space-between;}
 .panel-hdr-title{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);}
 .panel-close{background:none;border:none;color:var(--sage);cursor:pointer;font-size:.9rem;}
@@ -338,12 +342,13 @@ textarea{resize:vertical;min-height:55px;}
   </svg>
 </div>
 
-<button class="panel-toggle" onclick="togglePanel()">STANDS</button>
+<button class="panel-toggle panel-toggle-right" id="panel-toggle-right" onclick="togglePanel('right')">HELPER</button>
+<button class="panel-toggle panel-toggle-left" id="panel-toggle-left" onclick="togglePanel('left')">HELPER</button>
 
 <!-- Side panel -->
 <div class="side-panel" id="side-panel">
   <div class="panel-hdr">
-    <span class="panel-hdr-title">All Features</span>
+    <span class="panel-hdr-title">DeerDrive/DeerStand Builder Helper</span>
     <button class="panel-close" onclick="togglePanel()">✕</button>
   </div>
   <div class="panel-body" id="panel-body"></div>
@@ -670,6 +675,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
   attribution:'', maxZoom:19, opacity:0.5
 }).addTo(map);
 
+map.on('moveend', syncHelperToggleSide);
 map.on('click', e=>{
   if (mode==='stand') { pendingLL=e.latlng; editingStandId=null; openStandModal(); }
   else if (['route','drive'].includes(mode) && awaitingRouteEndPlacement && routeEndArrow) {
@@ -1622,12 +1628,55 @@ function runRecommender(){
 // ═══════════════════════════════════════════════
 // PANEL
 // ═══════════════════════════════════════════════
-function togglePanel(){panelOpen=!panelOpen;document.getElementById('side-panel').classList.toggle('open',panelOpen);}
+let panelSide='right';
+function togglePanel(side){
+  const panel=document.getElementById('side-panel');
+  if(side) panelSide=side;
+  panel.classList.toggle('left', panelSide==='left');
+  panelOpen=!panelOpen;
+  panel.classList.toggle('open',panelOpen);
+}
+
+function getHelperPanelHTML(){
+  return `<div style="padding:12px 12px 16px;color:var(--cream);font-size:.62rem;line-height:1.85">
+    <div style="color:var(--tan);font-family:'Playfair Display',serif;font-size:.9rem;margin-bottom:8px;">DeerDrive & DeerStand Builder Helper</div>
+    <div style="margin-bottom:8px;">To Build your DeerDrive on Stand Scout Elite</div>
+    <ol style="padding-left:18px;display:grid;gap:6px;">
+      <li>Type in property address or city/state to navigate map to location.</li>
+      <li>Zoom in on location to create your deer drive.</li>
+      <li>Tap DeerDrive Builder on Menu Bar to:
+        <div style="padding-left:12px;margin-top:4px;">
+          a. Name your deer drive<br>
+          b. Choose # of Drivers/Pushers (blue circles) & Standers/Blockers (yellow circles) in the drive<br>
+          c. Choose the Wind Direction on drive for To and From<br>
+          d. Tap Ok to drop your pins onto the map<br>
+          e. Drag your D/P and S/B pins into position
+        </div>
+      </li>
+      <li>Tap Set Drive button to freeze pins on deer drive location.</li>
+      <li>Tap Auto-Draw Drive Route button to draw the dashed drive routes with direction arrows.</li>
+    </ol>
+  </div>`;
+}
+function getPanelPreferredSide(){
+  return map.getCenter().lng < -90.2 ? 'right' : 'left';
+}
+function syncHelperToggleSide(){
+  const side = getPanelPreferredSide();
+  const rightBtn = document.getElementById('panel-toggle-right');
+  const leftBtn = document.getElementById('panel-toggle-left');
+  if(rightBtn) rightBtn.style.display = side==='right' ? 'block' : 'none';
+  if(leftBtn) leftBtn.style.display = side==='left' ? 'block' : 'none';
+  const panel = document.getElementById('side-panel');
+  if(panel && !panelOpen) panel.classList.toggle('left', side==='left');
+  panelSide = side;
+}
+
 function renderPanel(){
   const body=document.getElementById('panel-body');
   let html='';
   if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length&&!drivers.length&&!standers.length){
-    html='<div style="padding:14px;color:#6b7c4d;font-size:.62rem;line-height:1.9">Nothing added yet.<br>Use the toolbar to start building your hunt map.</div>';
+    html=getHelperPanelHTML();
   }
   if(stands.length){
     html+=`<div class="panel-section-label">Stands (${stands.length})</div>`;
@@ -1828,7 +1877,7 @@ try{
     if(allPts.length) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
-syncRecUI();renderPanel();updateCompass();if(recWind) runRecommender();
+syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
 </script>
 </body>
 </html>
