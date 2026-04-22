@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp Steward Dashboard</title>
+  <style>
+    :root{
+      --bg:#d7ccb9;
+      --panel:#f7f1e7;
+      --ink:#231a13;
+      --muted:#6b5644;
+      --brown:#6a4427;
+      --brown-deep:#452a16;
+      --green:#496647;
+      --line:rgba(69,42,22,.12);
+      --shadow:0 14px 34px rgba(0,0,0,.12);
+      --radius:26px;
+      --radius-sm:18px;
+    }
+    *{box-sizing:border-box}
+    html{scroll-behavior:smooth}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,.18), transparent 35%),
+        linear-gradient(180deg, #d8cdbd 0%, #ccbda8 100%);
+    }
+    a,button,input,textarea{font:inherit}
+    a{text-decoration:none;color:inherit}
+    .page-shell{min-height:100vh;padding:20px;display:grid;gap:18px}
+    .topbar,.hero-panel,.section-card,.footer-note{
+      max-width:1180px;width:100%;margin:0 auto;background:rgba(247,241,231,.92);
+      border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px)
+    }
+    .topbar{display:none}
+    .brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .brand-mark{width:56px;height:56px;border-radius:16px;overflow:hidden;background:rgba(106,68,39,.1);display:grid;place-items:center;flex:0 0 auto}
+    .brand-mark img{width:100%;height:100%;object-fit:contain;display:block}
+    .brand-copy h1{margin:0;font-size:1.24rem;line-height:1.04}
+    .top-actions{display:flex;gap:10px;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;background:rgba(73,102,71,.12);color:var(--green);font-size:.84rem;font-weight:700;white-space:nowrap}
+    .btn{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:12px 18px;border-radius:999px;border:0;cursor:pointer;font-weight:700;transition:transform .16s ease, box-shadow .16s ease, background .16s ease}
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{background:var(--brown); color:#fff; box-shadow:0 10px 24px rgba(69,42,22,.18)}
+    .btn-secondary{background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12)}
+    .btn-soft{background:rgba(255,255,255,.66);color:var(--brown-deep);border:1px solid rgba(69,42,22,.1)}
+    .hero-panel{padding:24px;display:grid;grid-template-columns:minmax(0, 1.08fr) minmax(320px, .92fr);gap:20px;align-items:center}
+    .eyebrow{display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid rgba(69,42,22,.08)}
+    .hero-copy h2{margin:14px 0 10px;font-size:clamp(2rem, 4vw, 3.25rem);line-height:1.02;color:var(--brown-deep)}
+    .hero-copy p{margin:0;color:var(--muted);font-size:1.02rem;line-height:1.62;max-width:650px}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
+    .hero-subnote{margin-top:14px;color:var(--muted);font-size:.92rem;line-height:1.55}
+    .hero-preview{display:grid;gap:14px;padding:18px;border-radius:24px;background:linear-gradient(180deg, rgba(106,68,39,.12), rgba(69,42,22,.06));border:1px solid rgba(69,42,22,.08)}
+    .preview-frame{min-height:280px;border-radius:20px;overflow:hidden;background:linear-gradient(180deg, rgba(69,42,22,.22), rgba(69,42,22,.30)), linear-gradient(180deg, #836144 0%, #5a3e27 100%);display:grid;place-items:center;color:#fff;text-align:center;background-size:cover;background-position:center center;position:relative}
+    .preview-badge{position:absolute;top:14px;left:14px;display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border-radius:999px;background:rgba(29,19,10,.62);color:#fff6e9;font-size:.78rem;font-weight:700;letter-spacing:.03em}
+    .preview-empty{max-width:250px;padding:18px;line-height:1.55;font-weight:700}
+    .preview-meta{display:grid;gap:6px}
+    .preview-meta strong{font-size:1.1rem;color:var(--brown-deep)}
+    .preview-meta span{color:var(--muted);line-height:1.5}
+    .grid-2{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:18px}
+    .section-card{padding:22px;display:grid;gap:16px;align-content:start}
+    .section-card h3{margin:0;font-size:1.22rem}
+    .section-card .helper{margin:0;color:var(--muted);line-height:1.55}
+    .mini-stats{display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:12px}
+    .mini-stat{padding:14px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.16));border:1px solid rgba(69,42,22,.08)}
+    .mini-stat strong{display:block;font-size:1.45rem;color:var(--brown-deep);line-height:1;margin-bottom:6px}
+    .mini-stat span{color:var(--muted);font-size:.9rem;line-height:1.42}
+    .form-grid{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:14px 16px}
+    .field{display:grid;gap:7px}
+    .field.span-2{grid-column:1 / -1}
+    .field label{font-size:.88rem;font-weight:700;color:var(--brown-deep)}
+    .field input,.field textarea{
+      width:100%;min-height:46px;padding:12px 14px;border-radius:14px;border:1px solid rgba(69,42,22,.14);background:#fff;color:var(--ink)
+    }
+    .field textarea{min-height:110px;resize:vertical}
+    .field-note{font-size:.82rem;color:var(--muted);line-height:1.5}
+    .switch-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .switch{position:relative;width:62px;height:34px;border-radius:999px;background:rgba(69,42,22,.16);flex:0 0 auto;transition:background .18s ease;cursor:pointer}
+    .switch input{position:absolute;inset:0;opacity:0;cursor:pointer}
+    .switch-thumb{position:absolute;top:4px;left:4px;width:26px;height:26px;border-radius:999px;background:#fff;box-shadow:0 3px 10px rgba(0,0,0,.18);transition:transform .18s ease;pointer-events:none}
+    .switch input:checked + .switch-thumb{transform:translateX(28px)}
+    .switch:has(input:checked){background:rgba(73,102,71,.7)}
+    .member-list,.section-list,.later-list{display:grid;gap:12px}
+    .member-row,.section-row,.later-row,.recipe-selector{padding:14px 16px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.46), rgba(255,255,255,.14));border:1px solid rgba(69,42,22,.08)}
+    .member-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .member-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .member-edit{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(69,42,22,.12);background:#fff;color:var(--brown-deep);font-size:.78rem;font-weight:700;cursor:pointer}
+    .member-resend{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(73,102,71,.18);background:#fff;color:var(--green);font-size:.78rem;font-weight:700;cursor:pointer}
+    .member-form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .member-form-note{min-height:1.2em;color:var(--brown-deep);font-size:.9rem;font-weight:700}
+    .field.is-editing label{color:var(--brown)}
+    .field.is-editing input{background:#fff4bf;border-color:rgba(177,121,45,.88);box-shadow:0 0 0 4px rgba(177,121,45,.16);animation:memberPulse 1.1s ease-in-out infinite}
+    @keyframes memberPulse{0%{box-shadow:0 0 0 0 rgba(106,68,39,.22)}70%{box-shadow:0 0 0 8px rgba(106,68,39,0)}100%{box-shadow:0 0 0 0 rgba(106,68,39,0)}}
+    .member-name{font-weight:700;color:var(--brown-deep)}
+    .member-sub,.section-row p,.later-row p,.recipe-selector p{margin:4px 0 0;color:var(--muted);line-height:1.5;font-size:.92rem}
+    .member-pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.78rem;font-weight:700}
+    .member-pill.green{background:rgba(73,102,71,.12); color:var(--green)}
+    .member-pill.gold{background:rgba(177,121,45,.16); color:#855713}
+    .section-row{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center}
+    .section-row strong{display:block}
+    .section-toggle{display:flex;align-items:center;gap:10px}
+    .recipe-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;margin-top:12px}
+    .recipe-option{display:flex;align-items:flex-start;gap:10px;padding:8px 2px}
+    .recipe-option input{margin-top:3px}
+    .recipe-option label{font-weight:700;color:var(--brown-deep);cursor:pointer}
+    .recipe-selector[hidden]{display:none}
+    .footer-note{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .footer-actions-left,.footer-actions-right{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .footer-actions-right{justify-content:flex-end;margin-left:auto}
+    .toast{position:fixed;right:18px;bottom:18px;z-index:40;min-width:220px;padding:14px 16px;border-radius:16px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.1);box-shadow:var(--shadow);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .18s ease, transform .18s ease}
+    .toast.show{opacity:1;transform:translateY(0)}
+    @media (max-width:980px){.hero-panel,.grid-2{grid-template-columns:1fr}.preview-frame{min-height:240px}}
+    @media (max-width:720px){
+      .page-shell{padding:16px}.hero-actions,.footer-actions-left,.footer-actions-right{flex-direction:column}
+      .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
+      .footer-note{border-radius:22px;align-items:stretch}.footer-actions-right{justify-content:stretch;margin-left:0}.recipe-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="page-shell">
+    <section class="hero-panel">
+      <div class="hero-copy">
+        <span class="eyebrow">Steward Dashboard</span>
+        <h2 id="welcomeHeadline">Welcome back</h2>
+        <p id="welcomeCopy">Confirm the camp identity (#1), Members (#2) and Camp Sections (#3).</p>
+        <div class="hero-actions">
+          <a id="shareCampBtn" class="btn btn-soft" href="#">Copy Share Link</a>
+        </div>
+        <div class="hero-subnote" id="heroSubnote">Use this as the first real work surface after camp creation.</div>
+      </div>
+
+      <div class="hero-preview">
+        <div id="heroPreview" class="preview-frame">
+          <span class="preview-badge">Camp sign</span>
+          <div class="preview-empty" id="heroPreviewEmpty">Your camp sign or uploaded picture appears here when available.</div>
+        </div>
+        <div class="preview-meta">
+          <strong id="previewCampName">Your DeerCamp</strong>
+          <span id="previewCampMeta">Camp details appear here.</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="section-card">
+        <div>
+          <h3>1. Camp essentials</h3>
+          <p class="helper">Confirm the camp identity, summary, and privacy state.</p>
+        </div>
+
+        <div class="mini-stats">
+          <div class="mini-stat"><strong id="statMembers">0</strong><span>active members</span></div>
+          <div class="mini-stat"><strong id="statSections">0</strong><span>sections on</span></div>
+          <div class="mini-stat"><strong id="statStatus">Private</strong><span>camp state</span></div>
+        </div>
+
+        <form id="campForm" class="form-grid">
+          <div class="field">
+            <label for="campName">Camp Name</label>
+            <input id="campName" type="text" placeholder="Big Buck Camp" />
+          </div>
+          <div class="field">
+            <label for="campEstablished">Established</label>
+            <input id="campEstablished" type="text" placeholder="1999" />
+          </div>
+          <div class="field">
+            <label for="campCity">City</label>
+            <input id="campCity" type="text" placeholder="Eau Claire" />
+          </div>
+          <div class="field">
+            <label for="campState">State</label>
+            <input id="campState" type="text" placeholder="WI" />
+          </div>
+          <div class="field">
+            <label for="campZip">Zip</label>
+            <input id="campZip" type="text" placeholder="54701" />
+          </div>
+          <div class="field">
+            <label for="campHero">Camp Sign / Image Path</label>
+            <input id="campHero" type="text" placeholder="assets/heroes/midwest-deer-camp-sign.png" />
+          </div>
+          <div class="field span-2">
+            <label for="campSummary">Camp Summary</label>
+            <textarea id="campSummary" placeholder="Type here what makes this camp unique, who it is for, and what the season means here."></textarea>
+          </div>
+          <div class="field span-2">
+            <label id="campPrivacyLabel">Camp Privacy - On</label>
+            <div class="switch-row">
+              <label class="switch">
+                <input id="campPublicToggle" type="checkbox" />
+                <span class="switch-thumb"></span>
+              </label>
+              <div class="field-note" id="privacyNote">Private camps share only the DeerCamp home until the Steward is ready to make this camp public.</div>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section class="section-card">
+        <div>
+          <h3>2. Members and invites</h3>
+          <p class="helper">See who is Active and who needs an email for the camp invitation.</p>
+        </div>
+
+        <div class="member-list" id="memberList"></div>
+
+        <form id="memberForm" class="form-grid">
+          <input id="memberEditIndex" type="hidden" value="" />
+          <div id="memberNameField" class="field">
+            <label for="memberName">Member Name</label>
+            <input id="memberName" type="text" placeholder="Ben Larson" />
+          </div>
+          <div id="memberEmailField" class="field">
+            <label for="memberEmail">Email</label>
+            <input id="memberEmail" type="email" placeholder="ben@example.com" />
+          </div>
+          <div class="field span-2">
+            <label for="memberNote">Quick Note</label>
+            <input id="memberNote" type="text" placeholder="West Ridge crew" />
+          </div>
+          <div class="field span-2 member-form-actions">
+            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
+            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
+            <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
+          </div>
+          <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
+        </form>
+      </section>
+    </div>
+
+    <div class="grid-2">
+      <section class="section-card">
+        <div>
+          <h3>3. Turn on Camp Sections</h3>
+          <p class="helper">The section order here matches the order on the camp page.</p>
+        </div>
+        <div class="section-list" id="sectionList"></div>
+        <div id="recipeSelector" class="recipe-selector" hidden>
+          <strong>CampRecipes starter titles</strong>
+          <p>When CampRecipes is on, check the starter recipe titles you want visible on the camp page. All 8 are unchecked by default.</p>
+          <div id="recipeGrid" class="recipe-grid"></div>
+        </div>
+      </section>
+
+      <section class="section-card">
+        <div>
+          <h3>4. Future Content Opportunities</h3>
+          <p class="helper">Optional DeerCamp tools for field updates, stand planning, deer drives, and map detail.</p>
+        </div>
+        <div class="later-list">
+          <div class="later-row"><strong>CampStands</strong><p>Named stand locations with hunter assignments, wind notes, and access details.</p></div>
+          <div class="later-row"><strong>CampDeerDrives</strong><p>Drive plans with role assignments for blockers, standers, and drivers.</p></div>
+          <div class="later-row"><strong>CampMaps</strong><p>Camp land maps with landmarks, routes, and visual reference points.</p></div>
+        </div>
+      </section>
+    </div>
+
+    <section class="footer-note">
+      <div class="footer-actions-left">
+        <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
+        <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
+      </div>
+      <div class="footer-actions-right">
+        <span class="pill" id="dashboardStatePill">Private camp</span>
+        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const CAMP_DATA_KEY = "campData";
+    const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
+    const CAMP_SCOPE_PREFIX = "deercamp.camps.";
+    const DASHBOARD_SLIM_KEY = "deercamp.stewardDashboardSlim";
+
+    const STARTER_RECIPE_OPTIONS = [
+      { id: "starter-recipe-1", title: "Skillet Eggs & Sausage Hash" },
+      { id: "starter-recipe-2", title: "Campfire Pancakes with Syrup" },
+      { id: "starter-recipe-3", title: "Smoked Meat Flatbread Wraps" },
+      { id: "starter-recipe-4", title: "Quick Camp Chili" },
+      { id: "starter-recipe-5", title: "Backstrap Steaks with Garlic Butter" },
+      { id: "starter-recipe-6", title: "Venison & Pasta Skillet" },
+      { id: "starter-recipe-7", title: "Foil Pack Venison & Veggies" },
+      { id: "starter-recipe-8", title: "Dutch Oven Deer Camp Stew" }
+    ];
+
+    function getCampIdFromUrl() {
+      try { return String(new URLSearchParams(window.location.search).get("campId") || "").trim(); }
+      catch { return ""; }
+    }
+
+    function campScopeKey(campId, suffix) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
+    }
+
+    function safeParse(raw, fallback = {}) {
+      try { return JSON.parse(raw || JSON.stringify(fallback)) || fallback; }
+      catch { return fallback; }
+    }
+
+    function normalizePublishState(value = "") {
+      return String(value || "").trim().toLowerCase() === "public" ? "public" : "private";
+    }
+
+    function slugify(value = "") {
+      return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+    }
+
+    function showToast(message) {
+      const toast = document.getElementById("toast");
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(showToast._timer);
+      showToast._timer = setTimeout(() => toast.classList.remove("show"), 2200);
+    }
+
+    function resolveImagePath(value = "") {
+      const raw = String(value || "").trim();
+      if (!raw) return "";
+      if (/^(https?:|data:|blob:|\/|\.\/|\.\.\/|assets\/)/i.test(raw)) return raw;
+      if (/\.(png|jpe?g|webp|gif|svg)$/i.test(raw)) return `assets/heroes/${raw.replace(/^\/+/, "")}`;
+      return raw;
+    }
+
+    function sanitizeSummary(value = "") {
+      const clean = String(value || "").trim();
+      if (/^first camp$/i.test(clean)) return "";
+      return clean;
+    }
+
+    function buildCampUrl(path, campId) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+    }
+
+    function countVisibleSections(sections = {}) {
+      return ["campfeed","campupdate","calendar","traditions","camprecipes"].filter(key => Boolean(sections[key])).length;
+    }
+    function cloneMember(member = {}) {
+      return {
+        name: String(member.name || "").trim(),
+        email: String(member.email || "").trim(),
+        note: String(member.note || "").trim(),
+        role: String(member.role || "Camp Member").trim() || "Camp Member",
+        status: String(member.status || "Draft").trim() || "Draft",
+        pendingInvite: Boolean(member.pendingInvite),
+        inviteToken: String(member.inviteToken || "").trim(),
+        inviteSentAt: String(member.inviteSentAt || "").trim(),
+        inviteError: String(member.inviteError || "").trim()
+      };
+    }
+
+    function memberIdentity(member = {}) {
+      return String(member.email || "").trim().toLowerCase() || String(member.name || "").trim().toLowerCase();
+    }
+
+    function normalizeMemberStatus(member = {}) {
+      const role = String(member.role || "Camp Member").trim().toLowerCase();
+      const email = String(member.email || "").trim();
+      const rawStatus = String(member.status || "").trim().toLowerCase();
+      if (role === "camp steward") return "Active";
+      if (!email) return "Draft";
+      if (rawStatus === "active" || rawStatus === "accepted") return "Active";
+      if (rawStatus === "invite sent" && String(member.inviteToken || "").trim()) return "Invite Sent";
+      if (rawStatus === "failed") return "Failed";
+      if (rawStatus === "sending") return "Sending";
+      return "Ready";
+    }
+
+    function mergeMembers(campProfiles = [], dashboardMembers = [], fallbackMembers = []) {
+      const merged = new Map();
+      [...fallbackMembers, ...dashboardMembers, ...campProfiles].forEach((sourceMember) => {
+        const draft = cloneMember(sourceMember);
+        const key = memberIdentity(draft);
+        if (!key) return;
+        const prior = merged.get(key) || {};
+        const next = Object.assign({}, prior, draft);
+        if (String(next.role || "").toLowerCase() === "camp steward") next.role = "Camp Steward";
+        next.status = normalizeMemberStatus(next);
+        next.pendingInvite = next.status === "Ready" || next.status === "Sending";
+        if (next.status !== "Failed") next.inviteError = "";
+        merged.set(key, next);
+      });
+      return Array.from(merged.values());
+    }
+
+    function preferRecipeIds(campRecipeIds = [], dashboardRecipeIds = []) {
+      const campIds = Array.isArray(campRecipeIds) ? campRecipeIds.map(String).filter(Boolean) : [];
+      const dashIds = Array.isArray(dashboardRecipeIds) ? dashboardRecipeIds.map(String).filter(Boolean) : [];
+      return campIds.length >= dashIds.length ? campIds : dashIds;
+    }
+
+    function writeDashboardSnapshotFromState() {
+      const activeMembers = state.members.filter(member => String(member.status || "Draft").toLowerCase() !== "removed");
+      const nextDashboard = {
+        campId: state.campId,
+        camp: {
+          name: state.camp.name,
+          city: state.camp.city,
+          state: state.camp.state,
+          zip: state.camp.zip,
+          established: state.camp.established,
+          summary: sanitizeSummary(state.camp.summary),
+          hero: state.camp.hero,
+          publishState: state.camp.publishState
+        },
+        stewardName: state.stewardName,
+        stewardEmail: state.stewardEmail,
+        sections: Object.assign({}, state.sections),
+        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
+        members: activeMembers.map(cloneMember)
+      };
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(nextDashboard));
+      localStorage.setItem(scopedDashboardKey, JSON.stringify(nextDashboard));
+    }
+
+    const urlCampId = getCampIdFromUrl();
+    const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+    const inferredCampId = String(urlCampId || localStorage.getItem(ACTIVE_CAMP_KEY) || genericCampData.campId || "").trim();
+    const activeCampId = inferredCampId || "ourdeercamp";
+    localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+
+    const scopedCampDataKey = campScopeKey(activeCampId, "campData");
+    const scopedDashboardKey = campScopeKey(activeCampId, "dashboardSlim");
+
+    const scopedCampData = safeParse(localStorage.getItem(scopedCampDataKey), {});
+    const genericDashboard = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
+    const scopedDashboard = safeParse(localStorage.getItem(scopedDashboardKey), {});
+
+    const useGenericCampData = !Object.keys(scopedCampData).length && (!genericCampData.campId || String(genericCampData.campId).trim() === activeCampId);
+    const useGenericDashboard = !Object.keys(scopedDashboard).length && (!genericDashboard.campId || String(genericDashboard.campId).trim() === activeCampId);
+
+    const campData = Object.keys(scopedCampData).length ? scopedCampData : (useGenericCampData ? genericCampData : {});
+    const savedDashboard = Object.keys(scopedDashboard).length ? scopedDashboard : (useGenericDashboard ? genericDashboard : {});
+
+    const defaultSections = {
+      campfeed: true,
+      campupdate: true,
+      calendar: true,
+      traditions: true,
+      camprecipes: true
+    };
+
+    const defaultSelectedRecipeIds = [];
+
+    const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+    const fallbackMembers = [];
+    if (String(campData.stewardName || campData.steward || "").trim()) {
+      fallbackMembers.push({
+        name: String(campData.stewardName || campData.steward || "").trim(),
+        email: String(campData.stewardEmail || "").trim(),
+        note: "Keeps camp information current and helps guide the full DeerCamp experience.",
+        role: "Camp Steward",
+        status: "Active",
+        pendingInvite: false
+      });
+    }
+    (Array.isArray(campData.members) ? campData.members : []).forEach(name => {
+      const clean = String(name || "").trim();
+      if (!clean) return;
+      fallbackMembers.push({
+        name: clean,
+        email: "",
+        note: "",
+        role: "Camp Member",
+        status: "Active",
+        pendingInvite: false
+      });
+    });
+
+    const dashboardMembers = Array.isArray(savedDashboard.members)
+      ? savedDashboard.members.map(cloneMember)
+      : [];
+    const campProfileMembers = memberProfiles.length
+      ? memberProfiles
+          .filter(item => String(item.status || "Draft").toLowerCase() !== "removed")
+          .map(cloneMember)
+      : [];
+
+    const state = {
+      campId: activeCampId,
+      camp: {
+        name: String(campData.name || campData.campName || savedDashboard.camp?.name || "").trim() || "Your DeerCamp",
+        city: String(campData.city || savedDashboard.camp?.city || "").trim(),
+        state: String(campData.state || savedDashboard.camp?.state || "").trim(),
+        zip: String(campData.zip || savedDashboard.camp?.zip || "").trim(),
+        established: String(campData.established || savedDashboard.camp?.established || "").trim(),
+        summary: sanitizeSummary(campData.summary || campData.about || savedDashboard.camp?.summary || ""),
+        hero: String(campData.hero || campData.brandImage || campData.brandingImage || savedDashboard.camp?.hero || "").trim(),
+        publishState: normalizePublishState(campData.publishState || campData.visibility || savedDashboard.camp?.publishState || "private")
+      },
+      stewardName: String(campData.stewardName || campData.steward || savedDashboard.stewardName || "").trim() || "Steward",
+      stewardEmail: String(campData.stewardEmail || savedDashboard.stewardEmail || "").trim(),
+      sections: Object.assign({}, defaultSections, campData.enabledSections || savedDashboard.sections || {}),
+      selectedRecipeIds: preferRecipeIds(campData.selectedRecipeIds, savedDashboard.selectedRecipeIds),
+      members: mergeMembers(campProfileMembers, dashboardMembers, fallbackMembers)
+    };
+
+    state.sections = {
+      campfeed: Boolean(state.sections.campfeed),
+      campupdate: Boolean(state.sections.campupdate),
+      calendar: Boolean(state.sections.calendar),
+      traditions: Boolean(state.sections.traditions),
+      camprecipes: Boolean(state.sections.camprecipes)
+    };
+
+    if (!Array.isArray(state.members)) state.members = [];
+    const stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
+    if (stewardMember) {
+      if (!stewardMember.email && state.stewardEmail) stewardMember.email = state.stewardEmail;
+      if (!stewardMember.name && state.stewardName) stewardMember.name = state.stewardName;
+      state.stewardName = stewardMember.name || state.stewardName;
+      state.stewardEmail = stewardMember.email || state.stewardEmail;
+      stewardMember.pendingInvite = false;
+      stewardMember.status = "Active";
+    } else if (state.stewardName) {
+      state.members.unshift({
+        name: state.stewardName,
+        email: state.stewardEmail,
+        note: "Keeps camp information current and helps guide the full DeerCamp experience.",
+        role: "Camp Steward",
+        status: "Active",
+        pendingInvite: false
+      });
+    }
+
+    const sectionConfig = [
+      { key: "campfeed", label: "CampFeed", note: "The running stream of recent camp posts and member interaction." },
+      { key: "campupdate", label: "CampUpdate", note: "A simple member posting form for pictures, traditions, recipes, and calendar events." },
+      { key: "calendar", label: "CampCalendar", note: "Dates, weekends, meals, and events." },
+      { key: "traditions", label: "CampTraditions", note: "Rituals and camp identity." },
+      { key: "camprecipes", label: "CampRecipes", note: "Meals worth saving for future seasons." }
+    ];
+
+    function currentShareUrl() {
+      return state.camp.publishState === "public"
+        ? `${window.location.origin}${buildCampUrl("camp.html", state.campId)}`
+        : "https://ourdeercamp.com/";
+    }
+
+    function syncCampData() {
+      state.members = state.members.map(member => {
+        const normalized = cloneMember(member);
+        normalized.status = normalizeMemberStatus(normalized);
+        normalized.pendingInvite = normalized.status === "Ready" || normalized.status === "Sending";
+        return normalized;
+      });
+      const activeMembers = state.members.filter(member => String(member.status || "Draft").toLowerCase() !== "removed");
+      const memberProfilesOut = activeMembers.map(member => ({
+        name: member.name,
+        email: member.email,
+        note: member.note,
+        role: member.role,
+        status: member.status,
+        pendingInvite: Boolean(member.pendingInvite),
+        inviteToken: String(member.inviteToken || "").trim(),
+        inviteSentAt: String(member.inviteSentAt || "").trim(),
+        inviteError: String(member.inviteError || "").trim()
+      }));
+
+      const nextCampData = Object.assign({}, campData, {
+        campId: state.campId,
+        name: state.camp.name,
+        campName: state.camp.name,
+        city: state.camp.city,
+        state: state.camp.state,
+        zip: state.camp.zip,
+        established: state.camp.established,
+        summary: sanitizeSummary(state.camp.summary),
+        about: sanitizeSummary(state.camp.summary),
+        hero: state.camp.hero,
+        stewardName: state.stewardName,
+        steward: state.stewardName,
+        stewardEmail: state.stewardEmail,
+        publishState: state.camp.publishState,
+        isPublic: state.camp.publishState === "public",
+        enabledSections: Object.assign({}, state.sections),
+        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
+        members: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
+        campMembers: activeMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward").map(member => member.name),
+        memberProfiles: memberProfilesOut
+      });
+
+      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
+      localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
+
+      const nextDashboard = {
+        campId: state.campId,
+        camp: {
+          name: state.camp.name,
+          city: state.camp.city,
+          state: state.camp.state,
+          zip: state.camp.zip,
+          established: state.camp.established,
+          summary: sanitizeSummary(state.camp.summary),
+          hero: state.camp.hero,
+          publishState: state.camp.publishState
+        },
+        stewardName: state.stewardName,
+        stewardEmail: state.stewardEmail,
+        sections: Object.assign({}, state.sections),
+        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
+        members: activeMembers
+      };
+
+      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(nextDashboard));
+      localStorage.setItem(scopedDashboardKey, JSON.stringify(nextDashboard));
+      localStorage.setItem(ACTIVE_CAMP_KEY, state.campId);
+    }
+
+    function renderPreview() {
+      document.getElementById("welcomeHeadline").textContent = `Welcome, ${state.stewardName}`;
+      document.getElementById("previewCampName").textContent = state.camp.name || "Your DeerCamp";
+      const location = [[state.camp.city, state.camp.state].filter(Boolean).join(", "), state.camp.zip].filter(Boolean).join(" ");
+      const meta = [location, state.camp.established ? `Est. ${state.camp.established}` : ""].filter(Boolean).join(" • ");
+      document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
+      document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
+      document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
+      document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
+      document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
+      document.getElementById("heroSubnote").textContent = state.stewardEmail
+        ? `Return link available at ${state.stewardEmail}`
+        : "Add a Steward email later if you want a stronger return-link safety net.";
+
+      const campUrl = buildCampUrl("camp.html", state.campId);
+      document.getElementById("viewLiveCampBtn").href = campUrl;
+      document.getElementById("backToBuildYourCamp").href = buildCampUrl("buildyourcamp.html", state.campId);
+
+      const heroPath = resolveImagePath(state.camp.hero);
+      const frame = document.getElementById("heroPreview");
+      const empty = document.getElementById("heroPreviewEmpty");
+      if (heroPath) {
+        frame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,.18), rgba(69,42,22,.32)), url("${heroPath.replace(/"/g, '\\"')}")`;
+        frame.style.backgroundSize = "cover";
+        frame.style.backgroundPosition = "center center";
+        empty.style.display = "none";
+      } else {
+        frame.style.backgroundImage = "";
+        empty.style.display = "block";
+      }
+
+      document.getElementById("campName").value = state.camp.name || "";
+      document.getElementById("campEstablished").value = state.camp.established || "";
+      document.getElementById("campCity").value = state.camp.city || "";
+      document.getElementById("campState").value = state.camp.state || "";
+      document.getElementById("campZip").value = state.camp.zip || "";
+      document.getElementById("campHero").value = state.camp.hero || "";
+      document.getElementById("campSummary").value = sanitizeSummary(state.camp.summary || "");
+      document.getElementById("campPublicToggle").checked = state.camp.publishState === "public";
+      document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
+      document.getElementById("privacyNote").textContent = "Private camps share only the DeerCamp home until the Steward is ready to make this camp public.";
+      updateInviteButton();
+    }
+
+    function renderMembers() {
+      const list = document.getElementById("memberList");
+      const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
+      list.innerHTML = items.length ? items.map((member, index) => {
+        const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+        const normalizedStatus = normalizeMemberStatus(member);
+        const statusLine = role === "Camp Steward"
+          ? ""
+          : (normalizedStatus === "Sending"
+              ? " • Sending..."
+              : normalizedStatus === "Invite Sent"
+                ? " • Invite sent"
+                : normalizedStatus === "Failed"
+                  ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
+                  : normalizedStatus === "Ready"
+                    ? " • Ready to Send • Tap Send Member Invite button below"
+                    : "");
+        const emailLine = member.email
+          ? `${member.email}${statusLine}`
+          : (role === "Camp Steward" ? "Add steward email now." : "No email yet • Add member details later.");
+        const extraNote = member.note ? ` • ${member.note}` : "";
+        const resendButton = role !== "Camp Steward" && member.status === "Invite Sent" && String(member.email || "").trim()
+          ? `<button class="member-resend" type="button" data-resend-member="${index}">Resend</button>`
+          : "";
+        return `
+        <div class="member-row">
+          <div>
+            <div class="member-name">${member.name || "Camp Member"}</div>
+            <div class="member-sub">${emailLine}${extraNote}</div>
+          </div>
+          <div class="member-actions">
+            <div class="member-pill ${role === "Camp Steward" ? "gold" : "green"}">${role}</div>
+            ${resendButton}
+            <button class="member-edit" type="button" data-edit-member="${index}">Edit</button>
+          </div>
+        </div>`;
+      }).join("") : `<div class="member-row"><div><div class="member-name">No members yet</div><div class="member-sub">Add the first member below.</div></div></div>`;
+
+      list.querySelectorAll("[data-edit-member]").forEach(button => {
+        button.addEventListener("click", () => loadMemberForEdit(Number(button.dataset.editMember)));
+      });
+      list.querySelectorAll("[data-resend-member]").forEach(button => {
+        button.addEventListener("click", () => resendMemberInvite(Number(button.dataset.resendMember)));
+      });
+    }
+
+    function pulseMemberEditFields(name = "") {
+      ["memberNameField", "memberEmailField"].forEach(id => {
+        const field = document.getElementById(id);
+        if (!field) return;
+        field.classList.remove("is-editing");
+        void field.offsetWidth;
+        field.classList.add("is-editing");
+      });
+      const note = document.getElementById("memberFormNote");
+      if (note) note.textContent = name ? `Editing ${name} below.` : "";
+    }
+
+    function clearMemberEditPulse() {
+      ["memberNameField", "memberEmailField"].forEach(id => {
+        const field = document.getElementById(id);
+        if (field) field.classList.remove("is-editing");
+      });
+      const note = document.getElementById("memberFormNote");
+      if (note) note.textContent = "";
+    }
+
+    function updateInviteButton() {
+      const inviteBtn = document.getElementById("memberInviteBtn");
+      if (!inviteBtn) return;
+      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+      inviteBtn.hidden = pending.length === 0;
+      inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
+    }
+
+    async function sendMemberInvites(members) {
+      const results = [];
+      for (const member of members) {
+        try {
+          const result = await sendMemberInvite(member);
+          results.push({ member, success: true, inviteToken: result.inviteToken, data: result.data });
+        } catch (error) {
+          results.push({ member, success: false, error: error?.message || "Failed to send invite." });
+        }
+      }
+      return results;
+    }
+
+    async function sendMemberInvite(member) {
+      const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
+        ? window.crypto.randomUUID()
+        : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      const response = await fetch("/api/send-member-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          send: true,
+          campId: state.campId,
+          campName: state.camp.name,
+          campCity: state.camp.city,
+          campState: state.camp.state,
+          campZip: state.camp.zip,
+          campEstablished: state.camp.established,
+          campHero: state.camp.hero,
+          stewardName: state.stewardName,
+          stewardEmail: state.stewardEmail,
+          memberName: member.name,
+          memberEmail: member.email,
+          inviteToken
+        })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        throw new Error(data.error || "Failed to send invite.");
+      }
+      return { data, inviteToken };
+    }
+
+    async function resendMemberInvite(index) {
+      const member = state.members[index];
+      if (!member || String(member.role || "").toLowerCase() === "camp steward") return;
+      if (!String(member.email || "").trim()) {
+        showToast("Add a member email before resending.");
+        return;
+      }
+      const confirmed = window.confirm(`Resend invite to ${member.name || "this member"}?`);
+      if (!confirmed) return;
+
+      try {
+        member.status = "Sending";
+        member.inviteError = "";
+        renderMembers();
+        const result = await sendMemberInvite(member);
+        member.pendingInvite = false;
+        member.status = "Invite Sent";
+        member.inviteSentAt = new Date().toISOString();
+        member.inviteToken = result.inviteToken;
+        member.inviteError = "";
+        syncCampData();
+        renderMembers();
+        renderPreview();
+        updateInviteButton();
+        showToast(`Invite resent to ${member.name}.`);
+      } catch (error) {
+        member.status = "Failed";
+        member.inviteError = error?.message || "Failed to resend invite.";
+        syncCampData();
+        renderMembers();
+        updateInviteButton();
+        showToast(`Could not resend invite to ${member.name}.`);
+      }
+    }
+
+    function loadMemberForEdit(index) {
+      const member = state.members[index];
+      if (!member) return;
+      document.getElementById("memberEditIndex").value = String(index);
+      document.getElementById("memberName").value = member.name || "";
+      document.getElementById("memberEmail").value = member.email || "";
+      document.getElementById("memberNote").value = member.note || "";
+      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward" : "Save Member";
+      pulseMemberEditFields(member.name || "this member");
+    }
+
+    function resetMemberForm() {
+      document.getElementById("memberForm").reset();
+      document.getElementById("memberEditIndex").value = "";
+      document.getElementById("memberSubmitBtn").textContent = "Add Member";
+      clearMemberEditPulse();
+      updateInviteButton();
+    }
+
+    function renderRecipeSelector() {
+      const wrap = document.getElementById("recipeSelector");
+      const grid = document.getElementById("recipeGrid");
+      const isOn = Boolean(state.sections.camprecipes);
+      wrap.hidden = !isOn;
+      if (!isOn) {
+        grid.innerHTML = "";
+        return;
+      }
+      grid.innerHTML = STARTER_RECIPE_OPTIONS.map((recipe) => `
+        <div class="recipe-option">
+          <input type="checkbox" id="${recipe.id}" data-recipe-id="${recipe.id}" ${state.selectedRecipeIds.includes(recipe.id) ? "checked" : ""}>
+          <label for="${recipe.id}">${recipe.title}</label>
+        </div>
+      `).join("");
+      grid.querySelectorAll("[data-recipe-id]").forEach(input => {
+        input.addEventListener("change", () => {
+          const id = input.dataset.recipeId;
+          if (input.checked) {
+            if (!state.selectedRecipeIds.includes(id)) state.selectedRecipeIds.push(id);
+          } else {
+            state.selectedRecipeIds = state.selectedRecipeIds.filter(item => item !== id);
+          }
+          syncCampData();
+          showToast("CampRecipes selections saved.");
+        });
+      });
+    }
+
+    function renderSections() {
+      const list = document.getElementById("sectionList");
+      list.innerHTML = sectionConfig.map(item => `
+        <div class="section-row">
+          <div>
+            <strong>${item.label}</strong>
+            <p>${item.note}</p>
+          </div>
+          <div class="section-toggle">
+            <label class="switch">
+              <input data-section-toggle="${item.key}" type="checkbox" ${state.sections[item.key] ? "checked" : ""} />
+              <span class="switch-thumb"></span>
+            </label>
+          </div>
+        </div>
+      `).join("");
+
+      list.querySelectorAll("[data-section-toggle]").forEach(input => {
+        input.addEventListener("change", () => {
+          state.sections[input.dataset.sectionToggle] = input.checked;
+          if (input.dataset.sectionToggle === "camprecipes" && !input.checked) {
+            state.selectedRecipeIds = [];
+          }
+          syncCampData();
+          renderPreview();
+          renderRecipeSelector();
+          showToast(`${sectionConfig.find(item => item.key === input.dataset.sectionToggle)?.label || "Section"} ${input.checked ? "turned on" : "turned off"}.`);
+        });
+      });
+
+      renderRecipeSelector();
+    }
+
+    document.getElementById("campForm").addEventListener("input", () => {
+      state.camp.name = document.getElementById("campName").value.trim() || "Your DeerCamp";
+      state.camp.established = document.getElementById("campEstablished").value.trim();
+      state.camp.city = document.getElementById("campCity").value.trim();
+      state.camp.state = document.getElementById("campState").value.trim();
+      state.camp.zip = document.getElementById("campZip").value.trim();
+      state.camp.hero = document.getElementById("campHero").value.trim();
+      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
+      renderPreview();
+    });
+
+    document.getElementById("saveAllBtn").addEventListener("click", () => {
+      state.camp.name = document.getElementById("campName").value.trim() || "Your DeerCamp";
+      state.camp.established = document.getElementById("campEstablished").value.trim();
+      state.camp.city = document.getElementById("campCity").value.trim();
+      state.camp.state = document.getElementById("campState").value.trim();
+      state.camp.zip = document.getElementById("campZip").value.trim();
+      state.camp.hero = document.getElementById("campHero").value.trim();
+      state.camp.summary = sanitizeSummary(document.getElementById("campSummary").value);
+      state.camp.publishState = document.getElementById("campPublicToggle").checked ? "public" : "private";
+      syncCampData();
+      renderPreview();
+      renderSections();
+      showToast("Dashboard changes saved.");
+    });
+
+    document.getElementById("memberForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const editIndex = document.getElementById("memberEditIndex").value;
+      const name = document.getElementById("memberName").value.trim();
+      const email = document.getElementById("memberEmail").value.trim();
+      const note = document.getElementById("memberNote").value.trim();
+      if (!name) {
+        showToast("Add a member name first.");
+        return;
+      }
+
+      if (editIndex !== "") {
+        const member = state.members[Number(editIndex)];
+        if (!member) return;
+        member.name = name;
+        member.email = email;
+        member.note = note;
+        if (String(member.role || "").toLowerCase() === "camp steward") {
+          state.stewardName = name;
+          state.stewardEmail = email;
+          member.pendingInvite = false;
+          member.status = "Active";
+        } else if (!email) {
+          member.pendingInvite = false;
+          member.status = "Draft";
+          member.inviteToken = "";
+          member.inviteSentAt = "";
+        } else if (["active", "accepted"].includes(String(member.status || "").trim().toLowerCase())) {
+          member.pendingInvite = false;
+          member.status = "Active";
+        } else if (String(member.status || "").trim().toLowerCase() === "invite sent" && String(member.inviteToken || "").trim()) {
+          member.pendingInvite = false;
+          member.status = "Invite Sent";
+        } else {
+          member.pendingInvite = true;
+          member.status = "Ready";
+        }
+        syncCampData();
+        renderMembers();
+        renderPreview();
+        clearMemberEditPulse();
+        document.getElementById("memberEditIndex").value = "";
+        document.getElementById("memberSubmitBtn").textContent = "Add Member";
+        updateInviteButton();
+        showToast(`${name} updated.`);
+        return;
+      }
+
+      state.members.push({
+        name,
+        email,
+        note,
+        role: "Camp Member",
+        status: email ? "Ready" : "Draft",
+        pendingInvite: Boolean(email)
+      });
+      syncCampData();
+      renderMembers();
+      renderPreview();
+      resetMemberForm();
+      showToast(`${name} added to the camp.`);
+    });
+
+    document.getElementById("memberInviteBtn").addEventListener("click", async () => {
+      const inviteBtn = document.getElementById("memberInviteBtn");
+      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+      if (!pending.length) {
+        showToast("No new member invites are ready to send.");
+        return;
+      }
+
+      const originalLabel = inviteBtn.textContent;
+      inviteBtn.disabled = true;
+      inviteBtn.textContent = "Sending Invites...";
+      pending.forEach(member => {
+        member.status = "Sending";
+      });
+      renderMembers();
+
+      const results = await sendMemberInvites(pending);
+      let successCount = 0;
+      let failCount = 0;
+
+      results.forEach(result => {
+        if (result.success) {
+          result.member.pendingInvite = false;
+          result.member.status = "Invite Sent";
+          result.member.inviteToken = result.inviteToken;
+          successCount += 1;
+        } else {
+          result.member.status = "Failed";
+          failCount += 1;
+          console.error(`Invite failed for ${result.member.name}:`, result.error);
+        }
+      });
+
+      inviteBtn.disabled = false;
+      inviteBtn.textContent = originalLabel;
+      syncCampData();
+      renderMembers();
+      renderPreview();
+      updateInviteButton();
+      if (failCount === 0) {
+        showToast(successCount > 1 ? `${successCount} member invites sent.` : `Invite sent to ${pending[0].name}.`);
+      } else if (successCount > 0) {
+        showToast(`${successCount} sent, ${failCount} failed.`);
+      } else {
+        showToast("No invites were sent.");
+      }
+    });
+
+    document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
+
+    document.getElementById("shareCampBtn").addEventListener("click", async (event) => {
+      event.preventDefault();
+      const url = currentShareUrl();
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("Share link copied.");
+      } catch (error) {
+        showToast("Could not copy the share link.");
+      }
+    });
+
+    syncCampData();
+    renderPreview();
+    renderMembers();
+    renderSections();
+    updateInviteButton();
+  </script>
+</body>
+</html>
