@@ -276,9 +276,10 @@ textarea{resize:vertical;min-height:55px;}
   <div class="mode-group">
     <button class="mode-btn active"  id="mode-view"  onclick="setMode('view')">👁 View</button>
     <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
-    <button class="mode-btn mr"     id="mode-route" onclick="autoDrawDeerDriveRoutes()">3. Auto-Draw Drive Route</button>
+    <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">1. DeerDrive Builder</button>
     <button class="mode-btn" id="mode-setdrive" onclick="toggleSetDrive()">2. Set Drive</button>
-<button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">1. DeerDrive Builder</button>
+    <button class="mode-btn mr" id="mode-route" onclick="autoDrawDeerDriveRoutes()">3. Auto-Draw Drive Route</button>
+    <button class="mode-btn" id="mode-save-drive" onclick="saveDriveSnapshot()">4. Save Drive</button>
 </div>
 <div class="menu-badges" aria-label="Driver and Stander key">
     <div class="menu-badge-wrap">
@@ -951,7 +952,7 @@ function updateDeerDriveActionButtons(){
   const routeBtn = document.getElementById('mode-route');
   if(setBtn){
     setBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
-    setBtn.textContent = deerDrivePlan.isLocked ? '2. Drive Set' : '2. Set Drive';
+    setBtn.textContent = '2. Set Drive';
   }
   if(routeBtn){
     routeBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
@@ -966,6 +967,14 @@ function clearDeerDriveAutoRoutes(){
     routes = routes.filter(r=>!autoIds.includes(r.id));
   }
   deerDrivePlan.autoRouteIds = [];
+}
+function saveDriveSnapshot(){
+  if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
+    document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
+    return;
+  }
+  saveLocal();
+  document.getElementById('status-bar').innerHTML='4. Save Drive saved the current DeerDrive layout.';
 }
 function toggleSetDrive(){
   if(!drivers.length && !standers.length){
@@ -1285,6 +1294,7 @@ window.setDeerDriveCount=setDeerDriveCount;
 window.saveDeerDriveBuilder=saveDeerDriveBuilder;
 window.toggleSetDrive=toggleSetDrive;
 window.autoDrawDeerDriveRoutes=autoDrawDeerDriveRoutes;
+window.saveDriveSnapshot=saveDriveSnapshot;
 
 // ═══════════════════════════════════════════════
 // STANDS
