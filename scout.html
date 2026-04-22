@@ -110,10 +110,14 @@ header::-webkit-scrollbar{height:0;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
-.panel-toggle{position:fixed;top:58px;right:0;z-index:950;background:var(--moss);color:var(--cream);border:none;border-radius:6px 0 0 6px;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;}
+.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;display:none;}
 .panel-toggle:hover{background:var(--sage);}
-.side-panel{position:fixed;top:50px;right:0;bottom:0;width:268px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
+.panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
+.panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
+.side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
 .side-panel.open{transform:translateX(0);}
+.side-panel.left{left:0;right:auto;border-left:none;border-right:2px solid var(--moss);transform:translateX(-100%);}
+.side-panel.left.open{transform:translateX(0);}
 .panel-hdr{padding:10px 12px;border-bottom:1px solid #3a2c1e;display:flex;align-items:center;justify-content:space-between;}
 .panel-hdr-title{font-size:.6rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);}
 .panel-close{background:none;border:none;color:var(--sage);cursor:pointer;font-size:.9rem;}
@@ -276,10 +280,9 @@ textarea{resize:vertical;min-height:55px;}
   <div class="mode-group">
     <button class="mode-btn active"  id="mode-view"  onclick="setMode('view')">👁 View</button>
     <button class="mode-btn"        id="mode-stand" onclick="setMode('stand')">📍 Stand</button>
-    <button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">1. DeerDrive Builder</button>
-    <button class="mode-btn" id="mode-setdrive" onclick="toggleSetDrive()">2. Set Drive</button>
-    <button class="mode-btn mr" id="mode-route" onclick="autoDrawDeerDriveRoutes()">3. Auto-Draw Drive Route</button>
-    <button class="mode-btn" id="mode-save-drive" onclick="saveDriveSnapshot()">4. Save Drive</button>
+    <button class="mode-btn mr"     id="mode-route" onclick="setMode('route')">3. Auto-Draw Drive Route</button>
+    <button class="mode-btn" id="mode-setdrive" onclick="setMode('deerdrivebuilder')">2. Set Drive</button>
+<button class="mode-btn" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">1. DeerDrive Builder</button>
 </div>
 <div class="menu-badges" aria-label="Driver and Stander key">
     <div class="menu-badge-wrap">
@@ -338,12 +341,13 @@ textarea{resize:vertical;min-height:55px;}
   </svg>
 </div>
 
-<button class="panel-toggle" onclick="togglePanel()">STANDS</button>
+<button class="panel-toggle panel-toggle-right" id="panel-toggle-right" onclick="togglePanel('right')">HELPER</button>
+<button class="panel-toggle panel-toggle-left" id="panel-toggle-left" onclick="togglePanel('left')">HELPER</button>
 
 <!-- Side panel -->
 <div class="side-panel" id="side-panel">
   <div class="panel-hdr">
-    <span class="panel-hdr-title">All Features</span>
+    <span class="panel-hdr-title">DeerDrive/DeerStand Builder Helper</span>
     <button class="panel-close" onclick="togglePanel()">✕</button>
   </div>
   <div class="panel-body" id="panel-body"></div>
@@ -655,7 +659,7 @@ let routeEndArrow='';
 let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
-let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0};
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
 
@@ -670,6 +674,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
   attribution:'', maxZoom:19, opacity:0.5
 }).addTo(map);
 
+map.on('moveend', syncHelperToggleSide);
 map.on('click', e=>{
   if (mode==='stand') { pendingLL=e.latlng; editingStandId=null; openStandModal(); }
   else if (['route','drive'].includes(mode) && awaitingRouteEndPlacement && routeEndArrow) {
@@ -935,184 +940,6 @@ function closeDeerDriveBuilderModal(){
   document.getElementById('modal-deerdrive-builder').classList.remove('open');
   deerDriveAnchor = null;
 }
-function getRoleMarkers(role){
-  return role==='driver' ? drivers : standers;
-}
-function setRoleMarkersLocked(role, locked){
-  getRoleMarkers(role).forEach(item=>{
-    const layer = allLayers[item.id];
-    if(layer && layer.dragging){
-      if(locked) layer.dragging.disable();
-      else layer.dragging.enable();
-    }
-  });
-}
-function updateDeerDriveActionButtons(){
-  const setBtn = document.getElementById('mode-setdrive');
-  const routeBtn = document.getElementById('mode-route');
-  if(setBtn){
-    setBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
-    setBtn.textContent = '2. Set Drive';
-  }
-  if(routeBtn){
-    routeBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
-  }
-}
-function clearDeerDriveAutoRoutes(){
-  const autoIds = Array.isArray(deerDrivePlan.autoRouteIds) ? deerDrivePlan.autoRouteIds : [];
-  if(autoIds.length){
-    autoIds.forEach(id=>{
-      if(allLayers[id]){ try{ map.removeLayer(allLayers[id]); }catch(e){} delete allLayers[id]; }
-    });
-    routes = routes.filter(r=>!autoIds.includes(r.id));
-  }
-  deerDrivePlan.autoRouteIds = [];
-}
-function saveDriveSnapshot(){
-  if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
-    document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
-    return;
-  }
-  saveLocal();
-  document.getElementById('status-bar').innerHTML='4. Save Drive saved the current DeerDrive layout.';
-}
-function toggleSetDrive(){
-  if(!drivers.length && !standers.length){
-    document.getElementById('status-bar').innerHTML='Set up the DeerDrive Builder first, then tap 2. Set Drive.';
-    return;
-  }
-  deerDrivePlan.isLocked = !deerDrivePlan.isLocked;
-  setRoleMarkersLocked('driver', deerDrivePlan.isLocked);
-  setRoleMarkersLocked('stander', deerDrivePlan.isLocked);
-  updateDeerDriveActionButtons();
-  saveLocal();
-  renderPanel();
-  document.getElementById('status-bar').innerHTML = deerDrivePlan.isLocked
-    ? '2. Set Drive locked the blue and yellow circles. Now tap 3. Auto-Draw Drive Route.'
-    : 'Drive unlocked. You can drag the circles again.';
-}
-function getDriveAxisData(){
-  const points = [...drivers, ...standers];
-  if(points.length < 2) return null;
-  const driverCenter = {
-    lat: drivers.reduce((sum,item)=>sum+item.lat,0) / Math.max(drivers.length,1),
-    lng: drivers.reduce((sum,item)=>sum+item.lng,0) / Math.max(drivers.length,1)
-  };
-  const standerCenter = {
-    lat: standers.reduce((sum,item)=>sum+item.lat,0) / Math.max(standers.length,1),
-    lng: standers.reduce((sum,item)=>sum+item.lng,0) / Math.max(standers.length,1)
-  };
-  let vx = standerCenter.lng - driverCenter.lng;
-  let vy = standerCenter.lat - driverCenter.lat;
-  const mag = Math.hypot(vx, vy) || 1;
-  vx /= mag; vy /= mag;
-  const px = -vy, py = vx; // perpendicular axis for ordering across the line
-  return {driverCenter, standerCenter, vx, vy, px, py};
-}
-function projectAcross(point, axis){
-  return point.lng * axis.px + point.lat * axis.py;
-}
-function sortByDriveFront(items, axis){
-  return [...items].sort((a,b)=>projectAcross(a, axis) - projectAcross(b, axis));
-}
-function interpolatePoint(a, b, t){
-  return {lat: a.lat + (b.lat - a.lat)*t, lng: a.lng + (b.lng - a.lng)*t};
-}
-function cumulativePolylineLengths(points){
-  const out = [0];
-  let total = 0;
-  for(let i=1;i<points.length;i++){
-    total += Math.hypot(points[i].lng-points[i-1].lng, points[i].lat-points[i-1].lat);
-    out.push(total);
-  }
-  return {lengths: out, total};
-}
-function interpolateAlongPolyline(points, fraction){
-  if(points.length === 1) return {lat: points[0].lat, lng: points[0].lng};
-  const {lengths, total} = cumulativePolylineLengths(points);
-  if(total === 0) return {lat: points[0].lat, lng: points[0].lng};
-  const target = total * fraction;
-  for(let i=1;i<points.length;i++){
-    if(target <= lengths[i]){
-      const segLen = lengths[i] - lengths[i-1] || 1;
-      const localT = (target - lengths[i-1]) / segLen;
-      return interpolatePoint(points[i-1], points[i], localT);
-    }
-  }
-  return {lat: points[points.length-1].lat, lng: points[points.length-1].lng};
-}
-function arrowFromVector(start, end){
-  const dx = end.lng - start.lng;
-  const dy = end.lat - start.lat;
-  if(Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
-  return dy >= 0 ? 'up' : 'down';
-}
-function buildAutoDriveTargets(sortedDrivers, sortedStanders){
-  if(!sortedDrivers.length || !sortedStanders.length) return [];
-  if(sortedDrivers.length === sortedStanders.length){
-    return sortedDrivers.map((driver, idx)=>({
-      driver,
-      target:{lat: sortedStanders[idx].lat, lng: sortedStanders[idx].lng},
-      mode:'direct'
-    }));
-  }
-  if(sortedStanders.length === 1){
-    return sortedDrivers.map(driver=>({
-      driver,
-      target:{lat: sortedStanders[0].lat, lng: sortedStanders[0].lng},
-      mode:'direct'
-    }));
-  }
-  return sortedDrivers.map((driver, idx)=>{
-    const fraction = (idx + 1) / (sortedDrivers.length + 1);
-    return {
-      driver,
-      target: interpolateAlongPolyline(sortedStanders.map(s=>({lat:s.lat,lng:s.lng})), fraction),
-      mode:'split'
-    };
-  });
-}
-function autoDrawDeerDriveRoutes(){
-  if(!drivers.length || !standers.length){
-    document.getElementById('status-bar').innerHTML='Add both D/P and S/B circles first, then tap 2. Set Drive.';
-    return;
-  }
-  if(!deerDrivePlan.isLocked){
-    document.getElementById('status-bar').innerHTML='Tap 2. Set Drive first to freeze the drive before auto-drawing routes.';
-    return;
-  }
-  clearDeerDriveAutoRoutes();
-  const axis = getDriveAxisData();
-  if(!axis){
-    document.getElementById('status-bar').innerHTML='Unable to calculate drive route positions.';
-    return;
-  }
-  const sortedDrivers = sortByDriveFront(drivers, axis);
-  const sortedStanders = sortByDriveFront(standers, axis);
-  const pairs = buildAutoDriveTargets(sortedDrivers, sortedStanders);
-  const autoIds = [];
-  pairs.forEach((pair, idx)=>{
-    const endArrow = arrowFromVector(pair.driver, pair.target);
-    const rec = {
-      id: Date.now() + idx + Math.floor(Math.random()*1000),
-      name: `${deerDrivePlan.driveName || 'Deer Drive'} Route ${idx+1}`,
-      notes: pair.mode === 'direct' ? 'Direct from D/P to S/B' : 'Split the distance',
-      type: 'route',
-      pts: [[pair.driver.lat, pair.driver.lng], [pair.target.lat, pair.target.lng]],
-      endArrow,
-      generated: 'deerdrive'
-    };
-    routes.push(rec);
-    createRouteLayer(rec);
-    autoIds.push(rec.id);
-  });
-  deerDrivePlan.autoRouteIds = autoIds;
-  saveLocal();
-  renderPanel();
-  document.getElementById('status-bar').innerHTML = pairs.some(p=>p.mode==='split')
-    ? '3. Auto-Draw Drive Route created split-distance dashed routes with arrows.'
-    : '3. Auto-Draw Drive Route created direct dashed routes with arrows.';
-}
 function openDeerDriveBuilderFromToolbar(){
   deerDriveAnchor = map.getCenter();
   setMode('deerdrivebuilder');
@@ -1229,29 +1056,20 @@ function saveDeerDriveBuilder(){
     return;
   }
 
-  clearDeerDriveAutoRoutes();
-  deerDrivePlan.isLocked = false;
   const newDrivers = buildRoleRecords('driver', driverCount, driveName, deerDriveAnchor, 10);
   const newStanders = buildRoleRecords('stander', standerCount, driveName, deerDriveAnchor, 200);
   newDrivers.forEach(rec=>{ drivers.push(rec); addRoleMarkerRecord(rec); });
   newStanders.forEach(rec=>{ standers.push(rec); addRoleMarkerRecord(rec); });
-  setRoleMarkersLocked('driver', false);
-  setRoleMarkersLocked('stander', false);
   closeDeerDriveBuilderModal();
-  updateDeerDriveActionButtons();
   saveLocal();
   renderPanel();
   setMode('view');
-  document.getElementById('status-bar').innerHTML='DeerDrive Builder completed. Drag the blue and yellow circles into position, then tap 2. Set Drive.';
 }
 // ===== DEERDRIVE BUILDER LOGIC END =====
 function deleteRoleMarker(id, role){
   if(allLayers[id]){ map.removeLayer(allLayers[id]); delete allLayers[id]; }
   if(role==='driver') drivers = drivers.filter(item=>item.id!==id);
   else standers = standers.filter(item=>item.id!==id);
-  clearDeerDriveAutoRoutes();
-  deerDrivePlan.isLocked = false;
-  updateDeerDriveActionButtons();
   map.closePopup(); saveLocal(); renderPanel();
 }
 function clearAllMarks(){
@@ -1277,11 +1095,10 @@ function clearAllMarks(){
   acrePts = [];
   acreCalcM2 = 0;
   deerDriveAnchor = null;
-  deerDrivePlan = {driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+  deerDrivePlan = {driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0};
   clearRouteEndArrow();
   map.closePopup();
   cleanupAcre();
-  updateDeerDriveActionButtons();
   saveLocal();
   renderPanel();
   document.getElementById('status-bar').innerHTML='🧹 Cleared all marks on the map.';
@@ -1292,9 +1109,6 @@ window.openDeerDriveBuilderModal=openDeerDriveBuilderModal;
 window.closeDeerDriveBuilderModal=closeDeerDriveBuilderModal;
 window.setDeerDriveCount=setDeerDriveCount;
 window.saveDeerDriveBuilder=saveDeerDriveBuilder;
-window.toggleSetDrive=toggleSetDrive;
-window.autoDrawDeerDriveRoutes=autoDrawDeerDriveRoutes;
-window.saveDriveSnapshot=saveDriveSnapshot;
 
 // ═══════════════════════════════════════════════
 // STANDS
@@ -1622,7 +1436,49 @@ function runRecommender(){
 // ═══════════════════════════════════════════════
 // PANEL
 // ═══════════════════════════════════════════════
-function togglePanel(){panelOpen=!panelOpen;document.getElementById('side-panel').classList.toggle('open',panelOpen);}
+let panelSide='right';
+function togglePanel(side){
+  const panel=document.getElementById('side-panel');
+  if(side) panelSide=side;
+  panel.classList.toggle('left', panelSide==='left');
+  panelOpen=!panelOpen;
+  panel.classList.toggle('open',panelOpen);
+}
+function getHelperPanelHTML(){
+  return `<div style="padding:12px 12px 16px;color:var(--cream);font-size:.62rem;line-height:1.85">
+    <div style="color:var(--tan);font-family:'Playfair Display',serif;font-size:.9rem;margin-bottom:8px;">DeerDrive & DeerStand Builder Helper</div>
+    <div style="margin-bottom:8px;">To Build your DeerDrive on Stand Scout Elite</div>
+    <ol style="padding-left:18px;display:grid;gap:6px;">
+      <li>Type in property address or city/state to navigate map to location.</li>
+      <li>Zoom in on location to create your deer drive.</li>
+      <li>Tap DeerDrive Builder on Menu Bar to:
+        <div style="padding-left:12px;margin-top:4px;">
+          a. Name your deer drive<br>
+          b. Choose # of Drivers/Pushers (blue circles) & Standers/Blockers (yellow circles) in the drive<br>
+          c. Choose the Wind Direction on drive for To and From<br>
+          d. Tap Ok to drop your pins onto the map<br>
+          e. Drag your D/P and S/B pins into position
+        </div>
+      </li>
+      <li>Tap Set Drive button to freeze pins on deer drive location.</li>
+      <li>Tap Auto-Draw Drive Route button to draw the dashed drive routes with direction arrows.</li>
+    </ol>
+  </div>`;
+}
+function getPanelPreferredSide(){
+  return map.getCenter().lng < -90.2 ? 'right' : 'left';
+}
+function syncHelperToggleSide(){
+  const side = getPanelPreferredSide();
+  const rightBtn = document.getElementById('panel-toggle-right');
+  const leftBtn = document.getElementById('panel-toggle-left');
+  if(rightBtn) rightBtn.style.display = side==='right' ? 'block' : 'none';
+  if(leftBtn) leftBtn.style.display = side==='left' ? 'block' : 'none';
+  const panel = document.getElementById('side-panel');
+  if(panel) panel.classList.toggle('left', side==='left');
+  panelSide = side;
+}
+
 function renderPanel(){
   const body=document.getElementById('panel-body');
   let html='';
@@ -1730,7 +1586,7 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
@@ -1807,7 +1663,7 @@ try{
   const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
       const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
