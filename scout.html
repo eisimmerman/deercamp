@@ -109,14 +109,15 @@ header::-webkit-scrollbar{height:0;}
 
 /* SIDE PANEL */
 @keyframes helperPulse{
-  0%{transform:scale(1);box-shadow:0 0 0 0 rgba(58,186,160,.75), 0 0 14px rgba(58,186,160,.45);}
-  35%{transform:scale(1.08);box-shadow:0 0 0 10px rgba(58,186,160,.28), 0 0 22px rgba(58,186,160,.6);}
-  70%{transform:scale(1.13);box-shadow:0 0 0 18px rgba(58,186,160,0), 0 0 30px rgba(58,186,160,.18);}
-  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(58,186,160,0), 0 0 12px rgba(58,186,160,.22);}
+  0%{transform:scale(1);box-shadow:0 0 0 0 rgba(58,186,160,.92), 0 0 16px rgba(58,186,160,.70);}
+  35%{transform:scale(1.12);box-shadow:0 0 0 12px rgba(58,186,160,.34), 0 0 28px rgba(58,186,160,.82);}
+  70%{transform:scale(1.18);box-shadow:0 0 0 22px rgba(58,186,160,0), 0 0 38px rgba(58,186,160,.26);}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(58,186,160,0), 0 0 14px rgba(58,186,160,.30);}
 }
-.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s, opacity .15s, transform .15s;display:block;opacity:.2;filter:saturate(.55);}
+.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s, opacity .15s, transform .15s, filter .15s;display:block;}
 .panel-toggle:hover{background:var(--sage);}
-.panel-toggle.active-helper{opacity:1;background:#1f7a68;color:#fff;border:1px solid #8ff5df;animation:helperPulse 1.15s infinite;filter:none;}
+.panel-toggle.inactive-helper{opacity:.12;filter:grayscale(.45) saturate(.35);}
+.panel-toggle.active-helper{opacity:1;background:#12705e;color:#fff;border:1px solid #aaf7e7;animation:helperPulse .95s infinite;filter:none;}
 .panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
 .panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
 .side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
@@ -720,13 +721,23 @@ function createRouteLayer(rec){
   const line = L.polyline(pts, polyStyle(rec.type));
   const popup = polyPopupHTML(rec);
   line.bindPopup(popup);
-  if((rec.type==='route' || rec.type==='drive') && rec.endArrow && Array.isArray(rec.pts) && rec.pts.length){
-    const last = rec.pts[rec.pts.length-1];
-    const marker = L.marker(last, {icon: routeEndIcon(rec.type, rec.endArrow)}).bindPopup(popup);
+
+  if((rec.type==='route' || rec.type==='drive') && rec.endArrow && Array.isArray(rec.pts) && rec.pts.length >= 2){
+    const end = rec.pts[rec.pts.length-1];
+    const prev = rec.pts[rec.pts.length-2];
+    const dx = end[1] - prev[1];
+    const dy = end[0] - prev[0];
+    const len = Math.hypot(dx, dy) || 1;
+    const backoff = Math.min(0.00009, len * 0.22);
+    const arrowLat = end[0] - (dy / len) * backoff;
+    const arrowLng = end[1] - (dx / len) * backoff;
+
+    const marker = L.marker([arrowLat, arrowLng], {icon: routeEndIcon(rec.type, rec.endArrow)}).bindPopup(popup);
     const group = L.featureGroup([line, marker]).addTo(map);
     allLayers[rec.id] = group;
     return group;
   }
+
   const group = L.featureGroup([line]).addTo(map);
   allLayers[rec.id] = group;
   return group;
@@ -1613,17 +1624,27 @@ function runRecommender(){
 let panelSide='right';
 function togglePanel(side){
   const panel=document.getElementById('side-panel');
-  if(panelOpen){
-    panelOpen=false;
-    panel.classList.remove('open');
-    return;
+  const preferred = getPanelPreferredSide();
+  if(side){
+    const requested = side === 'left' ? 'left' : 'right';
+    if(panelOpen && panelSide === requested){
+      panelOpen = false;
+      panel.classList.remove('open');
+      return;
+    }
+    panelSide = requested;
+  } else {
+    if(panelOpen){
+      panelOpen = false;
+      panel.classList.remove('open');
+      return;
+    }
+    panelSide = preferred;
   }
-  panelSide = getPanelPreferredSide();
   panel.classList.toggle('left', panelSide==='left');
-  panelOpen=true;
+  panelOpen = true;
   panel.classList.add('open');
 }
-
 function getHelperPanelHTML(){
   return `<div style="padding:12px 12px 28px;color:var(--cream);font-size:.62rem;line-height:1.9">
     <div style="margin-bottom:10px;">To Build DeerDrive on Stand Scout Elite</div>
@@ -1666,10 +1687,25 @@ function syncHelperToggleSide(){
   const panel = document.getElementById('side-panel');
   const leftBtn = document.getElementById('panel-toggle-left');
   const rightBtn = document.getElementById('panel-toggle-right');
+
   if(leftBtn){
-    leftBtn.classList.toggle('active-helper', side==='left');
-    leftBtn.setAttribute('aria-hidden', side==='left' ? 'false' : 'true');
+    leftBtn.classList.toggle('active-helper', side === 'left');
+    leftBtn.classList.toggle('inactive-helper', side !== 'left');
+    leftBtn.setAttribute('aria-pressed', side === 'left' ? 'true' : 'false');
   }
+  if(rightBtn){
+    rightBtn.classList.toggle('active-helper', side === 'right');
+    rightBtn.classList.toggle('inactive-helper', side !== 'right');
+    rightBtn.setAttribute('aria-pressed', side === 'right' ? 'true' : 'false');
+  }
+
+  if(panelOpen){
+    panel.classList.toggle('left', panelSide === 'left');
+  } else {
+    panel.classList.toggle('left', side === 'left');
+    panelSide = side;
+  }
+}
   if(rightBtn){
     rightBtn.classList.toggle('active-helper', side==='right');
     rightBtn.setAttribute('aria-hidden', side==='right' ? 'false' : 'true');
