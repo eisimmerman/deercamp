@@ -1292,13 +1292,18 @@ async function generateDeerDriveThumbnailDataUrl(width=1200, height=675){
   let minLng = Math.min(...latLngs.map(p => p.lng));
   let maxLng = Math.max(...latLngs.map(p => p.lng));
 
-  const latPad = Math.max((maxLat - minLat) * 0.18, 0.0009);
-  const lngPad = Math.max((maxLng - minLng) * 0.18, 0.0009);
+  // Make crop just a little larger than the full D/P + S/B + route area,
+  // with extra right/left breathing room so outside markers never clip.
+  const spanLat = Math.max(maxLat - minLat, 0.0006);
+  const spanLng = Math.max(maxLng - minLng, 0.0006);
+  const padTop = Math.max(spanLat * 0.12, 0.00045);
+  const padBottom = Math.max(spanLat * 0.16, 0.00055);
+  const padSide = Math.max(spanLng * 0.18, 0.00075);
 
-  minLat -= latPad;
-  maxLat += latPad;
-  minLng -= lngPad;
-  maxLng += lngPad;
+  minLat -= padBottom;
+  maxLat += padTop;
+  minLng -= padSide;
+  maxLng += padSide;
 
   const bgUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLng},${minLat},${maxLng},${maxLat}&bboxSR=4326&imageSR=4326&size=${width},${height}&format=png32&transparent=false&f=image`;
   let bgDataUrl = '';
