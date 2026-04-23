@@ -63,9 +63,9 @@ header::-webkit-scrollbar{height:0;}
 .menu-badge.driver{background:#6b32ff;}
 .menu-badge.stander{background:#f4e600;color:#231a13;border-color:rgba(0,0,0,.18);} 
 
-.route-end-icon{width:26px;height:26px;border-radius:999px;display:flex;align-items:center;justify-content:center;border:2px solid #f0e8d8;font:700 14px 'IBM Plex Mono',monospace;box-shadow:0 4px 12px rgba(0,0,0,.35);}
-.route-end-icon.route{background:#111;color:#fff8ef;font-size:12px;}
-.route-end-icon.drive{background:#111;color:#fff8ef;font-size:12px;}
+.route-end-icon{display:flex;align-items:center;justify-content:center;font:700 24px 'IBM Plex Mono',monospace;line-height:1;color:#fff8ef;text-shadow:-1px -1px 0 #111, 1px -1px 0 #111, -1px 1px 0 #111, 1px 1px 0 #111, 0 0 8px rgba(0,0,0,.45);}
+.route-end-icon.route{color:#fff8ef;}
+.route-end-icon.drive{color:#fff8ef;}
 
 /* MAP */
 #map{flex:1;z-index:1;}
@@ -707,12 +707,18 @@ function polyStyle(t){
 function routeEndIcon(type, endArrow){
   if(!endArrow) return null;
   const arrowMap = {up:'↑',down:'↓',left:'←',right:'→'};
-  const arrowChar = arrowMap[endArrow] || '↑';
+  const arrowChar = arrowMap[endArrow] || '→';
+  const anchorMap = {
+    up:[12,4],
+    down:[12,20],
+    left:[4,12],
+    right:[20,12]
+  };
   return L.divIcon({
     html:`<div class="route-end-icon ${type==='route'?'route':'drive'}">${arrowChar}</div>`,
     className:'',
-    iconSize:[26,26],
-    iconAnchor:[13,13],
+    iconSize:[24,24],
+    iconAnchor:anchorMap[endArrow] || [20,12],
     popupAnchor:[0,-12]
   });
 }
@@ -1036,27 +1042,85 @@ function arrowFromVector(start, end){
   if(Math.abs(dx) > Math.abs(dy)) return dx >= 0 ? 'right' : 'left';
   return dy >= 0 ? 'up' : 'down';
 }
+function midpoint(a, b){
+  return {lat:(a.lat + b.lat)/2, lng:(a.lng + b.lng)/2};
+}
+function shortenTowardTarget(start, end, backoff=0.000055){
+  const dx = end.lng - start.lng;
+  const dy = end.lat - start.lat;
+  const len = Math.hypot(dx, dy) || 1;
+  const useBackoff = Math.min(backoff, len * 0.33);
+  return {lat:end.lat - (dy/len)*useBackoff, lng:end.lng - (dx/len)*useBackoff};
+}
 function buildAutoDriveTargets(sortedDrivers, sortedStanders){
   if(!sortedDrivers.length || !sortedStanders.length) return [];
-  if(sortedDrivers.length === sortedStanders.length){
+  const d = sortedDrivers.length;
+  const s = sortedStanders.length;
+
+  // Even D/P and even S/B -> direct one-to-one
+  if(d === s){
     return sortedDrivers.map((driver, idx)=>({
       driver,
       target:{lat: sortedStanders[idx].lat, lng: sortedStanders[idx].lng},
+      targetKind:'stander',
       mode:'direct'
     }));
   }
-  if(sortedStanders.length === 1){
+
+  // Odd D/P, Even S/B -> split the distance into the gaps
+  if((d % 2 === 1) && (s % 2 === 0) && s === d + 1){
+    return sortedDrivers.map((driver, idx)=>({
+      driver,
+      target: midpoint(sortedStanders[idx], sortedStanders[idx+1]),
+      targetKind:'gap',
+      mode:'gap'
+    }));
+  }
+
+  // Even D/P, Odd S/B -> outside D/P to outside S/B, inside D/P to center-side gaps
+  if((d % 2 === 0) && (s % 2 === 1) && s === d + 1){
+    return sortedDrivers.map((driver, idx)=>{
+      if(idx === 0){
+        return {
+          driver,
+          target:{lat: sortedStanders[0].lat, lng: sortedStanders[0].lng},
+          targetKind:'stander',
+          mode:'direct'
+        };
+      }
+      if(idx === d - 1){
+        return {
+          driver,
+          target:{lat: sortedStanders[s-1].lat, lng: sortedStanders[s-1].lng},
+          targetKind:'stander',
+          mode:'direct'
+        };
+      }
+      return {
+        driver,
+        target: midpoint(sortedStanders[idx], sortedStanders[idx+1]),
+        targetKind:'gap',
+        mode:'gap'
+      };
+    });
+  }
+
+  // Fallbacks
+  if(s === 1){
     return sortedDrivers.map(driver=>({
       driver,
       target:{lat: sortedStanders[0].lat, lng: sortedStanders[0].lng},
+      targetKind:'stander',
       mode:'direct'
     }));
   }
+
   return sortedDrivers.map((driver, idx)=>{
     const fraction = (idx + 1) / (sortedDrivers.length + 1);
     return {
       driver,
       target: interpolateAlongPolyline(sortedStanders.map(s=>({lat:s.lat,lng:s.lng})), fraction),
+      targetKind:'gap',
       mode:'split'
     };
   });
@@ -1080,14 +1144,19 @@ function autoDrawDeerDriveRoutes(){
   const sortedStanders = sortByDriveFront(standers, axis);
   const pairs = buildAutoDriveTargets(sortedDrivers, sortedStanders);
   const autoIds = [];
+
   pairs.forEach((pair, idx)=>{
-    const endArrow = arrowFromVector(pair.driver, pair.target);
+    const routeEnd = pair.targetKind === 'stander'
+      ? shortenTowardTarget(pair.driver, pair.target)
+      : pair.target;
+
+    const endArrow = arrowFromVector(pair.driver, routeEnd);
     const rec = {
       id: Date.now() + idx + Math.floor(Math.random()*1000),
       name: `${deerDrivePlan.driveName || 'Deer Drive'} Route ${idx+1}`,
-      notes: pair.mode === 'direct' ? 'Direct from D/P to S/B' : 'Split the distance',
+      notes: pair.mode === 'direct' ? 'Direct from D/P to S/B' : 'Split the distance into the gap',
       type: 'route',
-      pts: [[pair.driver.lat, pair.driver.lng], [pair.target.lat, pair.target.lng]],
+      pts: [[pair.driver.lat, pair.driver.lng], [routeEnd.lat, routeEnd.lng]],
       endArrow,
       generated: 'deerdrive'
     };
@@ -1095,12 +1164,11 @@ function autoDrawDeerDriveRoutes(){
     createRouteLayer(rec);
     autoIds.push(rec.id);
   });
+
   deerDrivePlan.autoRouteIds = autoIds;
   saveLocal();
   renderPanel();
-  document.getElementById('status-bar').innerHTML = pairs.some(p=>p.mode==='split')
-    ? '3. Auto-Draw Drive Route created split-distance dashed routes with arrows.'
-    : '3. Auto-Draw Drive Route created direct dashed routes with arrows.';
+  document.getElementById('status-bar').innerHTML='3. Auto-Draw Drive Route created the DeerDrive push routes with visible end arrows.';
 }
 function openDeerDriveBuilderFromToolbar(){
   deerDriveAnchor = map.getCenter();
@@ -1741,7 +1809,7 @@ function renderPanel(){
       <div class="card-meta">${a.acres} acres</div>
     </div>`).join('');
   }
-  if(drivers.length || standers.length){
+  if((drivers.length || standers.length) && !routes.some(r=>r.generated==='deerdrive')){
     html+=`<div class="panel-section-label">DeerDrive Builder (${drivers.length + standers.length})</div>`;
     html+=[...drivers, ...standers].map(m=>`<div class="stand-card" onclick="flyToRole(${m.id})"><div class="card-name">${m.role==='driver'?'D/P':'S/B'} ${m.slot || ''}</div><div class="card-meta">${m.driveName || 'Deer Drive'}${m.windLabel ? ' · ' + m.windLabel : ''} · ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}</div></div>`).join('');
   }
