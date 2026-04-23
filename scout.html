@@ -1210,76 +1210,6 @@ function slugifyValue(value=''){
 function generateDeerDriveThumbnailDataUrl(){
   const width = 1200;
   const height = 675;
-  const mapEl = map.getContainer();
-  const mapRect = mapEl.getBoundingClientRect();
-  const mapW = Math.max(mapEl.clientWidth || 0, 1);
-  const mapH = Math.max(mapEl.clientHeight || 0, 1);
-
-  const latLngs = [
-    ...drivers.map(item => L.latLng(item.lat, item.lng)),
-    ...standers.map(item => L.latLng(item.lat, item.lng)),
-    ...getSavedDriveRoutes().flatMap(route => (route.pts || []).map(pt => L.latLng(pt[0], pt[1])))
-  ];
-  if(!latLngs.length) return '';
-
-  const points = latLngs.map(ll => map.latLngToContainerPoint(ll));
-  const minX = Math.min(...points.map(p => p.x));
-  const maxX = Math.max(...points.map(p => p.x));
-  const minY = Math.min(...points.map(p => p.y));
-  const maxY = Math.max(...points.map(p => p.y));
-
-  const pad = 90;
-  const cropX = Math.max(0, minX - pad);
-  const cropY = Math.max(0, minY - pad);
-  const cropW = Math.max(240, Math.min(mapW - cropX, (maxX - minX) + pad * 2));
-  const cropH = Math.max(180, Math.min(mapH - cropY, (maxY - minY) + pad * 2));
-  const scale = Math.min(width / cropW, height / cropH);
-  const offsetX = (width - cropW * scale) / 2;
-  const offsetY = (height - cropH * scale) / 2;
-
-  const projectPoint = (pt) => ({
-    x: offsetX + (pt.x - cropX) * scale,
-    y: offsetY + (pt.y - cropY) * scale
-  });
-
-  function drawRouteArrow(ctx, x1, y1, x2, y2){
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    ctx.save();
-    ctx.translate(x2, y2);
-    ctx.rotate(angle);
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(-18, -11);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(-18, 11);
-    ctx.strokeStyle = '#fff8ef';
-    ctx.lineWidth = 6;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-18, -11);
-    ctx.lineTo(0, 0);
-    ctx.lineTo(-18, 11);
-    ctx.strokeStyle = '#111';
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawMarker(ctx, x, y, fill, text, textColor){
-    ctx.beginPath();
-    ctx.arc(x, y, 24, 0, Math.PI * 2);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-    ctx.fillStyle = textColor;
-    ctx.font = '700 24px "IBM Plex Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(String(text || ''), x, y + 1);
-  }
 
   const esc = (value='') => String(value)
     .replace(/&/g,'&amp;')
@@ -1288,140 +1218,81 @@ function generateDeerDriveThumbnailDataUrl(){
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if(!ctx) throw new Error('Canvas unavailable');
+  const latLngs = [
+    ...drivers.map(item => ({lat:item.lat, lng:item.lng})),
+    ...standers.map(item => ({lat:item.lat, lng:item.lng})),
+    ...getSavedDriveRoutes().flatMap(route => (route.pts || []).map(pt => ({lat:pt[0], lng:pt[1]})))
+  ];
+  if(!latLngs.length) return '';
 
-    ctx.fillStyle = '#e9decf';
-    ctx.fillRect(0, 0, width, height);
+  let minLat = Math.min(...latLngs.map(p => p.lat));
+  let maxLat = Math.max(...latLngs.map(p => p.lat));
+  let minLng = Math.min(...latLngs.map(p => p.lng));
+  let maxLng = Math.max(...latLngs.map(p => p.lng));
 
-    const radius = 26;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(radius, 0);
-    ctx.lineTo(width - radius, 0);
-    ctx.quadraticCurveTo(width, 0, width, radius);
-    ctx.lineTo(width, height - radius);
-    ctx.quadraticCurveTo(width, height, width - radius, height);
-    ctx.lineTo(radius, height);
-    ctx.quadraticCurveTo(0, height, 0, height - radius);
-    ctx.lineTo(0, radius);
-    ctx.quadraticCurveTo(0, 0, radius, 0);
-    ctx.closePath();
-    ctx.clip();
+  const latPad = Math.max((maxLat - minLat) * 0.18, 0.0009);
+  const lngPad = Math.max((maxLng - minLng) * 0.18, 0.0009);
 
-    const tileImages = [...document.querySelectorAll('#map .leaflet-tile-pane img.leaflet-tile')]
-      .filter(img => img.complete && (img.naturalWidth || img.width));
-    tileImages.forEach(img => {
-      const rect = img.getBoundingClientRect();
-      const x = offsetX + ((rect.left - mapRect.left) - cropX) * scale;
-      const y = offsetY + ((rect.top - mapRect.top) - cropY) * scale;
-      const w = rect.width * scale;
-      const h = rect.height * scale;
-      if(w <= 0 || h <= 0 || x > width || y > height || x + w < 0 || y + h < 0) return;
-      try { ctx.drawImage(img, x, y, w, h); } catch(err) {}
-    });
-    ctx.restore();
+  minLat -= latPad;
+  maxLat += latPad;
+  minLng -= lngPad;
+  maxLng += lngPad;
 
-    ctx.strokeStyle = 'rgba(255,255,255,.08)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+  const bgUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLng},${minLat},${maxLng},${maxLat}&bboxSR=4326&imageSR=4326&size=${width},${height}&format=png32&transparent=false&f=image`;
 
-    const title = getCurrentDriveName();
-    const windLabel = deerDrivePlan.windLabel || '';
-    ctx.fillStyle = '#fff8ef';
-    ctx.font = '700 34px "IBM Plex Mono", monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(title, width / 2, 22);
-    if(windLabel){
-      ctx.fillStyle = '#d5e6cf';
-      ctx.font = '18px "IBM Plex Mono", monospace';
-      ctx.fillText(windLabel, width / 2, 58);
-    }
+  const projectPoint = (lat, lng) => {
+    const x = ((lng - minLng) / Math.max(maxLng - minLng, 0.000001)) * width;
+    const y = ((maxLat - lat) / Math.max(maxLat - minLat, 0.000001)) * height;
+    return { x, y };
+  };
 
-    getSavedDriveRoutes().forEach(route => {
-      const pts = (route.pts || []).map(pt => map.latLngToContainerPoint([pt[0], pt[1]])).map(projectPoint);
-      if(!pts.length) return;
-      ctx.save();
-      ctx.beginPath();
-      ctx.setLineDash([18, 12]);
-      ctx.lineCap = 'round';
-      ctx.lineWidth = 7;
-      ctx.strokeStyle = '#d4820a';
-      pts.forEach((pt, idx) => {
-        if(idx === 0) ctx.moveTo(pt.x, pt.y);
-        else ctx.lineTo(pt.x, pt.y);
-      });
-      ctx.stroke();
-      ctx.restore();
-      if(pts.length >= 2){
-        const last = pts[pts.length - 1];
-        const prev = pts[pts.length - 2];
-        drawRouteArrow(ctx, prev.x, prev.y, last.x, last.y);
-      }
-    });
+  const routeLines = getSavedDriveRoutes().map(route => {
+    const pts = (route.pts || []).map(pt => projectPoint(pt[0], pt[1]));
+    if(!pts.length) return '';
+    const d = pts.map((pt, idx) => `${idx===0 ? 'M' : 'L'} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`).join(' ');
+    const last = pts[pts.length - 1];
+    const prev = pts[Math.max(pts.length - 2, 0)] || last;
+    const angle = Math.atan2(last.y - prev.y, last.x - prev.x) * 180 / Math.PI;
+    return `<path d="${d}" fill="none" stroke="#d4820a" stroke-width="7" stroke-linecap="round" stroke-dasharray="18 12"/>
+      <g transform="translate(${last.x.toFixed(2)} ${last.y.toFixed(2)}) rotate(${angle.toFixed(2)})">
+        <path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#fff8ef" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>`;
+  }).join('');
 
-    drivers.forEach(item => {
-      const pt = projectPoint(map.latLngToContainerPoint([item.lat, item.lng]));
-      drawMarker(ctx, pt.x, pt.y, '#2b6cb0', item.mapLabel || item.initial || item.slot || '', '#fff');
-    });
-    standers.forEach(item => {
-      const pt = projectPoint(map.latLngToContainerPoint([item.lat, item.lng]));
-      drawMarker(ctx, pt.x, pt.y, '#f4d03f', item.mapLabel || item.initial || item.slot || '', '#231a13');
-    });
+  const driverDots = drivers.map(item => {
+    const pt = projectPoint(item.lat, item.lng);
+    return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#2b6cb0" stroke="#fff" stroke-width="4"/>
+      <text x="${pt.x.toFixed(2)}" y="${(pt.y + 8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#fff">${esc(item.mapLabel || item.initial || item.slot || '')}</text>`;
+  }).join('');
 
-    return canvas.toDataURL('image/png');
-  } catch(err) {
-    console.warn('Falling back to SVG deer drive thumbnail', err);
-    const tileImages = [...document.querySelectorAll('#map .leaflet-tile-pane img.leaflet-tile')].map(img => {
-      const rect = img.getBoundingClientRect();
-      const x = offsetX + ((rect.left - mapRect.left) - cropX) * scale;
-      const y = offsetY + ((rect.top - mapRect.top) - cropY) * scale;
-      const w = rect.width * scale;
-      const h = rect.height * scale;
-      const href = img.currentSrc || img.src || '';
-      if(!href || w <= 0 || h <= 0 || x > width || y > height || x + w < 0 || y + h < 0) return '';
-      return `<image href="${esc(href)}" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" preserveAspectRatio="none"/>`;
-    }).join('');
-    const routeLines = getSavedDriveRoutes().map(route => {
-      const pts = (route.pts || []).map(pt => map.latLngToContainerPoint([pt[0], pt[1]])).map(projectPoint);
-      if(!pts.length) return '';
-      const d = pts.map((pt, idx) => `${idx===0?'M':'L'} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`).join(' ');
-      const last = pts[pts.length - 1];
-      const prev = pts[Math.max(pts.length - 2, 0)] || last;
-      const angle = Math.atan2(last.y - prev.y, last.x - prev.x) * 180 / Math.PI;
-      return `<path d="${d}" fill="none" stroke="#d4820a" stroke-width="7" stroke-linecap="round" stroke-dasharray="18 12"/>
-        <g transform="translate(${last.x.toFixed(2)} ${last.y.toFixed(2)}) rotate(${angle.toFixed(2)})">
-          <path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#fff8ef" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </g>`;
-    }).join('');
-    const driverDots = drivers.map(item => {
-      const pt = projectPoint(map.latLngToContainerPoint([item.lat, item.lng]));
-      return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#2b6cb0" stroke="#fff" stroke-width="4"/>
-        <text x="${pt.x.toFixed(2)}" y="${(pt.y+8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#fff">${esc(item.mapLabel || item.initial || item.slot || '')}</text>`;
-    }).join('');
-    const standerDots = standers.map(item => {
-      const pt = projectPoint(map.latLngToContainerPoint([item.lat, item.lng]));
-      return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#f4d03f" stroke="#fff" stroke-width="4"/>
-        <text x="${pt.x.toFixed(2)}" y="${(pt.y+8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#231a13">${esc(item.mapLabel || item.initial || item.slot || '')}</text>`;
-    }).join('');
-    const windLabel = esc(deerDrivePlan.windLabel || '');
-    const title = esc(getCurrentDriveName());
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <defs><clipPath id="driveClip"><rect x="0" y="0" width="${width}" height="${height}" rx="26"/></clipPath></defs>
-      <rect width="${width}" height="${height}" rx="26" fill="#23351e"/>
-      <g clip-path="url(#driveClip)">${tileImages}</g>
-      <text x="${width/2}" y="52" text-anchor="middle" font-family="IBM Plex Mono" font-size="34" font-weight="700" fill="#fff8ef">${title}</text>
-      ${windLabel ? `<text x="${width/2}" y="88" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#d5e6cf">${windLabel}</text>` : ''}
-      ${routeLines}${driverDots}${standerDots}
-    </svg>`;
-    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-  }
+  const standerDots = standers.map(item => {
+    const pt = projectPoint(item.lat, item.lng);
+    return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#f4d03f" stroke="#fff" stroke-width="4"/>
+      <text x="${pt.x.toFixed(2)}" y="${(pt.y + 8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#231a13">${esc(item.mapLabel || item.initial || item.slot || '')}</text>`;
+  }).join('');
+
+  const title = esc(getCurrentDriveName());
+  const windLabel = esc(deerDrivePlan.windLabel || '');
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+      <clipPath id="driveClip"><rect x="0" y="0" width="${width}" height="${height}" rx="26"/></clipPath>
+    </defs>
+    <rect width="${width}" height="${height}" rx="26" fill="#e9decf"/>
+    <g clip-path="url(#driveClip)">
+      <image href="${esc(bgUrl)}" x="0" y="0" width="${width}" height="${height}" preserveAspectRatio="none"/>
+      <rect x="0" y="0" width="${width}" height="${height}" fill="rgba(12,9,6,.08)"/>
+    </g>
+    <rect width="${width}" height="${height}" rx="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/>
+    <text x="${width/2}" y="52" text-anchor="middle" font-family="IBM Plex Mono" font-size="34" font-weight="700" fill="#fff8ef">${title}</text>
+    ${windLabel ? `<text x="${width/2}" y="88" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#d5e6cf">${windLabel}</text>` : ''}
+    ${routeLines}
+    ${driverDots}
+    ${standerDots}
+  </svg>`;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 function buildDriveRouteSummaries(){
   return getSavedDriveRoutes().map((route, idx) => {
@@ -1450,6 +1321,7 @@ function persistDriveToCamp(){
   const thumbnail = generateDeerDriveThumbnailDataUrl();
   const detailImage = thumbnail;
   const originalMapImage = thumbnail;
+  const originalMapImage = thumbnail;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
@@ -1460,6 +1332,7 @@ function persistDriveToCamp(){
     image: thumbnail,
     thumbnail,
     detailImage,
+    originalMapImage,
     originalMapImage,
     author,
     createdAt: timestampIso,
@@ -1523,6 +1396,7 @@ function commitSavedDriveSummary(){
     routeIds: getSavedDriveRoutes().map(r=>r.id),
     savedAt: new Date().toISOString(),
     thumbnail: generateDeerDriveThumbnailDataUrl(),
+    originalMapImage: generateDeerDriveThumbnailDataUrl(),
     originalMapImage: generateDeerDriveThumbnailDataUrl()
   };
   persistDriveToCamp();
