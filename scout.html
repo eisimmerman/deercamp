@@ -1255,27 +1255,31 @@ function buildDriveRouteSummaries(){
     direction: getRouteDirection(route.pts)
   }));
 }
+
 function persistDriveToCamp(){
   const activeCampId = getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '';
   if(!activeCampId) return false;
   localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
   const scopedCampDataKey = campScopeKey(activeCampId, 'campData');
   const baseCampData = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
-  const feedEntries = Array.isArray(baseCampData.feedEntries) ? baseCampData.feedEntries.filter(Boolean) : [];
+  const contentSubmissions = Array.isArray(baseCampData.contentSubmissions) ? baseCampData.contentSubmissions.filter(Boolean) : [];
   const deerDrivePosts = Array.isArray(baseCampData.deerDrivePosts) ? baseCampData.deerDrivePosts.filter(Boolean) : (Array.isArray(baseCampData.deerDrives) ? baseCampData.deerDrives.filter(Boolean) : []);
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
   const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
   const thumbnail = generateDeerDriveThumbnailDataUrl();
+  const detailImage = thumbnail;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
+  const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
   const driveEntry = {
     id: driveId,
     title: getCurrentDriveName(),
     body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} planned for this drive.`,
     image: thumbnail,
     thumbnail,
-    author: String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward',
+    detailImage,
+    author,
     createdAt: timestampIso,
     createdAtMs: timestampMs,
     tags: ['Deer Drive', 'Scout'],
@@ -1286,20 +1290,20 @@ function persistDriveToCamp(){
     savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {})
   };
   const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId)].slice(0, 24);
-  const feedEntry = {
-    id: `${driveId}-feed`,
-    title: `${getCurrentDriveName()} saved`,
-    body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} posted to CampDeerDrives.`,
-    image: thumbnail,
-    mediaType: 'photo',
-    author: driveEntry.author,
+
+  const updateEntry = {
+    id: `${driveId}-update`,
+    type: 'deerdrive',
+    title: `${getCurrentDriveName()} saved to CampDeerDrives`,
+    member: author,
+    summary: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} posted to CampDeerDrives.`,
     createdAt: timestampIso,
     createdAtMs: timestampMs,
-    tags: ['Deer Drive', 'CampFeed'],
-    source: 'scout-deerdrive',
-    imageRef: driveId
+    driveId,
+    windLabel: deerDrivePlan.windLabel || ''
   };
-  const nextFeedEntries = [feedEntry, ...feedEntries.filter(item => String(item.id || '') !== feedEntry.id)].slice(0, 24);
+  const nextContentSubmissions = [updateEntry, ...contentSubmissions.filter(item => String(item.id || '') !== updateEntry.id)].slice(0, 30);
+
   const enabledSections = Object.assign({
     campfeed: true,
     campupdate: true,
@@ -1310,21 +1314,23 @@ function persistDriveToCamp(){
     campdeerdrives: true,
     deerdrives: true
   }, baseCampData.enabledSections || {});
-  enabledSections.campfeed = true;
+  enabledSections.campupdate = true;
   enabledSections.campdeerdrives = true;
   enabledSections.deerdrives = true;
+
   const nextCampData = Object.assign({}, baseCampData, {
     campId: activeCampId,
     enabledSections,
+    contentSubmissions: nextContentSubmissions,
     deerDrivePosts: nextDeerDrivePosts,
-    deerDrives: nextDeerDrivePosts,
-    feedEntries: nextFeedEntries
+    deerDrives: nextDeerDrivePosts
   });
   localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
   localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
   return true;
 }
 function commitSavedDriveSummary(){
+
   deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
   deerDrivePlan.savedDriveSummary = {
     id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
@@ -1336,7 +1342,7 @@ function commitSavedDriveSummary(){
   };
   persistDriveToCamp();
   saveLocal();
-  document.getElementById('status-bar').innerHTML = '4. Save Drive posted this deer drive to CampDeerDrives and CampFeed.';
+  document.getElementById('status-bar').innerHTML = '4. Save Drive posted a CampUpdate entry and a saved deer drive to CampDeerDrives.';
   closeSaveDriveModal();
 }
 function saveDriveSnapshot(){
@@ -2110,7 +2116,7 @@ function getHelperPanelHTML(){
 
     <div style="margin-bottom:6px;">2. Tap Set Drive button to freeze pins on deer drive location</div>
     <div style="margin-bottom:6px;">3. Tap Auto-Draw Drive Route button to sketch D/P routes</div>
-    <div style="padding-left:16px;margin-bottom:14px;">· Tap Save Drive to post CampFeed update and post to CampDeerDrives section</div>
+    <div style="padding-left:16px;margin-bottom:14px;">· Tap Save Drive to post a CampUpdate entry and post to CampDeerDrives section</div>
 
     <div style="height:1px;background:#5a4a30;margin:12px 0 14px;"></div>
 
@@ -2122,7 +2128,7 @@ function getHelperPanelHTML(){
       · Tap 📍 Stand button on the Menu bar to change mouse pointer to a “+”<br>
       · Tap map where you want to place stand<br>
       · Enter stand details and tap Save.<br>
-      · Tapping Save will auto-post to CampFeed update and post to CampDeerDrives section
+      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerDrives section
     </div>
   </div>`;
 }

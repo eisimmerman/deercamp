@@ -90,10 +90,10 @@
   .empty{padding:18px;border-radius:18px;background:rgba(255,248,237,.8);color:#5a4331;line-height:1.55;box-shadow:inset 0 0 0 1px rgba(98,72,44,.08)}
   .recipes-grid,.traditions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .recipe-card button,.feed-card button{justify-self:start}
-  .recipe-modal-backdrop,.member-modal-backdrop,.feed-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
-  .recipe-modal-backdrop.open,.member-modal-backdrop.open,.feed-modal-backdrop.open{display:block}
-  .recipe-modal,.member-modal,.feed-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
-  .recipe-modal.open,.member-modal.open,.feed-modal.open{display:flex}
+  .recipe-modal-backdrop,.member-modal-backdrop,.feed-modal-backdrop,.deerdrive-modal-backdrop,.deerdrive-image-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
+  .recipe-modal-backdrop.open,.member-modal-backdrop.open,.feed-modal-backdrop.open,.deerdrive-modal-backdrop.open,.deerdrive-image-backdrop.open{display:block}
+  .recipe-modal,.member-modal,.feed-modal,.deerdrive-modal,.deerdrive-image-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
+  .recipe-modal.open,.member-modal.open,.feed-modal.open,.deerdrive-modal.open,.deerdrive-image-modal.open{display:flex}
   .recipe-modal-card,.feed-modal-card{position:relative;width:min(920px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24)}
   .feed-modal-card{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
   .feed-modal-media img{width:100%;height:100%;min-height:100%;object-fit:cover;background:#e9decf}
@@ -154,6 +154,21 @@
   .members-sheet-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 42px 16px 0}
   .members-sheet-title{margin:0;color:#452a16;font-size:1.35rem}
   .members-sheet-subtitle{margin:4px 0 0;color:#6b5644;line-height:1.5}
+
+  .deerdrive-card-btn{justify-self:start}
+  .deerdrive-modal-card{position:relative;width:min(980px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px}
+  .deerdrive-modal-grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(280px,.9fr);gap:18px}
+  .deerdrive-modal-image{border-radius:18px;overflow:hidden;background:#e9decf;border:1px solid rgba(69,42,22,.12);cursor:pointer}
+  .deerdrive-modal-image img{display:block;width:100%;height:auto}
+  .deerdrive-meta{display:grid;gap:10px}
+  .deerdrive-route-list{display:grid;gap:10px}
+  .deerdrive-route-item{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08)}
+  .deerdrive-route-name{font-weight:800;color:#3a2717;margin:0 0 4px}
+  .deerdrive-route-meta{margin:0;color:#6b4624;font-size:.9rem;font-weight:700}
+  .deerdrive-detail-notes{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08);line-height:1.55}
+  .deerdrive-image-card{position:relative;width:min(1100px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#111;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px}
+  .deerdrive-image-card img{display:block;width:100%;height:auto;border-radius:12px;background:#e9decf}
+
   
   .mobile-hero-header{display:none}
   .mobile-hero-bg,.mobile-hero-overlay,.mobile-top-bar,.mobile-hero-center,.mobile-bottom-row{display:none}
@@ -334,6 +349,39 @@
         <button type="button" id="feedModalNext" class="btn btn-secondary">Next →</button>
       </div>
     </div>
+  </div>
+
+</div>
+
+<div id="deerDriveModalBackdrop" class="deerdrive-modal-backdrop"></div>
+<div id="deerDriveModal" class="deerdrive-modal" aria-hidden="true">
+  <div class="deerdrive-modal-card" role="dialog" aria-modal="true">
+    <button type="button" id="deerDriveModalClose" class="close" aria-label="Close deer drive">×</button>
+    <div class="deerdrive-modal-grid">
+      <div>
+        <div id="deerDriveModalImage" class="deerdrive-modal-image"></div>
+        <p id="deerDriveModalImageHint" class="section-helper" style="margin:10px 0 0">(tap image to view larger)</p>
+      </div>
+      <div class="deerdrive-meta">
+        <p id="deerDriveModalKicker" class="feed-kicker">Deer Drive</p>
+        <h3 id="deerDriveModalTitle" style="margin:0"></h3>
+        <p id="deerDriveModalMeta" class="feed-meta"></p>
+        <div id="deerDriveModalTags" class="feed-tags"></div>
+        <div id="deerDriveModalRoutes" class="deerdrive-route-list"></div>
+        <div class="deerdrive-detail-notes">
+          <strong>Drive Notes</strong>
+          <p id="deerDriveModalBody" style="margin:8px 0 0"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="deerDriveImageBackdrop" class="deerdrive-image-backdrop"></div>
+<div id="deerDriveImageModal" class="deerdrive-image-modal" aria-hidden="true">
+  <div class="deerdrive-image-card" role="dialog" aria-modal="true">
+    <button type="button" id="deerDriveImageClose" class="close" aria-label="Close deer drive image">×</button>
+    <img id="deerDriveImageFull" alt="Deer drive image">
   </div>
 </div>
 
@@ -1392,7 +1440,7 @@ function renderRecentUpdates(){
   list.innerHTML = visible.length ? visible.map(item=>`
     <div class="recent-card">
       <p class="recent-title">${esc(item.title||'CampUpdate')}</p>
-      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
+      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':item.type==='deerdrive'?'Deer Drive':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
       <p class="recent-body">${esc(item.summary||'New update posted to camp.')}</p>
     </div>`).join('') : '<p class="empty">No CampUpdates yet. New traditions, recipes, and calendar events will appear here first.</p>';
   if(prevBtn && nextBtn){
@@ -1414,6 +1462,7 @@ function renderTraditions(){
 }
 let recipeModalData=[];
 
+
 function renderDeerDrives(){
   const grid = document.getElementById("deerDrivesGrid");
   const empty = document.getElementById("deerDrivesEmpty");
@@ -1424,7 +1473,7 @@ function renderDeerDrives(){
     return;
   }
   empty.hidden = true;
-  grid.innerHTML = deerDrivePosts.map(item => `
+  grid.innerHTML = deerDrivePosts.map((item, idx) => `
     <article class="feed-card">
       <div class="feed-card-media">${item.image ? `<img src="${esc(item.image)}" alt="${esc(item.title)}">` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
       <div class="feed-card-copy">
@@ -1436,10 +1485,57 @@ function renderDeerDrives(){
           <span class="tag">${item.routeCount || 0} route${Number(item.routeCount || 0) === 1 ? '' : 's'}</span>
           ${(Array.isArray(item.tags) ? item.tags : []).slice(0,2).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
         </div>
+        <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
       </div>
     </article>
   `).join("");
+  grid.querySelectorAll('[data-deerdrive-index]').forEach(btn=>btn.addEventListener('click',()=>openDeerDriveModal(Number(btn.dataset.deerdriveIndex))));
 }
+
+
+
+let modalDeerDriveIndex = -1;
+function openDeerDriveModal(idx){
+  const item = deerDrivePosts[idx];
+  if(!item) return;
+  modalDeerDriveIndex = idx;
+  document.getElementById('deerDriveModalTitle').textContent = item.title || 'Deer Drive';
+  document.getElementById('deerDriveModalMeta').textContent = `${item.author || 'Camp Steward'} • ${new Date(item.createdAtMs || Date.now()).toLocaleString()}${item.windLabel ? ` • ${item.windLabel}` : ''}`;
+  document.getElementById('deerDriveModalBody').textContent = item.body || 'No drive notes added.';
+  document.getElementById('deerDriveModalTags').innerHTML = (Array.isArray(item.tags) ? item.tags : []).map(tag => `<span class="tag">${esc(tag)}</span>`).join('');
+  document.getElementById('deerDriveModalImage').innerHTML = item.detailImage || item.image ? `<img src="${esc(item.detailImage || item.image)}" alt="${esc(item.title)}">` : `<div class="empty">Drive image unavailable.</div>`;
+  document.getElementById('deerDriveModalRoutes').innerHTML = (Array.isArray(item.routeSummaries) && item.routeSummaries.length)
+    ? item.routeSummaries.map(route => `<div class="deerdrive-route-item"><p class="deerdrive-route-name">${esc(route.name || 'Route')}</p><p class="deerdrive-route-meta">${Number(route.miles || 0).toFixed(1)} mile • ${esc(route.direction || '')}</p></div>`).join('')
+    : '<div class="empty">No drive routes saved.</div>';
+  const imageWrap = document.getElementById('deerDriveModalImage');
+  imageWrap.onclick = ()=>openDeerDriveImageModal(item.detailImage || item.image, item.title || 'Deer Drive');
+  document.getElementById('deerDriveModalBackdrop').classList.add('open');
+  document.getElementById('deerDriveModal').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closeDeerDriveModal(){
+  document.getElementById('deerDriveModalBackdrop').classList.remove('open');
+  document.getElementById('deerDriveModal').classList.remove('open');
+  document.body.classList.remove('modal-open');
+  modalDeerDriveIndex = -1;
+}
+function openDeerDriveImageModal(src='', title='Deer Drive'){
+  if(!src) return;
+  document.getElementById('deerDriveImageFull').src = src;
+  document.getElementById('deerDriveImageFull').alt = title;
+  document.getElementById('deerDriveImageBackdrop').classList.add('open');
+  document.getElementById('deerDriveImageModal').classList.add('open');
+  document.body.classList.add('modal-open');
+}
+function closeDeerDriveImageModal(){
+  document.getElementById('deerDriveImageBackdrop').classList.remove('open');
+  document.getElementById('deerDriveImageModal').classList.remove('open');
+  if(!document.getElementById('deerDriveModal').classList.contains('open')) document.body.classList.remove('modal-open');
+}
+document.getElementById('deerDriveModalClose').onclick=closeDeerDriveModal;
+document.getElementById('deerDriveModalBackdrop').onclick=closeDeerDriveModal;
+document.getElementById('deerDriveImageClose').onclick=closeDeerDriveImageModal;
+document.getElementById('deerDriveImageBackdrop').onclick=closeDeerDriveImageModal;
 
 function renderRecipes(){
   const grid=document.getElementById('recipesGrid'); if(!grid) return;
