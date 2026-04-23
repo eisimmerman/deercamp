@@ -107,32 +107,6 @@ header::-webkit-scrollbar{height:0;}
 #map-compass{position:fixed;top:66px;left:58px;right:auto;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
-/* Helper open repositioning */
-body.helper-open-left #panel-toggle-left.active-helper{
-  top:auto;
-  bottom:230px;
-  left:0;
-  z-index:952;
-}
-body.helper-open-right #panel-toggle-right.active-helper{
-  top:auto;
-  bottom:230px;
-  right:0;
-  z-index:952;
-}
-body.helper-open-left #map-compass{
-  top:auto;
-  bottom:72px;
-  left:112px;
-  right:auto;
-}
-body.helper-open-right #map-compass{
-  top:auto;
-  bottom:72px;
-  right:112px;
-  left:auto;
-}
-
 /* SIDE PANEL */
 @keyframes helperPulse{
   0%{transform:scale(1);box-shadow:0 0 0 0 rgba(58,186,160,.75), 0 0 14px rgba(58,186,160,.45);}
@@ -233,6 +207,33 @@ textarea{resize:vertical;min-height:55px;}
 
 .wind-marker-wrap{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .wind-marker-label{font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;background:rgba(18,10,2,.86);color:var(--cream);white-space:nowrap;border:1px solid #3a2c1e;box-shadow:0 2px 8px rgba(0,0,0,.35);}
+
+/* ===== SAVE DRIVE PREVIEW STYLES START: DO NOT EDIT DURING MENU BAR CHANGES ===== */
+.save-drive-modal{width:min(980px,96vw);max-height:92vh;padding:16px 18px 18px;}
+.save-drive-shell{background:#f5f1eb;border:5px solid #111;border-radius:64px;padding:26px 26px 18px;color:#111;}
+.save-drive-title{font-family:'IBM Plex Mono',monospace;font-size:1.15rem;font-weight:700;text-align:center;margin-bottom:10px;color:#111;}
+.save-drive-map-wrap{display:flex;justify-content:center;margin-bottom:12px;}
+.save-drive-map-preview{width:min(100%,520px);height:260px;border:1px solid #8f8a82;background:#d7d2cb;position:relative;overflow:hidden;}
+.save-drive-map-preview.empty{display:flex;align-items:center;justify-content:center;color:#51493f;font-size:.72rem;background:#ece7df;}
+.save-drive-map-inner{position:absolute;left:0;top:0;transform-origin:top left;pointer-events:none;}
+.save-drive-route-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 10px;}
+.save-drive-route-tile{background:#221608;border:2px solid #50361f;border-radius:6px;padding:10px 12px;color:var(--tan);min-height:72px;}
+.save-drive-route-name{font-size:.78rem;margin-bottom:4px;}
+.save-drive-route-meta{font-size:.58rem;color:var(--sage);margin-bottom:8px;}
+.save-drive-route-badge{display:inline-block;padding:2px 7px;border-radius:4px;border:1px solid rgba(212,130,10,.4);background:rgba(212,130,10,.12);font-size:.52rem;text-transform:uppercase;letter-spacing:.5px;color:var(--amber);}
+.save-drive-bottom{display:grid;grid-template-columns:100px 160px 1fr;gap:14px;align-items:end;margin-top:6px;}
+.save-drive-mini-card{display:flex;align-items:center;justify-content:center;height:96px;}
+.save-drive-mini-card svg{width:84px;height:84px;display:block;}
+.save-drive-wind-box{display:flex;flex-direction:column;align-items:center;justify-content:center;height:96px;border:1px dashed #9e9587;border-radius:12px;background:#fff;}
+.save-drive-wind-label{font-family:'IBM Plex Mono',monospace;font-size:.6rem;color:#43392d;margin-top:4px;text-align:center;}
+.save-drive-notes-box{border:5px solid #111;border-radius:22px;background:#fff;min-height:96px;padding:12px 16px;display:flex;flex-direction:column;justify-content:flex-start;}
+.save-drive-notes-title{font-family:'IBM Plex Mono',monospace;font-size:.95rem;font-weight:700;margin-bottom:8px;color:#111;}
+.save-drive-notes-box textarea{min-height:92px;height:92px;resize:none;background:#fff;color:#111;border:none;padding:0;font-size:.72rem;line-height:1.5;}
+.save-drive-notes-box textarea:focus{border:none;box-shadow:none;}
+.save-drive-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+.save-drive-empty{font-size:.7rem;color:#6c6152;line-height:1.7;padding:18px 4px;text-align:center;}
+@media (max-width:820px){.save-drive-shell{border-radius:32px;padding:18px 16px 14px;}.save-drive-route-grid{grid-template-columns:1fr;}.save-drive-bottom{grid-template-columns:1fr;}.save-drive-mini-card,.save-drive-wind-box{height:auto;min-height:92px;}.save-drive-map-preview{height:220px;}}
+/* ===== SAVE DRIVE PREVIEW STYLES END ===== */
 
 
 
@@ -585,6 +586,36 @@ textarea{resize:vertical;min-height:55px;}
     </div>
   </div>
 </div>
+
+<!-- ===== SAVE DRIVE PREVIEW MODAL START: DO NOT EDIT DURING MENU BAR CHANGES ===== -->
+<div class="modal-overlay" id="modal-save-drive">
+  <div class="modal save-drive-modal">
+    <div class="save-drive-shell">
+      <div class="save-drive-title" id="save-drive-title">Deer Drive</div>
+      <div class="save-drive-map-wrap">
+        <div class="save-drive-map-preview" id="save-drive-map-preview"></div>
+      </div>
+      <div class="save-drive-route-grid" id="save-drive-route-grid"></div>
+      <div class="save-drive-bottom">
+        <div class="save-drive-mini-card" id="save-drive-directional-compass"></div>
+        <div class="save-drive-wind-box">
+          <div id="save-drive-wind-compass"></div>
+          <div class="save-drive-wind-label" id="save-drive-wind-label">Wind direction</div>
+        </div>
+        <div class="save-drive-notes-box">
+          <div class="save-drive-notes-title">Drive Notes:</div>
+          <textarea id="save-drive-notes" placeholder="Add notes for this drive..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="save-drive-actions">
+      <button class="btn btn-c" onclick="closeSaveDriveModal()">Close</button>
+      <button class="btn btn-p" onclick="commitSavedDriveSummary()">Save</button>
+    </div>
+  </div>
+</div>
+<!-- ===== SAVE DRIVE PREVIEW MODAL END ===== -->
+
 <!-- ===== DEERDRIVE BUILDER MODAL END ===== -->
 
 <!-- WIND ARROW MODAL -->
@@ -989,14 +1020,129 @@ function clearDeerDriveAutoRoutes(){
   }
   deerDrivePlan.autoRouteIds = [];
 }
+function getCurrentDriveName(){
+  return deerDrivePlan.driveName || drivers[0]?.driveName || standers[0]?.driveName || 'Deer Drive';
+}
+function getSavedDriveRoutes(){
+  const autoIds = Array.isArray(deerDrivePlan.autoRouteIds) ? deerDrivePlan.autoRouteIds : [];
+  let driveRoutes = routes.filter(r=>autoIds.includes(r.id));
+  if(!driveRoutes.length) driveRoutes = routes.filter(r=>r.generated==='deerdrive');
+  return driveRoutes;
+}
+function getSimpleCompassSVG(){
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <circle cx="50" cy="50" r="42" fill="#10210d" stroke="#4e6f36" stroke-width="2"/>
+    <circle cx="50" cy="50" r="27" fill="none" stroke="#3f5c2b" stroke-width="1" opacity=".8"/>
+    <line x1="50" y1="12" x2="50" y2="88" stroke="#607c4b" stroke-width="1"/>
+    <line x1="12" y1="50" x2="88" y2="50" stroke="#607c4b" stroke-width="1"/>
+    <text x="50" y="10" text-anchor="middle" fill="#d4a253" font-size="11" font-family="IBM Plex Mono">N</text>
+    <text x="90" y="54" text-anchor="middle" fill="#d4a253" font-size="11" font-family="IBM Plex Mono">E</text>
+    <text x="50" y="97" text-anchor="middle" fill="#d4a253" font-size="11" font-family="IBM Plex Mono">S</text>
+    <text x="9" y="54" text-anchor="middle" fill="#d4a253" font-size="11" font-family="IBM Plex Mono">W</text>
+    <polygon points="50,18 56,49 50,42 44,49" fill="#d4820a"/>
+    <polygon points="50,82 56,51 50,58 44,51" fill="#2b3830"/>
+  </svg>`;
+}
+function getWindPoint(dir){
+  const pts = {N:[50,12],NE:[78,22],E:[88,50],SE:[78,78],S:[50,88],SW:[22,78],W:[12,50],NW:[22,22]};
+  return pts[dir] || [50,50];
+}
+function getWindCompassSVG(fromDir,toDir){
+  const from = getWindPoint(fromDir);
+  const to = getWindPoint(toDir);
+  const label = fromDir && toDir ? `${fromDir} to ${toDir}` : 'Wind direction';
+  return `<svg viewBox="0 0 100 100" aria-hidden="true">
+    <defs>
+      <marker id="save-drive-wind-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#111"/></marker>
+    </defs>
+    <circle cx="50" cy="50" r="40" fill="#fff" stroke="#111" stroke-width="2"/>
+    <circle cx="50" cy="50" r="24" fill="none" stroke="#b5b0aa" stroke-width="1"/>
+    <line x1="50" y1="10" x2="50" y2="90" stroke="#555" stroke-width="1"/>
+    <line x1="10" y1="50" x2="90" y2="50" stroke="#555" stroke-width="1"/>
+    <line x1="21" y1="21" x2="79" y2="79" stroke="#777" stroke-width="1"/>
+    <line x1="79" y1="21" x2="21" y2="79" stroke="#777" stroke-width="1"/>
+    <text x="50" y="8" text-anchor="middle" fill="#111" font-size="10" font-family="IBM Plex Mono">N</text>
+    <text x="92" y="54" text-anchor="middle" fill="#111" font-size="10" font-family="IBM Plex Mono">E</text>
+    <text x="50" y="98" text-anchor="middle" fill="#111" font-size="10" font-family="IBM Plex Mono">S</text>
+    <text x="8" y="54" text-anchor="middle" fill="#111" font-size="10" font-family="IBM Plex Mono">W</text>
+    ${fromDir && toDir ? `<line x1="${from[0]}" y1="${from[1]}" x2="${to[0]}" y2="${to[1]}" stroke="#111" stroke-width="3" marker-end="url(#save-drive-wind-arrow)"/>` : ''}
+  </svg>`;
+}
+function renderSaveDriveMapPreview(){
+  const preview = document.getElementById('save-drive-map-preview');
+  if(!preview) return;
+  preview.innerHTML='';
+  const source = document.getElementById('map');
+  if(!source || !source.offsetWidth || !source.offsetHeight){
+    preview.classList.add('empty');
+    preview.textContent = 'Map preview unavailable.';
+    return;
+  }
+  preview.classList.remove('empty');
+  const inner = document.createElement('div');
+  inner.className = 'save-drive-map-inner';
+  inner.style.width = source.offsetWidth + 'px';
+  inner.style.height = source.offsetHeight + 'px';
+  inner.innerHTML = source.innerHTML;
+  inner.querySelectorAll('.leaflet-control-container,.leaflet-popup-pane,.leaflet-tooltip-pane').forEach(el=>el.remove());
+  preview.appendChild(inner);
+  requestAnimationFrame(()=>{
+    const scale = Math.min(preview.clientWidth / source.offsetWidth, preview.clientHeight / source.offsetHeight);
+    inner.style.transform = `scale(${scale})`;
+  });
+}
+function renderSaveDriveRouteTiles(){
+  const grid = document.getElementById('save-drive-route-grid');
+  if(!grid) return;
+  const driveRoutes = getSavedDriveRoutes();
+  if(!driveRoutes.length){
+    grid.innerHTML = `<div class="save-drive-empty" style="grid-column:1 / -1;">No auto-drawn drive routes are available yet. Tap 3. Auto-Draw Drive Route first.</div>`;
+    return;
+  }
+  grid.innerHTML = driveRoutes.map((route, idx)=>`
+    <div class="save-drive-route-tile">
+      <div class="save-drive-route-name">🦌 ${route.name || `${getCurrentDriveName()} Route ${idx+1}`}</div>
+      <div class="save-drive-route-meta">${getRouteMiles(route.pts).toFixed(1)} mile · ${getRouteDirection(route.pts)}</div>
+      <div class="save-drive-route-badge">Deer Drive</div>
+    </div>
+  `).join('');
+}
+function renderSaveDriveSummary(){
+  const title = getCurrentDriveName();
+  document.getElementById('save-drive-title').textContent = title;
+  document.getElementById('save-drive-notes').value = deerDrivePlan.savedDriveNotes || '';
+  document.getElementById('save-drive-directional-compass').innerHTML = getSimpleCompassSVG();
+  document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
+  document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
+  renderSaveDriveMapPreview();
+  renderSaveDriveRouteTiles();
+}
+function closeSaveDriveModal(){
+  document.getElementById('modal-save-drive')?.classList.remove('open');
+}
+function commitSavedDriveSummary(){
+  deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
+  deerDrivePlan.savedDriveSummary = {
+    driveName: getCurrentDriveName(),
+    windLabel: deerDrivePlan.windLabel || '',
+    routeIds: getSavedDriveRoutes().map(r=>r.id),
+    savedAt: new Date().toISOString()
+  };
+  saveLocal();
+  document.getElementById('status-bar').innerHTML = '4. Save Drive saved this DeerDrive summary layout. CampFeed and CampDeerDrives wiring comes next.';
+  closeSaveDriveModal();
+}
 function saveDriveSnapshot(){
   if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
     return;
   }
-  saveLocal();
-  document.getElementById('status-bar').innerHTML='4. Save Drive saved the current DeerDrive layout.';
+  renderSaveDriveSummary();
+  document.getElementById('modal-save-drive').classList.add('open');
+  document.getElementById('status-bar').innerHTML='4. Save Drive opened the DeerDrive summary preview.';
 }
+window.closeSaveDriveModal=closeSaveDriveModal;
+window.commitSavedDriveSummary=commitSavedDriveSummary;
 function toggleSetDrive(){
   if(!drivers.length && !standers.length){
     document.getElementById('status-bar').innerHTML='Set up the DeerDrive Builder first, then tap 2. Set Drive.';
@@ -1715,21 +1861,18 @@ function togglePanel(side){
     if(panelOpen && panelSide === requested){
       panelOpen = false;
       panel.classList.remove('open');
-      updateHelperOverlayPositions();
       return;
     }
     panelSide = requested;
     panel.classList.toggle('left', panelSide === 'left');
     panelOpen = true;
     panel.classList.add('open');
-    updateHelperOverlayPositions();
     return;
   }
 
   if(panelOpen){
     panelOpen = false;
     panel.classList.remove('open');
-    updateHelperOverlayPositions();
     return;
   }
 
@@ -1737,15 +1880,8 @@ function togglePanel(side){
   panel.classList.toggle('left', panelSide === 'left');
   panelOpen = true;
   panel.classList.add('open');
-  updateHelperOverlayPositions();
 }
 
-function updateHelperOverlayPositions(){
-  document.body.classList.remove('helper-open-left','helper-open-right');
-  if(panelOpen){
-    document.body.classList.add(panelSide === 'left' ? 'helper-open-left' : 'helper-open-right');
-  }
-}
 function getHelperPanelHTML(){
   return `<div style="padding:12px 12px 28px;color:var(--cream);font-size:.62rem;line-height:1.9">
     <div style="margin-bottom:10px;">To Build DeerDrive on Stand Scout Elite</div>
@@ -1805,8 +1941,6 @@ function syncHelperToggleSide(){
     panel.classList.toggle('left', side === 'left');
     panelSide = side;
   }
-
-  updateHelperOverlayPositions();
 }
 
 function renderPanel(){
@@ -1890,6 +2024,7 @@ function doSearch(){
     }).catch(()=>{document.getElementById('status-bar').innerHTML='⚠️ Search error — try lat,lng';setTimeout(()=>setMode(mode),3000);});
 }
 document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+document.getElementById('modal-save-drive')?.addEventListener('click',e=>{ if(e.target.id==='modal-save-drive') closeSaveDriveModal(); });
 
 // ═══════════════════════════════════════════════
 // PERSIST
@@ -2014,8 +2149,7 @@ try{
     if(allPts.length) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
-syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();
-updateHelperOverlayPositions();if(recWind) runRecommender();
+syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
 </script>
 </body>
 </html>
