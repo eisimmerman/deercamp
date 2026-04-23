@@ -33,6 +33,10 @@
   .camp-member-badge{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:999px;background:linear-gradient(180deg,#6f4d2b 0%,#4b3116 100%);color:#fff;font-size:.76rem;font-weight:800}
   .camp-member-role-tag{display:inline-flex;align-items:center;min-height:18px;padding:2px 7px;border-radius:999px;background:rgba(111,77,43,.12);color:#6b4624;font-size:.62rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .menu-btn{min-height:40px;padding:0 14px;border-radius:12px;border:0;background:rgba(255,255,255,.9);font-weight:700;color:#4b3116;cursor:pointer}
+  .header-actions{display:flex;align-items:center;gap:10px}
+  .scout-btn{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(73,102,71,.22);background:rgba(255,255,255,.94);color:#27411e;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
+  .scout-btn:hover{background:#fff;transform:translateY(-1px)}
+  .mobile-scout-pill{justify-content:center}
   .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
   .menu.open{display:block}
   .menu a{display:block;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:700}
@@ -226,7 +230,7 @@
     .mobile-hoof{
       width:42px;height:42px;border-radius:11px;box-shadow:0 6px 16px rgba(0,0,0,.22);flex:0 0 auto;
     }
-    .mobile-actions-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;max-width:52vw;}
+    .mobile-actions-right{display:flex;flex-direction:column;align-items:flex-end;gap:10px;max-width:70vw;}
     .mobile-pill{
       min-height:40px;padding:0 14px;border:1px solid rgba(95,64,33,.18);border-radius:999px;
       background:rgba(255,249,241,.94);color:#4b3116;font-size:.9rem;font-weight:800;
@@ -287,6 +291,7 @@
   <div class="mobile-top-bar">
     <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
+      <a id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" href="scout.html" target="_blank" rel="noopener noreferrer">🗺 CampScout Elite</a>
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
   </div>
@@ -320,7 +325,10 @@
       <div class="camp-members-row" id="campMembersRow"></div>
     </div>
     <div class="header-right">
-      <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
+      <div class="header-actions">
+        <a id="headerScoutBtn" class="scout-btn" href="scout.html" target="_blank" rel="noopener noreferrer">🗺 CampScout Elite</a>
+        <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
+      </div>
     </div>
   </div>
   <nav id="menu" class="menu"></nav>
@@ -599,6 +607,7 @@ let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Bool
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
 let deerDrivePosts = (Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : [])).filter(Boolean);
+let deerStandPosts = (Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : []))).filter(Boolean);
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
 const LEGACY_SEED_TITLES = new Set([
@@ -919,7 +928,11 @@ function bindMenuLinks(){
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
   const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
-  menu.innerHTML = `${sectionLinks}<a href="${scoutUrl}">🗺 Scout</a>`;
+  menu.innerHTML = `${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer">🗺 CampScout Elite</a>`;
+  const headerScoutBtn = document.getElementById("headerScoutBtn");
+  const mobileScoutBtn = document.getElementById("mobileScoutBtn");
+  if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
+  if(mobileScoutBtn) mobileScoutBtn.href = scoutUrl;
   bindMenuLinks();
 }
 
@@ -969,11 +982,13 @@ function visibleSections(){
     {key:"campcalendar",title:"CampCalendar"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
+    {key:"campdeerstands",title:"CampDeerStands"},
     {key:"campdeerdrives",title:"CampDeerDrives"},
   ];
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerdrives:"campdeerdrives"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands);
     if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives);
     return !!enabledSections[map[s.key]];
   });
@@ -1049,6 +1064,34 @@ function normalizeRecentUpdates(){
 }
 function formatDateHuman(dateKey){const d=new Date(`${dateKey}T12:00:00`); if(Number.isNaN(d.getTime())) return dateKey; return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
 
+function normalizeDeerStandPosts(items = []){
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(items) ? items : []).forEach((item, idx) => {
+    if(!item || typeof item !== "object") return;
+    const title = String(item.title || item.name || item.standName || `Stand ${idx + 1}`).trim() || `Stand ${idx + 1}`;
+    const stableId = String(item.id || slugify(`${title}-${idx + 1}`)).trim() || `stand-${idx + 1}`;
+    if(seen.has(stableId)) return;
+    seen.add(stableId);
+    const note = String(item.notes || item.body || item.description || item.summary || "").trim();
+    out.push({
+      id: stableId,
+      title,
+      body: note || "Stand details available.",
+      standType: String(item.type || item.standType || "Stand").trim(),
+      wind: String(item.wind || item.windLabel || "").trim(),
+      access: String(item.access || "").trim(),
+      season: String(item.season || item.seasonPhase || "").trim(),
+      tod: String(item.tod || item.timeOfDay || "").trim(),
+      author: String(item.author || item.member || data.stewardName || data.steward || "Camp Steward").trim() || "Camp Steward",
+      createdAt: String(item.createdAt || new Date().toISOString()),
+      createdAtMs: Number.isFinite(Number(item.createdAtMs)) ? Number(item.createdAtMs) : idx,
+      lat: Number(item.lat),
+      lng: Number(item.lng)
+    });
+  });
+  return out.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+}
 function normalizeDeerDrivePosts(items = []){
   const out = [];
   const seen = new Set();
@@ -1082,6 +1125,7 @@ function normalizeDeerDrivePosts(items = []){
   return out.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
 }
 deerDrivePosts = normalizeDeerDrivePosts(deerDrivePosts);
+deerStandPosts = normalizeDeerStandPosts(deerStandPosts);
 
 function getSelectedStarterRecipes(){
   if (!Array.isArray(selectedRecipeIds) || !selectedRecipeIds.length) return [];
@@ -1182,6 +1226,14 @@ visibleSections().forEach(section=>{
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
     container.innerHTML=`<h2>CampRecipes</h2><p class="section-helper">Recipes selected by the Steward or added through CampUpdate.</p><div id="recipesGrid" class="recipes-grid"></div>`;
+  } else if(section.key==="campdeerstands"){
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill">${deerStandPosts.length} saved</span></div>
+      </div>
+      <div id="deerStandsGrid" class="traditions-grid"></div>
+      <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Turn this section on now and wire Scout stand posting next.</div>`;
   } else if(section.key==="campdeerdrives"){
     container.innerHTML=`
       <div class="feed-header">
@@ -1494,6 +1546,24 @@ function renderTraditions(){
 let recipeModalData=[];
 
 
+function renderDeerStands(){
+  const grid = document.getElementById("deerStandsGrid");
+  const empty = document.getElementById("deerStandsEmpty");
+  if(!grid || !empty) return;
+  if(!deerStandPosts.length){
+    grid.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  grid.innerHTML = deerStandPosts.map(item => `
+    <article class="tradition-card">
+      <h3 class="tradition-title">${esc(item.title)}</h3>
+      <p class="tradition-meta">${esc(item.standType || "Stand")}${item.wind ? ` • Wind ${esc(item.wind)}` : ""}${item.access ? ` • Access ${esc(item.access)}` : ""}</p>
+      <p class="tradition-body">${esc(item.body || "Stand details available.")}</p>
+    </article>
+  `).join("");
+}
 function renderDeerDrives(){
   const grid = document.getElementById("deerDrivesGrid");
   const empty = document.getElementById("deerDrivesEmpty");
