@@ -103,15 +103,19 @@ header::-webkit-scrollbar{height:0;}
 #fab-bound{background:var(--purple);color:var(--cream);border:1px solid #9a6aff;}
 #fab-bound:hover{background:#6a3a9a;}
 
-/* WIND COMPASS */
-#wind-compass{position:fixed;bottom:48px;right:12px;z-index:1000;width:86px;height:86px;}
-#wind-compass svg{width:100%;height:100%;}
+/* MAP COMPASS */
 #map-compass{position:fixed;top:66px;left:58px;right:auto;z-index:950;width:70px;height:70px;pointer-events:none;}
 #map-compass svg{width:100%;height:100%;}
 
 /* SIDE PANEL */
-.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s;display:block;}
+@keyframes helperPulse{
+  0%{transform:scale(1);box-shadow:0 0 0 0 rgba(122,183,200,.42);}
+  70%{transform:scale(1.03);box-shadow:0 0 0 12px rgba(122,183,200,0);}
+  100%{transform:scale(1);box-shadow:0 0 0 0 rgba(122,183,200,0);}
+}
+.panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s, opacity .15s;display:block;opacity:.45;}
 .panel-toggle:hover{background:var(--sage);}
+.panel-toggle.active-helper{opacity:1;background:#3a6a7a;animation:helperPulse 1.8s infinite;}
 .panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
 .panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
 .side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
@@ -243,7 +247,7 @@ textarea{resize:vertical;min-height:55px;}
 /* PRINT */
 @media print{
   body{overflow:visible;height:auto;}
-  header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,#wind-compass,.modal-overlay,.print-legend-screen{display:none!important;}
+  header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,.modal-overlay,.print-legend-screen{display:none!important;}
   #map{height:85vh;page-break-after:avoid;}
   .leaflet-control-zoom{display:none!important;}
   #print-header,#print-legend{display:block!important;}
@@ -311,23 +315,6 @@ textarea{resize:vertical;min-height:55px;}
 <button class="fab" id="fab-drive" onclick="finishPoly('drive')">✓ Finish Access Route</button>
 <button class="fab" id="fab-bound" onclick="finishPoly('bound')">✓ Close Boundary</button>
 
-<!-- Wind compass -->
-<div id="wind-compass">
-  <svg id="compass-svg" viewBox="0 0 86 86" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="43" cy="43" r="41" fill="rgba(18,10,2,.82)" stroke="#3d5c2e" stroke-width="1.5"/>
-    <text x="43" y="13" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">N</text>
-    <text x="43" y="79" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">S</text>
-    <text x="76" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">E</text>
-    <text x="10" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="8" fill="#6b7c4d">W</text>
-    <circle cx="43" cy="43" r="26" fill="none" stroke="#3a2c1e" stroke-width="1" stroke-dasharray="2 5"/>
-    <text x="43" y="47" text-anchor="middle" font-family="IBM Plex Mono" font-size="7" fill="#5a4a30" id="compass-label">No Wind</text>
-    <g id="compass-arrow" transform="translate(43,43) rotate(0)">
-      <polygon points="0,-19 4,5 0,1 -4,5" fill="#3abba0" opacity=".9"/>
-      <polygon points="0,19 4,2 0,6 -4,2" fill="#2a8a7a" opacity=".6"/>
-    </g>
-  </svg>
-</div>
-
 <div id="map-compass">
   <svg viewBox="0 0 70 70" xmlns="http://www.w3.org/2000/svg">
     <circle cx="35" cy="35" r="32" fill="rgba(18,10,2,.78)" stroke="#3d5c2e" stroke-width="1.5"/>
@@ -352,12 +339,6 @@ textarea{resize:vertical;min-height:55px;}
     <button class="panel-close" onclick="togglePanel()">✕</button>
   </div>
   <div class="panel-body" id="panel-body"></div>
-  <div class="panel-stats">
-    <div>Stands: <span id="st-s">0</span></div>
-    <div>Routes: <span id="st-r">0</span></div>
-    <div>Bounds: <span id="st-b">0</span></div>
-    <div>Acres: <span id="st-a">—</span></div>
-  </div>
 </div>
 
 <!-- Recommender panel -->
@@ -1644,34 +1625,32 @@ function togglePanel(side){
 
 function getHelperPanelHTML(){
   return `<div style="padding:12px 12px 28px;color:var(--cream);font-size:.62rem;line-height:1.9">
-    <div style="color:var(--tan);font-family:'Playfair Display',serif;font-size:.9rem;margin-bottom:8px;">DeerDrive & DeerStand Builder Helper</div>
-
     <div style="margin-bottom:8px;">To Build your DeerDrive on Stand Scout Elite</div>
     <ol style="padding-left:18px;display:grid;gap:6px;margin-bottom:14px;">
-      <li>Type in property address or city/state to navigate map to location.</li>
-      <li>Zoom in on location to create your deer drive.</li>
-      <li>Tap DeerDrive Builder on Menu Bar to:
+      <li>Type in property address or city/state to navigate map to location</li>
+      <li>Zoom in on location to create your deer drive</li>
+      <li>Tap DeerDrive Builder on Menu bar to:
         <div style="padding-left:12px;margin-top:4px;">
           a. Name your deer drive<br>
-          b. Choose # of Drivers/Pushers (blue circles) & Standers/Blockers (yellow circles) in the drive<br>
+          b. Choose # of Drivers/Pushers (blue circles) &amp; Standers/Blockers (yellow circles) in the drive<br>
           c. Choose the Wind Direction on drive for To and From<br>
           d. Tap Ok to drop your pins onto the map<br>
           e. Drag your D/P and S/B pins into position
         </div>
       </li>
-      <li>Tap Set Drive button to freeze pins on deer drive location.</li>
-      <li>Tap Auto-Draw Drive Route button to draw the dashed drive routes with direction arrows.</li>
-      <li>Tap Save Drive to save the current DeerDrive layout.</li>
+      <li>Tap Set Drive button to freeze pins on deer drive location</li>
+      <li>Tap Auto-Draw Drive Route button to sketch D/P routes</li>
+      <li>Tap Save Drive to post CampFeed update and post to CampDeerDrives section</li>
     </ol>
 
     <div style="margin-bottom:8px;">To Build your DeerStand on Stand Scout Elite</div>
     <ol style="padding-left:18px;display:grid;gap:6px;">
-      <li>Type in property address or city/state to navigate map to location.</li>
-      <li>Zoom in on the exact stand location.</li>
-      <li>Tap Stand on the Menu Bar.</li>
-      <li>Tap the map where you want to place the stand.</li>
-      <li>Name the stand, choose stand type, wind, notes, and season details.</li>
-      <li>Tap Save to place the stand marker on the map.</li>
+      <li>Type in property address or city/state to navigate map to location</li>
+      <li>Zoom in on location to create your deer stand</li>
+      <li>Tap Stand button on the Menu bar to change mouse pointer to a “+”</li>
+      <li>Tap point on map fix stand position and open up the New Stand popup</li>
+      <li>Enter stand details and tap Save.</li>
+      <li>Tapping Save will auto-post to CampFeed update and post to CampDeerDrives section</li>
     </ol>
   </div>`;
 }
@@ -1681,6 +1660,16 @@ function getPanelPreferredSide(){
 function syncHelperToggleSide(){
   const side = getPanelPreferredSide();
   const panel = document.getElementById('side-panel');
+  const leftBtn = document.getElementById('panel-toggle-left');
+  const rightBtn = document.getElementById('panel-toggle-right');
+  if(leftBtn){
+    leftBtn.classList.toggle('active-helper', side==='left');
+    leftBtn.setAttribute('aria-hidden', side==='left' ? 'false' : 'true');
+  }
+  if(rightBtn){
+    rightBtn.classList.toggle('active-helper', side==='right');
+    rightBtn.setAttribute('aria-hidden', side==='right' ? 'false' : 'true');
+  }
   if(panel && !panelOpen) panel.classList.toggle('left', side==='left');
   panelSide = side;
 }
