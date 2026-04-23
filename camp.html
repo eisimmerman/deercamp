@@ -156,6 +156,8 @@
   .members-sheet-subtitle{margin:4px 0 0;color:#6b5644;line-height:1.5}
 
   .deerdrive-card-btn{justify-self:start}
+  .deerdrive-card{cursor:pointer}
+  .deerdrive-card:hover{box-shadow:0 12px 28px rgba(0,0,0,.12);transform:translateY(-1px);transition:transform .16s ease, box-shadow .16s ease}
   .deerdrive-modal-card{position:relative;width:min(980px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px}
   .deerdrive-modal-grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(280px,.9fr);gap:18px}
   .deerdrive-modal-image{border-radius:18px;overflow:hidden;background:#e9decf;border:1px solid rgba(69,42,22,.12);cursor:pointer}
@@ -1474,7 +1476,7 @@ function renderDeerDrives(){
   }
   empty.hidden = true;
   grid.innerHTML = deerDrivePosts.map((item, idx) => `
-    <article class="feed-card">
+    <article class="feed-card deerdrive-card" data-deerdrive-card="${idx}">
       <div class="feed-card-media">${item.image ? `<img src="${esc(item.image)}" alt="${esc(item.title)}">` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
       <div class="feed-card-copy">
         <p class="feed-kicker">Deer Drive</p>
@@ -1489,7 +1491,8 @@ function renderDeerDrives(){
       </div>
     </article>
   `).join("");
-  grid.querySelectorAll('[data-deerdrive-index]').forEach(btn=>btn.addEventListener('click',()=>openDeerDriveModal(Number(btn.dataset.deerdriveIndex))));
+  grid.querySelectorAll('[data-deerdrive-card]').forEach(card=>card.addEventListener('click',()=>openDeerDriveModal(Number(card.dataset.deerdriveCard))));
+  grid.querySelectorAll('[data-deerdrive-index]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerDriveModal(Number(btn.dataset.deerdriveIndex)); }));
 }
 
 
