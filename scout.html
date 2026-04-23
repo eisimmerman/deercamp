@@ -725,6 +725,20 @@ let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+const CAMP_DATA_KEY='campData';
+const ACTIVE_CAMP_KEY='deercamp.activeCampId';
+const CAMP_SCOPE_PREFIX='deercamp.camps.';
+function getCampIdFromUrl(){
+  try{return String(new URLSearchParams(window.location.search).get('campId')||'').trim()}catch{return ''}
+}
+function campScopeKey(campId,suffix){
+  const clean=String(campId||'').trim();
+  return clean?`${CAMP_SCOPE_PREFIX}${clean}.${suffix}`:'';
+}
+function safeParse(raw,fallback={}){
+  try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
+}
+
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
 
@@ -1155,19 +1169,178 @@ function renderSaveDriveSummary(){
 function closeSaveDriveModal(){
   document.getElementById('modal-save-drive')?.classList.remove('open');
 }
+
+function getDriveBounds(){
+  const pts = [
+    ...drivers.map(item => ({lat:item.lat,lng:item.lng})),
+    ...standers.map(item => ({lat:item.lat,lng:item.lng})),
+    ...getSavedDriveRoutes().flatMap(route => (route.pts || []).map(pt => ({lat:pt[0], lng:pt[1]})))
+  ];
+  if(!pts.length) return {minLat:0,maxLat:1,minLng:0,maxLng:1};
+  return pts.reduce((acc, pt) => ({
+    minLat: Math.min(acc.minLat, pt.lat),
+    maxLat: Math.max(acc.maxLat, pt.lat),
+    minLng: Math.min(acc.minLng, pt.lng),
+    maxLng: Math.max(acc.maxLng, pt.lng)
+  }), {minLat: pts[0].lat, maxLat: pts[0].lat, minLng: pts[0].lng, maxLng: pts[0].lng});
+}
+function getDrivePointTransform(bounds, width=1200, height=675, pad=70){
+  const spanLng = Math.max(bounds.maxLng - bounds.minLng, 0.0001);
+  const spanLat = Math.max(bounds.maxLat - bounds.minLat, 0.0001);
+  const scaleX = (width - pad * 2) / spanLng;
+  const scaleY = (height - pad * 2) / spanLat;
+  const scale = Math.min(scaleX, scaleY);
+  const contentW = spanLng * scale;
+  const contentH = spanLat * scale;
+  const offsetX = (width - contentW) / 2;
+  const offsetY = (height - contentH) / 2;
+  return function project(lat, lng){
+    return {
+      x: offsetX + (lng - bounds.minLng) * scale,
+      y: height - (offsetY + (lat - bounds.minLat) * scale)
+    };
+  };
+}
+function escHtml(value=''){
+  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function slugifyValue(value=''){
+  return String(value||'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+}
+function generateDeerDriveThumbnailDataUrl(){
+  const width = 1200, height = 675;
+  const bounds = getDriveBounds();
+  const project = getDrivePointTransform(bounds, width, height, 70);
+  const driveRoutes = getSavedDriveRoutes();
+  const routeLines = driveRoutes.map(route => {
+    const pts = (route.pts || []).map(pt => project(pt[0], pt[1]));
+    if(!pts.length) return '';
+    const d = pts.map((pt, idx) => `${idx===0?'M':'L'} ${pt.x.toFixed(2)} ${pt.y.toFixed(2)}`).join(' ');
+    const last = pts[pts.length - 1];
+    const prev = pts[Math.max(pts.length - 2, 0)] || last;
+    const angle = Math.atan2(last.y - prev.y, last.x - prev.x) * 180 / Math.PI;
+    return `<path d="${d}" fill="none" stroke="#d4820a" stroke-width="7" stroke-linecap="round" stroke-dasharray="18 12"/>
+      <g transform="translate(${last.x.toFixed(2)} ${last.y.toFixed(2)}) rotate(${angle.toFixed(2)})"><path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#fff8ef" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><path d="M -20 -12 L 0 0 L -20 12" fill="none" stroke="#111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+  }).join('');
+  const driverDots = drivers.map(item => {
+    const pt = project(item.lat, item.lng);
+    return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#2b6cb0" stroke="#fff" stroke-width="4"/><text x="${pt.x.toFixed(2)}" y="${(pt.y+8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#fff">${escHtml(item.mapLabel || item.initial || item.slot || '')}</text>`;
+  }).join('');
+  const standerDots = standers.map(item => {
+    const pt = project(item.lat, item.lng);
+    return `<circle cx="${pt.x.toFixed(2)}" cy="${pt.y.toFixed(2)}" r="24" fill="#f4d03f" stroke="#fff" stroke-width="4"/><text x="${pt.x.toFixed(2)}" y="${(pt.y+8).toFixed(2)}" text-anchor="middle" font-family="IBM Plex Mono" font-size="24" font-weight="700" fill="#231a13">${escHtml(item.mapLabel || item.initial || item.slot || '')}</text>`;
+  }).join('');
+  const windLabel = escHtml(deerDrivePlan.windLabel || '');
+  const title = escHtml(getCurrentDriveName());
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <defs>
+      <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#35532c"/><stop offset="55%" stop-color="#274221"/><stop offset="100%" stop-color="#1b2d16"/></linearGradient>
+      <pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="1"/></pattern>
+    </defs>
+    <rect width="${width}" height="${height}" rx="28" fill="url(#bgGrad)"/>
+    <rect width="${width}" height="${height}" rx="28" fill="url(#grid)"/>
+    <text x="${width/2}" y="52" text-anchor="middle" font-family="IBM Plex Mono" font-size="34" font-weight="700" fill="#fff8ef">${title}</text>
+    ${windLabel ? `<text x="${width/2}" y="88" text-anchor="middle" font-family="IBM Plex Mono" font-size="18" fill="#d5e6cf">${windLabel}</text>` : ''}
+    ${routeLines}
+    ${driverDots}
+    ${standerDots}
+  </svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+function buildDriveRouteSummaries(){
+  return getSavedDriveRoutes().map((route, idx) => ({
+    id: route.id,
+    name: route.name || `${getCurrentDriveName()} Route ${idx + 1}`,
+    miles: Number(getRouteMiles(route.pts).toFixed(1)),
+    direction: getRouteDirection(route.pts)
+  }));
+}
+function persistDriveToCamp(){
+  const activeCampId = getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+  if(!activeCampId) return false;
+  localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+  const scopedCampDataKey = campScopeKey(activeCampId, 'campData');
+  const baseCampData = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
+  const feedEntries = Array.isArray(baseCampData.feedEntries) ? baseCampData.feedEntries.filter(Boolean) : [];
+  const deerDrivePosts = Array.isArray(baseCampData.deerDrivePosts) ? baseCampData.deerDrivePosts.filter(Boolean) : (Array.isArray(baseCampData.deerDrives) ? baseCampData.deerDrives.filter(Boolean) : []);
+  const timestampIso = new Date().toISOString();
+  const timestampMs = Date.now();
+  const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
+  const thumbnail = generateDeerDriveThumbnailDataUrl();
+  const notes = deerDrivePlan.savedDriveNotes || '';
+  const routeSummaries = buildDriveRouteSummaries();
+  const driveEntry = {
+    id: driveId,
+    title: getCurrentDriveName(),
+    body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} planned for this drive.`,
+    image: thumbnail,
+    thumbnail,
+    author: String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward',
+    createdAt: timestampIso,
+    createdAtMs: timestampMs,
+    tags: ['Deer Drive', 'Scout'],
+    windLabel: deerDrivePlan.windLabel || '',
+    notes,
+    routeSummaries,
+    routeCount: routeSummaries.length,
+    savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {})
+  };
+  const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId)].slice(0, 24);
+  const feedEntry = {
+    id: `${driveId}-feed`,
+    title: `${getCurrentDriveName()} saved`,
+    body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} posted to CampDeerDrives.`,
+    image: thumbnail,
+    mediaType: 'photo',
+    author: driveEntry.author,
+    createdAt: timestampIso,
+    createdAtMs: timestampMs,
+    tags: ['Deer Drive', 'CampFeed'],
+    source: 'scout-deerdrive',
+    imageRef: driveId
+  };
+  const nextFeedEntries = [feedEntry, ...feedEntries.filter(item => String(item.id || '') !== feedEntry.id)].slice(0, 24);
+  const enabledSections = Object.assign({
+    campfeed: true,
+    campupdate: true,
+    calendar: true,
+    traditions: true,
+    camprecipes: true,
+    campdeerstands: true,
+    campdeerdrives: true,
+    deerdrives: true
+  }, baseCampData.enabledSections || {});
+  enabledSections.campfeed = true;
+  enabledSections.campdeerdrives = true;
+  enabledSections.deerdrives = true;
+  const nextCampData = Object.assign({}, baseCampData, {
+    campId: activeCampId,
+    enabledSections,
+    deerDrivePosts: nextDeerDrivePosts,
+    deerDrives: nextDeerDrivePosts,
+    feedEntries: nextFeedEntries
+  });
+  localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
+  localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
+  return true;
+}
 function commitSavedDriveSummary(){
   deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
   deerDrivePlan.savedDriveSummary = {
+    id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
     driveName: getCurrentDriveName(),
     windLabel: deerDrivePlan.windLabel || '',
     routeIds: getSavedDriveRoutes().map(r=>r.id),
-    savedAt: new Date().toISOString()
+    savedAt: new Date().toISOString(),
+    thumbnail: generateDeerDriveThumbnailDataUrl()
   };
+  persistDriveToCamp();
   saveLocal();
-  document.getElementById('status-bar').innerHTML = '4. Save Drive saved this DeerDrive summary layout. CampFeed and CampDeerDrives wiring comes next.';
+  document.getElementById('status-bar').innerHTML = '4. Save Drive posted this deer drive to CampDeerDrives and CampFeed.';
   closeSaveDriveModal();
 }
 function saveDriveSnapshot(){
+
   if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
     return;

@@ -502,7 +502,7 @@ data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
 
 const enabledSections = Object.assign({
-  campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campmaps:false
+  campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
@@ -523,6 +523,7 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+let deerDrivePosts = (Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : [])).filter(Boolean);
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
 const LEGACY_SEED_TITLES = new Set([
@@ -893,10 +894,12 @@ function visibleSections(){
     {key:"campcalendar",title:"CampCalendar"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
+    {key:"campdeerdrives",title:"CampDeerDrives"},
   ];
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives);
     return !!enabledSections[map[s.key]];
   });
 }
@@ -970,6 +973,37 @@ function normalizeRecentUpdates(){
     .slice(0,8);
 }
 function formatDateHuman(dateKey){const d=new Date(`${dateKey}T12:00:00`); if(Number.isNaN(d.getTime())) return dateKey; return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"})}
+
+function normalizeDeerDrivePosts(items = []){
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(items) ? items : []).forEach((item, idx) => {
+    if(!item || typeof item !== "object") return;
+    const image = String(item.image || item.thumbnail || "").trim();
+    const title = String(item.title || item.driveName || `Deer Drive ${idx + 1}`).trim() || `Deer Drive ${idx + 1}`;
+    const stableId = String(item.id || slugify(`${title}-${idx + 1}`)).trim() || `deerdrive-${idx + 1}`;
+    if(seen.has(stableId)) return;
+    seen.add(stableId);
+    const rawCreatedAtMs = Number(item.createdAtMs);
+    const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+    out.push({
+      id: stableId,
+      title,
+      body: String(item.body || item.notes || `${Number(item.routeCount || 0)} route${Number(item.routeCount || 0) === 1 ? '' : 's'} planned.`).trim(),
+      image,
+      author: String(item.author || item.member || data.stewardName || data.steward || "Camp Steward").trim() || "Camp Steward",
+      createdAt: String(item.createdAt || (Number.isFinite(parsedCreatedAtMs) ? new Date(parsedCreatedAtMs).toISOString() : new Date().toISOString())),
+      createdAtMs: Number.isFinite(rawCreatedAtMs) ? rawCreatedAtMs : (Number.isFinite(parsedCreatedAtMs) ? parsedCreatedAtMs : idx),
+      tags: Array.isArray(item.tags) && item.tags.length ? item.tags : ["Deer Drive"],
+      windLabel: String(item.windLabel || "").trim(),
+      routeCount: Number(item.routeCount || (Array.isArray(item.routeSummaries) ? item.routeSummaries.length : 0)),
+      routeSummaries: Array.isArray(item.routeSummaries) ? item.routeSummaries : []
+    });
+  });
+  return out.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+}
+deerDrivePosts = normalizeDeerDrivePosts(deerDrivePosts);
+
 function getSelectedStarterRecipes(){
   if (!Array.isArray(selectedRecipeIds) || !selectedRecipeIds.length) return [];
   return STARTER_RECIPES.filter(recipe =>
@@ -1069,6 +1103,14 @@ visibleSections().forEach(section=>{
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
     container.innerHTML=`<h2>CampRecipes</h2><p class="section-helper">Recipes selected by the Steward or added through CampUpdate.</p><div id="recipesGrid" class="recipes-grid"></div>`;
+  } else if(section.key==="campdeerdrives"){
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill">${deerDrivePosts.length} saved</span></div>
+      </div>
+      <div id="deerDrivesGrid" class="recipes-grid"></div>
+      <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
   } else if(section.key==="campmembers"){
     container.innerHTML=`
       <h2>CampMembers</h2>
@@ -1371,6 +1413,34 @@ function renderTraditions(){
     </div>`).join('') : '<p class="empty">No camp traditions yet. Add one through CampUpdate.</p>';
 }
 let recipeModalData=[];
+
+function renderDeerDrives(){
+  const grid = document.getElementById("deerDrivesGrid");
+  const empty = document.getElementById("deerDrivesEmpty");
+  if(!grid || !empty) return;
+  if(!deerDrivePosts.length){
+    grid.innerHTML = "";
+    empty.hidden = false;
+    return;
+  }
+  empty.hidden = true;
+  grid.innerHTML = deerDrivePosts.map(item => `
+    <article class="feed-card">
+      <div class="feed-card-media">${item.image ? `<img src="${esc(item.image)}" alt="${esc(item.title)}">` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
+      <div class="feed-card-copy">
+        <p class="feed-kicker">Deer Drive</p>
+        <h3 class="feed-title">${esc(item.title)}</h3>
+        <p class="feed-meta">${esc(item.author)} • ${esc(new Date(item.createdAtMs || Date.now()).toLocaleDateString())}${item.windLabel ? ` • ${esc(item.windLabel)}` : ""}</p>
+        <p class="feed-body">${esc(item.body || "")}</p>
+        <div class="feed-tags">
+          <span class="tag">${item.routeCount || 0} route${Number(item.routeCount || 0) === 1 ? '' : 's'}</span>
+          ${(Array.isArray(item.tags) ? item.tags : []).slice(0,2).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
+        </div>
+      </div>
+    </article>
+  `).join("");
+}
+
 function renderRecipes(){
   const grid=document.getElementById('recipesGrid'); if(!grid) return;
   recipeModalData = getAllRecipes();
