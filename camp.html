@@ -257,6 +257,12 @@
   @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
   @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
   .form-actions-full{display:grid;gap:8px;align-content:start}
+.section-soft-refresh{animation:sectionSoftRefresh 1.15s ease;}
+@keyframes sectionSoftRefresh{
+  0%{box-shadow:0 0 0 0 rgba(73,102,71,.00), var(--shadow);}
+  35%{box-shadow:0 0 0 4px rgba(73,102,71,.18), 0 16px 34px rgba(0,0,0,.14);}
+  100%{box-shadow:0 0 0 0 rgba(73,102,71,0), var(--shadow);}
+}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -574,6 +580,128 @@ let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Bool
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
 let deerDrivePosts = (Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : [])).filter(Boolean);
+
+function getScopedCampDataSnapshot(){
+  const scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+  const generic = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+  const source = Object.keys(scoped).length ? scoped : generic;
+  return source && typeof source === "object" ? source : {};
+}
+function sectionKeyForSubmissionType(type=""){
+  const clean = String(type||"").toLowerCase();
+  if(clean === "recipe") return "camprecipes";
+  if(clean === "tradition") return "camptraditions";
+  if(clean === "event") return "campcalendar";
+  if(clean === "deerdrive") return "campdeerdrives";
+  return "campupdate";
+}
+function markSectionRefreshed(sectionId){
+  const el = document.getElementById(sectionId);
+  if(!el) return;
+  el.classList.remove("section-soft-refresh");
+  void el.offsetWidth;
+  el.classList.add("section-soft-refresh");
+  setTimeout(()=>el.classList.remove("section-soft-refresh"), 1200);
+}
+function softRefreshVisibleSections(changed = []){
+  const keys = new Set((Array.isArray(changed) ? changed : []).map(v=>String(v||"").toLowerCase()).filter(Boolean));
+  if(keys.has("campupdate")){
+    const recent = document.getElementById("recentUpdates");
+    if(recent) renderRecentUpdates();
+    markSectionRefreshed("campupdate");
+  }
+  if(keys.has("campfeed")){
+    const feed = document.getElementById("feedCarouselTrack");
+    if(feed) renderFeed();
+    markSectionRefreshed("campfeed");
+  }
+  if(keys.has("campcalendar")){
+    const cal = document.getElementById("calendarEvents");
+    if(cal) renderCalendarEvents();
+    markSectionRefreshed("campcalendar");
+  }
+  if(keys.has("camptraditions")){
+    const traditionsGrid = document.getElementById("traditionsGrid");
+    if(traditionsGrid) renderTraditions();
+    markSectionRefreshed("camptraditions");
+  }
+  if(keys.has("camprecipes")){
+    const recipesGrid = document.getElementById("recipesGrid");
+    if(recipesGrid) renderRecipes();
+    markSectionRefreshed("camprecipes");
+  }
+  if(keys.has("campdeerdrives")){
+    const deerGrid = document.getElementById("deerDrivesGrid");
+    if(deerGrid) renderDeerDrives();
+    markSectionRefreshed("campdeerdrives");
+  }
+}
+function applySoftUpdateFromSnapshot(snapshot = {}){
+  if(!snapshot || typeof snapshot !== "object") return;
+  const nextEnabledSections = Object.assign({}, enabledSections, snapshot.enabledSections || {});
+  Object.keys(enabledSections).forEach(key => { enabledSections[key] = Boolean(nextEnabledSections[key]); });
+  selectedRecipeIds = Array.isArray(snapshot.selectedRecipeIds) ? snapshot.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : selectedRecipeIds;
+  contentSubmissions = normalizeContentSubmissions(Array.isArray(snapshot.contentSubmissions) ? snapshot.contentSubmissions.filter(Boolean) : [], calendarEvents);
+  calendarEvents = normalizeCalendarEvents(Array.isArray(snapshot.calendarEvents) ? snapshot.calendarEvents : (Array.isArray(snapshot.events) ? snapshot.events : []));
+  customRecipes = (Array.isArray(snapshot.recipeObjects) ? snapshot.recipeObjects : []).filter(item => item && typeof item === "object");
+  traditions = (Array.isArray(snapshot.traditions) ? snapshot.traditions : []).filter(Boolean);
+  feedComments = (snapshot.feedComments && typeof snapshot.feedComments === "object" && !Array.isArray(snapshot.feedComments)) ? snapshot.feedComments : feedComments;
+  feedEntries = (Array.isArray(snapshot.feedEntries) ? snapshot.feedEntries : []).filter(item => !isLegacySeedFeedItem(item));
+  campPhotoGallery = (Array.isArray(snapshot.campPhotoGallery) ? snapshot.campPhotoGallery : []).filter(item => !isLegacySeedFeedItem(item));
+  deerDrivePosts = normalizeDeerDrivePosts((Array.isArray(snapshot.deerDrivePosts) ? snapshot.deerDrivePosts : (Array.isArray(snapshot.deerDrives) ? snapshot.deerDrives : [])).filter(Boolean));
+}
+let lastSoftUpdateSignature = "";
+function buildSoftUpdateSignature(snapshot = {}){
+  return JSON.stringify({
+    recentCount: Array.isArray(snapshot.contentSubmissions) ? snapshot.contentSubmissions.length : 0,
+    feedCount: Array.isArray(snapshot.feedEntries) ? snapshot.feedEntries.length : 0,
+    calendarCount: Array.isArray(snapshot.calendarEvents || snapshot.events) ? (snapshot.calendarEvents || snapshot.events).length : 0,
+    recipeCount: Array.isArray(snapshot.recipeObjects) ? snapshot.recipeObjects.length : 0,
+    traditionCount: Array.isArray(snapshot.traditions) ? snapshot.traditions.length : 0,
+    deerDriveCount: Array.isArray(snapshot.deerDrivePosts || snapshot.deerDrives) ? (snapshot.deerDrivePosts || snapshot.deerDrives).length : 0,
+    selectedRecipeIds: Array.isArray(snapshot.selectedRecipeIds) ? snapshot.selectedRecipeIds : [],
+    enabledSections: snapshot.enabledSections || {}
+  });
+}
+function computeChangedSections(prev = {}, next = {}){
+  const changed = new Set();
+  const prevContent = Array.isArray(prev.contentSubmissions) ? prev.contentSubmissions : [];
+  const nextContent = Array.isArray(next.contentSubmissions) ? next.contentSubmissions : [];
+  if(prevContent.length !== nextContent.length){
+    changed.add("campupdate");
+    const nextType = nextContent[0] && nextContent[0].type ? sectionKeyForSubmissionType(nextContent[0].type) : "";
+    if(nextType) changed.add(nextType);
+  }
+  if((Array.isArray(prev.feedEntries) ? prev.feedEntries.length : 0) !== (Array.isArray(next.feedEntries) ? next.feedEntries.length : 0)) changed.add("campfeed");
+  const prevCalendar = Array.isArray(prev.calendarEvents || prev.events) ? (prev.calendarEvents || prev.events).length : 0;
+  const nextCalendar = Array.isArray(next.calendarEvents || next.events) ? (next.calendarEvents || next.events).length : 0;
+  if(prevCalendar != nextCalendar) changed.add("campcalendar");
+  if((Array.isArray(prev.recipeObjects) ? prev.recipeObjects.length : 0) !== (Array.isArray(next.recipeObjects) ? next.recipeObjects.length : 0)
+      || JSON.stringify(prev.selectedRecipeIds || []) !== JSON.stringify(next.selectedRecipeIds || [])) changed.add("camprecipes");
+  if((Array.isArray(prev.traditions) ? prev.traditions.length : 0) !== (Array.isArray(next.traditions) ? next.traditions.length : 0)) changed.add("camptraditions");
+  const prevDeer = Array.isArray(prev.deerDrivePosts || prev.deerDrives) ? (prev.deerDrivePosts || prev.deerDrives).length : 0;
+  const nextDeer = Array.isArray(next.deerDrivePosts || next.deerDrives) ? (next.deerDrivePosts || next.deerDrives).length : 0;
+  if(prevDeer != nextDeer) changed.add("campdeerdrives");
+  return Array.from(changed);
+}
+function setupSectionSoftUpdate(){
+  const applyLatest = () => {
+    const snapshot = getScopedCampDataSnapshot();
+    const nextSignature = buildSoftUpdateSignature(snapshot);
+    if(nextSignature === lastSoftUpdateSignature) return;
+    const previousSnapshot = safeParseJson(lastSoftUpdateSignature || "{}", {});
+    applySoftUpdateFromSnapshot(snapshot);
+    softRefreshVisibleSections(computeChangedSections(previousSnapshot, snapshot));
+    lastSoftUpdateSignature = nextSignature;
+  };
+  lastSoftUpdateSignature = buildSoftUpdateSignature(getScopedCampDataSnapshot());
+  window.addEventListener("storage", event => {
+    if(!event || (event.key !== CAMP_DATA_KEY && event.key !== campScopeKey(activeCampId,"campData"))) return;
+    applyLatest();
+  });
+  setInterval(applyLatest, 1500);
+}
+
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
 const LEGACY_SEED_TITLES = new Set([
