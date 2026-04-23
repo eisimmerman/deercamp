@@ -117,6 +117,7 @@ header::-webkit-scrollbar{height:0;}
 .panel-toggle{position:fixed;z-index:950;background:var(--moss);color:var(--cream);border:none;padding:8px 8px;cursor:pointer;font-size:.62rem;writing-mode:vertical-rl;letter-spacing:1px;transition:background .15s, opacity .15s, transform .15s;display:block;opacity:.2;filter:saturate(.55);}
 .panel-toggle:hover{background:var(--sage);}
 .panel-toggle.active-helper{opacity:1;background:#1f7a68;color:#fff;border:1px solid #8ff5df;animation:helperPulse 1.15s infinite;filter:none;}
+.panel-toggle.inactive-helper{opacity:.14;filter:grayscale(.45) saturate(.35);}
 .panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
 .panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
 .side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
@@ -1613,14 +1614,31 @@ function runRecommender(){
 let panelSide='right';
 function togglePanel(side){
   const panel=document.getElementById('side-panel');
+  const preferred = getPanelPreferredSide();
+
+  if(side){
+    const requested = side === 'left' ? 'left' : 'right';
+    if(panelOpen && panelSide === requested){
+      panelOpen = false;
+      panel.classList.remove('open');
+      return;
+    }
+    panelSide = requested;
+    panel.classList.toggle('left', panelSide === 'left');
+    panelOpen = true;
+    panel.classList.add('open');
+    return;
+  }
+
   if(panelOpen){
-    panelOpen=false;
+    panelOpen = false;
     panel.classList.remove('open');
     return;
   }
-  panelSide = getPanelPreferredSide();
-  panel.classList.toggle('left', panelSide==='left');
-  panelOpen=true;
+
+  panelSide = preferred;
+  panel.classList.toggle('left', panelSide === 'left');
+  panelOpen = true;
   panel.classList.add('open');
 }
 
@@ -1659,23 +1677,30 @@ function getHelperPanelHTML(){
   </div>`;
 }
 function getPanelPreferredSide(){
-  return map.getCenter().lng < -90.2 ? 'right' : 'left';
+  const lng = map.getCenter().lng;
+  return lng < -91.5 ? 'right' : 'left';
 }
 function syncHelperToggleSide(){
   const side = getPanelPreferredSide();
   const panel = document.getElementById('side-panel');
   const leftBtn = document.getElementById('panel-toggle-left');
   const rightBtn = document.getElementById('panel-toggle-right');
+
   if(leftBtn){
-    leftBtn.classList.toggle('active-helper', side==='left');
-    leftBtn.setAttribute('aria-hidden', side==='left' ? 'false' : 'true');
+    leftBtn.classList.toggle('active-helper', side === 'left');
+    leftBtn.classList.toggle('inactive-helper', side !== 'left');
+    leftBtn.setAttribute('aria-pressed', side === 'left' ? 'true' : 'false');
   }
   if(rightBtn){
-    rightBtn.classList.toggle('active-helper', side==='right');
-    rightBtn.setAttribute('aria-hidden', side==='right' ? 'false' : 'true');
+    rightBtn.classList.toggle('active-helper', side === 'right');
+    rightBtn.classList.toggle('inactive-helper', side !== 'right');
+    rightBtn.setAttribute('aria-pressed', side === 'right' ? 'true' : 'false');
   }
-  if(panel && !panelOpen) panel.classList.toggle('left', side==='left');
-  panelSide = side;
+
+  if(panel && !panelOpen){
+    panel.classList.toggle('left', side === 'left');
+    panelSide = side;
+  }
 }
 
 function renderPanel(){
