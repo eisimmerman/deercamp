@@ -1153,42 +1153,45 @@ function getDrivePreviewCropRect(sourceWidth, sourceHeight){
     height: Math.max(90, bottom - top)
   };
 }
-function fillSaveDriveMapPreview(targetId){
+async function fillSaveDriveMapPreview(targetId, width=1200, height=675){
   const preview = document.getElementById(targetId);
   if(!preview) return;
   preview.innerHTML='';
-  const source = document.getElementById('map');
-  if(!source || !source.offsetWidth || !source.offsetHeight){
+  preview.classList.remove('empty');
+
+  let imageUrl = deerDrivePlan.savedDriveSummary?.thumbnail || '';
+  if(!imageUrl){
+    try{
+      imageUrl = await generateDeerDriveThumbnailDataUrl(width, height);
+    }catch(err){
+      console.warn('Unable to generate deer drive preview image.', err);
+      imageUrl = '';
+    }
+  }
+
+  if(!imageUrl){
     preview.classList.add('empty');
     preview.textContent = 'Map preview unavailable.';
     return;
   }
-  preview.classList.remove('empty');
 
-  const crop = getDrivePreviewCropRect(source.offsetWidth, source.offsetHeight);
-
-  const inner = document.createElement('div');
-  inner.className = 'save-drive-map-inner';
-  inner.style.width = source.offsetWidth + 'px';
-  inner.style.height = source.offsetHeight + 'px';
-  inner.style.left = `${-crop.left}px`;
-  inner.style.top = `${-crop.top}px`;
-  inner.innerHTML = source.innerHTML;
-  inner.querySelectorAll('.leaflet-control-container,.leaflet-popup-pane,.leaflet-tooltip-pane').forEach(el=>el.remove());
-  preview.appendChild(inner);
-
-  requestAnimationFrame(()=>{
-    const scale = Math.min(preview.clientWidth / crop.width, preview.clientHeight / crop.height);
-    inner.style.transform = `scale(${scale})`;
-    inner.style.transformOrigin = 'top left';
-  });
+  const img = document.createElement('img');
+  img.src = imageUrl;
+  img.alt = `${getCurrentDriveName()} deer drive preview`;
+  img.style.width = '100%';
+  img.style.height = '100%';
+  img.style.display = 'block';
+  img.style.objectFit = 'contain';
+  img.style.objectPosition = 'center center';
+  img.style.background = '#e9decf';
+  preview.appendChild(img);
 }
-function renderSaveDriveMapPreview(){
-  fillSaveDriveMapPreview('save-drive-map-preview');
+async function renderSaveDriveMapPreview(){
+  await fillSaveDriveMapPreview('save-drive-map-preview', 1200, 675);
 }
-function openSaveDriveImageModal(){
+async function openSaveDriveImageModal(){
   document.getElementById('save-drive-full-image-title').textContent = getCurrentDriveName();
-  fillSaveDriveMapPreview('save-drive-map-preview-large');
+  await fillSaveDriveMapPreview('save-drive-map-preview-large', 1600, 900);
   document.getElementById('modal-save-drive-image').classList.add('open');
 }
 function closeSaveDriveImageModal(){
@@ -1210,14 +1213,21 @@ function renderSaveDriveRouteTiles(){
     </div>
   `).join('');
 }
-function renderSaveDriveSummary(){
+async function renderSaveDriveSummary(){
   const title = getCurrentDriveName();
   document.getElementById('save-drive-title').textContent = title;
   document.getElementById('save-drive-notes').value = deerDrivePlan.savedDriveNotes || '';
   document.getElementById('save-drive-directional-compass').innerHTML = getSimpleCompassSVG();
   document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
   document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
-  renderSaveDriveMapPreview();
+  const summaryThumbnail = await generateDeerDriveThumbnailDataUrl(1200, 675);
+  const summaryLargeImage = await generateDeerDriveThumbnailDataUrl(1600, 900);
+  deerDrivePlan.savedDriveSummary = Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
+    thumbnail: summaryThumbnail,
+    originalMapImage: summaryLargeImage,
+    detailImage: summaryLargeImage
+  });
+  await renderSaveDriveMapPreview();
   renderSaveDriveRouteTiles();
 }
 function closeSaveDriveModal(){
@@ -1458,7 +1468,8 @@ async function persistDriveToCamp(){
 }
 async function commitSavedDriveSummary(){
   deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
-  const savedImage = await generateDeerDriveThumbnailDataUrl();
+  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(1200, 675);
+  const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || await generateDeerDriveThumbnailDataUrl(1600, 900);
   deerDrivePlan.savedDriveSummary = {
     id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
     driveName: getCurrentDriveName(),
@@ -1466,20 +1477,21 @@ async function commitSavedDriveSummary(){
     routeIds: getSavedDriveRoutes().map(r=>r.id),
     savedAt: new Date().toISOString(),
     thumbnail: savedImage,
-    originalMapImage: savedImage
+    originalMapImage: savedLargeImage,
+    detailImage: savedLargeImage
   };
   await persistDriveToCamp();
   saveLocal();
   document.getElementById('status-bar').innerHTML = '4. Save Drive posted a CampUpdate entry and a saved deer drive to CampDeerDrives.';
   closeSaveDriveModal();
 }
-function saveDriveSnapshot(){
+async function saveDriveSnapshot(){
 
   if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
     return;
   }
-  renderSaveDriveSummary();
+  await renderSaveDriveSummary();
   document.getElementById('modal-save-drive').classList.add('open');
   document.getElementById('status-bar').innerHTML='4. Save Drive opened the DeerDrive summary preview.';
 }
