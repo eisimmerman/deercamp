@@ -642,7 +642,7 @@ textarea{resize:vertical;min-height:55px;}
     </div>
     <div class="save-drive-actions">
       <button class="btn btn-c" onclick="closeSaveDriveModal()">Close</button>
-      <button class="btn btn-p" onclick="commitSavedDriveSummary()">Save</button>
+      <button class="btn btn-p" id="save-drive-confirm-btn" onclick="commitSavedDriveSummary()">Save</button>
     </div>
   </div>
 </div>
@@ -1153,16 +1153,18 @@ function getDrivePreviewCropRect(sourceWidth, sourceHeight){
     height: Math.max(90, bottom - top)
   };
 }
-async function fillSaveDriveMapPreview(targetId, width=1200, height=675){
+async function fillSaveDriveMapPreview(targetId, preferredImage='thumbnail'){
   const preview = document.getElementById(targetId);
   if(!preview) return;
   preview.innerHTML='';
   preview.classList.remove('empty');
 
-  let imageUrl = deerDrivePlan.savedDriveSummary?.thumbnail || '';
+  let imageUrl = preferredImage === 'large'
+    ? (deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || '')
+    : (deerDrivePlan.savedDriveSummary?.thumbnail || '');
   if(!imageUrl){
     try{
-      imageUrl = await generateDeerDriveThumbnailDataUrl(width, height);
+      imageUrl = await generateDeerDriveThumbnailDataUrl(preferredImage === 'large' ? 1600 : 1200, preferredImage === 'large' ? 900 : 675);
     }catch(err){
       console.warn('Unable to generate deer drive preview image.', err);
       imageUrl = '';
@@ -1187,11 +1189,11 @@ async function fillSaveDriveMapPreview(targetId, width=1200, height=675){
   preview.appendChild(img);
 }
 async function renderSaveDriveMapPreview(){
-  await fillSaveDriveMapPreview('save-drive-map-preview', 1200, 675);
+  await fillSaveDriveMapPreview('save-drive-map-preview','thumbnail');
 }
 async function openSaveDriveImageModal(){
   document.getElementById('save-drive-full-image-title').textContent = getCurrentDriveName();
-  await fillSaveDriveMapPreview('save-drive-map-preview-large', 1600, 900);
+  await fillSaveDriveMapPreview('save-drive-map-preview-large','large');
   document.getElementById('modal-save-drive-image').classList.add('open');
 }
 function closeSaveDriveImageModal(){
@@ -1220,13 +1222,17 @@ async function renderSaveDriveSummary(){
   document.getElementById('save-drive-directional-compass').innerHTML = getSimpleCompassSVG();
   document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
   document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
-  const summaryThumbnail = await generateDeerDriveThumbnailDataUrl(1200, 675);
-  const summaryLargeImage = await generateDeerDriveThumbnailDataUrl(1600, 900);
+
+  const [summaryThumbnail, summaryLargeImage] = await Promise.all([
+    generateDeerDriveThumbnailDataUrl(1200, 675),
+    generateDeerDriveThumbnailDataUrl(1600, 900)
+  ]);
   deerDrivePlan.savedDriveSummary = Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
     thumbnail: summaryThumbnail,
     originalMapImage: summaryLargeImage,
     detailImage: summaryLargeImage
   });
+
   await renderSaveDriveMapPreview();
   renderSaveDriveRouteTiles();
 }
@@ -1402,7 +1408,8 @@ async function persistDriveToCamp(){
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
   const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
-  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl();
+  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(1200, 675);
+  const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || savedImage;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
@@ -1412,8 +1419,8 @@ async function persistDriveToCamp(){
     body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} planned for this drive.`,
     image: savedImage,
     thumbnail: savedImage,
-    detailImage: savedImage,
-    originalMapImage: savedImage,
+    detailImage: savedLargeImage,
+    originalMapImage: savedLargeImage,
     author,
     createdAt: timestampIso,
     createdAtMs: timestampMs,
@@ -1467,23 +1474,42 @@ async function persistDriveToCamp(){
   return true;
 }
 async function commitSavedDriveSummary(){
-  deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
-  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(1200, 675);
-  const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || await generateDeerDriveThumbnailDataUrl(1600, 900);
-  deerDrivePlan.savedDriveSummary = {
-    id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
-    driveName: getCurrentDriveName(),
-    windLabel: deerDrivePlan.windLabel || '',
-    routeIds: getSavedDriveRoutes().map(r=>r.id),
-    savedAt: new Date().toISOString(),
-    thumbnail: savedImage,
-    originalMapImage: savedLargeImage,
-    detailImage: savedLargeImage
-  };
-  await persistDriveToCamp();
-  saveLocal();
-  document.getElementById('status-bar').innerHTML = '4. Save Drive posted a CampUpdate entry and a saved deer drive to CampDeerDrives.';
-  closeSaveDriveModal();
+  const saveBtn = document.getElementById('save-drive-confirm-btn');
+  if(saveBtn){
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving...';
+  }
+  try{
+    deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
+    const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(1200, 675);
+    const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || await generateDeerDriveThumbnailDataUrl(1600, 900);
+    deerDrivePlan.savedDriveSummary = {
+      id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
+      driveName: getCurrentDriveName(),
+      windLabel: deerDrivePlan.windLabel || '',
+      routeIds: getSavedDriveRoutes().map(r=>r.id),
+      savedAt: new Date().toISOString(),
+      thumbnail: savedImage,
+      originalMapImage: savedLargeImage,
+      detailImage: savedLargeImage
+    };
+    const posted = await persistDriveToCamp();
+    saveLocal();
+    if(posted === false){
+      document.getElementById('status-bar').innerHTML = 'Save Drive needs a campId in the Scout URL before it can post to CampDeerDrives.';
+      return;
+    }
+    document.getElementById('status-bar').innerHTML = '4. Save Drive posted a CampUpdate entry and a saved deer drive to CampDeerDrives.';
+    closeSaveDriveModal();
+  }catch(err){
+    console.error('Save Drive failed', err);
+    document.getElementById('status-bar').innerHTML = 'Save Drive failed. Check the Scout tab URL and try again.';
+  }finally{
+    if(saveBtn){
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+    }
+  }
 }
 async function saveDriveSnapshot(){
 
@@ -1491,9 +1517,14 @@ async function saveDriveSnapshot(){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
     return;
   }
-  await renderSaveDriveSummary();
-  document.getElementById('modal-save-drive').classList.add('open');
-  document.getElementById('status-bar').innerHTML='4. Save Drive opened the DeerDrive summary preview.';
+  try{
+    await renderSaveDriveSummary();
+    document.getElementById('modal-save-drive').classList.add('open');
+    document.getElementById('status-bar').innerHTML='4. Save Drive opened the DeerDrive summary preview.';
+  }catch(err){
+    console.error('Unable to open Save Drive preview', err);
+    document.getElementById('status-bar').innerHTML='Save Drive preview failed to load.';
+  }
 }
 window.closeSaveDriveModal=closeSaveDriveModal;
 window.commitSavedDriveSummary=commitSavedDriveSummary;
