@@ -568,7 +568,7 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
     bestCampMemory: String(member.bestCampMemory || "—").trim() || "—",
     specialty: String(member.specialty || "—").trim() || "—",
     note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
-    photo: String(member.photo || member.profilePhoto || member.avatar || "").trim()
+    photo: String(member.photo || member.profilePhoto || member.avatar || member.stewardPhoto || member.stewardProfilePhoto || member.stewardAvatar || "").trim()
   };
 }
 
@@ -773,12 +773,69 @@ if(mobileCampName){
 if(mobileCampLocation) mobileCampLocation.textContent = formatLocation();
 if(mobileHeroBg) mobileHeroBg.style.backgroundImage = `url('${heroPath}')`;
 
-const memberProfiles = Array.isArray(data.memberProfiles)
-  ? data.memberProfiles.filter(m => {
-      const status = String(m && m.status || "Active").trim().toLowerCase();
-      return status !== "removed";
-    })
-  : [];
+function getDashboardProfileSources() {
+  const scopedDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
+  const genericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
+  const sources = [];
+  [data, scopedDashboard, genericDashboard, data.dashboardSlim].forEach(source => {
+    if(!source || typeof source !== "object") return;
+    if(Array.isArray(source.memberProfiles)) sources.push(...source.memberProfiles);
+    if(Array.isArray(source.members)) sources.push(...source.members);
+    if(Array.isArray(source.people)) sources.push(...source.people);
+    if(Array.isArray(source.dashboardMembers)) sources.push(...source.dashboardMembers);
+    if(Array.isArray(source.dashboardPeople)) sources.push(...source.dashboardPeople);
+    if(source.stewardProfile && typeof source.stewardProfile === "object") sources.push(source.stewardProfile);
+    if(source.campStewardProfile && typeof source.campStewardProfile === "object") sources.push(source.campStewardProfile);
+  });
+  const directStewardPhoto = String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim();
+  if(directStewardPhoto || data.stewardFavoriteStand || data.stewardBestCampMemory || data.stewardRoleLine){
+    sources.push({
+      name:String(data.stewardName||data.steward||"").trim(),
+      role:"Camp Steward",
+      email:String(data.stewardEmail||"").trim(),
+      photo:directStewardPhoto,
+      profilePhoto:directStewardPhoto,
+      avatar:directStewardPhoto,
+      favoriteStand:String(data.stewardFavoriteStand||"").trim(),
+      favoriteGear:String(data.stewardFavoriteGear||"").trim(),
+      nickname:String(data.stewardNickname||"").trim(),
+      yearJoined:String(data.stewardYearJoined||"").trim(),
+      specialty:String(data.stewardSpecialty||"").trim(),
+      harvestHighlight:String(data.stewardHarvestHighlight||"").trim(),
+      bestCampMemory:String(data.stewardBestCampMemory||"").trim(),
+      roleLine:String(data.stewardRoleLine||"").trim()
+    });
+  }
+  return sources;
+}
+
+function profileValueScore(member = {}) {
+  const fields = ["photo","profilePhoto","avatar","nickname","yearJoined","favoriteStand","favoriteGear","harvestHighlight","bestCampMemory","specialty","roleLine","note"];
+  return fields.reduce((score, key) => score + (String(member[key] || "").trim() ? (key === "photo" || key === "profilePhoto" || key === "avatar" ? 5 : 1) : 0), 0);
+}
+
+function mergeMemberProfile(previous = {}, member = {}) {
+  const merged = Object.assign({}, previous);
+  Object.keys(member || {}).forEach(key => {
+    const nextValue = member[key];
+    if(Array.isArray(nextValue)) {
+      if(nextValue.length || !Array.isArray(merged[key])) merged[key] = nextValue.slice();
+      return;
+    }
+    const cleanNext = String(nextValue ?? "").trim();
+    const cleanPrev = String(merged[key] ?? "").trim();
+    if(cleanNext && (!cleanPrev || cleanNext.length >= cleanPrev.length || ["photo","profilePhoto","avatar"].includes(key))) merged[key] = nextValue;
+  });
+  const photo = String(merged.photo || merged.profilePhoto || merged.avatar || "").trim();
+  if(photo){ merged.photo = photo; merged.profilePhoto = photo; merged.avatar = photo; }
+  return merged;
+}
+
+const memberProfiles = getDashboardProfileSources().filter(m => {
+  const status = String(m && m.status || "Active").trim().toLowerCase();
+  return status !== "removed";
+}).sort((a,b) => profileValueScore(a) - profileValueScore(b));
+
 const publicMemberProfiles = memberProfiles.filter(m => {
   const status = String(m && m.status || "Active").trim().toLowerCase();
   const role = String(m && m.role || "").trim().toLowerCase();
@@ -796,12 +853,12 @@ function normalizeRoster(members = []) {
     const key = roleKey === 'camp steward' ? 'role:camp steward' : (email ? `member:${email}` : `member:${name.toLowerCase()}`);
     if(!key || !name) return;
     const previous = seen.get(key) || {};
-    seen.set(key, Object.assign({}, previous, member, {
+    seen.set(key, mergeMemberProfile(previous, Object.assign({}, member, {
       name: name || String(previous.name || '').trim(),
       email: String(member.email || previous.email || '').trim(),
       note: String(member.note || previous.note || '').trim(),
       role
-    }));
+    })));
   });
   return Array.from(seen.values()).sort((a,b) => {
     const aSteward = String(a.role || '').toLowerCase() === 'camp steward' ? 0 : 1;
@@ -814,7 +871,10 @@ const stewardFallbackProfile = {
   name:String(data.stewardName||data.steward||"").trim(),
   role:"Camp Steward",
   email:String(data.stewardEmail||"").trim(),
-  note:"Keeps camp information current and helps guide the full DeerCamp experience."
+  note:"Keeps camp information current and helps guide the full DeerCamp experience.",
+  photo:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
+  profilePhoto:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
+  avatar:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim()
 };
 
 const roster = normalizeRoster([
@@ -832,7 +892,7 @@ const additionalMembers=roster.filter(member=>String(member.role||"").toLowerCas
 
 function buildHeaderMemberButton(member, isSteward=false){
   const btn=document.createElement("button"); btn.className="camp-member-link"; btn.type="button";
-  btn.innerHTML=`<span class="camp-member-badge">${esc(initials(member.name))}</span><span>${esc(member.name)} ${isSteward?'<span class="camp-member-role-tag">Steward</span>':''}</span>`;
+  btn.innerHTML=`<span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)} ${isSteward?'<span class="camp-member-role-tag">Steward</span>':''}</span>`;
   btn.addEventListener("click",()=>openMemberModal(member));
   return btn;
 }
@@ -844,7 +904,8 @@ const mobileStewardButton=document.getElementById("mobileStewardButton");
 const mobileStewardName=document.getElementById("mobileStewardName");
 if(stewardMember && mobileStewardButton && mobileStewardName){
   mobileStewardButton.hidden = false;
-  mobileStewardButton.querySelector(".mobile-steward-badge").textContent = initials(stewardMember.name);
+  const mobileBadge = mobileStewardButton.querySelector(".mobile-steward-badge");
+  if(mobileBadge) mobileBadge.innerHTML = renderAvatarMarkup(stewardMember, stewardMember.name);
   mobileStewardName.textContent = stewardMember.name || "Camp Steward";
   mobileStewardButton.addEventListener("click",()=>openMemberModal(stewardMember));
 }
@@ -1853,7 +1914,10 @@ function buildCampRefreshSnapshot(payload = {}){
     deerDrives: Array.isArray(payload.deerDrives) ? payload.deerDrives : [],
     memberProfiles: Array.isArray(payload.memberProfiles) ? payload.memberProfiles : [],
     members: Array.isArray(payload.members) ? payload.members : [],
-    campMembers: Array.isArray(payload.campMembers) ? payload.campMembers : []
+    campMembers: Array.isArray(payload.campMembers) ? payload.campMembers : [],
+    stewardProfile: payload.stewardProfile || null,
+    campStewardProfile: payload.campStewardProfile || null,
+    stewardPhoto: payload.stewardPhoto || payload.stewardProfilePhoto || payload.stewardAvatar || ""
   });
 }
 

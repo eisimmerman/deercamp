@@ -996,6 +996,8 @@
         nextCampData.stewardProfile = Object.assign({}, stewardProfile);
         nextCampData.campStewardProfile = Object.assign({}, stewardProfile);
         nextCampData.stewardPhoto = String(stewardProfile.photo || stewardProfile.profilePhoto || stewardProfile.avatar || "").trim();
+        nextCampData.stewardProfilePhoto = nextCampData.stewardPhoto;
+        nextCampData.stewardAvatar = nextCampData.stewardPhoto;
         nextCampData.profilePhoto = nextCampData.stewardPhoto;
         nextCampData.stewardAvatar = nextCampData.stewardPhoto;
         nextCampData.stewardFavoriteStand = String(stewardProfile.favoriteStand || "").trim();
@@ -1010,6 +1012,7 @@
 
       const savedCampData = writeCampAndDashboardStorage(nextCampData, nextDashboard);
       Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(state.campId, savedCampData)).catch(() => {});
+      return savedCampData;
     }
 
     function renderPreview() {
@@ -1380,7 +1383,7 @@
       showToast("Dashboard changes saved.");
     });
 
-    document.getElementById("memberForm").addEventListener("submit", (event) => {
+    document.getElementById("memberForm").addEventListener("submit", async (event) => {
       event.preventDefault();
       const editIndex = document.getElementById("memberEditIndex").value;
       const name = document.getElementById("memberName").value.trim();
@@ -1442,15 +1445,29 @@
             member.inviteSentAt = "";
           }
         }
-        syncCampData();
+        const savedCampData = syncCampData();
         renderMembers();
         renderPreview();
-        clearMemberEditPulse();
-        document.getElementById("memberEditIndex").value = "";
-        document.getElementById("memberSubmitBtn").textContent = "Add Member";
         updateInviteButton();
-        setMemberFormNote(`${name} profile saved. Open the live camp profile after refresh to confirm.`, "success");
+        const submitBtn = document.getElementById("memberSubmitBtn");
+        const isStewardSave = String(member.role || "").toLowerCase() === "camp steward";
+        submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
+        setMemberFormNote(`${name} profile saved. Photo and profile details were saved for the live camp profile.`, "success");
         showToast(`${name} profile saved.`);
+        try {
+          if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+            await DeerCampCloud.saveCamp(state.campId, savedCampData);
+            setMemberFormNote(`${name} profile saved to DeerCamp cloud. Refresh the live camp page to view it.`, "success");
+          }
+        } catch (error) {
+          console.warn("Profile saved locally, but cloud save could not be confirmed.", error);
+          setMemberFormNote(`${name} profile saved in this browser. Cloud save was not confirmed, so try Save Dashboard Changes before leaving.`, "error");
+          showToast("Profile saved locally. Cloud save not confirmed.");
+        }
+        setTimeout(() => {
+          const currentMember = state.members[Number(document.getElementById("memberEditIndex").value)];
+          if (currentMember) submitBtn.textContent = isStewardSave ? "Save Steward Profile" : "Save Member Profile";
+        }, 1800);
         return;
       }
 
