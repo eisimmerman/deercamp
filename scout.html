@@ -194,6 +194,9 @@ textarea{resize:vertical;min-height:55px;}
 .modal-acts{display:flex;gap:6px;margin-top:14px;justify-content:flex-end;}
 .stand-save-feedback{display:none;margin-top:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(58,186,160,.45);background:rgba(19,54,47,.65);color:#cffff1;font-size:.62rem;line-height:1.45;}
 .stand-save-feedback.show{display:block;}
+.stand-photo-preview{display:none;margin-top:8px;border:1px solid #3a2c1e;border-radius:8px;overflow:hidden;background:#140802;}
+.stand-photo-preview.show{display:block;}
+.stand-photo-preview img{display:block;width:100%;max-height:140px;object-fit:cover;}
 .btn{font-family:'IBM Plex Mono',monospace;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;}
 .btn-p{background:var(--moss);color:var(--cream);}
 .btn-p:hover{background:var(--sage);}
@@ -519,6 +522,11 @@ textarea{resize:vertical;min-height:55px;}
       </select>
     </div>
     <div class="fg"><label>Notes</label><textarea id="f-notes" placeholder="Approach trail, bait, sightings…"></textarea></div>
+    <div class="fg">
+      <label>Stand Photo</label>
+      <input type="file" id="f-stand-photo" accept="image/*" onchange="handleStandPhotoUpload(event)">
+      <div id="stand-photo-preview" class="stand-photo-preview"><img id="stand-photo-preview-img" alt="Stand photo preview"></div>
+    </div>
     <div class="fg"><label>Season</label><input type="text" id="f-season" placeholder="e.g. Archery 2024"></div>
     <div id="stand-save-feedback" class="stand-save-feedback" aria-live="polite"></div>
     <div class="modal-acts">
@@ -758,6 +766,7 @@ let mode='view', pendingLL=null, editingStandId=null;
 let deerDriveAnchor=null;
 let mapFrozen=false;
 let selWind='', selArrowFrom='', selArrowTo='';
+let standPhotoDataUrl='';
 let curPts=[],curPolyType=null,curPolyLine=null;
 let routeEndArrow='';
 let awaitingRouteEndPlacement=false;
@@ -2172,6 +2181,85 @@ function addStandToMap(s){
   const m=L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s));
   allLayers[s.id]=m;
 }
+
+function resizeImageFileToDataUrl(file, maxSize=1000, quality=0.72){
+  return new Promise((resolve,reject)=>{
+    if(!file){resolve('');return;}
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const scale=Math.min(1, maxSize/Math.max(img.width,img.height));
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.max(1,Math.round(img.width*scale));
+        canvas.height=Math.max(1,Math.round(img.height*scale));
+        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror=()=>reject(new Error('Could not read stand photo.'));
+      img.src=String(reader.result||'');
+    };
+    reader.onerror=()=>reject(new Error('Could not load stand photo.'));
+    reader.readAsDataURL(file);
+  });
+}
+async function handleStandPhotoUpload(event){
+  const file=event?.target?.files?.[0];
+  const preview=document.getElementById('stand-photo-preview');
+  const img=document.getElementById('stand-photo-preview-img');
+  try{
+    standPhotoDataUrl=file?await resizeImageFileToDataUrl(file):'';
+    if(standPhotoDataUrl&&preview&&img){img.src=standPhotoDataUrl;preview.classList.add('show');}
+    else if(preview){preview.classList.remove('show');}
+  }catch(error){
+    standPhotoDataUrl='';
+    if(preview) preview.classList.remove('show');
+    const feedback=document.getElementById('stand-save-feedback');
+    if(feedback){feedback.textContent='⚠️ Photo could not be read. Try a smaller image or save without a photo.';feedback.classList.add('show');}
+  }
+}
+window.handleStandPhotoUpload=handleStandPhotoUpload;
+function getScoutActiveCampData(){
+  const scopedFromUrl=getCampIdFromUrl();
+  const activeFromStorage=localStorage.getItem(ACTIVE_CAMP_KEY)||'';
+  const genericCampData=safeParse(localStorage.getItem(CAMP_DATA_KEY),{});
+  const genericCampId=String(genericCampData.campId||genericCampData.id||'').trim();
+  const activeCampId=String(scopedFromUrl||activeFromStorage||genericCampId||'active-camp').trim();
+  localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+  const scopedCampDataKey=campScopeKey(activeCampId,'campData');
+  const scoped=safeParse(localStorage.getItem(scopedCampDataKey),{});
+  return {activeCampId, scopedCampDataKey, baseCampData:Object.keys(scoped).length?scoped:genericCampData};
+}
+function makeStandPostSummary(s){
+  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+  return [c.label, s.wind?`wind ${s.wind}`:'', s.tod?(TOD_LABELS[s.tod]||s.tod):'', (s.seasonPhase&&s.seasonPhase!=='any')?(SEASON_PHASE_LABELS[s.seasonPhase]||s.seasonPhase):''].filter(Boolean).join(' • ') || 'Stand saved from Scout.';
+}
+function persistStandToCamp(s){
+  const {activeCampId, scopedCampDataKey, baseCampData}=getScoutActiveCampData();
+  const nowIso=new Date().toISOString();
+  const nowMs=Date.now();
+  const author=String(baseCampData.stewardName||baseCampData.steward||'Camp Steward').trim()||'Camp Steward';
+  const standId=String(s.campStandId||`stand-${slugifyValue(s.name)||'stand'}-${s.id}`).trim();
+  s.campStandId=standId;
+  const image=String(s.photo||'').trim();
+  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),image,thumbnail:image,photo:image,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
+  const existing=Array.isArray(baseCampData.deerStandPosts)?baseCampData.deerStandPosts.filter(Boolean):(Array.isArray(baseCampData.deerStands)?baseCampData.deerStands.filter(Boolean):[]);
+  const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId,image};
+  const content=Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions.filter(Boolean):[];
+  const enabledSections=Object.assign({},baseCampData.enabledSections||{},{campdeerstands:true,stands:true,campupdate:true});
+  const next=Object.assign({},baseCampData,{campId:activeCampId,enabledSections,deerStandPosts:[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24),deerStands:[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24),contentSubmissions:[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30)});
+  try{
+    localStorage.setItem(CAMP_DATA_KEY,JSON.stringify(next));
+    if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,JSON.stringify(next));
+    localStorage.setItem('deercamp.lastSavedDeerStandPing',String(Date.now()));
+    return {posted:true};
+  }catch(error){
+    standEntry.image=standEntry.thumbnail=standEntry.photo=''; updateEntry.image='';
+    next.deerStandPosts=[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24); next.deerStands=next.deerStandPosts; next.contentSubmissions=[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30);
+    localStorage.setItem(CAMP_DATA_KEY,JSON.stringify(next)); if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,JSON.stringify(next)); localStorage.setItem('deercamp.lastSavedDeerStandPing',String(Date.now()));
+    return {posted:true,photoDropped:true};
+  }
+}
 function openStandModal(stand=null){
   document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
   document.getElementById('f-name').value=stand?.name||'';
@@ -2183,6 +2271,10 @@ function openStandModal(stand=null){
   document.getElementById('f-pressure').value=stand?.pressure||'fresh';
   document.getElementById('f-season-phase').value=stand?.seasonPhase||'any';
   selWind=stand?.wind||'';
+  standPhotoDataUrl=stand?.photo||stand?.image||'';
+  const photoInput=document.getElementById('f-stand-photo'); if(photoInput) photoInput.value='';
+  const photoPreview=document.getElementById('stand-photo-preview'); const photoPreviewImg=document.getElementById('stand-photo-preview-img');
+  if(standPhotoDataUrl&&photoPreview&&photoPreviewImg){photoPreviewImg.src=standPhotoDataUrl;photoPreview.classList.add('show');} else if(photoPreview){photoPreview.classList.remove('show');}
   document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===selWind));
   document.getElementById('btn-del-stand').style.display=stand?'inline-flex':'none';
   const standFeedback=document.getElementById('stand-save-feedback');
@@ -2202,8 +2294,12 @@ function pickWind(d){
   selWind=d;
   document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
 }
-function saveStand(){
+async function saveStand(){
+  const feedback=document.getElementById('stand-save-feedback');
+  const saveBtn=document.getElementById('stand-save-btn');
   try{
+    if(saveBtn) saveBtn.textContent='Saving...';
+    if(feedback){feedback.textContent='Saving stand...';feedback.classList.add('show');}
     const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
     const type=document.getElementById('f-type').value;
     const notes=document.getElementById('f-notes').value.trim();
@@ -2213,47 +2309,39 @@ function saveStand(){
     const pressure=document.getElementById('f-pressure').value;
     const seasonPhase=document.getElementById('f-season-phase').value;
     const wind=selWind;
-
+    let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){
-        Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase});
-        allLayers[s.id]?.setIcon(makeIcon(type));
-        allLayers[s.id]?.setPopupContent(standPopupHTML(s));
-      }
+      if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||s.photo||''}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
     } else {
-      const ll = pendingLL || map.getCenter();
-      if(!ll || typeof ll.lat!=='number' || typeof ll.lng!=='number'){
+      const ll=pendingLL||map.getCenter();
+      if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
         document.getElementById('status-bar').innerHTML='⚠️ Tap the map where this stand should go, then save again.';
-        return;
+        if(feedback){feedback.textContent='⚠️ Tap the map where this stand should go, then save again.';feedback.classList.add('show');}
+        if(saveBtn) saveBtn.textContent='Save'; return;
       }
-      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,lat:ll.lat,lng:ll.lng};
-      stands.push(s);
-      addStandToMap(s);
-      editingStandId=s.id;
-      pendingLL=null;
-      map.panTo([s.lat,s.lng]);
+      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||'',lat:ll.lat,lng:ll.lng};
+      stands.push(s); addStandToMap(s); editingStandId=s.id; pendingLL=null; savedStand=s; try{map.panTo([s.lat,s.lng]);}catch(e){}
     }
-
+    if(!savedStand) throw new Error('Stand object was not created.');
     saveLocal();
-    renderPanel();
+    try{renderPanel();}catch(e){console.warn('Panel refresh skipped.',e);}
+    let postResult={posted:false};
+    try{postResult=persistStandToCamp(savedStand);}catch(e){console.warn('Camp stand post failed.',e);}
     setMode('view');
-    const feedback=document.getElementById('stand-save-feedback');
+    const closeBtn=document.getElementById('stand-close-btn'); if(saveBtn) saveBtn.textContent='Saved ✓'; if(closeBtn) closeBtn.textContent='Close';
     if(feedback){
-      feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map. Tap <strong>Close</strong> when done.`;
-      feedback.classList.add('show');
+      const campNote=postResult.posted?' Posted to CampUpdate and CampDeerStands.':' Saved to the map. Camp post did not complete.';
+      const photoNote=(savedStand.photo&&postResult.photoDropped)?' Photo was too large, so the stand saved without the photo.':'';
+      feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map.${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
     }
-    const saveBtn=document.getElementById('stand-save-btn');
-    if(saveBtn) saveBtn.textContent='Saved ✓';
-    const closeBtn=document.getElementById('stand-close-btn');
-    if(closeBtn) closeBtn.textContent='Close';
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
     if(recOpen) runRecommender();
   }catch(error){
     console.error('Save stand failed', error);
     document.getElementById('status-bar').innerHTML='⚠️ Stand did not save. Check required fields and try again.';
-    const feedback=document.getElementById('stand-save-feedback');
     if(feedback){feedback.textContent='⚠️ Stand did not save. Check the fields and try again.';feedback.classList.add('show');}
+    if(saveBtn) saveBtn.textContent='Save';
   }
 }
 window.saveStand=saveStand;
