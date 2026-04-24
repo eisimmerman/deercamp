@@ -1564,37 +1564,50 @@ function renderDeerStands(){
   const grid = document.getElementById("deerStandsGrid");
   const empty = document.getElementById("deerStandsEmpty");
   if(!grid || !empty) return;
-  if(!deerStandPosts.length){
+  const safeItems = Array.isArray(deerStandPosts) ? deerStandPosts : [];
+  if(!safeItems.length){
     grid.innerHTML = "";
     empty.hidden = false;
     return;
   }
+  const timeLabels = {"":"Any", morning:"Morning", evening:"Evening", "all-day":"All Day"};
+  const typeLabels = {treestand:"Treestand", blind:"Ground Blind", boxblind:"Box Blind", ladder:"Ladder Stand", foodplot:"Food Plot", trailcam:"Trail Camera", scrape:"Scrape / Rub", waypoint:"Waypoint"};
+  const labelize = (value="") => String(value || "").replace(/-/g," ").replace(/\w/g, ch => ch.toUpperCase());
   empty.hidden = true;
-  grid.innerHTML = deerStandPosts.map(item => {
-    const image = item.image || item.thumbnail || item.photo || "";
-    const dateLabel = Number.isFinite(Number(item.createdAtMs)) ? new Date(Number(item.createdAtMs)).toLocaleDateString() : "";
-    const tags = [
-      item.standType || "Stand",
-      item.wind ? `Wind ${item.wind}` : "",
-      item.tod ? (TOD_LABELS[item.tod] || item.tod) : "",
-      item.access ? `Access ${item.access}` : "",
-      item.pressure ? `Pressure ${item.pressure}` : "",
-      item.season ? item.season : ""
-    ].filter(Boolean);
-    const coords = Number.isFinite(item.lat) && Number.isFinite(item.lng) ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}` : "";
-    return `
-      <article class="deerstand-card">
-        ${image ? `<div class="deerstand-media"><img src="${esc(image)}" alt="${esc(item.title)} stand photo"></div>` : ""}
-        <div class="deerstand-copy">
-          <p class="feed-kicker">Deer Stand</p>
-          <h3 class="tradition-title">${esc(item.title)}</h3>
-          <p class="tradition-meta">${esc(item.author || "Camp Steward")}${dateLabel ? ` • ${esc(dateLabel)}` : ""}</p>
-          <div class="deerstand-meta">${tags.map(tag => `<span class="deerstand-tag">${esc(tag)}</span>`).join("")}</div>
-          <p class="tradition-body">${esc(item.body || "Stand details available.")}</p>
-          ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
-        </div>
-      </article>`;
-  }).join("");
+  try{
+    grid.innerHTML = safeItems.map(item => {
+      const image = item.image || item.thumbnail || item.photo || item.media || item.url || "";
+      const createdMs = Number(item.createdAtMs);
+      const dateLabel = Number.isFinite(createdMs) ? new Date(createdMs).toLocaleDateString() : "";
+      const standType = typeLabels[String(item.standType || item.type || "").toLowerCase()] || labelize(item.standType || item.type || "Stand");
+      const tod = timeLabels[String(item.tod || item.timeOfDay || "").toLowerCase()] || labelize(item.tod || item.timeOfDay || "");
+      const tags = [
+        standType || "Stand",
+        item.wind ? `Wind ${item.wind}` : "",
+        tod,
+        item.access ? `Access ${labelize(item.access)}` : "",
+        item.pressure ? `Pressure ${labelize(item.pressure)}` : "",
+        item.season ? item.season : ""
+      ].filter(Boolean);
+      const lat = Number(item.lat), lng = Number(item.lng);
+      const coords = Number.isFinite(lat) && Number.isFinite(lng) ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : "";
+      return `
+        <article class="deerstand-card">
+          ${image ? `<div class="deerstand-media"><img src="${esc(image)}" alt="${esc(item.title || 'Deer stand')} stand photo"></div>` : ""}
+          <div class="deerstand-copy">
+            <p class="feed-kicker">Deer Stand</p>
+            <h3 class="tradition-title">${esc(item.title || item.name || 'Saved Stand')}</h3>
+            <p class="tradition-meta">${esc(item.author || item.member || "Camp Steward")}${dateLabel ? ` • ${esc(dateLabel)}` : ""}</p>
+            <div class="deerstand-meta">${tags.map(tag => `<span class="deerstand-tag">${esc(tag)}</span>`).join("")}</div>
+            <p class="tradition-body">${esc(item.body || item.notes || item.description || "Stand details available.")}</p>
+            ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
+          </div>
+        </article>`;
+    }).join("");
+  }catch(error){
+    console.warn("CampDeerStands render skipped.", error);
+    grid.innerHTML = `<div class="empty">Deer stand details could not be displayed. Refresh or add a new stand from Scout.</div>`;
+  }
 }
 function renderDeerDrives(){
   const grid = document.getElementById("deerDrivesGrid");
