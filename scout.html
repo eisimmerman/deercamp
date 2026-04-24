@@ -767,6 +767,7 @@ let deerDriveAnchor=null;
 let mapFrozen=false;
 let selWind='', selArrowFrom='', selArrowTo='';
 let standPhotoDataUrl='';
+let standPhotoThumbDataUrl='';
 let curPts=[],curPolyType=null,curPolyLine=null;
 let routeEndArrow='';
 let awaitingRouteEndPlacement=false;
@@ -2226,26 +2227,31 @@ function canvasToJpegDataUrl(img, maxDimension, quality){
 }
 async function compressImageFileForCamp(file, options={}){
   if(!file) return {dataUrl:'', bytes:0, originalBytes:0, width:0, height:0, compressed:false};
-  const targetBytes=Number(options.targetBytes||180*1024);
-  const maxAttempts=[
-    {size:1200, quality:.74}, {size:1000, quality:.68}, {size:900, quality:.62},
-    {size:760, quality:.56}, {size:640, quality:.50}, {size:520, quality:.44},
-    {size:420, quality:.38}, {size:340, quality:.32}
-  ];
+  const targetBytes=Number(options.targetBytes||60*1024);
+  const maxEdge=Number(options.maxEdge||1200);
+  const minEdge=Number(options.minEdge||220);
+  const startQuality=Number(options.startQuality||.72);
+  const minQuality=Number(options.minQuality||.24);
   const img=await loadImageFile(file);
+  const sizes=[maxEdge,1100,960,840,720,640,560,480,420,360,300,260,220]
+    .filter((value,index,self)=>value<=maxEdge&&value>=minEdge&&self.indexOf(value)===index);
+  const qualities=[startQuality,.66,.60,.54,.48,.42,.36,.31,.27,minQuality]
+    .filter((value,index,self)=>value<=startQuality&&value>=minQuality&&self.indexOf(value)===index);
   let best={dataUrl:'', bytes:Number.POSITIVE_INFINITY, width:0, height:0};
-  for(const attempt of maxAttempts){
-    const out=canvasToJpegDataUrl(img, attempt.size, attempt.quality);
-    const bytes=dataUrlApproxBytes(out.dataUrl);
-    if(bytes<best.bytes) best=Object.assign({},out,{bytes});
-    if(bytes<=targetBytes){
-      return {dataUrl:out.dataUrl, bytes, originalBytes:file.size||0, width:out.width, height:out.height, compressed:true};
+  for(const size of sizes){
+    for(const quality of qualities){
+      const out=canvasToJpegDataUrl(img, size, quality);
+      const bytes=dataUrlApproxBytes(out.dataUrl);
+      if(bytes<best.bytes) best=Object.assign({},out,{bytes, quality, maxDimension:size});
+      if(bytes<=targetBytes){
+        return {dataUrl:out.dataUrl, bytes, originalBytes:file.size||0, width:out.width, height:out.height, compressed:true, quality, maxDimension:size};
+      }
     }
   }
-  return {dataUrl:best.dataUrl, bytes:best.bytes, originalBytes:file.size||0, width:best.width, height:best.height, compressed:true, aboveTarget:best.bytes>targetBytes};
+  return {dataUrl:best.dataUrl, bytes:best.bytes, originalBytes:file.size||0, width:best.width, height:best.height, compressed:true, aboveTarget:best.bytes>targetBytes, quality:best.quality, maxDimension:best.maxDimension};
 }
 function resizeImageFileToDataUrl(file, maxSize=1000, quality=0.72){
-  return compressImageFileForCamp(file,{targetBytes:180*1024}).then(result=>result.dataUrl);
+  return compressImageFileForCamp(file,{targetBytes:60*1024,maxEdge:maxSize,startQuality:quality}).then(result=>result.dataUrl);
 }
 async function handleStandPhotoUpload(event){
   const file=event?.target?.files?.[0];
@@ -2254,19 +2260,23 @@ async function handleStandPhotoUpload(event){
   const feedback=document.getElementById('stand-save-feedback');
   try{
     if(feedback&&file){feedback.textContent='Compressing photo for DeerCamp...';feedback.classList.add('show');}
-    const result=file?await compressImageFileForCamp(file,{targetBytes:180*1024}):{dataUrl:''};
-    standPhotoDataUrl=result.dataUrl||'';
+    if(!file){standPhotoDataUrl='';standPhotoThumbDataUrl='';if(preview)preview.classList.remove('show');return;}
+    const displayResult=await compressImageFileForCamp(file,{targetBytes:72*1024,maxEdge:900,minEdge:260,startQuality:.70,minQuality:.28});
+    const thumbResult=await compressImageFileForCamp(file,{targetBytes:32*1024,maxEdge:520,minEdge:180,startQuality:.62,minQuality:.22});
+    standPhotoDataUrl=displayResult.dataUrl||thumbResult.dataUrl||'';
+    standPhotoThumbDataUrl=thumbResult.dataUrl||displayResult.dataUrl||'';
     if(standPhotoDataUrl&&preview&&img){img.src=standPhotoDataUrl;preview.classList.add('show');}
     else if(preview){preview.classList.remove('show');}
     if(feedback&&file){
-      const original=result.originalBytes?`Original ${formatBytes(result.originalBytes)}`:'Photo selected';
-      const saved=result.bytes?`saved as ${formatBytes(result.bytes)}`:'compressed';
-      const extra=result.aboveTarget?' It is still large, but Scout will try to save it safely.':'';
-      feedback.textContent=`✅ Photo ready. ${original}; ${saved}.${extra}`;
+      const original=displayResult.originalBytes?`Original ${formatBytes(displayResult.originalBytes)}`:'Photo selected';
+      const saved=displayResult.bytes?`display ${formatBytes(displayResult.bytes)}`:'display compressed';
+      const thumb=thumbResult.bytes?`camp thumbnail ${formatBytes(thumbResult.bytes)}`:'camp thumbnail compressed';
+      feedback.textContent=`✅ Photo ready. ${original}; ${saved}; ${thumb}.`;
       feedback.classList.add('show');
     }
   }catch(error){
     standPhotoDataUrl='';
+    standPhotoThumbDataUrl='';
     if(preview) preview.classList.remove('show');
     if(feedback){feedback.textContent='⚠️ Photo could not be compressed. Try a different image or save without a photo.';feedback.classList.add('show');}
   }
@@ -2295,23 +2305,35 @@ function persistStandToCamp(s){
   const author=String(baseCampData.stewardName||baseCampData.steward||'Camp Steward').trim()||'Camp Steward';
   const standId=String(s.campStandId||`stand-${slugifyValue(s.name)||'stand'}-${s.id}`).trim();
   s.campStandId=standId;
-  const image=String(s.photo||'').trim();
-  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),image,thumbnail:image,photo:image,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
+  const image=String(s.thumbnail||s.photoThumb||standPhotoThumbDataUrl||s.photo||'').trim();
+  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
   const existing=Array.isArray(baseCampData.deerStandPosts)?baseCampData.deerStandPosts.filter(Boolean):(Array.isArray(baseCampData.deerStands)?baseCampData.deerStands.filter(Boolean):[]);
-  const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId,image};
+  const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId};
   const content=Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions.filter(Boolean):[];
   const enabledSections=Object.assign({},baseCampData.enabledSections||{},{campdeerstands:true,stands:true,campupdate:true});
-  const next=Object.assign({},baseCampData,{campId:activeCampId,enabledSections,deerStandPosts:[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24),deerStands:[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24),contentSubmissions:[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30)});
-  try{
-    localStorage.setItem(CAMP_DATA_KEY,JSON.stringify(next));
-    if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,JSON.stringify(next));
+  const standList=[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24);
+  const slimStandList=standList.map(item=>{const slim=Object.assign({},item); delete slim.thumbnail; delete slim.image; delete slim.photo; return slim;});
+  const next=Object.assign({},baseCampData,{campId:activeCampId,enabledSections,deerStandPosts:standList,deerStands:slimStandList,contentSubmissions:[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30)});
+  const writeCampData=(payload)=>{
+    localStorage.setItem(CAMP_DATA_KEY,JSON.stringify(payload));
+    if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,JSON.stringify(payload));
     localStorage.setItem('deercamp.lastSavedDeerStandPing',String(Date.now()));
-    return {posted:true};
+  };
+  try{
+    writeCampData(next);
+    return {posted:true, thumbnailSaved:Boolean(image)};
   }catch(error){
-    standEntry.image=standEntry.thumbnail=standEntry.photo=''; updateEntry.image='';
-    next.deerStandPosts=[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24); next.deerStands=next.deerStandPosts; next.contentSubmissions=[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30);
-    localStorage.setItem(CAMP_DATA_KEY,JSON.stringify(next)); if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,JSON.stringify(next)); localStorage.setItem('deercamp.lastSavedDeerStandPing',String(Date.now()));
-    return {posted:true,photoDropped:true};
+    try{
+      const compact=Object.assign({},next,{feedEntries:(Array.isArray(next.feedEntries)?next.feedEntries:[]).slice(0,9),campPhotoGallery:(Array.isArray(next.campPhotoGallery)?next.campPhotoGallery:[]).slice(0,6),contentSubmissions:(Array.isArray(next.contentSubmissions)?next.contentSubmissions:[]).slice(0,20)});
+      writeCampData(compact);
+      return {posted:true, thumbnailSaved:Boolean(image), storageTrimmed:true};
+    }catch(secondError){
+      standEntry.thumbnail='';
+      next.deerStandPosts=[standEntry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24);
+      next.deerStands=next.deerStandPosts.map(item=>{const slim=Object.assign({},item); delete slim.thumbnail; delete slim.image; delete slim.photo; return slim;});
+      writeCampData(next);
+      return {posted:true,photoDropped:true};
+    }
   }
 }
 function openStandModal(stand=null){
@@ -2325,7 +2347,8 @@ function openStandModal(stand=null){
   document.getElementById('f-pressure').value=stand?.pressure||'fresh';
   document.getElementById('f-season-phase').value=stand?.seasonPhase||'any';
   selWind=stand?.wind||'';
-  standPhotoDataUrl=stand?.photo||stand?.image||'';
+  standPhotoDataUrl=stand?.photo||stand?.image||stand?.thumbnail||'';
+  standPhotoThumbDataUrl=stand?.thumbnail||stand?.photoThumb||standPhotoDataUrl||'';
   const photoInput=document.getElementById('f-stand-photo'); if(photoInput) photoInput.value='';
   const photoPreview=document.getElementById('stand-photo-preview'); const photoPreviewImg=document.getElementById('stand-photo-preview-img');
   if(standPhotoDataUrl&&photoPreview&&photoPreviewImg){photoPreviewImg.src=standPhotoDataUrl;photoPreview.classList.add('show');} else if(photoPreview){photoPreview.classList.remove('show');}
@@ -2343,6 +2366,7 @@ function openStandModal(stand=null){
 function closeStandModal(){
   document.getElementById('modal-stand').classList.remove('open');
   pendingLL=null;editingStandId=null;
+  standPhotoDataUrl='';standPhotoThumbDataUrl='';
 }
 function pickWind(d){
   selWind=d;
@@ -2366,7 +2390,7 @@ async function saveStand(){
     let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||s.photo||''}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
+      if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||s.photo||'',thumbnail:standPhotoThumbDataUrl||s.thumbnail||standPhotoDataUrl||s.photo||''}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -2374,7 +2398,7 @@ async function saveStand(){
         if(feedback){feedback.textContent='⚠️ Tap the map where this stand should go, then save again.';feedback.classList.add('show');}
         if(saveBtn) saveBtn.textContent='Save'; return;
       }
-      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||'',lat:ll.lat,lng:ll.lng};
+      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||'',thumbnail:standPhotoThumbDataUrl||standPhotoDataUrl||'',lat:ll.lat,lng:ll.lng};
       stands.push(s); addStandToMap(s); editingStandId=s.id; pendingLL=null; savedStand=s; try{map.panTo([s.lat,s.lng]);}catch(e){}
     }
     if(!savedStand) throw new Error('Stand object was not created.');
@@ -2386,7 +2410,7 @@ async function saveStand(){
     const closeBtn=document.getElementById('stand-close-btn'); if(saveBtn) saveBtn.textContent='Saved ✓'; if(closeBtn) closeBtn.textContent='Close';
     if(feedback){
       const campNote=postResult.posted?' Posted to CampUpdate and CampDeerStands.':' Saved to the map. Camp post did not complete.';
-      const photoNote=(savedStand.photo&&postResult.photoDropped)?' Photo was too large for the remaining camp storage, so the stand saved without the photo.':' Photo compression is active for stand uploads.';
+      const photoNote=postResult.photoDropped?' Camp storage was full, so the stand saved without the photo thumbnail.':(postResult.storageTrimmed?' Camp storage was trimmed and the thumbnail was saved.':' Thumbnail compression is active for stand uploads.');
       feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map.${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
     }
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
