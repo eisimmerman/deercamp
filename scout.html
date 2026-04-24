@@ -1288,7 +1288,131 @@ async function fetchImageUrlAsDataUrl(url){
     reader.readAsDataURL(blob);
   });
 }
+function getSafeImageOutputSize(requestedWidth=1200, requestedHeight=675){
+  const maxWidth = 960;
+  const maxHeight = 540;
+  const ratio = Math.min(1, maxWidth / Math.max(requestedWidth,1), maxHeight / Math.max(requestedHeight,1));
+  return {width: Math.max(360, Math.round(requestedWidth * ratio)), height: Math.max(203, Math.round(requestedHeight * ratio))};
+}
+function canvasToCompressedDataUrl(canvas, maxLength=620000){
+  const qualities = [0.72,0.64,0.56,0.48,0.40,0.34];
+  for(const quality of qualities){
+    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+    if(dataUrl && dataUrl.length <= maxLength) return dataUrl;
+  }
+  return canvas.toDataURL('image/jpeg', 0.30);
+}
+function getDrivePreviewContainerCrop(){
+  const points = [
+    ...drivers.map(item => map.latLngToContainerPoint([item.lat, item.lng])),
+    ...standers.map(item => map.latLngToContainerPoint([item.lat, item.lng])),
+    ...getSavedDriveRoutes().flatMap(route => (route.pts || []).map(pt => map.latLngToContainerPoint(pt)))
+  ];
+  const mapSize = map.getSize();
+  if(!points.length) return {left:0, top:0, width:mapSize.x, height:mapSize.y};
+  const minX = Math.min(...points.map(p=>p.x));
+  const maxX = Math.max(...points.map(p=>p.x));
+  const minY = Math.min(...points.map(p=>p.y));
+  const maxY = Math.max(...points.map(p=>p.y));
+  const padX = Math.max(80, (maxX-minX)*0.18);
+  const padY = Math.max(64, (maxY-minY)*0.22);
+  const left = Math.max(0, minX-padX);
+  const top = Math.max(0, minY-padY);
+  const right = Math.min(mapSize.x, maxX+padX);
+  const bottom = Math.min(mapSize.y, maxY+padY);
+  return {left, top, width:Math.max(220, right-left), height:Math.max(140, bottom-top)};
+}
+async function generateDeerDriveAerialDataUrl(width=1200, height=675){
+  const latLngs = [
+    ...drivers.map(item => ({lat:item.lat, lng:item.lng})),
+    ...standers.map(item => ({lat:item.lat, lng:item.lng})),
+    ...getSavedDriveRoutes().flatMap(route => (route.pts || []).map(pt => ({lat:pt[0], lng:pt[1]})))
+  ];
+  if(!latLngs.length) return '';
+  map.invalidateSize(false);
+  await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const output = getSafeImageOutputSize(width, height);
+  const crop = getDrivePreviewContainerCrop();
+  const sx = output.width / crop.width;
+  const sy = output.height / crop.height;
+  const canvas = document.createElement('canvas');
+  canvas.width = output.width;
+  canvas.height = output.height;
+  const ctx = canvas.getContext('2d');
+  if(!ctx) return '';
+  ctx.fillStyle = '#2d3f24';
+  ctx.fillRect(0,0,output.width,output.height);
+  const mapEl = map.getContainer();
+  const mapRect = mapEl.getBoundingClientRect();
+  const tileImgs = Array.from(mapEl.querySelectorAll('img.leaflet-tile.leaflet-tile-loaded')).filter(img => img.complete && img.naturalWidth > 0 && img.naturalHeight > 0);
+  if(!tileImgs.length) throw new Error('No loaded aerial tiles available for capture.');
+  tileImgs.forEach(img => {
+    const rect = img.getBoundingClientRect();
+    const tileLeft = rect.left - mapRect.left;
+    const tileTop = rect.top - mapRect.top;
+    ctx.drawImage(img, (tileLeft-crop.left)*sx, (tileTop-crop.top)*sy, rect.width*sx, rect.height*sy);
+  });
+  canvas.toDataURL('image/jpeg', 0.60);
+  ctx.fillStyle = 'rgba(0,0,0,.16)';
+  ctx.fillRect(0,0,output.width,output.height);
+  const toXY = (lat,lng) => {
+    const pt = map.latLngToContainerPoint([lat,lng]);
+    return {x:(pt.x-crop.left)*sx, y:(pt.y-crop.top)*sy};
+  };
+  ctx.save();
+  ctx.lineWidth = Math.max(4, output.width*0.007);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.setLineDash([Math.max(12, output.width*0.018), Math.max(8, output.width*0.012)]);
+  ctx.strokeStyle = '#d4820a';
+  getSavedDriveRoutes().forEach(route => {
+    const pts = (route.pts || []).map(pt => toXY(pt[0], pt[1]));
+    if(pts.length < 2) return;
+    ctx.beginPath();
+    pts.forEach((pt, idx) => idx ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y));
+    ctx.stroke();
+    const last = pts[pts.length-1];
+    const prev = pts[pts.length-2] || last;
+    const angle = Math.atan2(last.y-prev.y, last.x-prev.x);
+    ctx.save(); ctx.translate(last.x,last.y); ctx.rotate(angle); ctx.setLineDash([]);
+    ctx.lineWidth = Math.max(4, output.width*0.006); ctx.strokeStyle = '#fff8ef';
+    ctx.beginPath(); ctx.moveTo(-18,-11); ctx.lineTo(0,0); ctx.lineTo(-18,11); ctx.stroke();
+    ctx.lineWidth = Math.max(2, output.width*0.0025); ctx.strokeStyle = '#111';
+    ctx.beginPath(); ctx.moveTo(-18,-11); ctx.lineTo(0,0); ctx.lineTo(-18,11); ctx.stroke();
+    ctx.restore();
+  });
+  ctx.restore();
+  const drawRoleDot = (item, fill, textColor) => {
+    const pt = toXY(item.lat, item.lng);
+    const r = Math.max(15, output.width*0.026);
+    ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI*2); ctx.fillStyle = fill; ctx.fill();
+    ctx.lineWidth = Math.max(3, output.width*0.004); ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = textColor; ctx.font = `700 ${Math.max(14, Math.round(r*0.9))}px IBM Plex Mono, monospace`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(String(item.mapLabel || item.initial || item.slot || ''), pt.x, pt.y+1);
+  };
+  drivers.forEach(item => drawRoleDot(item, '#2b6cb0', '#fff'));
+  standers.forEach(item => drawRoleDot(item, '#f4d03f', '#231a13'));
+  ctx.save();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 8; ctx.fillStyle = '#fff8ef';
+  ctx.font = `700 ${Math.max(22, Math.round(output.width*0.04))}px Georgia, serif`;
+  ctx.fillText(getCurrentDriveName(), output.width/2, 20);
+  if(deerDrivePlan.windLabel){
+    ctx.font = `700 ${Math.max(12, Math.round(output.width*0.019))}px IBM Plex Mono, monospace`;
+    ctx.fillText(deerDrivePlan.windLabel, output.width/2, Math.max(54, output.width*0.078));
+  }
+  ctx.restore();
+  return canvasToCompressedDataUrl(canvas, 620000);
+}
 async function generateDeerDriveThumbnailDataUrl(width=1200, height=675){
+  try{
+    const aerialImage = await generateDeerDriveAerialDataUrl(width, height);
+    if(aerialImage) return aerialImage;
+  }catch(err){
+    console.warn('Aerial DeerDrive snapshot failed; using schematic fallback.', err);
+  }
+  return generateDeerDriveSchematicDataUrl(width, height);
+}
+async function generateDeerDriveSchematicDataUrl(width=1200, height=675){
   const esc = (value='') => String(value)
     .replace(/&/g,'&amp;')
     .replace(/</g,'&lt;')
