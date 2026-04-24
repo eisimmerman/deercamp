@@ -463,7 +463,7 @@
       return target;
     }
 
-    const PROFILE_PHOTO_MAX_BYTES = 120 * 1024;
+    const PROFILE_PHOTO_MAX_BYTES = 32 * 1024;
 
     function dataUrlBytes(dataUrl = "") {
       const clean = String(dataUrl || "");
@@ -495,11 +495,12 @@
     async function compressProfilePhoto(file) {
       const img = await loadImageFromFile(file);
       const attempts = [
-        { size: 520, quality: 0.78 },
-        { size: 420, quality: 0.72 },
-        { size: 340, quality: 0.66 },
-        { size: 280, quality: 0.60 },
-        { size: 220, quality: 0.56 }
+        { size: 360, quality: 0.68 },
+        { size: 300, quality: 0.62 },
+        { size: 240, quality: 0.58 },
+        { size: 200, quality: 0.54 },
+        { size: 160, quality: 0.50 },
+        { size: 128, quality: 0.48 }
       ];
       let best = "";
       for (const attempt of attempts) {
@@ -845,6 +846,54 @@
         : "https://ourdeercamp.com/";
     }
 
+    function getStewardProfileSnapshot(members = []) {
+      return (Array.isArray(members) ? members : []).find(member => String(member.role || "").trim().toLowerCase() === "camp steward") || null;
+    }
+
+    function compactCampDataForStorage(payload = {}) {
+      const compact = JSON.parse(JSON.stringify(payload || {}));
+      compact.feedEntries = (Array.isArray(compact.feedEntries) ? compact.feedEntries : []).slice(0, 8).map(entry => {
+        const next = Object.assign({}, entry);
+        if (String(next.mediaType || "").toLowerCase() === "photo" && String(next.image || "").length > 90000) {
+          next.image = "";
+          next.imageDroppedForStorage = true;
+        }
+        delete next.audio; delete next.audioUrl; delete next.audioSources;
+        return next;
+      });
+      compact.campPhotoGallery = (Array.isArray(compact.campPhotoGallery) ? compact.campPhotoGallery : []).slice(0, 6).map(item => {
+        const next = Object.assign({}, item);
+        if (String(next.image || next.photo || "").length > 90000) {
+          next.image = "";
+          next.photo = "";
+          next.imageDroppedForStorage = true;
+        }
+        return next;
+      });
+      compact.contentSubmissions = (Array.isArray(compact.contentSubmissions) ? compact.contentSubmissions : []).slice(0, 20);
+      return compact;
+    }
+
+    function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
+      const writeAll = (campPayload, dashboardPayload) => {
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(campPayload));
+        localStorage.setItem(scopedCampDataKey, JSON.stringify(campPayload));
+        localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(dashboardPayload));
+        localStorage.setItem(scopedDashboardKey, JSON.stringify(dashboardPayload));
+        localStorage.setItem(ACTIVE_CAMP_KEY, state.campId);
+      };
+      try {
+        writeAll(nextCampData, nextDashboard);
+        return nextCampData;
+      } catch (error) {
+        console.warn("Dashboard storage was tight. Saving a compact camp payload.", error);
+        const compactCampData = compactCampDataForStorage(nextCampData);
+        writeAll(compactCampData, nextDashboard);
+        showToast("Profile saved. Older large gallery images were trimmed to make room.");
+        return compactCampData;
+      }
+    }
+
     function syncCampData() {
       const keptMembers = dedupeMembers(state.members)
         .filter(member => String(member.status || "Active").toLowerCase() !== "removed")
@@ -925,13 +974,23 @@
         dashboardSlim: nextDashboard
       });
 
-      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextCampData));
-      localStorage.setItem(scopedCampDataKey, JSON.stringify(nextCampData));
+      const stewardProfile = getStewardProfileSnapshot(memberProfilesOut);
+      if (stewardProfile) {
+        nextCampData.stewardProfile = Object.assign({}, stewardProfile);
+        nextCampData.campStewardProfile = Object.assign({}, stewardProfile);
+        nextCampData.stewardPhoto = String(stewardProfile.photo || stewardProfile.profilePhoto || stewardProfile.avatar || "").trim();
+        nextCampData.stewardFavoriteStand = String(stewardProfile.favoriteStand || "").trim();
+        nextCampData.stewardFavoriteGear = String(stewardProfile.favoriteGear || "").trim();
+        nextCampData.stewardNickname = String(stewardProfile.nickname || "").trim();
+        nextCampData.stewardYearJoined = String(stewardProfile.yearJoined || "").trim();
+        nextCampData.stewardSpecialty = String(stewardProfile.specialty || "").trim();
+        nextCampData.stewardHarvestHighlight = String(stewardProfile.harvestHighlight || "").trim();
+        nextCampData.stewardBestCampMemory = String(stewardProfile.bestCampMemory || "").trim();
+        nextCampData.stewardRoleLine = String(stewardProfile.roleLine || "").trim();
+      }
 
-      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(nextDashboard));
-      localStorage.setItem(scopedDashboardKey, JSON.stringify(nextDashboard));
-      localStorage.setItem(ACTIVE_CAMP_KEY, state.campId);
-      Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(state.campId, nextCampData)).catch(() => {});
+      const savedCampData = writeCampAndDashboardStorage(nextCampData, nextDashboard);
+      Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(state.campId, savedCampData)).catch(() => {});
     }
 
     function renderPreview() {
@@ -1370,7 +1429,9 @@
         document.getElementById("memberEditIndex").value = "";
         document.getElementById("memberSubmitBtn").textContent = "Add Member";
         updateInviteButton();
-        showToast(`${name} updated.`);
+        const noteEl = document.getElementById("memberFormNote");
+        if (noteEl) noteEl.textContent = `${name} profile saved. Open the live camp profile after refresh to confirm.`;
+        showToast(`${name} profile saved.`);
         return;
       }
 
