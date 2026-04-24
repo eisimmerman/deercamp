@@ -1247,7 +1247,7 @@ visibleSections().forEach(section=>{
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill">${deerStandPosts.length} saved</span></div>
       </div>
       <div id="deerStandsGrid" class="traditions-grid"></div>
-      <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Turn this section on now and wire Scout stand posting next.</div>`;
+      <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>`;
   } else if(section.key==="campdeerdrives"){
     container.innerHTML=`
       <div class="feed-header">
@@ -1831,6 +1831,11 @@ function buildCampRefreshSnapshot(payload = {}){
     feedComments: payload.feedComments && typeof payload.feedComments === "object" ? payload.feedComments : {},
     feedEntries: Array.isArray(payload.feedEntries) ? payload.feedEntries : [],
     campPhotoGallery: Array.isArray(payload.campPhotoGallery) ? payload.campPhotoGallery : [],
+    deerStandPosts: Array.isArray(payload.deerStandPosts) ? payload.deerStandPosts : [],
+    deerStands: Array.isArray(payload.deerStands) ? payload.deerStands : [],
+    stands: Array.isArray(payload.stands) ? payload.stands : [],
+    deerDrivePosts: Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : [],
+    deerDrives: Array.isArray(payload.deerDrives) ? payload.deerDrives : [],
     memberProfiles: Array.isArray(payload.memberProfiles) ? payload.memberProfiles : [],
     members: Array.isArray(payload.members) ? payload.members : [],
     campMembers: Array.isArray(payload.campMembers) ? payload.campMembers : []
@@ -1881,6 +1886,8 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
+    deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
+    deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
 
     document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
     document.getElementById("campLocation").textContent = formatLocation();
@@ -1896,6 +1903,7 @@ async function pullLatestCampDataSilently(){
     renderCampMembersSection();
     renderTraditions();
     renderRecipes();
+    if(document.getElementById("deerStandsGrid")) renderDeerStands();
     if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
     populateCalendarGrid();
     calendarEventsOffset = 0;
@@ -1914,7 +1922,7 @@ setInterval(() => {
   pullLatestCampDataSilently();
 }, 10000);
 
-renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>
