@@ -98,6 +98,13 @@
     .profile-editor-head span{display:block;margin-top:4px;color:var(--muted);font-size:.88rem;line-height:1.45}
     .profile-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
     .profile-editor-grid .field.span-2{grid-column:1 / -1}
+    .profile-photo-field{display:grid;gap:8px}
+    .profile-photo-upload{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center}
+    .profile-photo-upload input[type="file"]{min-height:46px;padding:10px;border-radius:14px;border:1px solid rgba(69,42,22,.14);background:#fff;color:var(--ink)}
+    .profile-photo-preview{display:none;align-items:center;gap:10px;padding:10px;border-radius:14px;background:rgba(255,255,255,.54);border:1px solid rgba(69,42,22,.08)}
+    .profile-photo-preview.show{display:flex}
+    .profile-photo-preview img{width:64px;height:64px;border-radius:999px;object-fit:cover;background:#eadfce;border:1px solid rgba(69,42,22,.12)}
+    .profile-photo-preview span{color:var(--muted);font-size:.84rem;line-height:1.45}
     .field.is-editing label{color:var(--brown)}
     .field.is-editing input{background:#fff4bf;border-color:rgba(177,121,45,.88);box-shadow:0 0 0 4px rgba(177,121,45,.16);animation:memberPulse 1.1s ease-in-out infinite}
     @keyframes memberPulse{0%{box-shadow:0 0 0 0 rgba(106,68,39,.22)}70%{box-shadow:0 0 0 8px rgba(106,68,39,0)}100%{box-shadow:0 0 0 0 rgba(106,68,39,0)}}
@@ -261,9 +268,17 @@
                 <label for="memberSpecialty">Specialty</label>
                 <input id="memberSpecialty" type="text" placeholder="e.g. Camp cook, map reader, tracker" />
               </div>
-              <div class="field">
-                <label for="memberPhoto">Profile Photo / Image Path</label>
-                <input id="memberPhoto" type="text" placeholder="assets/members/eric.jpg or data image" />
+              <div class="field profile-photo-field">
+                <label for="memberPhotoPicker">Profile Photo</label>
+                <div class="profile-photo-upload">
+                  <input id="memberPhotoPicker" type="file" accept="image/*" />
+                  <button id="memberPhotoClear" class="member-delete" type="button">Remove</button>
+                </div>
+                <input id="memberPhoto" type="hidden" />
+                <div id="memberPhotoPreview" class="profile-photo-preview">
+                  <img id="memberPhotoPreviewImg" alt="Profile photo preview">
+                  <span id="memberPhotoPreviewText">Photo ready.</span>
+                </div>
               </div>
               <div class="field span-2">
                 <label for="memberHarvestHighlight">Harvest Highlight</label>
@@ -448,6 +463,106 @@
       return target;
     }
 
+    const PROFILE_PHOTO_MAX_BYTES = 120 * 1024;
+
+    function dataUrlBytes(dataUrl = "") {
+      const clean = String(dataUrl || "");
+      const base64 = clean.split(",")[1] || "";
+      return Math.ceil(base64.length * 0.75);
+    }
+
+    function formatBytes(bytes = 0) {
+      const n = Number(bytes) || 0;
+      if (n < 1024) return `${n} B`;
+      if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+      return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error("Could not read that image."));
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = () => reject(new Error("Could not load that image."));
+          img.onload = () => resolve(img);
+          img.src = String(reader.result || "");
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function compressProfilePhoto(file) {
+      const img = await loadImageFromFile(file);
+      const attempts = [
+        { size: 520, quality: 0.78 },
+        { size: 420, quality: 0.72 },
+        { size: 340, quality: 0.66 },
+        { size: 280, quality: 0.60 },
+        { size: 220, quality: 0.56 }
+      ];
+      let best = "";
+      for (const attempt of attempts) {
+        const scale = Math.min(1, attempt.size / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+        const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+        const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL("image/jpeg", attempt.quality);
+        best = dataUrl;
+        if (dataUrlBytes(dataUrl) <= PROFILE_PHOTO_MAX_BYTES) return dataUrl;
+      }
+      return best;
+    }
+
+    function setMemberPhotoPreview(dataUrl = "", message = "") {
+      const preview = document.getElementById("memberPhotoPreview");
+      const img = document.getElementById("memberPhotoPreviewImg");
+      const text = document.getElementById("memberPhotoPreviewText");
+      if (!preview || !img || !text) return;
+      if (dataUrl) {
+        img.src = dataUrl;
+        text.textContent = message || `Photo ready (${formatBytes(dataUrlBytes(dataUrl))}).`;
+        preview.classList.add("show");
+      } else {
+        img.removeAttribute("src");
+        text.textContent = "";
+        preview.classList.remove("show");
+      }
+    }
+
+    async function handleMemberPhotoUpload(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      const note = document.getElementById("memberFormNote");
+      if (note) note.textContent = "Compressing profile photo...";
+      try {
+        const compressed = await compressProfilePhoto(file);
+        const photoInput = document.getElementById("memberPhoto");
+        if (photoInput) photoInput.value = compressed;
+        setMemberPhotoPreview(compressed, `Photo ready. Compressed from ${formatBytes(file.size)} to ${formatBytes(dataUrlBytes(compressed))}.`);
+        if (note) note.textContent = "Profile photo ready. Save the profile to keep it.";
+      } catch (error) {
+        if (note) note.textContent = "Could not process that photo. Try a different image.";
+        showToast("Could not process that photo.");
+      }
+    }
+
+    function clearMemberPhoto() {
+      const photoInput = document.getElementById("memberPhoto");
+      const fileInput = document.getElementById("memberPhotoPicker");
+      if (photoInput) photoInput.value = "";
+      if (fileInput) fileInput.value = "";
+      setMemberPhotoPreview("", "");
+      const note = document.getElementById("memberFormNote");
+      if (note) note.textContent = "Profile photo removed. Save the profile to keep this change.";
+    }
+
     function readProfileFieldsFromForm() {
       const profile = {
         nickname: document.getElementById("memberNickname")?.value.trim() || "",
@@ -474,7 +589,11 @@
       setValue("memberHarvestHighlight", member.harvestHighlight);
       setValue("memberBestCampMemory", member.bestCampMemory);
       setValue("memberSpecialty", member.specialty);
-      setValue("memberPhoto", member.photo || member.profilePhoto || member.avatar);
+      const photoValue = member.photo || member.profilePhoto || member.avatar || "";
+      setValue("memberPhoto", photoValue);
+      const fileInput = document.getElementById("memberPhotoPicker");
+      if (fileInput) fileInput.value = "";
+      setMemberPhotoPreview(photoValue, photoValue ? `Current profile photo (${formatBytes(dataUrlBytes(photoValue))}).` : "");
       setValue("memberRoleLine", member.roleLine);
     }
 
@@ -1059,6 +1178,7 @@
     function resetMemberForm() {
       document.getElementById("memberForm").reset();
       document.getElementById("memberEditIndex").value = "";
+      clearMemberPhoto();
       document.getElementById("memberSubmitBtn").textContent = "Add Member";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) deleteBtn.hidden = true;
@@ -1338,6 +1458,8 @@
     });
 
     document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
+    document.getElementById("memberPhotoPicker")?.addEventListener("change", handleMemberPhotoUpload);
+    document.getElementById("memberPhotoClear")?.addEventListener("click", clearMemberPhoto);
 
     document.getElementById("memberDeleteBtn").addEventListener("click", () => {
       const editIndex = document.getElementById("memberEditIndex").value;
