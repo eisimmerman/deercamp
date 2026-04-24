@@ -2194,27 +2194,51 @@ function pickWind(d){
   document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
 }
 function saveStand(){
-  const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
-  const type=document.getElementById('f-type').value;
-  const notes=document.getElementById('f-notes').value.trim();
-  const season=document.getElementById('f-season').value.trim();
-  const tod=document.getElementById('f-tod').value;
-  const access=document.getElementById('f-access').value;
-  const pressure=document.getElementById('f-pressure').value;
-  const seasonPhase=document.getElementById('f-season-phase').value;
-  const wind=selWind;
-  if(editingStandId!==null){
-    const s=stands.find(s=>s.id===editingStandId);
-    if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase});
-      allLayers[s.id]?.setIcon(makeIcon(type));
-      allLayers[s.id]?.setPopupContent(standPopupHTML(s));}
-  } else {
-    const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,lat:pendingLL.lat,lng:pendingLL.lng};
-    stands.push(s);addStandToMap(s);
+  try{
+    const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
+    const type=document.getElementById('f-type').value;
+    const notes=document.getElementById('f-notes').value.trim();
+    const season=document.getElementById('f-season').value.trim();
+    const tod=document.getElementById('f-tod').value;
+    const access=document.getElementById('f-access').value;
+    const pressure=document.getElementById('f-pressure').value;
+    const seasonPhase=document.getElementById('f-season-phase').value;
+    const wind=selWind;
+
+    if(editingStandId!==null){
+      const s=stands.find(s=>s.id===editingStandId);
+      if(s){
+        Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase});
+        allLayers[s.id]?.setIcon(makeIcon(type));
+        allLayers[s.id]?.setPopupContent(standPopupHTML(s));
+      }
+    } else {
+      const ll = pendingLL || map.getCenter();
+      if(!ll || typeof ll.lat!=='number' || typeof ll.lng!=='number'){
+        document.getElementById('status-bar').innerHTML='⚠️ Tap the map where this stand should go, then save again.';
+        return;
+      }
+      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,lat:ll.lat,lng:ll.lng};
+      stands.push(s);
+      addStandToMap(s);
+      map.panTo([s.lat,s.lng]);
+    }
+
+    saveLocal();
+    renderPanel();
+    closeStandModal();
+    setMode('view');
+    document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
+    setTimeout(()=>setMode(mode),1800);
+    if(recOpen) runRecommender();
+  }catch(error){
+    console.error('Save stand failed', error);
+    document.getElementById('status-bar').innerHTML='⚠️ Stand did not save. Check required fields and try again.';
   }
-  saveLocal();renderPanel();closeStandModal();
-  if(recOpen) runRecommender();
 }
+window.saveStand=saveStand;
+window.closeStandModal=closeStandModal;
+window.pickWind=pickWind;
 function editStandById(id){editingStandId=id;const s=stands.find(s=>s.id===id);if(s)openStandModal(s);map.closePopup();}
 window.editStandById=editStandById;
 function deleteStand(){delStandById(editingStandId);closeStandModal();}
