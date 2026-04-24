@@ -181,6 +181,13 @@
   .deerdrive-card .feed-card-media img{display:block;width:min(136px,100%);aspect-ratio:16/9;max-height:48px;object-fit:cover;background:#e9decf;border-radius:10px;border:1px solid rgba(69,42,22,.12);box-shadow:0 2px 8px rgba(0,0,0,.06)}
   .deerdrive-card .feed-tags{order:5}
   .deerdrive-card .deerdrive-card-btn{order:6}
+  .deerstand-card{display:grid;gap:12px;overflow:hidden;padding:0;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1)}
+  .deerstand-media{display:block;width:100%;background:#e9decf;border-bottom:1px solid rgba(69,42,22,.10)}
+  .deerstand-media img{display:block;width:100%;aspect-ratio:16/10;max-height:220px;object-fit:cover;background:#e9decf}
+  .deerstand-copy{display:grid;gap:8px;padding:14px 15px 16px}
+  .deerstand-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+  .deerstand-tag{display:inline-flex;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.78rem;font-weight:800}
+  .deerstand-location{margin:0;color:#6b5644;font-size:.86rem;font-weight:700}
   .deerdrive-card{align-self:start}
   @media (max-width:680px){.deerdrive-card .feed-card-media img{width:min(126px,100%);max-height:44px}}
   #deerDrivesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,320px));gap:14px;align-items:start;justify-content:flex-start}
@@ -1074,20 +1081,27 @@ function normalizeDeerStandPosts(items = []){
     if(seen.has(stableId)) return;
     seen.add(stableId);
     const note = String(item.notes || item.body || item.description || item.summary || "").trim();
+    const rawCreatedAtMs = Number(item.createdAtMs);
+    const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
     out.push({
       id: stableId,
       title,
       body: note || "Stand details available.",
-      standType: String(item.type || item.standType || "Stand").trim(),
+      image: String(item.image || item.thumbnail || item.photo || item.media || item.url || "").trim(),
+      thumbnail: String(item.thumbnail || item.image || item.photo || item.media || item.url || "").trim(),
+      standType: String(item.standType || item.type || "Stand").trim(),
       wind: String(item.wind || item.windLabel || "").trim(),
       access: String(item.access || "").trim(),
+      pressure: String(item.pressure || "").trim(),
       season: String(item.season || item.seasonPhase || "").trim(),
+      seasonPhase: String(item.seasonPhase || "").trim(),
       tod: String(item.tod || item.timeOfDay || "").trim(),
       author: String(item.author || item.member || data.stewardName || data.steward || "Camp Steward").trim() || "Camp Steward",
-      createdAt: String(item.createdAt || new Date().toISOString()),
-      createdAtMs: Number.isFinite(Number(item.createdAtMs)) ? Number(item.createdAtMs) : idx,
+      createdAt: String(item.createdAt || (Number.isFinite(parsedCreatedAtMs) ? new Date(parsedCreatedAtMs).toISOString() : new Date().toISOString())),
+      createdAtMs: Number.isFinite(rawCreatedAtMs) ? rawCreatedAtMs : (Number.isFinite(parsedCreatedAtMs) ? parsedCreatedAtMs : idx),
       lat: Number(item.lat),
-      lng: Number(item.lng)
+      lng: Number(item.lng),
+      tags: Array.isArray(item.tags) && item.tags.length ? item.tags : ["Deer Stand", "Scout"]
     });
   });
   return out.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
@@ -1556,13 +1570,31 @@ function renderDeerStands(){
     return;
   }
   empty.hidden = true;
-  grid.innerHTML = deerStandPosts.map(item => `
-    <article class="tradition-card">
-      <h3 class="tradition-title">${esc(item.title)}</h3>
-      <p class="tradition-meta">${esc(item.standType || "Stand")}${item.wind ? ` • Wind ${esc(item.wind)}` : ""}${item.access ? ` • Access ${esc(item.access)}` : ""}</p>
-      <p class="tradition-body">${esc(item.body || "Stand details available.")}</p>
-    </article>
-  `).join("");
+  grid.innerHTML = deerStandPosts.map(item => {
+    const image = item.image || item.thumbnail || item.photo || "";
+    const dateLabel = Number.isFinite(Number(item.createdAtMs)) ? new Date(Number(item.createdAtMs)).toLocaleDateString() : "";
+    const tags = [
+      item.standType || "Stand",
+      item.wind ? `Wind ${item.wind}` : "",
+      item.tod ? (TOD_LABELS[item.tod] || item.tod) : "",
+      item.access ? `Access ${item.access}` : "",
+      item.pressure ? `Pressure ${item.pressure}` : "",
+      item.season ? item.season : ""
+    ].filter(Boolean);
+    const coords = Number.isFinite(item.lat) && Number.isFinite(item.lng) ? `${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}` : "";
+    return `
+      <article class="deerstand-card">
+        ${image ? `<div class="deerstand-media"><img src="${esc(image)}" alt="${esc(item.title)} stand photo"></div>` : ""}
+        <div class="deerstand-copy">
+          <p class="feed-kicker">Deer Stand</p>
+          <h3 class="tradition-title">${esc(item.title)}</h3>
+          <p class="tradition-meta">${esc(item.author || "Camp Steward")}${dateLabel ? ` • ${esc(dateLabel)}` : ""}</p>
+          <div class="deerstand-meta">${tags.map(tag => `<span class="deerstand-tag">${esc(tag)}</span>`).join("")}</div>
+          <p class="tradition-body">${esc(item.body || "Stand details available.")}</p>
+          ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
+        </div>
+      </article>`;
+  }).join("");
 }
 function renderDeerDrives(){
   const grid = document.getElementById("deerDrivesGrid");
