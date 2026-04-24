@@ -92,6 +92,9 @@
     .member-delete{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(139,45,29,.18);background:#fff;color:#8b2d1d;font-size:.78rem;font-weight:700;cursor:pointer}
     .member-form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .member-form-note{min-height:1.2em;color:var(--brown-deep);font-size:.9rem;font-weight:700}
+
+    .member-form-note.is-success{padding:10px 12px;border-radius:14px;background:rgba(73,102,71,.12);color:#27411e;border:1px solid rgba(73,102,71,.18)}
+    .member-form-note.is-error{padding:10px 12px;border-radius:14px;background:rgba(139,45,29,.08);color:#8b2d1d;border:1px solid rgba(139,45,29,.18)}
     .profile-editor-block{grid-column:1 / -1;display:grid;gap:14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.36);border:1px solid rgba(69,42,22,.08)}
     .profile-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .profile-editor-head strong{color:var(--brown-deep)}
@@ -123,7 +126,7 @@
     .recipe-selector[hidden]{display:none}
     .footer-note{padding:18px 20px;display:flex;align-items:center;justify-content:flex-start;gap:12px;flex-wrap:wrap}
     .footer-note p{margin:0;color:var(--muted);line-height:1.55}
-    .toast{position:fixed;right:18px;bottom:18px;z-index:40;min-width:220px;padding:14px 16px;border-radius:16px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.1);box-shadow:var(--shadow);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .18s ease, transform .18s ease}
+    .toast{position:fixed;right:18px;bottom:18px;z-index:4000;min-width:220px;padding:14px 16px;border-radius:16px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.1);box-shadow:var(--shadow);opacity:0;transform:translateY(12px);pointer-events:none;transition:opacity .18s ease, transform .18s ease}
     .toast.show{opacity:1;transform:translateY(0)}
     @media (max-width:980px){.hero-panel,.grid-2{grid-template-columns:1fr}.preview-frame{min-height:240px}}
     @media (max-width:720px){
@@ -396,6 +399,20 @@
       showToast._timer = setTimeout(() => toast.classList.remove("show"), 2200);
     }
 
+    function setMemberFormNote(message = "", variant = "") {
+      const note = document.getElementById("memberFormNote");
+      if (!note) return;
+      note.textContent = message;
+      note.classList.remove("is-success", "is-error");
+      if (variant) note.classList.add(`is-${variant}`);
+    }
+
+    function clearMemberFormNoteStyle() {
+      const note = document.getElementById("memberFormNote");
+      if (!note) return;
+      note.classList.remove("is-success", "is-error");
+    }
+
     function isLikelyEmail(value = "") {
       const clean = String(value || "").trim();
       return !clean || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
@@ -541,15 +558,15 @@
       const file = event?.target?.files?.[0];
       if (!file) return;
       const note = document.getElementById("memberFormNote");
-      if (note) note.textContent = "Compressing profile photo...";
+      setMemberFormNote("Compressing profile photo...", "");
       try {
         const compressed = await compressProfilePhoto(file);
         const photoInput = document.getElementById("memberPhoto");
         if (photoInput) photoInput.value = compressed;
         setMemberPhotoPreview(compressed, `Photo ready. Compressed from ${formatBytes(file.size)} to ${formatBytes(dataUrlBytes(compressed))}.`);
-        if (note) note.textContent = "Profile photo ready. Save the profile to keep it.";
+        setMemberFormNote("Profile photo ready. Save the profile to keep it.", "success");
       } catch (error) {
-        if (note) note.textContent = "Could not process that photo. Try a different image.";
+        setMemberFormNote("Could not process that photo. Try a different image.", "error");
         showToast("Could not process that photo.");
       }
     }
@@ -561,7 +578,7 @@
       if (fileInput) fileInput.value = "";
       setMemberPhotoPreview("", "");
       const note = document.getElementById("memberFormNote");
-      if (note) note.textContent = "Profile photo removed. Save the profile to keep this change.";
+      setMemberFormNote("Profile photo removed. Save the profile to keep this change.", "success");
     }
 
     function readProfileFieldsFromForm() {
@@ -696,8 +713,8 @@
     }
 
     function canDeleteMember(member = {}) {
-      if (String(member.role || "").toLowerCase() !== "camp steward") return true;
-      return countStewards() > 1;
+      if (String(member.role || "").toLowerCase() === "camp steward") return false;
+      return true;
     }
 
     const urlCampId = getCampIdFromUrl();
@@ -979,6 +996,8 @@
         nextCampData.stewardProfile = Object.assign({}, stewardProfile);
         nextCampData.campStewardProfile = Object.assign({}, stewardProfile);
         nextCampData.stewardPhoto = String(stewardProfile.photo || stewardProfile.profilePhoto || stewardProfile.avatar || "").trim();
+        nextCampData.profilePhoto = nextCampData.stewardPhoto;
+        nextCampData.stewardAvatar = nextCampData.stewardPhoto;
         nextCampData.stewardFavoriteStand = String(stewardProfile.favoriteStand || "").trim();
         nextCampData.stewardFavoriteGear = String(stewardProfile.favoriteGear || "").trim();
         nextCampData.stewardNickname = String(stewardProfile.nickname || "").trim();
@@ -1105,6 +1124,7 @@
       });
       const note = document.getElementById("memberFormNote");
       if (note) note.textContent = "";
+      clearMemberFormNoteStyle();
     }
 
     function updateInviteButton() {
@@ -1228,9 +1248,11 @@
       document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward Profile" : "Save Member Profile";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) {
-        deleteBtn.hidden = !canDeleteMember(member);
-        deleteBtn.textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Delete Duplicate Steward" : "Delete Member";
+        const isSteward = String(member.role || "").toLowerCase() === "camp steward";
+        deleteBtn.hidden = isSteward || !canDeleteMember(member);
+        deleteBtn.textContent = "Delete Member";
       }
+      clearMemberFormNoteStyle();
       pulseMemberEditFields(member.name || "this member");
     }
 
@@ -1371,8 +1393,7 @@
       }
 
       if (email && !isLikelyEmail(email)) {
-        const noteEl = document.getElementById("memberFormNote");
-        if (noteEl) noteEl.textContent = "Enter a valid member email before saving.";
+        setMemberFormNote("Enter a valid member email before saving.", "error");
         showToast("Enter a valid member email before saving.");
         return;
       }
@@ -1382,8 +1403,7 @@
       const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
       const editingRole = String(editingMember?.role || '').trim().toLowerCase();
       if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
-        const noteEl = document.getElementById("memberFormNote");
-        if (noteEl) noteEl.textContent = "Member email cannot match the Camp Steward email.";
+        setMemberFormNote("Member email cannot match the Camp Steward email.", "error");
         showToast("Member email cannot match the Camp Steward email.");
         return;
       }
@@ -1429,8 +1449,7 @@
         document.getElementById("memberEditIndex").value = "";
         document.getElementById("memberSubmitBtn").textContent = "Add Member";
         updateInviteButton();
-        const noteEl = document.getElementById("memberFormNote");
-        if (noteEl) noteEl.textContent = `${name} profile saved. Open the live camp profile after refresh to confirm.`;
+        setMemberFormNote(`${name} profile saved. Open the live camp profile after refresh to confirm.`, "success");
         showToast(`${name} profile saved.`);
         return;
       }
