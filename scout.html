@@ -192,6 +192,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--moss);}
 select option{background:#140802;}
 textarea{resize:vertical;min-height:55px;}
 .modal-acts{display:flex;gap:6px;margin-top:14px;justify-content:flex-end;}
+.stand-save-feedback{display:none;margin-top:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(58,186,160,.45);background:rgba(19,54,47,.65);color:#cffff1;font-size:.62rem;line-height:1.45;}
+.stand-save-feedback.show{display:block;}
 .btn{font-family:'IBM Plex Mono',monospace;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;}
 .btn-p{background:var(--moss);color:var(--cream);}
 .btn-p:hover{background:var(--sage);}
@@ -518,10 +520,11 @@ textarea{resize:vertical;min-height:55px;}
     </div>
     <div class="fg"><label>Notes</label><textarea id="f-notes" placeholder="Approach trail, bait, sightings…"></textarea></div>
     <div class="fg"><label>Season</label><input type="text" id="f-season" placeholder="e.g. Archery 2024"></div>
+    <div id="stand-save-feedback" class="stand-save-feedback" aria-live="polite"></div>
     <div class="modal-acts">
-      <button class="btn btn-c" onclick="closeStandModal()">Cancel</button>
+      <button class="btn btn-c" id="stand-close-btn" onclick="closeStandModal()">Cancel</button>
       <button class="btn btn-d" id="btn-del-stand" style="display:none" onclick="deleteStand()">Delete</button>
-      <button class="btn btn-p" onclick="saveStand()">Save</button>
+      <button class="btn btn-p" id="stand-save-btn" onclick="saveStand()">Save</button>
     </div>
   </div>
 </div>
@@ -2182,6 +2185,12 @@ function openStandModal(stand=null){
   selWind=stand?.wind||'';
   document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===selWind));
   document.getElementById('btn-del-stand').style.display=stand?'inline-flex':'none';
+  const standFeedback=document.getElementById('stand-save-feedback');
+  if(standFeedback){standFeedback.classList.remove('show');standFeedback.textContent='';}
+  const standSaveBtn=document.getElementById('stand-save-btn');
+  if(standSaveBtn) standSaveBtn.textContent='Save';
+  const standCloseBtn=document.getElementById('stand-close-btn');
+  if(standCloseBtn) standCloseBtn.textContent='Cancel';
   document.getElementById('modal-stand').classList.add('open');
   setTimeout(()=>document.getElementById('f-name').focus(),100);
 }
@@ -2221,19 +2230,30 @@ function saveStand(){
       const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,lat:ll.lat,lng:ll.lng};
       stands.push(s);
       addStandToMap(s);
+      editingStandId=s.id;
+      pendingLL=null;
       map.panTo([s.lat,s.lng]);
     }
 
     saveLocal();
     renderPanel();
-    closeStandModal();
     setMode('view');
+    const feedback=document.getElementById('stand-save-feedback');
+    if(feedback){
+      feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map. Tap <strong>Close</strong> when done.`;
+      feedback.classList.add('show');
+    }
+    const saveBtn=document.getElementById('stand-save-btn');
+    if(saveBtn) saveBtn.textContent='Saved ✓';
+    const closeBtn=document.getElementById('stand-close-btn');
+    if(closeBtn) closeBtn.textContent='Close';
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
-    setTimeout(()=>setMode(mode),1800);
     if(recOpen) runRecommender();
   }catch(error){
     console.error('Save stand failed', error);
     document.getElementById('status-bar').innerHTML='⚠️ Stand did not save. Check required fields and try again.';
+    const feedback=document.getElementById('stand-save-feedback');
+    if(feedback){feedback.textContent='⚠️ Stand did not save. Check the fields and try again.';feedback.classList.add('show');}
   }
 }
 window.saveStand=saveStand;
