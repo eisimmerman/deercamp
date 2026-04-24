@@ -2182,43 +2182,97 @@ function addStandToMap(s){
   allLayers[s.id]=m;
 }
 
-function resizeImageFileToDataUrl(file, maxSize=1000, quality=0.72){
+function dataUrlApproxBytes(dataUrl=''){
+  const clean=String(dataUrl||'');
+  const comma=clean.indexOf(',');
+  const b64=comma>=0?clean.slice(comma+1):clean;
+  return Math.round((b64.length*3)/4);
+}
+function formatBytes(bytes=0){
+  const n=Number(bytes)||0;
+  if(n>=1024*1024) return `${(n/(1024*1024)).toFixed(1)} MB`;
+  if(n>=1024) return `${Math.round(n/1024)} KB`;
+  return `${Math.round(n)} B`;
+}
+function loadImageFile(file){
   return new Promise((resolve,reject)=>{
-    if(!file){resolve('');return;}
+    if(!file){resolve(null);return;}
     const reader=new FileReader();
     reader.onload=()=>{
       const img=new Image();
-      img.onload=()=>{
-        const scale=Math.min(1, maxSize/Math.max(img.width,img.height));
-        const canvas=document.createElement('canvas');
-        canvas.width=Math.max(1,Math.round(img.width*scale));
-        canvas.height=Math.max(1,Math.round(img.height*scale));
-        canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror=()=>reject(new Error('Could not read stand photo.'));
+      img.onload=()=>resolve(img);
+      img.onerror=()=>reject(new Error('Could not read image.'));
       img.src=String(reader.result||'');
     };
-    reader.onerror=()=>reject(new Error('Could not load stand photo.'));
+    reader.onerror=()=>reject(new Error('Could not load image.'));
     reader.readAsDataURL(file);
   });
+}
+function canvasToJpegDataUrl(img, maxDimension, quality){
+  const originalW=Number(img?.naturalWidth||img?.width||0);
+  const originalH=Number(img?.naturalHeight||img?.height||0);
+  const scale=Math.min(1, maxDimension/Math.max(originalW,originalH));
+  const w=Math.max(1,Math.round(originalW*scale));
+  const h=Math.max(1,Math.round(originalH*scale));
+  const canvas=document.createElement('canvas');
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d',{alpha:false});
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,w,h);
+  ctx.imageSmoothingEnabled=true;
+  ctx.imageSmoothingQuality='high';
+  ctx.drawImage(img,0,0,w,h);
+  return {dataUrl:canvas.toDataURL('image/jpeg', quality), width:w, height:h};
+}
+async function compressImageFileForCamp(file, options={}){
+  if(!file) return {dataUrl:'', bytes:0, originalBytes:0, width:0, height:0, compressed:false};
+  const targetBytes=Number(options.targetBytes||180*1024);
+  const maxAttempts=[
+    {size:1200, quality:.74}, {size:1000, quality:.68}, {size:900, quality:.62},
+    {size:760, quality:.56}, {size:640, quality:.50}, {size:520, quality:.44},
+    {size:420, quality:.38}, {size:340, quality:.32}
+  ];
+  const img=await loadImageFile(file);
+  let best={dataUrl:'', bytes:Number.POSITIVE_INFINITY, width:0, height:0};
+  for(const attempt of maxAttempts){
+    const out=canvasToJpegDataUrl(img, attempt.size, attempt.quality);
+    const bytes=dataUrlApproxBytes(out.dataUrl);
+    if(bytes<best.bytes) best=Object.assign({},out,{bytes});
+    if(bytes<=targetBytes){
+      return {dataUrl:out.dataUrl, bytes, originalBytes:file.size||0, width:out.width, height:out.height, compressed:true};
+    }
+  }
+  return {dataUrl:best.dataUrl, bytes:best.bytes, originalBytes:file.size||0, width:best.width, height:best.height, compressed:true, aboveTarget:best.bytes>targetBytes};
+}
+function resizeImageFileToDataUrl(file, maxSize=1000, quality=0.72){
+  return compressImageFileForCamp(file,{targetBytes:180*1024}).then(result=>result.dataUrl);
 }
 async function handleStandPhotoUpload(event){
   const file=event?.target?.files?.[0];
   const preview=document.getElementById('stand-photo-preview');
   const img=document.getElementById('stand-photo-preview-img');
+  const feedback=document.getElementById('stand-save-feedback');
   try{
-    standPhotoDataUrl=file?await resizeImageFileToDataUrl(file):'';
+    if(feedback&&file){feedback.textContent='Compressing photo for DeerCamp...';feedback.classList.add('show');}
+    const result=file?await compressImageFileForCamp(file,{targetBytes:180*1024}):{dataUrl:''};
+    standPhotoDataUrl=result.dataUrl||'';
     if(standPhotoDataUrl&&preview&&img){img.src=standPhotoDataUrl;preview.classList.add('show');}
     else if(preview){preview.classList.remove('show');}
+    if(feedback&&file){
+      const original=result.originalBytes?`Original ${formatBytes(result.originalBytes)}`:'Photo selected';
+      const saved=result.bytes?`saved as ${formatBytes(result.bytes)}`:'compressed';
+      const extra=result.aboveTarget?' It is still large, but Scout will try to save it safely.':'';
+      feedback.textContent=`✅ Photo ready. ${original}; ${saved}.${extra}`;
+      feedback.classList.add('show');
+    }
   }catch(error){
     standPhotoDataUrl='';
     if(preview) preview.classList.remove('show');
-    const feedback=document.getElementById('stand-save-feedback');
-    if(feedback){feedback.textContent='⚠️ Photo could not be read. Try a smaller image or save without a photo.';feedback.classList.add('show');}
+    if(feedback){feedback.textContent='⚠️ Photo could not be compressed. Try a different image or save without a photo.';feedback.classList.add('show');}
   }
 }
 window.handleStandPhotoUpload=handleStandPhotoUpload;
+window.compressImageFileForCamp=compressImageFileForCamp;
 function getScoutActiveCampData(){
   const scopedFromUrl=getCampIdFromUrl();
   const activeFromStorage=localStorage.getItem(ACTIVE_CAMP_KEY)||'';
@@ -2332,7 +2386,7 @@ async function saveStand(){
     const closeBtn=document.getElementById('stand-close-btn'); if(saveBtn) saveBtn.textContent='Saved ✓'; if(closeBtn) closeBtn.textContent='Close';
     if(feedback){
       const campNote=postResult.posted?' Posted to CampUpdate and CampDeerStands.':' Saved to the map. Camp post did not complete.';
-      const photoNote=(savedStand.photo&&postResult.photoDropped)?' Photo was too large, so the stand saved without the photo.':'';
+      const photoNote=(savedStand.photo&&postResult.photoDropped)?' Photo was too large for the remaining camp storage, so the stand saved without the photo.':' Photo compression is active for stand uploads.';
       feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map.${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
     }
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
