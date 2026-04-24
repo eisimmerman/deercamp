@@ -1321,14 +1321,10 @@ async function generateDeerDriveThumbnailDataUrl(width=1200, height=675){
   minLng -= padSide;
   maxLng += padSide;
 
-  const bgUrl = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/export?bbox=${minLng},${minLat},${maxLng},${maxLat}&bboxSR=4326&imageSR=4326&size=${width},${height}&format=png32&transparent=false&f=image`;
-  let bgDataUrl = '';
-  try{
-    bgDataUrl = await fetchImageUrlAsDataUrl(bgUrl);
-  }catch(err){
-    console.warn('Unable to load aerial export image for deer drive save.', err);
-    bgDataUrl = '';
-  }
+  // Keep saved DeerDrive images localStorage-safe. Embedding the exported aerial tile
+  // can create a very large data URL, which makes the camp save silently drop the image.
+  // The saved image is a compact SVG schematic with the drive routes, D/P and S/B pins.
+  const bgDataUrl = '';
 
   const projectPoint = (lat, lng) => {
     const x = ((lng - minLng) / Math.max(maxLng - minLng, 0.000001)) * width;
