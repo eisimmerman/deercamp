@@ -2524,8 +2524,29 @@ async function saveStand(){
 window.saveStand=saveStand;
 window.closeStandModal=closeStandModal;
 window.pickWind=pickWind;
-function editStandById(id){editingStandId=id;const s=stands.find(s=>s.id===id);if(s)openStandModal(s);map.closePopup();}
+function editStandById(id){editingStandId=id;const s=stands.find(s=>String(s.id)===String(id)||String(s.standId||'')===String(id)||String(s.name||'')===String(id)||String(s.title||'')===String(id));if(s)openStandModal(s);map.closePopup();}
 window.editStandById=editStandById;
+function openDeepLinkedScoutEdit(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const standKey = params.get('editStand');
+    const driveKey = params.get('editDrive');
+    if(standKey){
+      const match = stands.find(s => String(s.id)===String(standKey) || String(s.standId||'')===String(standKey) || String(s.name||'')===String(standKey) || String(s.title||'')===String(standKey));
+      if(match){
+        setTimeout(()=>{ try{ map.flyTo([match.lat, match.lng], 17, {duration:.8}); }catch{} editStandById(match.id); }, 450);
+        document.getElementById('status-bar').innerHTML = `Editing stand: ${match.name || match.title || 'Saved Stand'}`;
+        return;
+      }
+      document.getElementById('status-bar').innerHTML = 'Stand edit link opened Scout. Select the stand marker or side-panel card to edit.';
+    } else if(driveKey){
+      document.getElementById('status-bar').innerHTML = 'Drive edit link opened Scout. Use DeerDrive Builder or Save Drive to revise and repost this drive.';
+      try{ openDeerDriveBuilderFromToolbar(); }catch{}
+    }
+  }catch(error){
+    console.warn('Scout deep edit link skipped.', error);
+  }
+}
 function deleteStand(){delStandById(editingStandId);closeStandModal();}
 function delStandById(id){
   if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
@@ -3078,6 +3099,7 @@ try{
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
+openDeepLinkedScoutEdit();
 </script>
 </body>
 </html>

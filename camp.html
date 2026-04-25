@@ -193,6 +193,17 @@
   .deerstand-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .deerstand-tag{display:inline-flex;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.78rem;font-weight:800}
   .deerstand-location{margin:0;color:#6b5644;font-size:.86rem;font-weight:700}
+  .deer-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .deer-card-actions .btn{min-height:38px;padding:0 14px;font-size:.9rem}
+  .deer-edit-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
+  .deer-edit-modal-backdrop.open{display:block}
+  .deer-edit-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
+  .deer-edit-modal.open{display:flex}
+  .deer-edit-card{position:relative;width:min(640px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px;display:grid;gap:14px}
+  .deer-edit-card h3{margin:0;color:#3a2717}
+  .deer-edit-fields{display:grid;gap:12px}
+  .deer-edit-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .deer-edit-status{margin:0;color:#6b5644;line-height:1.45;font-size:.94rem}
   .deer-shelf-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
   .deer-shelf-controls .arrow{width:38px;height:38px;flex:0 0 38px}
   .deer-shelf-controls .arrow[hidden]{display:none!important}
@@ -436,6 +447,33 @@
   <div class="deerdrive-image-card" role="dialog" aria-modal="true">
     <button type="button" id="deerDriveImageClose" class="close" aria-label="Close deer drive image">×</button>
     <img id="deerDriveImageFull" alt="Deer drive image">
+  </div>
+</div>
+
+<div id="deerItemEditBackdrop" class="deer-edit-modal-backdrop"></div>
+<div id="deerItemEditModal" class="deer-edit-modal" aria-hidden="true">
+  <div class="deer-edit-card" role="dialog" aria-modal="true" aria-label="Edit saved deer item">
+    <button type="button" id="deerItemEditClose" class="close" aria-label="Close edit">×</button>
+    <div>
+      <p id="deerItemEditKicker" class="feed-kicker">Edit</p>
+      <h3 id="deerItemEditTitleLabel">Edit Saved Item</h3>
+    </div>
+    <div class="deer-edit-fields">
+      <div class="form-row">
+        <label class="label" for="deerItemEditTitle">Title</label>
+        <input id="deerItemEditTitle" class="input" type="text">
+      </div>
+      <div class="form-row">
+        <label class="label" for="deerItemEditBody">Notes</label>
+        <textarea id="deerItemEditBody" class="textarea"></textarea>
+      </div>
+    </div>
+    <div class="deer-edit-actions">
+      <button type="button" id="deerItemEditSave" class="btn">Save Changes</button>
+      <button type="button" id="deerItemEditScout" class="btn btn-secondary">Open in Scout</button>
+      <button type="button" id="deerItemEditDelete" class="btn btn-secondary">Delete Card</button>
+    </div>
+    <p id="deerItemEditStatus" class="deer-edit-status">Changes update this camp section and sync to cloud storage metadata.</p>
   </div>
 </div>
 
@@ -735,6 +773,11 @@ function persist(){
     return nextEntry;
   });
   data.campPhotoGallery = campPhotoGallery.slice(0,12);
+  data.deerStandPosts = Array.isArray(deerStandPosts) ? deerStandPosts.slice() : [];
+  data.deerStands = data.deerStandPosts.slice();
+  data.stands = data.deerStandPosts.slice();
+  data.deerDrivePosts = Array.isArray(deerDrivePosts) ? deerDrivePosts.slice() : [];
+  data.deerDrives = data.deerDrivePosts.slice();
 
   const write = () => {
     localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
@@ -1711,6 +1754,76 @@ function updateShelfNav(prefix, offset, total, renderFn){
   }
 }
 
+function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
+  return String(item.id || item.standId || item.driveId || item.slug || item.title || item.name || `${fallbackPrefix}-${index}`).trim();
+}
+function getScoutEditUrl(type, item = {}, index = 0){
+  const url = new URL('scout.html', window.location.href);
+  if(activeCampId) url.searchParams.set('campId', activeCampId);
+  url.searchParams.set('editType', type);
+  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
+  return url.toString();
+}
+let deerItemEditState = { type: '', index: -1 };
+function getDeerEditCollection(type){
+  return type === 'drive' ? deerDrivePosts : deerStandPosts;
+}
+function openDeerItemEdit(type, index){
+  const collection = getDeerEditCollection(type);
+  const item = collection && collection[index];
+  if(!item) return;
+  deerItemEditState = { type, index };
+  document.getElementById('deerItemEditKicker').textContent = type === 'drive' ? 'Edit Deer Drive' : 'Edit Deer Stand';
+  document.getElementById('deerItemEditTitleLabel').textContent = item.title || item.name || (type === 'drive' ? 'Saved Deer Drive' : 'Saved Deer Stand');
+  document.getElementById('deerItemEditTitle').value = item.title || item.name || '';
+  document.getElementById('deerItemEditBody').value = item.body || item.notes || item.description || '';
+  document.getElementById('deerItemEditStatus').textContent = 'Edit the card title/notes here. Use Open in Scout for map-level changes.';
+  document.getElementById('deerItemEditScout').onclick = () => { window.open(getScoutEditUrl(type, item, index), '_blank', 'noopener,noreferrer'); };
+  document.getElementById('deerItemEditBackdrop').classList.add('open');
+  document.getElementById('deerItemEditModal').classList.add('open');
+  document.getElementById('deerItemEditModal').setAttribute('aria-hidden','false');
+  document.body.classList.add('modal-open');
+}
+function closeDeerItemEdit(){
+  document.getElementById('deerItemEditBackdrop')?.classList.remove('open');
+  document.getElementById('deerItemEditModal')?.classList.remove('open');
+  document.getElementById('deerItemEditModal')?.setAttribute('aria-hidden','true');
+  document.body.classList.remove('modal-open');
+}
+function saveDeerItemEdit(){
+  const { type, index } = deerItemEditState;
+  const collection = getDeerEditCollection(type);
+  const item = collection && collection[index];
+  if(!item) return;
+  const title = String(document.getElementById('deerItemEditTitle').value || '').trim();
+  const body = String(document.getElementById('deerItemEditBody').value || '').trim();
+  if(title){ item.title = title; item.name = title; }
+  item.body = body; item.notes = body; item.description = body;
+  item.updatedAt = new Date().toISOString();
+  item.updatedAtMs = Date.now();
+  if(type === 'drive') renderDeerDrives(); else renderDeerStands();
+  recentUpdatesOffset = 0; renderRecentUpdates();
+  try{ persist(); document.getElementById('deerItemEditStatus').textContent = 'Saved. This card has been updated and synced.'; }
+  catch(error){ document.getElementById('deerItemEditStatus').textContent = 'Save failed. Try again.'; console.warn('Deer item edit save failed.', error); }
+  setTimeout(closeDeerItemEdit, 650);
+}
+function deleteDeerItemEdit(){
+  const { type, index } = deerItemEditState;
+  const collection = getDeerEditCollection(type);
+  if(!collection || !collection[index]) return;
+  const removed = collection.splice(index, 1)[0];
+  if(type === 'drive') { deerDriveShelfOffset = clampShelfOffset(deerDriveShelfOffset, deerDrivePosts.length); renderDeerDrives(); }
+  else { deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset, deerStandPosts.length); renderDeerStands(); }
+  contentSubmissions = contentSubmissions.filter(entry => {
+    const title = String(entry.title || '').toLowerCase();
+    const name = String(removed.title || removed.name || '').toLowerCase();
+    return !name || !title.includes(name);
+  });
+  recentUpdatesOffset = 0; renderRecentUpdates();
+  try{ persist(); }catch(error){ console.warn('Deer item delete save failed.', error); }
+  closeDeerItemEdit();
+}
+
 function renderDeerStands(delta = 0){
   const grid = document.getElementById("deerStandsGrid");
   const empty = document.getElementById("deerStandsEmpty");
@@ -1757,6 +1870,10 @@ function renderDeerStands(delta = 0){
             ${image ? `<div class="deerstand-media"><img src="${esc(image)}" alt="${esc(item.title || 'Deer stand')} stand photo"></div>` : ""}
             <div class="deerstand-meta">${tags.map(tag => `<span class="deerstand-tag">${esc(tag)}</span>`).join("")}</div>
             ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
+            <div class="deer-card-actions">
+              <button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>
+              <a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>
+            </div>
           </div>
         </article>`;
     }).join("");
@@ -1764,6 +1881,7 @@ function renderDeerStands(delta = 0){
     console.warn("CampDeerStands render skipped.", error);
     grid.innerHTML = `<div class="empty">Deer stand details could not be displayed. Refresh or add a new stand from Scout.</div>`;
   }
+  grid.querySelectorAll('[data-deerstand-edit]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerItemEdit('stand', Number(btn.dataset.deerstandEdit)); }));
 }
 function renderDeerDrives(delta = 0){
   const grid = document.getElementById("deerDrivesGrid");
@@ -1795,13 +1913,18 @@ function renderDeerDrives(delta = 0){
           <span class="tag">${item.routeCount || 0} route${Number(item.routeCount || 0) === 1 ? '' : 's'}</span>
           ${(Array.isArray(item.tags) ? item.tags : []).slice(0,2).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
         </div>
-        <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
+        <div class="deer-card-actions">
+          <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
+          <button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>
+          <a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>
+        </div>
       </div>
     </article>`;
   }).join("");
   grid.querySelectorAll('[data-deerdrive-card]').forEach(card=>card.addEventListener('click',()=>openDeerDriveModal(Number(card.dataset.deerdriveCard))));
   grid.querySelectorAll('[data-deerdrive-thumb]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerDriveModal(Number(btn.dataset.deerdriveThumb)); }));
   grid.querySelectorAll('[data-deerdrive-index]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerDriveModal(Number(btn.dataset.deerdriveIndex)); }));
+  grid.querySelectorAll('[data-deerdrive-edit]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerItemEdit('drive', Number(btn.dataset.deerdriveEdit)); }));
 }
 
 
@@ -1888,6 +2011,10 @@ document.getElementById('deerDriveModalClose').onclick=closeDeerDriveModal;
 document.getElementById('deerDriveModalBackdrop').onclick=closeDeerDriveModal;
 document.getElementById('deerDriveImageClose').onclick=closeDeerDriveImageModal;
 document.getElementById('deerDriveImageBackdrop').onclick=closeDeerDriveImageModal;
+document.getElementById('deerItemEditClose')?.addEventListener('click', closeDeerItemEdit);
+document.getElementById('deerItemEditBackdrop')?.addEventListener('click', closeDeerItemEdit);
+document.getElementById('deerItemEditSave')?.addEventListener('click', saveDeerItemEdit);
+document.getElementById('deerItemEditDelete')?.addEventListener('click', deleteDeerItemEdit);
 
 function renderRecipes(){
   const grid=document.getElementById('recipesGrid'); if(!grid) return;
@@ -2128,6 +2255,24 @@ window.addEventListener("focus", () => requestSilentCampSectionRefresh("focus"))
 document.addEventListener("visibilitychange", () => {
   if(!document.hidden) requestSilentCampSectionRefresh("visible");
 });
+
+try{
+  if(window.DeerCampCloud && typeof DeerCampCloud.subscribeToCamp === "function") {
+    DeerCampCloud.subscribeToCamp(activeCampId, payload => {
+      if(!payload || typeof payload !== "object") return;
+      try{
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(payload));
+        localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(payload));
+        localStorage.setItem(campScopeKey(activeCampId, "refreshTick"), String(Date.now()));
+      }catch(error){
+        console.warn("Realtime camp cache update skipped.", error);
+      }
+      requestSilentCampSectionRefresh("realtime");
+    });
+  }
+}catch(error){
+  console.warn("Realtime camp subscription skipped.", error);
+}
 
 setInterval(() => {
   requestSilentCampSectionRefresh("interval");
