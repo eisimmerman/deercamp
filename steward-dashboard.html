@@ -1477,15 +1477,28 @@
           renderMembers();
           renderPreview();
           updateInviteButton();
+
+          let cloudSynced = false;
           if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
-            await DeerCampCloud.saveCamp(state.campId, savedCampData);
+            try {
+              await DeerCampCloud.saveCamp(state.campId, savedCampData);
+              cloudSynced = true;
+            } catch (cloudError) {
+              console.warn("Profile saved locally, but cloud sync was not confirmed.", cloudError);
+            }
           }
+
           if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
-          setMemberFormNote(`${name} profile saved. Refresh the live camp page to view the updated profile.`, "success");
-          showToast(`${name} profile saved.`, 5200);
+          if (cloudSynced) {
+            setMemberFormNote(`${name} profile saved and synced. Refresh the live camp page to view the updated profile.`, "success");
+            showToast(`${name} profile saved and synced.`, 6500);
+          } else {
+            setMemberFormNote(`${name} profile saved on this device. Cloud sync was not confirmed, but the live camp page on this device should update after refresh.`, "success");
+            showToast(`${name} profile saved locally.`, 6500);
+          }
         } catch (error) {
           console.error("Profile save failed.", error);
-          setMemberFormNote(`${name} profile did not save. Try Save Dashboard Changes, then try again.`, "error");
+          setMemberFormNote(`${name} profile did not save. Check browser storage/console, then try again.`, "error");
           showToast("Profile save failed.", 6500);
         } finally {
           if (submitBtn) {
