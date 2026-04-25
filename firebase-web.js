@@ -204,7 +204,7 @@
         return null;
       }
     },
-    isDataUrl(value) { return /^data:image//i.test(String(value || "")); },
+    isDataUrl(value) { return /^data:image\//i.test(String(value || "")); },
     async uploadBlob(path, blob, metadata = {}) {
       const storage = this.ensureReady();
       if (!storage) throw new Error("Firebase Storage is not available.");
