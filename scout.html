@@ -2864,8 +2864,14 @@ function syncHelperToggleSide(){
   }
 }
 
+function setTextIfPresent(id, value){
+  const el = document.getElementById(id);
+  if(el) el.textContent = value;
+}
+
 function renderPanel(){
   const body=document.getElementById('panel-body');
+  if(!body) return;
   let html='';
   if(!stands.length&&!routes.length&&!boundaries.length&&!windArrows.length&&!areaPolys.length&&!drivers.length&&!standers.length){
     html=getHelperPanelHTML();
@@ -2914,11 +2920,11 @@ function renderPanel(){
     </div>`).join('');
   }
   body.innerHTML=html;
-  document.getElementById('st-s').textContent=stands.length;
-  document.getElementById('st-r').textContent=routes.length;
-  document.getElementById('st-b').textContent=boundaries.length;
+  setTextIfPresent('st-s', stands.length);
+  setTextIfPresent('st-r', routes.length);
+  setTextIfPresent('st-b', boundaries.length);
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
-  document.getElementById('st-a').textContent=totalAcres>0?totalAcres.toFixed(1)+' ac':'—';
+  setTextIfPresent('st-a', totalAcres>0?totalAcres.toFixed(1)+' ac':'—');
 }
 
 function flyToStand(id){const s=stands.find(s=>s.id===id);if(!s)return;map.flyTo([s.lat,s.lng],17,{duration:1.2});setTimeout(()=>allLayers[id]?.openPopup(),1300);}
