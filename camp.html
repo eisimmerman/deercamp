@@ -1674,29 +1674,39 @@ function renderTraditions(){
 let recipeModalData=[];
 
 
-const CAMP_SHELF_PAGE_SIZE = 5;
+const CAMP_SHELF_DESKTOP_PAGE_SIZE = 5;
+const CAMP_SHELF_MOBILE_PAGE_SIZE = 3;
+function getCampShelfPageSize(){
+  try{
+    return window.matchMedia && window.matchMedia("(max-width:720px)").matches ? CAMP_SHELF_MOBILE_PAGE_SIZE : CAMP_SHELF_DESKTOP_PAGE_SIZE;
+  }catch{
+    return CAMP_SHELF_DESKTOP_PAGE_SIZE;
+  }
+}
 let deerStandShelfOffset = 0;
 let deerDriveShelfOffset = 0;
 function clampShelfOffset(offset, total){
+  const pageSize = getCampShelfPageSize();
   if(!Number.isFinite(offset) || offset < 0) return 0;
-  if(total <= CAMP_SHELF_PAGE_SIZE) return 0;
-  return Math.min(offset, Math.max(0, total - CAMP_SHELF_PAGE_SIZE));
+  if(total <= pageSize) return 0;
+  return Math.min(offset, Math.max(0, total - pageSize));
 }
 function updateShelfNav(prefix, offset, total, renderFn){
+  const pageSize = getCampShelfPageSize();
   const prevBtn = document.getElementById(`${prefix}Prev`);
   const nextBtn = document.getElementById(`${prefix}Next`);
   const countPill = document.getElementById(`${prefix}Count`);
-  const needsNav = total > CAMP_SHELF_PAGE_SIZE;
+  const needsNav = total > pageSize;
   if(countPill) countPill.textContent = `${total} saved`;
   if(prevBtn){
     prevBtn.hidden = !needsNav;
     prevBtn.disabled = offset <= 0;
-    prevBtn.onclick = () => { renderFn(-CAMP_SHELF_PAGE_SIZE); };
+    prevBtn.onclick = () => { renderFn(-pageSize); };
   }
   if(nextBtn){
     nextBtn.hidden = !needsNav;
-    nextBtn.disabled = offset + CAMP_SHELF_PAGE_SIZE >= total;
-    nextBtn.onclick = () => { renderFn(CAMP_SHELF_PAGE_SIZE); };
+    nextBtn.disabled = offset + pageSize >= total;
+    nextBtn.onclick = () => { renderFn(pageSize); };
   }
 }
 
@@ -1712,7 +1722,8 @@ function renderDeerStands(delta = 0){
     return;
   }
   deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset + Number(delta || 0), safeItems.length);
-  const visibleItems = safeItems.slice(deerStandShelfOffset, deerStandShelfOffset + CAMP_SHELF_PAGE_SIZE);
+  const standPageSize = getCampShelfPageSize();
+  const visibleItems = safeItems.slice(deerStandShelfOffset, deerStandShelfOffset + standPageSize);
   updateShelfNav("deerStands", deerStandShelfOffset, safeItems.length, renderDeerStands);
   const timeLabels = {"":"Any", morning:"Morning", evening:"Evening", "all-day":"All Day"};
   const typeLabels = {treestand:"Treestand", blind:"Ground Blind", boxblind:"Box Blind", ladder:"Ladder Stand", foodplot:"Food Plot", trailcam:"Trail Camera", scrape:"Scrape / Rub", waypoint:"Waypoint"};
@@ -1765,7 +1776,8 @@ function renderDeerDrives(delta = 0){
     return;
   }
   deerDriveShelfOffset = clampShelfOffset(deerDriveShelfOffset + Number(delta || 0), safeItems.length);
-  const visibleItems = safeItems.slice(deerDriveShelfOffset, deerDriveShelfOffset + CAMP_SHELF_PAGE_SIZE);
+  const drivePageSize = getCampShelfPageSize();
+  const visibleItems = safeItems.slice(deerDriveShelfOffset, deerDriveShelfOffset + drivePageSize);
   updateShelfNav("deerDrives", deerDriveShelfOffset, safeItems.length, renderDeerDrives);
   empty.hidden = true;
   grid.innerHTML = visibleItems.map((item, visibleIdx) => {
@@ -2089,6 +2101,16 @@ setInterval(() => {
   pullLatestCampDataSilently();
 }, 10000);
 
+let campShelfLastPageSize = getCampShelfPageSize();
+window.addEventListener("resize", () => {
+  const nextPageSize = getCampShelfPageSize();
+  if(nextPageSize === campShelfLastPageSize) return;
+  campShelfLastPageSize = nextPageSize;
+  deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset, Array.isArray(deerStandPosts) ? deerStandPosts.length : 0);
+  deerDriveShelfOffset = clampShelfOffset(deerDriveShelfOffset, Array.isArray(deerDrivePosts) ? deerDrivePosts.length : 0);
+  if(document.getElementById("deerStandsGrid")) renderDeerStands();
+  if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+});
 renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
