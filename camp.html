@@ -589,6 +589,7 @@ localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 const preHydrateLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
 const preHydrateScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
 const preHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
+const preHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
 const preHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
 await hydrateCampFromCloud(activeCampId);
 
@@ -780,9 +781,10 @@ if(mobileHeroBg) mobileHeroBg.style.backgroundImage = `url('${heroPath}')`;
 
 function getDashboardProfileSources() {
   const scopedDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
+  const scopedProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
   const genericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
   const sources = [];
-  [preHydrateLegacy, preHydrateScoped, preHydrateDashboard, preHydrateGenericDashboard, data, scopedDashboard, genericDashboard, data.dashboardSlim].forEach(source => {
+  [preHydrateLegacy, preHydrateScoped, preHydrateDashboard, preHydrateProfileData, preHydrateGenericDashboard, data, scopedProfileData, scopedDashboard, genericDashboard, data.dashboardSlim].forEach(source => {
     if(!source || typeof source !== "object") return;
     if(Array.isArray(source.memberProfiles)) sources.push(...source.memberProfiles);
     if(Array.isArray(source.members)) sources.push(...source.members);

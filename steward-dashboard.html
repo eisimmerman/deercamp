@@ -726,6 +726,7 @@
 
     const scopedCampDataKey = campScopeKey(activeCampId, "campData");
     const scopedDashboardKey = campScopeKey(activeCampId, "dashboardSlim");
+    const scopedProfileDataKey = campScopeKey(activeCampId, "profileData");
 
     const scopedCampData = safeParse(localStorage.getItem(scopedCampDataKey), {});
     const genericDashboard = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
@@ -868,48 +869,143 @@
       return (Array.isArray(members) ? members : []).find(member => String(member.role || "").trim().toLowerCase() === "camp steward") || null;
     }
 
+    function stripLargeEmbeddedMedia(value, options = {}) {
+      const seen = new WeakSet();
+      const maxDataUrlLength = Number(options.maxDataUrlLength || 70000);
+      const mediaKeys = new Set(["image", "photo", "thumbnail", "preview", "snapshot", "dataUrl", "src", "audio", "audioUrl"]);
+      const keepProfilePhoto = Boolean(options.keepProfilePhoto);
+      function walk(item, path = []) {
+        if (!item || typeof item !== "object") return item;
+        if (seen.has(item)) return item;
+        seen.add(item);
+        if (Array.isArray(item)) return item.map((child, index) => walk(child, path.concat(String(index))));
+        const out = {};
+        Object.keys(item).forEach(key => {
+          const val = item[key];
+          if (typeof val === "string") {
+            const isDataMedia = /^data:(image|audio)\//i.test(val);
+            const lowerKey = key.toLowerCase();
+            const isProfilePath = path.some(part => /memberprofiles|dashboardmembers|dashboardpeople|stewardprofile|campstewardprofile|members|people/i.test(part));
+            const isProfilePhotoKey = ["photo", "profilephoto", "avatar", "stewardphoto", "stewardprofilephoto", "stewardavatar"].includes(lowerKey);
+            if (isDataMedia && val.length > maxDataUrlLength && mediaKeys.has(key) && !(keepProfilePhoto && isProfilePath && isProfilePhotoKey)) {
+              out[`${key}DroppedForStorage`] = true;
+              return;
+            }
+          }
+          out[key] = walk(val, path.concat(key));
+        });
+        return out;
+      }
+      return walk(value);
+    }
+
     function compactCampDataForStorage(payload = {}) {
-      const compact = JSON.parse(JSON.stringify(payload || {}));
-      compact.feedEntries = (Array.isArray(compact.feedEntries) ? compact.feedEntries : []).slice(0, 8).map(entry => {
-        const next = Object.assign({}, entry);
-        if (String(next.mediaType || "").toLowerCase() === "photo" && String(next.image || "").length > 90000) {
-          next.image = "";
-          next.imageDroppedForStorage = true;
-        }
-        delete next.audio; delete next.audioUrl; delete next.audioSources;
-        return next;
-      });
-      compact.campPhotoGallery = (Array.isArray(compact.campPhotoGallery) ? compact.campPhotoGallery : []).slice(0, 6).map(item => {
-        const next = Object.assign({}, item);
-        if (String(next.image || next.photo || "").length > 90000) {
-          next.image = "";
-          next.photo = "";
-          next.imageDroppedForStorage = true;
-        }
-        return next;
-      });
+      const compact = stripLargeEmbeddedMedia(JSON.parse(JSON.stringify(payload || {})), { maxDataUrlLength: 70000, keepProfilePhoto: true });
+      compact.feedEntries = (Array.isArray(compact.feedEntries) ? compact.feedEntries : []).slice(0, 8);
+      compact.campPhotoGallery = (Array.isArray(compact.campPhotoGallery) ? compact.campPhotoGallery : []).slice(0, 6);
       compact.contentSubmissions = (Array.isArray(compact.contentSubmissions) ? compact.contentSubmissions : []).slice(0, 20);
+      compact.deerDrivePosts = (Array.isArray(compact.deerDrivePosts) ? compact.deerDrivePosts : []).slice(0, 12);
+      compact.deerDrives = (Array.isArray(compact.deerDrives) ? compact.deerDrives : []).slice(0, 12);
+      compact.deerStandPosts = (Array.isArray(compact.deerStandPosts) ? compact.deerStandPosts : []).slice(0, 20);
+      compact.deerStands = (Array.isArray(compact.deerStands) ? compact.deerStands : []).slice(0, 20);
+      delete compact.audio;
+      delete compact.audioUrl;
+      delete compact.audioSources;
       return compact;
     }
 
-    function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
-      const writeAll = (campPayload, dashboardPayload) => {
-        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(campPayload));
-        localStorage.setItem(scopedCampDataKey, JSON.stringify(campPayload));
-        localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(dashboardPayload));
-        localStorage.setItem(scopedDashboardKey, JSON.stringify(dashboardPayload));
-        localStorage.setItem(ACTIVE_CAMP_KEY, state.campId);
+    function buildProfileOnlyCampPayload(nextCampData = {}, nextDashboard = {}) {
+      const profileOnly = {
+        campId: state.campId,
+        name: nextCampData.name || state.camp.name,
+        campName: nextCampData.campName || state.camp.name,
+        city: nextCampData.city || state.camp.city,
+        state: nextCampData.state || state.camp.state,
+        zip: nextCampData.zip || state.camp.zip,
+        established: nextCampData.established || state.camp.established,
+        summary: nextCampData.summary || sanitizeSummary(state.camp.summary),
+        about: nextCampData.about || sanitizeSummary(state.camp.summary),
+        hero: nextCampData.hero || state.camp.hero,
+        stewardName: nextCampData.stewardName || state.stewardName,
+        steward: nextCampData.steward || state.stewardName,
+        stewardEmail: nextCampData.stewardEmail || state.stewardEmail,
+        publishState: nextCampData.publishState || state.camp.publishState,
+        isPublic: nextCampData.isPublic,
+        enabledSections: nextCampData.enabledSections || Object.assign({}, state.sections),
+        selectedRecipeIds: Array.isArray(nextCampData.selectedRecipeIds) ? nextCampData.selectedRecipeIds.slice() : [],
+        members: Array.isArray(nextCampData.members) ? nextCampData.members.slice() : [],
+        campMembers: Array.isArray(nextCampData.campMembers) ? nextCampData.campMembers.slice() : [],
+        memberProfiles: Array.isArray(nextCampData.memberProfiles) ? nextCampData.memberProfiles.map(member => ({ ...member })) : [],
+        dashboardMembers: Array.isArray(nextCampData.dashboardMembers) ? nextCampData.dashboardMembers.map(member => ({ ...member })) : [],
+        dashboardPeople: Array.isArray(nextCampData.dashboardPeople) ? nextCampData.dashboardPeople.map(member => ({ ...member })) : [],
+        dashboardSlim: nextDashboard,
+        stewardProfile: nextCampData.stewardProfile || null,
+        campStewardProfile: nextCampData.campStewardProfile || null,
+        stewardPhoto: String(nextCampData.stewardPhoto || "").trim(),
+        stewardProfilePhoto: String(nextCampData.stewardProfilePhoto || nextCampData.stewardPhoto || "").trim(),
+        stewardAvatar: String(nextCampData.stewardAvatar || nextCampData.stewardPhoto || "").trim(),
+        profilePhoto: String(nextCampData.profilePhoto || nextCampData.stewardPhoto || "").trim(),
+        stewardFavoriteStand: String(nextCampData.stewardFavoriteStand || "").trim(),
+        stewardFavoriteGear: String(nextCampData.stewardFavoriteGear || "").trim(),
+        stewardNickname: String(nextCampData.stewardNickname || "").trim(),
+        stewardYearJoined: String(nextCampData.stewardYearJoined || "").trim(),
+        stewardSpecialty: String(nextCampData.stewardSpecialty || "").trim(),
+        stewardHarvestHighlight: String(nextCampData.stewardHarvestHighlight || "").trim(),
+        stewardBestCampMemory: String(nextCampData.stewardBestCampMemory || "").trim(),
+        stewardRoleLine: String(nextCampData.stewardRoleLine || "").trim(),
+        profileUpdatedAt: nextCampData.profileUpdatedAt || new Date().toISOString(),
+        stewardProfileUpdatedAt: nextCampData.stewardProfileUpdatedAt || nextCampData.profileUpdatedAt || new Date().toISOString(),
+        storageMode: "profile-only"
       };
+      return stripLargeEmbeddedMedia(profileOnly, { maxDataUrlLength: 70000, keepProfilePhoto: true });
+    }
+
+    function safeSetJson(key, payload) {
+      if (!key) return true;
+      const json = JSON.stringify(payload || {});
       try {
-        writeAll(nextCampData, nextDashboard);
-        return nextCampData;
+        localStorage.removeItem(key);
+        localStorage.setItem(key, json);
+        return true;
       } catch (error) {
-        console.warn("Dashboard storage was tight. Saving a compact camp payload.", error);
-        const compactCampData = compactCampDataForStorage(nextCampData);
-        writeAll(compactCampData, nextDashboard);
-        showToast("Profile saved. Older large gallery images were trimmed to make room.");
-        return compactCampData;
+        console.warn(`Could not write ${key}.`, error);
+        try { localStorage.removeItem(key); } catch {}
+        return false;
       }
+    }
+
+    function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
+      const profilePayload = buildProfileOnlyCampPayload(nextCampData, nextDashboard);
+      safeSetJson(scopedProfileDataKey, profilePayload);
+      safeSetJson(scopedDashboardKey, nextDashboard);
+      safeSetJson(DASHBOARD_SLIM_KEY, nextDashboard);
+      try { localStorage.setItem(ACTIVE_CAMP_KEY, state.campId); } catch {}
+
+      const fullJsonLength = JSON.stringify(nextCampData || {}).length;
+      if (fullJsonLength < 1800000) {
+        const fullOk = safeSetJson(scopedCampDataKey, nextCampData);
+        if (fullOk) {
+          safeSetJson(CAMP_DATA_KEY, profilePayload);
+          return nextCampData;
+        }
+      } else {
+        console.warn(`Camp payload is large (${formatBytes(fullJsonLength)} text). Skipping full localStorage write and using compact/profile storage.`);
+      }
+
+      console.warn("Dashboard storage was tight. Saving a compact camp payload.");
+      const compactCampData = compactCampDataForStorage(nextCampData);
+      const compactOk = safeSetJson(scopedCampDataKey, compactCampData);
+      if (compactOk) {
+        safeSetJson(CAMP_DATA_KEY, profilePayload);
+        showToast("Profile saved. Large local images were not duplicated in dashboard storage.", 6500);
+        return nextCampData;
+      }
+
+      console.warn("Compact camp payload was still too large. Saving profile-only dashboard data.");
+      safeSetJson(scopedCampDataKey, profilePayload);
+      safeSetJson(CAMP_DATA_KEY, profilePayload);
+      showToast("Profile saved. Browser storage is full, so only profile/dashboard data was kept locally.", 7500);
+      return nextCampData;
     }
 
     function syncCampData() {
