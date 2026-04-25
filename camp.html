@@ -2088,11 +2088,42 @@ async function pullLatestCampDataSilently(){
   }
 }
 
+let silentCampRefreshTimer = null;
+function requestSilentCampSectionRefresh(reason = "data-change") {
+  clearTimeout(silentCampRefreshTimer);
+  silentCampRefreshTimer = setTimeout(() => {
+    if(document.hidden) return;
+    if(document.body.classList.contains("modal-open")) return;
+    pullLatestCampDataSilently();
+  }, reason === "storage" ? 250 : 650);
+}
+
+function isCampRefreshStorageKey(key = "") {
+  const scopedPrefix = campScopeKey(activeCampId, "").replace(/\.$/, "");
+  return key === CAMP_DATA_KEY
+    || key === DASHBOARD_KEY
+    || key === "deercamp.stewardDashboardSlim"
+    || key === campScopeKey(activeCampId, "campData")
+    || key === campScopeKey(activeCampId, "dashboardSlim")
+    || key === campScopeKey(activeCampId, "profileData")
+    || key === campScopeKey(activeCampId, "refreshTick")
+    || (!!scopedPrefix && key.startsWith(scopedPrefix));
+}
+
+window.addEventListener("storage", event => {
+  if(isCampRefreshStorageKey(event.key || "")) {
+    requestSilentCampSectionRefresh("storage");
+  }
+});
+
+window.addEventListener("focus", () => requestSilentCampSectionRefresh("focus"));
+document.addEventListener("visibilitychange", () => {
+  if(!document.hidden) requestSilentCampSectionRefresh("visible");
+});
+
 setInterval(() => {
-  if(document.hidden) return;
-  if(document.body.classList.contains("modal-open")) return;
-  pullLatestCampDataSilently();
-}, 10000);
+  requestSilentCampSectionRefresh("interval");
+}, 3500);
 
 let campShelfLastPageSize = getCampShelfPageSize();
 window.addEventListener("resize", () => {
