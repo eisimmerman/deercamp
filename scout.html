@@ -198,9 +198,9 @@ textarea{resize:vertical;min-height:55px;}
 .modal-acts{display:flex;gap:6px;margin-top:14px;justify-content:flex-end;}
 .stand-save-feedback{display:none;margin-top:10px;padding:8px 10px;border-radius:8px;border:1px solid rgba(58,186,160,.45);background:rgba(19,54,47,.65);color:#cffff1;font-size:.62rem;line-height:1.45;}
 .stand-save-feedback.show{display:block;}
-.stand-photo-preview{display:none;margin-top:8px;border:1px solid #3a2c1e;border-radius:8px;overflow:hidden;background:#140802;}
-.stand-photo-preview.show{display:block;}
-.stand-photo-preview img{display:block;width:100%;max-height:140px;object-fit:cover;}
+.stand-photo-preview{display:none;margin-top:8px;border:1px solid #3a2c1e;border-radius:8px;overflow:hidden;background:#f4f1ea;}
+.stand-photo-preview.show{display:flex;align-items:center;justify-content:center;min-height:156px;}
+.stand-photo-preview img{display:block;width:100%;height:auto;max-height:172px;object-fit:contain;object-position:center center;background:#f4f1ea;}
 .btn{font-family:'IBM Plex Mono',monospace;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.4px;padding:7px 12px;border-radius:5px;border:none;cursor:pointer;transition:all .15s;}
 .btn-p{background:var(--moss);color:var(--cream);}
 .btn-p:hover{background:var(--sage);}
@@ -2265,17 +2265,17 @@ async function handleStandPhotoUpload(event){
   try{
     if(feedback&&file){feedback.textContent='Compressing photo for DeerCamp...';feedback.classList.add('show');}
     if(!file){standPhotoDataUrl='';standPhotoThumbDataUrl='';if(preview)preview.classList.remove('show');return;}
-    const displayResult=await compressImageFileForCamp(file,{targetBytes:72*1024,maxEdge:900,minEdge:260,startQuality:.70,minQuality:.28});
-    const thumbResult=await compressImageFileForCamp(file,{targetBytes:32*1024,maxEdge:520,minEdge:180,startQuality:.62,minQuality:.22});
+    const displayResult=await compressImageFileForCamp(file,{targetBytes:48*1024,maxEdge:720,minEdge:260,startQuality:.66,minQuality:.24});
+    const thumbResult=await compressImageFileForCamp(file,{targetBytes:22*1024,maxEdge:420,minEdge:180,startQuality:.58,minQuality:.20});
     standPhotoDataUrl=displayResult.dataUrl||thumbResult.dataUrl||'';
     standPhotoThumbDataUrl=thumbResult.dataUrl||displayResult.dataUrl||'';
     if(standPhotoDataUrl&&preview&&img){img.src=standPhotoDataUrl;preview.classList.add('show');}
     else if(preview){preview.classList.remove('show');}
     if(feedback&&file){
       const original=displayResult.originalBytes?`Original ${formatBytes(displayResult.originalBytes)}`:'Photo selected';
-      const saved=displayResult.bytes?`display ${formatBytes(displayResult.bytes)}`:'display compressed';
-      const thumb=thumbResult.bytes?`camp thumbnail ${formatBytes(thumbResult.bytes)}`:'camp thumbnail compressed';
-      feedback.textContent=`✅ Photo ready. ${original}; ${saved}; ${thumb}.`;
+      const saved=displayResult.bytes?`preview ${formatBytes(displayResult.bytes)}`:'preview compressed';
+      const thumb=thumbResult.bytes?`saved thumbnail ${formatBytes(thumbResult.bytes)}`:'saved thumbnail compressed';
+      feedback.textContent=`✅ Photo compressed and ready. ${original}; ${saved}; ${thumb}. Full image will stay visible in preview and CampDeerStands.`;
       feedback.classList.add('show');
     }
   }catch(error){
@@ -2394,7 +2394,7 @@ async function saveStand(){
     let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||s.photo||'',thumbnail:standPhotoThumbDataUrl||s.thumbnail||standPhotoDataUrl||s.photo||''}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
+      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -2402,7 +2402,8 @@ async function saveStand(){
         if(feedback){feedback.textContent='⚠️ Tap the map where this stand should go, then save again.';feedback.classList.add('show');}
         if(saveBtn) saveBtn.textContent='Save'; return;
       }
-      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:standPhotoDataUrl||'',thumbnail:standPhotoThumbDataUrl||standPhotoDataUrl||'',lat:ll.lat,lng:ll.lng};
+      const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||'';
+      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto,lat:ll.lat,lng:ll.lng};
       stands.push(s); addStandToMap(s); editingStandId=s.id; pendingLL=null; savedStand=s; try{map.panTo([s.lat,s.lng]);}catch(e){}
     }
     if(!savedStand) throw new Error('Stand object was not created.');
@@ -2414,7 +2415,7 @@ async function saveStand(){
     const closeBtn=document.getElementById('stand-close-btn'); if(saveBtn) saveBtn.textContent='Saved ✓'; if(closeBtn) closeBtn.textContent='Close';
     if(feedback){
       const campNote=postResult.posted?' Posted to CampUpdate and CampDeerStands.':' Saved to the map. Camp post did not complete.';
-      const photoNote=postResult.photoDropped?' Camp storage was full, so the stand saved without the photo thumbnail.':(postResult.storageTrimmed?' Camp storage was trimmed and the thumbnail was saved.':' Thumbnail compression is active for stand uploads.');
+      const photoNote=postResult.photoDropped?' Camp storage was full, so the stand saved without the photo thumbnail.':(postResult.storageTrimmed?' Camp storage was trimmed and the compressed thumbnail was saved.':' Photo compressed and saved as a full-visible stand thumbnail.');
       feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map.${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
     }
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
