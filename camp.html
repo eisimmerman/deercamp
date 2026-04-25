@@ -299,6 +299,7 @@
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
 <script src="firebase-web.js"></script>
 </head>
 <body>
@@ -1190,12 +1191,19 @@ function normalizeDeerStandPosts(items = []){
     const note = String(item.notes || item.body || item.description || item.summary || "").trim();
     const rawCreatedAtMs = Number(item.createdAtMs);
     const parsedCreatedAtMs = item.createdAt ? Date.parse(String(item.createdAt)) : NaN;
+    const photoObj = item.photo && typeof item.photo === "object" ? item.photo : null;
+    const displayUrl = String(item.displayUrl || item.imageUrl || photoObj?.displayUrl || item.photoUrl || "").trim();
+    const thumbUrl = String(item.thumbUrl || item.thumbnailUrl || item.thumbnail || photoObj?.thumbUrl || displayUrl || "").trim();
+    const legacyImage = String(item.image || item.media || item.url || (typeof item.photo === "string" ? item.photo : "") || "").trim();
     out.push({
       id: stableId,
       title,
       body: note || "Stand details available.",
-      image: String(item.image || item.thumbnail || item.photo || item.media || item.url || "").trim(),
-      thumbnail: String(item.thumbnail || item.image || item.photo || item.media || item.url || "").trim(),
+      image: thumbUrl || displayUrl || legacyImage,
+      thumbnail: thumbUrl || displayUrl || legacyImage,
+      displayUrl,
+      thumbUrl: thumbUrl || displayUrl,
+      photo: photoObj || null,
       standType: String(item.standType || item.type || "Stand").trim(),
       wind: String(item.wind || item.windLabel || "").trim(),
       access: String(item.access || "").trim(),
@@ -1724,7 +1732,7 @@ function renderDeerStands(delta = 0){
   empty.hidden = true;
   try{
     grid.innerHTML = visibleItems.map(item => {
-      const image = item.image || item.thumbnail || item.photo || item.media || item.url || "";
+      const image = item.thumbUrl || item.thumbnail || item.image || item.displayUrl || item.imageUrl || (item.photo && typeof item.photo === "object" ? (item.photo.thumbUrl || item.photo.displayUrl || "") : item.photo) || item.media || item.url || "";
       const createdMs = Number(item.createdAtMs);
       const dateLabel = Number.isFinite(createdMs) ? new Date(createdMs).toLocaleDateString() : "";
       const standType = typeLabels[String(item.standType || item.type || "").toLowerCase()] || labelize(item.standType || item.type || "Stand");

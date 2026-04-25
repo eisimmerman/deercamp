@@ -176,6 +176,75 @@
     }
   };
 
+
+
+  function dcSlug(value) {
+    return String(value || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "item";
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    const parts = String(dataUrl || "").split(",");
+    if (parts.length < 2) throw new Error("Invalid image data URL.");
+    const match = parts[0].match(/data:([^;]+);base64/i);
+    const contentType = match ? match[1] : "image/jpeg";
+    const binary = atob(parts[1]);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    return { blob: new Blob([bytes], { type: contentType }), contentType };
+  }
+
+  const DeerCampStorage = window.DeerCampStorage || {
+    ensureReady() {
+      try {
+        if (!window.firebase || !firebase.storage) return null;
+        const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+        return app.storage();
+      } catch (error) {
+        console.warn("DeerCamp Storage init failed.", error);
+        return null;
+      }
+    },
+    isDataUrl(value) { return /^data:image//i.test(String(value || "")); },
+    async uploadBlob(path, blob, metadata = {}) {
+      const storage = this.ensureReady();
+      if (!storage) throw new Error("Firebase Storage is not available.");
+      if (!path || !blob) throw new Error("Missing Storage path or image blob.");
+      const contentType = metadata.contentType || blob.type || "image/jpeg";
+      const ref = storage.ref().child(path);
+      const snapshot = await ref.put(blob, {
+        contentType,
+        customMetadata: Object.assign({ app: "DeerCamp" }, metadata.customMetadata || {})
+      });
+      const url = await snapshot.ref.getDownloadURL();
+      return { url, path, bytes: blob.size || 0, contentType };
+    },
+    async uploadDataUrl(path, dataUrl, metadata = {}) {
+      if (!this.isDataUrl(dataUrl)) return null;
+      const converted = dataUrlToBlob(dataUrl);
+      return this.uploadBlob(path, converted.blob, Object.assign({}, metadata, { contentType: converted.contentType }));
+    },
+    async uploadCampImagePair(options = {}) {
+      const campId = dcSlug(options.campId || "camp");
+      const folder = dcSlug(options.folder || "images");
+      const entityId = dcSlug(options.entityId || Date.now());
+      const displayDataUrl = String(options.displayDataUrl || "").trim();
+      const thumbDataUrl = String(options.thumbDataUrl || "").trim() || displayDataUrl;
+      const basePath = 'camps/' + campId + '/' + folder + '/' + entityId;
+      const result = { displayUrl: "", thumbUrl: "", displayPath: "", thumbPath: "", bytes: 0, storageProvider: "firebase" };
+      if (displayDataUrl && this.isDataUrl(displayDataUrl)) {
+        const uploaded = await this.uploadDataUrl(basePath + '/display.jpg', displayDataUrl, { customMetadata: { role: "display", campId, folder, entityId } });
+        if (uploaded) Object.assign(result, { displayUrl: uploaded.url, displayPath: uploaded.path, displayBytes: uploaded.bytes, displayContentType: uploaded.contentType });
+      }
+      if (thumbDataUrl && this.isDataUrl(thumbDataUrl)) {
+        const uploaded = await this.uploadDataUrl(basePath + '/thumb.jpg', thumbDataUrl, { customMetadata: { role: "thumb", campId, folder, entityId } });
+        if (uploaded) Object.assign(result, { thumbUrl: uploaded.url, thumbPath: uploaded.path, thumbBytes: uploaded.bytes, thumbContentType: uploaded.contentType });
+      }
+      result.bytes = Number(result.displayBytes || 0) + Number(result.thumbBytes || 0);
+      return result;
+    }
+  };
+
   window.DeerCampCloud = DeerCampCloud;
+  window.DeerCampStorage = DeerCampStorage;
   window.DEERCAMP_FIREBASE_READY = Boolean(DeerCampCloud.ensureReady());
 })();
