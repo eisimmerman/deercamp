@@ -568,6 +568,7 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
     bestCampMemory: String(member.bestCampMemory || "—").trim() || "—",
     specialty: String(member.specialty || "—").trim() || "—",
     note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
+    profileUpdatedAt: String(member.profileUpdatedAt || member.updatedAt || member.stewardProfileUpdatedAt || "").trim(),
     photo: String(member.photo || member.profilePhoto || member.avatar || member.stewardPhoto || member.stewardProfilePhoto || member.stewardAvatar || "").trim()
   };
 }
@@ -585,6 +586,10 @@ const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CA
 
 (async function(){
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+const preHydrateLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+const preHydrateScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+const preHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
+const preHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
 await hydrateCampFromCloud(activeCampId);
 
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
@@ -777,7 +782,7 @@ function getDashboardProfileSources() {
   const scopedDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
   const genericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
   const sources = [];
-  [data, scopedDashboard, genericDashboard, data.dashboardSlim].forEach(source => {
+  [preHydrateLegacy, preHydrateScoped, preHydrateDashboard, preHydrateGenericDashboard, data, scopedDashboard, genericDashboard, data.dashboardSlim].forEach(source => {
     if(!source || typeof source !== "object") return;
     if(Array.isArray(source.memberProfiles)) sources.push(...source.memberProfiles);
     if(Array.isArray(source.members)) sources.push(...source.members);
@@ -786,6 +791,26 @@ function getDashboardProfileSources() {
     if(Array.isArray(source.dashboardPeople)) sources.push(...source.dashboardPeople);
     if(source.stewardProfile && typeof source.stewardProfile === "object") sources.push(source.stewardProfile);
     if(source.campStewardProfile && typeof source.campStewardProfile === "object") sources.push(source.campStewardProfile);
+    const sourceStewardPhoto = String(source.stewardPhoto || source.stewardProfilePhoto || source.stewardAvatar || source.profilePhoto || "").trim();
+    if(sourceStewardPhoto || source.stewardFavoriteStand || source.stewardBestCampMemory || source.stewardRoleLine){
+      sources.push({
+        name:String(source.stewardName||source.steward||"").trim(),
+        role:"Camp Steward",
+        email:String(source.stewardEmail||"").trim(),
+        photo:sourceStewardPhoto,
+        profilePhoto:sourceStewardPhoto,
+        avatar:sourceStewardPhoto,
+        favoriteStand:String(source.stewardFavoriteStand||"").trim(),
+        favoriteGear:String(source.stewardFavoriteGear||"").trim(),
+        nickname:String(source.stewardNickname||"").trim(),
+        yearJoined:String(source.stewardYearJoined||"").trim(),
+        specialty:String(source.stewardSpecialty||"").trim(),
+        harvestHighlight:String(source.stewardHarvestHighlight||"").trim(),
+        bestCampMemory:String(source.stewardBestCampMemory||"").trim(),
+        roleLine:String(source.stewardRoleLine||"").trim(),
+        profileUpdatedAt:String(source.stewardProfileUpdatedAt||source.profileUpdatedAt||"").trim()
+      });
+    }
   });
   const directStewardPhoto = String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim();
   if(directStewardPhoto || data.stewardFavoriteStand || data.stewardBestCampMemory || data.stewardRoleLine){
@@ -810,7 +835,7 @@ function getDashboardProfileSources() {
 }
 
 function profileValueScore(member = {}) {
-  const fields = ["photo","profilePhoto","avatar","nickname","yearJoined","favoriteStand","favoriteGear","harvestHighlight","bestCampMemory","specialty","roleLine","note"];
+  const fields = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar","nickname","yearJoined","favoriteStand","favoriteGear","harvestHighlight","bestCampMemory","specialty","roleLine","note"];
   return fields.reduce((score, key) => score + (String(member[key] || "").trim() ? (key === "photo" || key === "profilePhoto" || key === "avatar" ? 5 : 1) : 0), 0);
 }
 
@@ -824,7 +849,15 @@ function mergeMemberProfile(previous = {}, member = {}) {
     }
     const cleanNext = String(nextValue ?? "").trim();
     const cleanPrev = String(merged[key] ?? "").trim();
-    if(cleanNext && (!cleanPrev || cleanNext.length >= cleanPrev.length || ["photo","profilePhoto","avatar"].includes(key))) merged[key] = nextValue;
+    if(!cleanNext || cleanNext === "—") return;
+    const photoKeys = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar"];
+    if(photoKeys.includes(key)) {
+      merged.photo = cleanNext;
+      merged.profilePhoto = cleanNext;
+      merged.avatar = cleanNext;
+      return;
+    }
+    if(!cleanPrev || cleanPrev === "—" || cleanNext.length >= cleanPrev.length) merged[key] = nextValue;
   });
   const photo = String(merged.photo || merged.profilePhoto || merged.avatar || "").trim();
   if(photo){ merged.photo = photo; merged.profilePhoto = photo; merged.avatar = photo; }
@@ -1012,7 +1045,7 @@ function renderMemberResponsibilityList(items = []){
   list.innerHTML = (Array.isArray(items) ? items : []).map(item => `<li>${esc(item)}</li>`).join("");
 }
 function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
-  const photo = String(member?.photo || member?.profilePhoto || member?.avatar || "").trim();
+  const photo = String(member?.photo || member?.profilePhoto || member?.avatar || member?.stewardPhoto || member?.stewardProfilePhoto || member?.stewardAvatar || "").trim();
   if(photo){
     return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}">`;
   }

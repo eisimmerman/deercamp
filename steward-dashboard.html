@@ -391,12 +391,13 @@
       return String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     }
 
-    function showToast(message) {
+    function showToast(message, duration = 4200) {
       const toast = document.getElementById("toast");
+      if (!toast) return;
       toast.textContent = message;
       toast.classList.add("show");
       clearTimeout(showToast._timer);
-      showToast._timer = setTimeout(() => toast.classList.remove("show"), 2200);
+      showToast._timer = setTimeout(() => toast.classList.remove("show"), duration);
     }
 
     function setMemberFormNote(message = "", variant = "") {
@@ -939,6 +940,11 @@
         return profile;
       });
       const publicMembers = keptMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && isPublicMemberStatus(member.status));
+      const profileUpdatedAt = new Date().toISOString();
+      memberProfilesOut.forEach(profile => {
+        profile.profileUpdatedAt = profile.profileUpdatedAt || profileUpdatedAt;
+        profile.updatedAt = profile.updatedAt || profileUpdatedAt;
+      });
 
       const nextDashboard = {
         campId: state.campId,
@@ -955,6 +961,7 @@
         },
         stewardName: state.stewardName,
         stewardEmail: state.stewardEmail,
+        profileUpdatedAt,
         sections: Object.assign({ stands: Boolean(state.sections.campdeerstands), deerdrives: Boolean(state.sections.campdeerdrives) }, state.sections),
         selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
         members: keptMembers.map(member => ({ ...member })),
@@ -988,7 +995,8 @@
         pendingInvites: nextDashboard.pendingInvites.map(member => ({ ...member })),
         dashboardMembers: nextDashboard.members.map(member => ({ ...member })),
         dashboardPeople: nextDashboard.people.map(member => ({ ...member })),
-        dashboardSlim: nextDashboard
+        dashboardSlim: nextDashboard,
+        profileUpdatedAt
       });
 
       const stewardProfile = getStewardProfileSnapshot(memberProfilesOut);
@@ -1008,10 +1016,12 @@
         nextCampData.stewardHarvestHighlight = String(stewardProfile.harvestHighlight || "").trim();
         nextCampData.stewardBestCampMemory = String(stewardProfile.bestCampMemory || "").trim();
         nextCampData.stewardRoleLine = String(stewardProfile.roleLine || "").trim();
+        nextCampData.stewardProfileUpdatedAt = profileUpdatedAt;
+        nextCampData.stewardProfile.profileUpdatedAt = profileUpdatedAt;
+        nextCampData.campStewardProfile.profileUpdatedAt = profileUpdatedAt;
       }
 
       const savedCampData = writeCampAndDashboardStorage(nextCampData, nextDashboard);
-      Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(state.campId, savedCampData)).catch(() => {});
       return savedCampData;
     }
 
@@ -1374,13 +1384,26 @@
       updatePreviewOnly();
     });
 
-    document.getElementById("saveAllBtn").addEventListener("click", () => {
-      syncCampStateFromForm();
-      state.camp.summary = sanitizeSummary(state.camp.summary);
-      syncCampData();
-      renderPreview();
-      renderSections();
-      showToast("Dashboard changes saved.");
+    document.getElementById("saveAllBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("saveAllBtn");
+      const oldLabel = btn ? btn.textContent : "";
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+        syncCampStateFromForm();
+        state.camp.summary = sanitizeSummary(state.camp.summary);
+        const savedCampData = syncCampData();
+        renderPreview();
+        renderSections();
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+          await DeerCampCloud.saveCamp(state.campId, savedCampData);
+        }
+        showToast("Dashboard changes saved.", 5200);
+      } catch (error) {
+        console.error("Dashboard save failed.", error);
+        showToast("Dashboard save failed. Check browser console, then try again.", 6500);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = oldLabel || "Save Dashboard Changes"; }
+      }
     });
 
     document.getElementById("memberForm").addEventListener("submit", async (event) => {
@@ -1445,29 +1468,33 @@
             member.inviteSentAt = "";
           }
         }
-        const savedCampData = syncCampData();
-        renderMembers();
-        renderPreview();
-        updateInviteButton();
         const submitBtn = document.getElementById("memberSubmitBtn");
         const isStewardSave = String(member.role || "").toLowerCase() === "camp steward";
-        submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
-        setMemberFormNote(`${name} profile saved. Photo and profile details were saved for the live camp profile.`, "success");
-        showToast(`${name} profile saved.`);
+        const oldSubmitLabel = submitBtn ? submitBtn.textContent : "";
         try {
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving..."; }
+          const savedCampData = syncCampData();
+          renderMembers();
+          renderPreview();
+          updateInviteButton();
           if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
             await DeerCampCloud.saveCamp(state.campId, savedCampData);
-            setMemberFormNote(`${name} profile saved to DeerCamp cloud. Refresh the live camp page to view it.`, "success");
           }
+          if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
+          setMemberFormNote(`${name} profile saved. Refresh the live camp page to view the updated profile.`, "success");
+          showToast(`${name} profile saved.`, 5200);
         } catch (error) {
-          console.warn("Profile saved locally, but cloud save could not be confirmed.", error);
-          setMemberFormNote(`${name} profile saved in this browser. Cloud save was not confirmed, so try Save Dashboard Changes before leaving.`, "error");
-          showToast("Profile saved locally. Cloud save not confirmed.");
+          console.error("Profile save failed.", error);
+          setMemberFormNote(`${name} profile did not save. Try Save Dashboard Changes, then try again.`, "error");
+          showToast("Profile save failed.", 6500);
+        } finally {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            setTimeout(() => {
+              submitBtn.textContent = isStewardSave ? "Save Steward Profile" : (oldSubmitLabel || "Save Member Profile");
+            }, 2400);
+          }
         }
-        setTimeout(() => {
-          const currentMember = state.members[Number(document.getElementById("memberEditIndex").value)];
-          if (currentMember) submitBtn.textContent = isStewardSave ? "Save Steward Profile" : "Save Member Profile";
-        }, 1800);
         return;
       }
 
