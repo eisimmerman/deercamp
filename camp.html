@@ -193,10 +193,14 @@
   .deerstand-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .deerstand-tag{display:inline-flex;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.78rem;font-weight:800}
   .deerstand-location{margin:0;color:#6b5644;font-size:.86rem;font-weight:700}
-  #deerStandsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,320px));gap:14px;align-items:start;justify-content:flex-start}
+  .camp-shelf-shell{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:12px;align-items:center}
+  .camp-shelf-shell .arrow{align-self:center;justify-self:center}
+  .camp-shelf-shell .arrow[hidden]{display:none}
+  #deerStandsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:stretch;justify-content:flex-start;min-width:0}
   .deerdrive-card{align-self:start}
-  @media (max-width:680px){.deerdrive-card .feed-card-media img{width:min(126px,100%);max-height:44px}.deerstand-media img{width:min(126px,100%);height:54px;max-height:54px;object-fit:contain}}
-  #deerDrivesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,320px));gap:14px;align-items:start;justify-content:flex-start}
+  @media (min-width:1320px){#deerStandsGrid,#deerDrivesGrid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  @media (max-width:680px){.camp-shelf-shell{grid-template-columns:36px minmax(0,1fr) 36px;gap:8px}.camp-shelf-shell .arrow{width:36px;height:36px}.deerdrive-card .feed-card-media img{width:min(126px,100%);max-height:44px}.deerstand-media img{width:min(126px,100%);height:54px;max-height:54px;object-fit:contain}}
+  #deerDrivesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:stretch;justify-content:flex-start;min-width:0}
   .deerdrive-preview-bottom{display:flex;justify-content:center;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-top:8px}
   .deerdrive-mini-card{display:flex;align-items:center;justify-content:center;width:108px;min-height:96px}
   .deerdrive-mini-card svg{width:84px;height:84px;display:block}
@@ -1346,17 +1350,25 @@ visibleSections().forEach(section=>{
     container.innerHTML=`
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill">${deerStandPosts.length} saved</span></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span></div>
       </div>
-      <div id="deerStandsGrid"></div>
+      <div class="camp-shelf-shell">
+        <button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button>
+        <div id="deerStandsGrid"></div>
+        <button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button>
+      </div>
       <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>`;
   } else if(section.key==="campdeerdrives"){
     container.innerHTML=`
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="pill">${deerDrivePosts.length} saved</span></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span></div>
       </div>
-      <div id="deerDrivesGrid" class="recipes-grid"></div>
+      <div class="camp-shelf-shell">
+        <button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button>
+        <div id="deerDrivesGrid"></div>
+        <button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button>
+      </div>
       <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
   } else if(section.key==="campmembers"){
     container.innerHTML=`
@@ -1662,7 +1674,33 @@ function renderTraditions(){
 let recipeModalData=[];
 
 
-function renderDeerStands(){
+const CAMP_SHELF_PAGE_SIZE = 5;
+let deerStandShelfOffset = 0;
+let deerDriveShelfOffset = 0;
+function clampShelfOffset(offset, total){
+  if(!Number.isFinite(offset) || offset < 0) return 0;
+  if(total <= CAMP_SHELF_PAGE_SIZE) return 0;
+  return Math.min(offset, Math.max(0, total - CAMP_SHELF_PAGE_SIZE));
+}
+function updateShelfNav(prefix, offset, total, renderFn){
+  const prevBtn = document.getElementById(`${prefix}Prev`);
+  const nextBtn = document.getElementById(`${prefix}Next`);
+  const countPill = document.getElementById(`${prefix}Count`);
+  const needsNav = total > CAMP_SHELF_PAGE_SIZE;
+  if(countPill) countPill.textContent = `${total} saved`;
+  if(prevBtn){
+    prevBtn.hidden = !needsNav;
+    prevBtn.disabled = offset <= 0;
+    prevBtn.onclick = () => { renderFn(-CAMP_SHELF_PAGE_SIZE); };
+  }
+  if(nextBtn){
+    nextBtn.hidden = !needsNav;
+    nextBtn.disabled = offset + CAMP_SHELF_PAGE_SIZE >= total;
+    nextBtn.onclick = () => { renderFn(CAMP_SHELF_PAGE_SIZE); };
+  }
+}
+
+function renderDeerStands(delta = 0){
   const grid = document.getElementById("deerStandsGrid");
   const empty = document.getElementById("deerStandsEmpty");
   if(!grid || !empty) return;
@@ -1670,14 +1708,18 @@ function renderDeerStands(){
   if(!safeItems.length){
     grid.innerHTML = "";
     empty.hidden = false;
+    updateShelfNav("deerStands", 0, 0, renderDeerStands);
     return;
   }
+  deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset + Number(delta || 0), safeItems.length);
+  const visibleItems = safeItems.slice(deerStandShelfOffset, deerStandShelfOffset + CAMP_SHELF_PAGE_SIZE);
+  updateShelfNav("deerStands", deerStandShelfOffset, safeItems.length, renderDeerStands);
   const timeLabels = {"":"Any", morning:"Morning", evening:"Evening", "all-day":"All Day"};
   const typeLabels = {treestand:"Treestand", blind:"Ground Blind", boxblind:"Box Blind", ladder:"Ladder Stand", foodplot:"Food Plot", trailcam:"Trail Camera", scrape:"Scrape / Rub", waypoint:"Waypoint"};
   const labelize = (value="") => String(value || "").replace(/-/g," ").replace(/\w/g, ch => ch.toUpperCase());
   empty.hidden = true;
   try{
-    grid.innerHTML = safeItems.map(item => {
+    grid.innerHTML = visibleItems.map(item => {
       const image = item.image || item.thumbnail || item.photo || item.media || item.url || "";
       const createdMs = Number(item.createdAtMs);
       const dateLabel = Number.isFinite(createdMs) ? new Date(createdMs).toLocaleDateString() : "";
@@ -1711,17 +1753,24 @@ function renderDeerStands(){
     grid.innerHTML = `<div class="empty">Deer stand details could not be displayed. Refresh or add a new stand from Scout.</div>`;
   }
 }
-function renderDeerDrives(){
+function renderDeerDrives(delta = 0){
   const grid = document.getElementById("deerDrivesGrid");
   const empty = document.getElementById("deerDrivesEmpty");
   if(!grid || !empty) return;
-  if(!deerDrivePosts.length){
+  const safeItems = Array.isArray(deerDrivePosts) ? deerDrivePosts : [];
+  if(!safeItems.length){
     grid.innerHTML = "";
     empty.hidden = false;
+    updateShelfNav("deerDrives", 0, 0, renderDeerDrives);
     return;
   }
+  deerDriveShelfOffset = clampShelfOffset(deerDriveShelfOffset + Number(delta || 0), safeItems.length);
+  const visibleItems = safeItems.slice(deerDriveShelfOffset, deerDriveShelfOffset + CAMP_SHELF_PAGE_SIZE);
+  updateShelfNav("deerDrives", deerDriveShelfOffset, safeItems.length, renderDeerDrives);
   empty.hidden = true;
-  grid.innerHTML = deerDrivePosts.map((item, idx) => `
+  grid.innerHTML = visibleItems.map((item, visibleIdx) => {
+    const idx = deerDriveShelfOffset + visibleIdx;
+    return `
     <article class="feed-card deerdrive-card" data-deerdrive-card="${idx}">
       <div class="feed-card-copy">
         <p class="feed-kicker">Deer Drive</p>
@@ -1735,8 +1784,8 @@ function renderDeerDrives(){
         </div>
         <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
       </div>
-    </article>
-  `).join("");
+    </article>`;
+  }).join("");
   grid.querySelectorAll('[data-deerdrive-card]').forEach(card=>card.addEventListener('click',()=>openDeerDriveModal(Number(card.dataset.deerdriveCard))));
   grid.querySelectorAll('[data-deerdrive-thumb]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerDriveModal(Number(btn.dataset.deerdriveThumb)); }));
   grid.querySelectorAll('[data-deerdrive-index]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerDriveModal(Number(btn.dataset.deerdriveIndex)); }));
