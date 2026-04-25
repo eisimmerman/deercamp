@@ -178,14 +178,14 @@
   .deerdrive-detail-notes{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08);line-height:1.55}
   .deerdrive-image-card{position:relative;width:min(1100px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#111;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px}
   .deerdrive-image-card img{display:block;width:100%;height:auto;border-radius:12px;background:#e9decf}
-  .deerdrive-card{align-self:start;cursor:pointer}
+  .deerdrive-card{align-self:stretch;cursor:pointer}
   .deerdrive-card .feed-card-copy{display:grid;gap:10px}
   .deerdrive-card .feed-card-media{display:flex;align-items:center;justify-content:flex-start;order:4;margin-top:2px}
   .deerdrive-card .feed-card-media button{display:block;padding:0;border:0;background:transparent;cursor:pointer}
   .deerdrive-card .feed-card-media img{display:block;width:min(136px,100%);aspect-ratio:16/9;max-height:48px;object-fit:cover;background:#e9decf;border-radius:10px;border:1px solid rgba(69,42,22,.12);box-shadow:0 2px 8px rgba(0,0,0,.06)}
   .deerdrive-card .feed-tags{order:5}
   .deerdrive-card .deerdrive-card-btn{order:6}
-  .deerstand-card{align-self:start;display:grid;gap:10px;overflow:hidden;padding:14px 15px 16px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1)}
+  .deerstand-card{align-self:stretch;display:grid;gap:10px;overflow:hidden;padding:14px 15px 16px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.1)}
   .deerstand-card:hover{box-shadow:0 12px 28px rgba(0,0,0,.12);transform:translateY(-1px);transition:transform .16s ease, box-shadow .16s ease}
   .deerstand-copy{display:grid;gap:8px;padding:0}
   .deerstand-media{display:flex;align-items:center;justify-content:flex-start;margin-top:2px;background:transparent;border-bottom:0}
@@ -193,14 +193,15 @@
   .deerstand-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .deerstand-tag{display:inline-flex;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.78rem;font-weight:800}
   .deerstand-location{margin:0;color:#6b5644;font-size:.86rem;font-weight:700}
-  .camp-shelf-shell{display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:12px;align-items:center}
-  .camp-shelf-shell .arrow{align-self:center;justify-self:center}
-  .camp-shelf-shell .arrow[hidden]{display:none}
-  #deerStandsGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:stretch;justify-content:flex-start;min-width:0}
+  .deer-shelf-controls{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+  .deer-shelf-controls .arrow{width:38px;height:38px;flex:0 0 38px}
+  .deer-shelf-controls .arrow[hidden]{display:none!important}
+  .deer-shelf-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,320px));gap:14px;align-items:stretch;justify-content:flex-start;width:100%;min-width:0}
+  #deerStandsGrid,#deerDrivesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,320px));gap:14px;align-items:stretch;justify-content:flex-start;width:100%;min-width:0}
   .deerdrive-card{align-self:start}
-  @media (min-width:1320px){#deerStandsGrid,#deerDrivesGrid{grid-template-columns:repeat(5,minmax(0,1fr))}}
-  @media (max-width:680px){.camp-shelf-shell{grid-template-columns:36px minmax(0,1fr) 36px;gap:8px}.camp-shelf-shell .arrow{width:36px;height:36px}.deerdrive-card .feed-card-media img{width:min(126px,100%);max-height:44px}.deerstand-media img{width:min(126px,100%);height:54px;max-height:54px;object-fit:contain}}
-  #deerDrivesGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;align-items:stretch;justify-content:flex-start;min-width:0}
+  @media (min-width:1320px){#deerStandsGrid,#deerDrivesGrid,.deer-shelf-grid{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  @media (max-width:960px){#deerStandsGrid,#deerDrivesGrid,.deer-shelf-grid{grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}}
+  @media (max-width:680px){.deer-shelf-controls{justify-content:flex-start}.deer-shelf-controls .arrow{width:36px;height:36px;flex-basis:36px}#deerStandsGrid,#deerDrivesGrid,.deer-shelf-grid{grid-template-columns:1fr}.deerdrive-card .feed-card-media img{width:min(126px,100%);max-height:44px}.deerstand-media img{width:min(126px,100%);height:54px;max-height:54px;object-fit:contain}}
   .deerdrive-preview-bottom{display:flex;justify-content:center;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-top:8px}
   .deerdrive-mini-card{display:flex;align-items:center;justify-content:center;width:108px;min-height:96px}
   .deerdrive-mini-card svg{width:84px;height:84px;display:block}
@@ -1350,25 +1351,17 @@ visibleSections().forEach(section=>{
     container.innerHTML=`
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span></div>
+        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
       </div>
-      <div class="camp-shelf-shell">
-        <button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button>
-        <div id="deerStandsGrid"></div>
-        <button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button>
-      </div>
+      <div id="deerStandsGrid" class="deer-shelf-grid"></div>
       <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>`;
   } else if(section.key==="campdeerdrives"){
     container.innerHTML=`
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span></div>
+        <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
       </div>
-      <div class="camp-shelf-shell">
-        <button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button>
-        <div id="deerDrivesGrid"></div>
-        <button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button>
-      </div>
+      <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
       <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
   } else if(section.key==="campmembers"){
     container.innerHTML=`
