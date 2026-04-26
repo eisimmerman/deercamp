@@ -807,11 +807,37 @@
       return {};
     }
 
+    function withTimeout(promise, ms = 3500, fallback = null) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve(fallback);
+        }, ms);
+
+        Promise.resolve(promise)
+          .then(value => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          })
+          .catch(error => {
+            console.warn('Timed async member setup task skipped.', error);
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(fallback);
+          });
+      });
+    }
+
     async function hydrateCampFromCloud(campId) {
       const cleanCampId = String(campId || '').trim();
-      if (!cleanCampId || !window.DeerCampCloud) return null;
+      if (!cleanCampId || !window.DeerCampCloud || typeof DeerCampCloud.hydrateCampToLocal !== 'function') return null;
       try {
-        return await DeerCampCloud.hydrateCampToLocal(cleanCampId);
+        return await withTimeout(DeerCampCloud.hydrateCampToLocal(cleanCampId), 3500, null);
       } catch (error) {
         console.warn('Cloud hydration skipped for member setup.', error);
         return null;
@@ -1488,7 +1514,10 @@
       if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
       localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
       try {
-        await DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData);
+        const saveCampId = invite.campId || updatedCampData.campId || '';
+        if (saveCampId && window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function') {
+          await withTimeout(DeerCampCloud.saveCamp(saveCampId, updatedCampData), 3500, null);
+        }
       } catch (error) {
         console.warn('Cloud save skipped for joined member.', error);
       }
@@ -1510,6 +1539,8 @@
     });
 
     document.getElementById('nextBtn').addEventListener('click', async () => {
+      const nextButton = document.getElementById('nextBtn');
+
       if (currentStep === 0) {
         showStep(1);
         return;
@@ -1527,23 +1558,50 @@
         return;
       }
 
-      if (!(await validateInviteOrBlock())) return;
+      try {
+        if (nextButton) {
+          nextButton.disabled = true;
+          nextButton.textContent = 'Joining...';
+        }
+        setSavePill('Joining — saving profile...');
 
-      const invite = getInviteContext();
-      await mergeMemberIntoData();
-      const finalCampId =
-        invite.campId ||
-        getCampData().campId ||
-        getDashboardData()?.camp?.campId ||
-        '';
+        if (!(await validateInviteOrBlock())) {
+          if (nextButton) {
+            nextButton.disabled = false;
+            nextButton.textContent = 'Join Camp';
+          }
+          return;
+        }
 
-      if (finalCampId) {
-        localStorage.setItem('deercamp.activeCampId', finalCampId);
+        const invite = getInviteContext();
+        await mergeMemberIntoData();
+        const finalCampId =
+          invite.campId ||
+          getCampData().campId ||
+          getDashboardData()?.camp?.campId ||
+          localStorage.getItem(ACTIVE_CAMP_KEY) ||
+          '';
+
+        if (finalCampId) {
+          localStorage.setItem(ACTIVE_CAMP_KEY, finalCampId);
+        }
+
+        setSavePill('Joined — opening camp...');
+        const campUrl = buildCampUrl('camp.html', finalCampId);
+        window.location.href = campUrl;
+      } catch (error) {
+        console.error('Join Camp failed.', error);
+        setSavePill('Join failed — tap Join Camp again');
+        if (nextButton) {
+          nextButton.disabled = false;
+          nextButton.textContent = 'Join Camp';
+        }
+        const errorBox = document.getElementById('profileErrorBox');
+        if (errorBox) {
+          errorBox.textContent = 'DeerCamp could not finish joining. Your profile is still saved locally. Tap Join Camp again.';
+          errorBox.classList.add('show');
+        }
       }
-
-      setSavePill('Joined — opening camp...');
-      const campUrl = buildCampUrl('camp.html', finalCampId);
-      window.location.assign(campUrl);
     });
 
     const trackedFields = [
