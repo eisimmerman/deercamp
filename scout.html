@@ -2203,6 +2203,7 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 <div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
 <div class="pu-acts">
   <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
+  <button class="pu-btn pu-edit" onclick="showAllStands()">Show all stands</button>
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
@@ -2847,6 +2848,36 @@ function forceMapToStandView(stand, zoomLevel=18){
   return true;
 }
 
+function showAllStands(){
+  clearExistingStandLocators();
+  restoreStandLabelsAfterDeepLink();
+  if(!stands.length){
+    document.getElementById('status-bar').innerHTML='No saved stands to show.';
+    return false;
+  }
+
+  const validStands = stands.filter(s => Number.isFinite(Number(s.lat)) && Number.isFinite(Number(s.lng)));
+  if(!validStands.length){
+    document.getElementById('status-bar').innerHTML='No saved stand locations found.';
+    return false;
+  }
+
+  try{ map.closePopup(); }catch(e){}
+  try{ map.invalidateSize(true); }catch(e){}
+
+  if(validStands.length === 1){
+    const only = validStands[0];
+    map.setView([Number(only.lat), Number(only.lng)], 17, {animate:true});
+  }else{
+    const bounds = L.latLngBounds(validStands.map(s => [Number(s.lat), Number(s.lng)]));
+    map.fitBounds(bounds.pad(0.18), {padding:[72,72], maxZoom:17, animate:true});
+  }
+
+  document.getElementById('status-bar').innerHTML=`Showing all ${validStands.length} saved stand${validStands.length === 1 ? '' : 's'}.`;
+  return true;
+}
+window.showAllStands=showAllStands;
+
 function locateAndPulseStand(stand, statusPrefix='Located stand'){
   if(!stand) return false;
   const standId = stand.id;
@@ -2854,44 +2885,34 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   const lng = Number(stand.lng);
   if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
 
-  const focusDurationMs = 15000;
   const targetZoom = 18;
   const status = document.getElementById('status-bar');
-  if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — centering map on stand`;
+  const standName = stand.name || stand.title || 'Saved Stand';
+  if(status) status.innerHTML = `${statusPrefix}: ${standName}`;
 
   clearExistingStandLocators();
-  hideStandLabelsForDeepLink(standId);
+  restoreStandLabelsAfterDeepLink();
 
-  // Hard-set the map repeatedly during the first few seconds. This prevents the
-  // initial all-stand fit/render pass from leaving the map at the wide stacked-label view.
-  const forceTimes = [0, 120, 350, 700, 1100, 1600, 2300, 3200];
-  forceTimes.forEach(ms => setTimeout(() => {
-    forceMapToStandView(stand, targetZoom);
-    try{
-      const layer = allLayers[standId];
-      if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
-      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
-    }catch(e){}
-  }, ms));
-
-  const startLocator = () => {
-    forceMapToStandView(stand, targetZoom);
+  const focus = () => {
+    try{ map.stop(); }catch(e){}
+    try{ map.invalidateSize(true); }catch(e){}
+    try{ map.setView([lat,lng], targetZoom, {animate:false, reset:true}); }catch(e){
+      try{ map.panTo([lat,lng], {animate:false}); map.setZoom(targetZoom, {animate:false}); }catch(_){}
+    }
     try{
       const layer = allLayers[standId];
       if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
       if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
       if(layer && typeof layer.openPopup === 'function') layer.openPopup();
     }catch(e){}
-    restoreStandLabelsAfterDeepLink();
-    showStandMapLocator(stand, focusDurationMs);
-    pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
-    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — highlighted on the map`;
   };
 
-  // Start only after the final forced recenter, so the flash is visible at the target stand.
-  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
+  // A few quiet recenter passes keep the deep link locked on the chosen stand
+  // while Leaflet finishes sizing and loading aerial tiles. No flashing overlays.
+  [0, 180, 520, 1100].forEach(ms => setTimeout(focus, ms));
   return true;
 }
+
 async function openDeepLinkedScoutEdit(){
   try{
     const params = new URLSearchParams(window.location.search);
