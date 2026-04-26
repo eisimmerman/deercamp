@@ -2771,6 +2771,31 @@ function restoreStandLabelsAfterDeepLink(){
     console.warn('Stand label restore skipped.', error);
   }
 }
+function clearExistingStandLocators(){
+  try{
+    if(showStandMapLocator._marker){ map.removeLayer(showStandMapLocator._marker); showStandMapLocator._marker=null; }
+  }catch(e){}
+  try{ document.getElementById('stand-screen-focus')?.remove(); }catch(e){}
+  try{ document.getElementById('stand-focus-toast')?.remove(); }catch(e){}
+  try{ clearTimeout(showStandMapLocator._timer); }catch(e){}
+  try{ clearTimeout(showStandFocusBeacon._timer); }catch(e){}
+  try{ clearInterval(showStandFocusBeacon._blinkInterval); }catch(e){}
+}
+
+function forceMapToStandView(stand, zoomLevel=18){
+  if(!stand) return false;
+  const lat = Number(stand.lat);
+  const lng = Number(stand.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  try{ map.stop(); }catch(e){}
+  try{ map.invalidateSize(true); }catch(e){}
+  try{ map.setMaxZoom(Math.max(map.getMaxZoom ? map.getMaxZoom() : 19, zoomLevel)); }catch(e){}
+  try{ map.setView([lat,lng], zoomLevel, {animate:false, reset:true}); }catch(e){
+    try{ map.panTo([lat,lng], {animate:false}); map.setZoom(zoomLevel, {animate:false}); }catch(_){}
+  }
+  return true;
+}
+
 function locateAndPulseStand(stand, statusPrefix='Located stand'){
   if(!stand) return false;
   const standId = stand.id;
@@ -2779,64 +2804,41 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
 
   const focusDurationMs = 15000;
-  let locatorStarted = false;
-  let fallbackTimer = null;
-
+  const targetZoom = 18;
   const status = document.getElementById('status-bar');
-  if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — zooming to stand`;
+  if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — centering map on stand`;
 
-  const startLocatorAfterTargetView = () => {
-    if(locatorStarted) return;
-    locatorStarted = true;
-    clearTimeout(fallbackTimer);
+  clearExistingStandLocators();
+  hideStandLabelsForDeepLink(standId);
 
-    setTimeout(() => {
-      try{ map.invalidateSize(false); }catch(e){}
-      try{
-        const layer = allLayers[standId];
-        if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
-        if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
-        if(layer && typeof layer.openPopup === 'function') layer.openPopup();
-      }catch(e){}
-      restoreStandLabelsAfterDeepLink();
-      showStandMapLocator(stand, focusDurationMs);
-      pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
-      if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — flashing locator for 15 seconds`;
-    }, 900);
-  };
-
-  const jumpToStand = () => {
-    try{ map.stop(); }catch(e){}
-    try{ map.invalidateSize(true); }catch(e){}
-    hideStandLabelsForDeepLink(standId);
-
+  // Hard-set the map repeatedly during the first few seconds. This prevents the
+  // initial all-stand fit/render pass from leaving the map at the wide stacked-label view.
+  const forceTimes = [0, 120, 350, 700, 1100, 1600, 2300, 3200];
+  forceTimes.forEach(ms => setTimeout(() => {
+    forceMapToStandView(stand, targetZoom);
     try{
       const layer = allLayers[standId];
       if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
     }catch(e){}
+  }, ms));
 
+  const startLocator = () => {
+    forceMapToStandView(stand, targetZoom);
     try{
-      // Use an immediate setView for deep links. flyTo was spending the flash window
-      // while labels were still stacked during early map render.
-      map.setView([lat, lng], 18, {animate:false});
-    }catch(error){
-      console.warn('Stand setView skipped; retrying with flyTo.', error);
-      try{ map.flyTo([lat, lng], 18, {duration:0.35}); }catch(e){}
-    }
-
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      try{ map.invalidateSize(false); }catch(e){}
-      startLocatorAfterTargetView();
-    }));
-
-    fallbackTimer = setTimeout(startLocatorAfterTargetView, 1800);
+      const layer = allLayers[standId];
+      if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
+      if(layer && typeof layer.openPopup === 'function') layer.openPopup();
+    }catch(e){}
+    restoreStandLabelsAfterDeepLink();
+    showStandMapLocator(stand, focusDurationMs);
+    pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
+    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — flashing locator for 15 seconds`;
   };
 
-  if(map && typeof map.whenReady === 'function'){
-    map.whenReady(() => setTimeout(jumpToStand, 250));
-  }else{
-    setTimeout(jumpToStand, 400);
-  }
+  // Start only after the final forced recenter, so the flash is visible at the target stand.
+  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
   return true;
 }
 function openDeepLinkedScoutEdit(){
@@ -2869,19 +2871,20 @@ function openDeepLinkedScoutEdit(){
 }
 function runDeepLinkedScoutEditRetries(){
   let attempts = 0;
-  const maxAttempts = 8;
+  const maxAttempts = 18;
   const tryOpen = () => {
     attempts += 1;
     const handled = openDeepLinkedScoutEdit();
     if(handled) return;
-    if(attempts < maxAttempts) setTimeout(tryOpen, 850 + attempts * 350);
+    if(attempts < maxAttempts) setTimeout(tryOpen, 450 + attempts * 180);
   };
 
-  // Wait until the first map paint and marker labels have had time to render.
+  // Run once immediately after map ready, then keep retrying while local/Firebase
+  // camp data and stand markers finish hydrating.
   if(map && typeof map.whenReady === 'function'){
-    map.whenReady(() => setTimeout(tryOpen, 2400));
+    map.whenReady(() => setTimeout(tryOpen, 300));
   }else{
-    setTimeout(tryOpen, 2600);
+    setTimeout(tryOpen, 500);
   }
 }
 function deleteStand(){delStandById(editingStandId);closeStandModal();}
@@ -3437,7 +3440,8 @@ try{
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
-setTimeout(runDeepLinkedScoutEditRetries, 1200);
+runDeepLinkedScoutEditRetries();
+window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
 </script>
 </body>
 </html>
