@@ -2196,6 +2196,24 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
+function getStandLabelText(s = {}){
+  return String(s.name || s.title || 'Stand').trim() || 'Stand';
+}
+function bindStandNameLabel(marker, stand){
+  if(!marker || !stand) return marker;
+  try{
+    marker.bindTooltip(escHtml(getStandLabelText(stand)), {
+      permanent:true,
+      direction:'top',
+      offset:[0,-42],
+      opacity:1,
+      className:'stand-name-label'
+    });
+  }catch(error){
+    console.warn('Stand label bind skipped.', error);
+  }
+  return marker;
+}
 function addStandToMap(s){
   const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:false}).addTo(map).bindPopup(standPopupHTML(s)), s);
   m.on('dragend', evt=>{
@@ -2553,7 +2571,7 @@ async function saveStand(){
     let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); savedStand=s;}
+      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); try{ if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(escHtml(getStandLabelText(s))); }catch(e){} savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -2712,7 +2730,12 @@ window.delWind=delWind;
 function updateCompass(){
   const arrow=document.getElementById('compass-arrow');
   const label=document.getElementById('compass-label');
-  if(!globalWind){arrow.setAttribute('transform','translate(43,43) rotate(0)');label.textContent='No Wind';return;}
+  if(!arrow || !label) return;
+  if(!globalWind){
+    arrow.setAttribute('transform','translate(43,43) rotate(0)');
+    label.textContent='No Wind';
+    return;
+  }
   arrow.setAttribute('transform',`translate(43,43) rotate(${TOWARD_DEG[globalWind]||0})`);
   label.textContent=`→${globalWind}`;
 }
