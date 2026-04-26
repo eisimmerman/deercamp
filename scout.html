@@ -141,7 +141,12 @@ header::-webkit-scrollbar{height:0;}
 .leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
 .leaflet-tooltip.stand-name-label.stand-label-pulse{animation:standLabelPulse .72s ease-in-out infinite;background:#d4820a;color:#fff;border-color:#fff8ef;box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 18px rgba(0,0,0,.45);}
-@keyframes standLabelPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 18px rgba(0,0,0,.45);}55%{transform:scale(1.14);box-shadow:0 0 0 10px rgba(212,130,10,.18),0 10px 22px rgba(0,0,0,.5);}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,130,10,0),0 8px 18px rgba(0,0,0,.45);}}
+@keyframes standLabelPulse{0%{filter:brightness(1);box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 18px rgba(0,0,0,.45);}50%{filter:brightness(1.35);box-shadow:0 0 0 10px rgba(212,130,10,.22),0 0 28px rgba(255,248,239,.55),0 10px 22px rgba(0,0,0,.5);}100%{filter:brightness(1);box-shadow:0 0 0 0 rgba(212,130,10,0),0 8px 18px rgba(0,0,0,.45);}}
+.stand-focus-beacon{position:relative;display:flex;align-items:center;justify-content:center;transform:translateY(-62px);pointer-events:none;}
+.stand-focus-beacon-label{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:2px solid #fff8ef;background:#d4820a;color:#fff;font:800 12px 'IBM Plex Mono',monospace;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.55);box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 24px rgba(0,0,0,.55);animation:standFocusBeaconPulse .72s ease-in-out infinite;}
+.stand-focus-beacon-ring{position:absolute;left:50%;top:50%;width:46px;height:46px;border-radius:999px;border:3px solid #d4820a;transform:translate(-50%,26px);animation:standFocusRingPulse .72s ease-in-out infinite;}
+@keyframes standFocusBeaconPulse{0%{background:#d4820a;box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 24px rgba(0,0,0,.55);}50%{background:#ff9f1a;box-shadow:0 0 0 12px rgba(212,130,10,.20),0 0 32px rgba(255,248,239,.62),0 10px 28px rgba(0,0,0,.58);}100%{background:#d4820a;box-shadow:0 0 0 0 rgba(212,130,10,0),0 8px 24px rgba(0,0,0,.55);}}
+@keyframes standFocusRingPulse{0%{opacity:.95;transform:translate(-50%,26px) scale(.88);}50%{opacity:.45;transform:translate(-50%,26px) scale(1.35);}100%{opacity:.95;transform:translate(-50%,26px) scale(.88);}}
 .card-name{font-size:.7rem;color:var(--tan);margin-bottom:2px;}
 .card-meta{font-size:.57rem;color:var(--sage);}
 .card-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.5rem;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;}
@@ -774,6 +779,7 @@ const TOD_LABELS = {'':'Any', morning:'Morning', evening:'Evening', 'all-day':'A
 // ═══════════════════════════════════════════════
 let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[],drivers=[],standers=[];
 let allLayers={};
+let standFocusBeaconLayer=null;
 let mode='view', pendingLL=null, editingStandId=null;
 let deerDriveAnchor=null;
 let mapFrozen=false;
@@ -2250,6 +2256,36 @@ function pulseStandLabelWhenReady(id, durationMs=10000, options={}){
   };
   return tryPulse();
 }
+function showStandFocusBeacon(stand, durationMs=10000){
+  try{
+    if(standFocusBeaconLayer){
+      try{ map.removeLayer(standFocusBeaconLayer); }catch(e){}
+      standFocusBeaconLayer=null;
+    }
+    const lat=Number(stand?.lat);
+    const lng=Number(stand?.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+    const label=escHtml(getStandLabelText(stand));
+    const icon=L.divIcon({
+      className:'',
+      iconSize:[1,1],
+      iconAnchor:[0,0],
+      html:`<div class="stand-focus-beacon" aria-hidden="true"><div class="stand-focus-beacon-ring"></div><div class="stand-focus-beacon-label">▶ ${label} ◀</div></div>`
+    });
+    standFocusBeaconLayer=L.marker([lat,lng],{icon,interactive:false,zIndexOffset:12000}).addTo(map);
+    clearTimeout(showStandFocusBeacon._timer);
+    showStandFocusBeacon._timer=setTimeout(()=>{
+      if(standFocusBeaconLayer){
+        try{ map.removeLayer(standFocusBeaconLayer); }catch(e){}
+        standFocusBeaconLayer=null;
+      }
+    }, durationMs);
+    return true;
+  }catch(error){
+    console.warn('Stand focus beacon skipped.', error);
+    return false;
+  }
+}
 function addStandToMap(s){
   const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s)), s);
   allLayers[s.id]=m;
@@ -2688,6 +2724,7 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
     if(pulseStarted) return;
     pulseStarted = true;
     try{ allLayers[standId]?.openPopup(); }catch{}
+    showStandFocusBeacon(stand, 10000);
     pulseStandLabelWhenReady(standId, 10000, { timeoutMs: 11000, intervalMs: 120 });
   };
 
