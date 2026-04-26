@@ -2739,6 +2739,85 @@ function itemMatchesDeepLink(item = {}, key = ''){
 function findStandForDeepLink(standKey){
   return stands.find(s => itemMatchesDeepLink(s, standKey)) || null;
 }
+function normalizeCampStandToScoutStand(item = {}){
+  const lat = Number(item.lat ?? item.latitude);
+  const lng = Number(item.lng ?? item.longitude);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const idSeed = item.scoutId || item.id || item.standId || item.campStandId || item.title || item.name || `stand-${lat}-${lng}`;
+  return {
+    id: item.scoutId || item.localScoutId || item.mapId || item.id || Date.now() + Math.floor(Math.random()*10000),
+    campStandId: item.id || item.campStandId || item.standId || '',
+    standId: item.standId || item.id || item.campStandId || '',
+    slug: item.slug || slugifyValue(idSeed),
+    name: item.name || item.title || 'Saved Stand',
+    title: item.title || item.name || 'Saved Stand',
+    type: item.type || item.scoutType || 'treestand',
+    notes: item.notes || item.body || '',
+    season: item.season || '',
+    tod: item.tod || '',
+    wind: item.wind || '',
+    access: item.access || 'good',
+    pressure: item.pressure || 'fresh',
+    seasonPhase: item.seasonPhase || 'any',
+    photo: item.displayUrl || item.imageUrl || item.thumbnail || item.thumbUrl || '',
+    thumbnail: item.thumbnail || item.thumbUrl || item.displayUrl || item.imageUrl || '',
+    lat,
+    lng
+  };
+}
+
+function mergeScoutStandFromCamp(item = {}){
+  const stand = normalizeCampStandToScoutStand(item);
+  if(!stand) return null;
+  const existing = stands.find(s =>
+    itemMatchesDeepLink(s, stand.campStandId) ||
+    itemMatchesDeepLink(s, stand.standId) ||
+    itemMatchesDeepLink(s, stand.id) ||
+    (Math.abs(Number(s.lat)-Number(stand.lat)) < 0.000001 && Math.abs(Number(s.lng)-Number(stand.lng)) < 0.000001 && slugifyValue(s.name) === slugifyValue(stand.name))
+  );
+  if(existing){
+    Object.assign(existing, Object.fromEntries(Object.entries(stand).filter(([,value]) => value !== '' && value !== null && value !== undefined)));
+    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(escHtml(getStandLabelText(existing)));
+    return existing;
+  }
+  stands.push(stand);
+  addStandToMap(stand);
+  return stand;
+}
+
+async function hydrateScoutStandsFromCampForDeepLink(){
+  const campId = getCampIdFromUrl();
+  const sources = [];
+  try{
+    const scopedKey = campScopeKey(campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
+    const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
+    const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+    sources.push(scoped, generic);
+  }catch(e){}
+
+  if(campId && window.DeerCampCloud && typeof window.DeerCampCloud.getCamp === 'function'){
+    try{
+      const cloudCamp = await window.DeerCampCloud.getCamp(campId);
+      if(cloudCamp) sources.push(cloudCamp);
+    }catch(error){
+      console.warn('Scout deep-link cloud stand hydration skipped.', error);
+    }
+  }
+
+  let added = 0;
+  sources.forEach(data => {
+    const campStands = [
+      ...(Array.isArray(data?.deerStandPosts) ? data.deerStandPosts : []),
+      ...(Array.isArray(data?.deerStands) ? data.deerStands : [])
+    ];
+    campStands.forEach(item => { if(mergeScoutStandFromCamp(item)) added += 1; });
+  });
+
+  if(added){
+    try{ saveLocal(); renderPanel(); }catch(e){}
+  }
+  return added;
+}
 function hideStandLabelsForDeepLink(selectedStandId=null){
   try{
     stands.forEach(item=>{
@@ -2841,19 +2920,25 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
   return true;
 }
-function openDeepLinkedScoutEdit(){
+async function openDeepLinkedScoutEdit(){
   try{
     const params = new URLSearchParams(window.location.search);
     const standKey = params.get('standId') || params.get('editStand');
     const driveKey = params.get('driveId') || params.get('editDrive');
 
     if(standKey){
-      const match = findStandForDeepLink(standKey);
+      let match = findStandForDeepLink(standKey);
+      if(!match){
+        const status = document.getElementById('status-bar');
+        if(status) status.innerHTML = 'Stand link opened Scout. Loading saved camp stand data...';
+        await hydrateScoutStandsFromCampForDeepLink();
+        match = findStandForDeepLink(standKey);
+      }
       if(match){
         setTimeout(()=>locateAndPulseStand(match, 'Opened stand'), 250);
         return true;
       }
-      document.getElementById('status-bar').innerHTML = 'Stand link opened Scout. Saved stand not found locally yet — refresh camp data, then try Open in Scout again.';
+      document.getElementById('status-bar').innerHTML = 'Stand link opened Scout, but that stand ID was not found in local or camp data.';
       return false;
     }
 
@@ -2872,9 +2957,9 @@ function openDeepLinkedScoutEdit(){
 function runDeepLinkedScoutEditRetries(){
   let attempts = 0;
   const maxAttempts = 18;
-  const tryOpen = () => {
+  const tryOpen = async () => {
     attempts += 1;
-    const handled = openDeepLinkedScoutEdit();
+    const handled = await openDeepLinkedScoutEdit();
     if(handled) return;
     if(attempts < maxAttempts) setTimeout(tryOpen, 450 + attempts * 180);
   };
@@ -2982,7 +3067,17 @@ window.delWind=delWind;
 function updateCompass(){
   const arrow=document.getElementById('compass-arrow');
   const label=document.getElementById('compass-label');
-  if(!globalWind){arrow.setAttribute('transform','translate(43,43) rotate(0)');label.textContent='No Wind';return;}
+
+  // The current Scout compass is a static SVG without compass-arrow/compass-label IDs.
+  // Guard these lookups so one missing decorative element cannot stop the deep-link
+  // startup code that runs after init.
+  if(!arrow || !label) return;
+
+  if(!globalWind){
+    arrow.setAttribute('transform','translate(43,43) rotate(0)');
+    label.textContent='No Wind';
+    return;
+  }
   arrow.setAttribute('transform',`translate(43,43) rotate(${TOWARD_DEG[globalWind]||0})`);
   label.textContent=`→${globalWind}`;
 }
