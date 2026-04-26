@@ -93,6 +93,8 @@ header::-webkit-scrollbar{height:0;}
 .pu-edit:hover{background:var(--sage);}
 .pu-del{background:var(--blood);color:var(--cream);}
 .pu-del:hover{background:#a02020;}
+.pu-showall{background:#1f2f38;color:var(--cream);border:1px solid #4a6b7a;}
+.pu-showall:hover{background:#2a4552;}
 
 /* STATUS BAR */
 #status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
@@ -141,10 +143,10 @@ header::-webkit-scrollbar{height:0;}
 .leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
 /* Compact deep-link focus: keep the selected stand obvious without covering the map. */
-.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
+.leaflet-tooltip.stand-name-label.stand-label-pulse{animation:none!important;}
 .stand-screen-focus{display:none!important;}
 .stand-focus-toast{display:none!important;}
-.stand-map-locator{position:relative;width:54px;height:54px;pointer-events:none;transform:translate(-27px,-43px);}
+.stand-map-locator{display:none!important;}
 .stand-map-locator .sml-label,.stand-map-locator .sml-arrow{display:none!important;}
 .stand-map-locator .sml-ring{position:absolute;left:50%;top:50%;width:38px;height:38px;margin-left:-19px;margin-top:-19px;border-radius:999px;border:3px solid rgba(255,248,239,.95);background:rgba(212,130,10,.10);box-shadow:0 0 0 2px rgba(212,130,10,.48),0 0 12px rgba(212,130,10,.55);animation:standRingSoftPulse .9s ease-in-out infinite;}
 @keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:translateY(0);}50%{opacity:.48;transform:translateY(-1px);}}
@@ -2203,8 +2205,8 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 <div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
 <div class="pu-acts">
   <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
-  <button class="pu-btn pu-edit" onclick="showAllStands()">Show all stands</button>
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
+  <button class="pu-btn pu-showall" onclick="showAllStands()">Show all stands</button>
 </div>`;
 }
 function getStandLabelText(s = {}){
@@ -2829,6 +2831,7 @@ function clearExistingStandLocators(){
   }catch(e){}
   try{ document.getElementById('stand-screen-focus')?.remove(); }catch(e){}
   try{ document.getElementById('stand-focus-toast')?.remove(); }catch(e){}
+  try{ document.querySelectorAll('.stand-map-locator').forEach(el=>el.remove()); }catch(e){}
   try{ clearTimeout(showStandMapLocator._timer); }catch(e){}
   try{ clearTimeout(showStandFocusBeacon._timer); }catch(e){}
   try{ clearInterval(showStandFocusBeacon._blinkInterval); }catch(e){}
@@ -2890,6 +2893,7 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   const standName = stand.name || stand.title || 'Saved Stand';
   if(status) status.innerHTML = `${statusPrefix}: ${standName}`;
 
+  // Quiet focus only: no blinking, no locator ring, no banner.
   clearExistingStandLocators();
   restoreStandLabelsAfterDeepLink();
 
@@ -2902,13 +2906,12 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
     try{
       const layer = allLayers[standId];
       if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
+      if(layer && typeof layer.setPopupContent === 'function') layer.setPopupContent(standPopupHTML(stand));
       if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
       if(layer && typeof layer.openPopup === 'function') layer.openPopup();
     }catch(e){}
   };
 
-  // A few quiet recenter passes keep the deep link locked on the chosen stand
-  // while Leaflet finishes sizing and loading aerial tiles. No flashing overlays.
   [0, 180, 520, 1100].forEach(ms => setTimeout(focus, ms));
   return true;
 }
@@ -2965,6 +2968,21 @@ function runDeepLinkedScoutEditRetries(){
     setTimeout(tryOpen, 500);
   }
 }
+
+map.on('popupopen', () => {
+  // Backstop for older marker popup content: make sure every stand popup has
+  // the current Edit / Delete / Show all stands controls after it opens.
+  setTimeout(() => {
+    try{
+      stands.forEach(stand => {
+        const layer = allLayers[stand.id];
+        if(!layer || typeof layer.isPopupOpen !== 'function' || !layer.isPopupOpen()) return;
+        if(typeof layer.setPopupContent === 'function') layer.setPopupContent(standPopupHTML(stand));
+      });
+    }catch(e){}
+  }, 0);
+});
+
 function deleteStand(){delStandById(editingStandId);closeStandModal();}
 function delStandById(id){
   if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
