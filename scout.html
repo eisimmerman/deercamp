@@ -2211,13 +2211,44 @@ function bindStandNameLabel(marker, stand){
   });
   return marker;
 }
-function pulseStandLabel(id, durationMs=5000){
+function getStandTooltipElement(id){
   const layer = allLayers[id];
-  const tooltipEl = layer && typeof layer.getTooltip === 'function' && layer.getTooltip() ? layer.getTooltip().getElement() : null;
-  if(!tooltipEl) return;
+  if(!layer || typeof layer.getTooltip !== 'function') return null;
+  const tooltip = layer.getTooltip();
+  if(!tooltip) return null;
+  return typeof tooltip.getElement === 'function' ? tooltip.getElement() : null;
+}
+function pulseStandLabel(id, durationMs=5000){
+  const tooltipEl = getStandTooltipElement(id);
+  if(!tooltipEl) return false;
+  tooltipEl.classList.remove('stand-label-pulse');
+  void tooltipEl.offsetWidth;
   tooltipEl.classList.add('stand-label-pulse');
-  clearTimeout(pulseStandLabel._timer);
-  pulseStandLabel._timer = setTimeout(()=>tooltipEl.classList.remove('stand-label-pulse'), durationMs);
+  pulseStandLabel._timers = pulseStandLabel._timers || {};
+  clearTimeout(pulseStandLabel._timers[id]);
+  pulseStandLabel._timers[id] = setTimeout(()=>{
+    const latestEl = getStandTooltipElement(id);
+    if(latestEl) latestEl.classList.remove('stand-label-pulse');
+  }, durationMs);
+  return true;
+}
+function pulseStandLabelWhenReady(id, durationMs=5000, options={}){
+  const start = Date.now();
+  const timeoutMs = Number(options.timeoutMs || 4200);
+  const intervalMs = Number(options.intervalMs || 120);
+  const tryPulse = () => {
+    try{
+      const layer = allLayers[id];
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
+      if(pulseStandLabel(id, durationMs)) return true;
+    }catch(error){
+      console.warn('Stand label pulse retry skipped.', error);
+    }
+    if(Date.now() - start >= timeoutMs) return false;
+    setTimeout(tryPulse, intervalMs);
+    return false;
+  };
+  return tryPulse();
 }
 function addStandToMap(s){
   const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s)), s);
@@ -2647,11 +2678,28 @@ function openCampStandFromDeepLink(standKey){
 }
 function locateAndPulseStand(stand, statusPrefix='Located stand'){
   if(!stand) return false;
-  try{ map.flyTo([stand.lat, stand.lng], 17, {duration:.9}); }catch{}
-  setTimeout(()=>{
-    try{ allLayers[stand.id]?.openPopup(); }catch{}
-    pulseStandLabel(stand.id, 5000);
-  }, 950);
+  const standId = stand.id;
+  const lat = Number(stand.lat);
+  const lng = Number(stand.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+
+  let pulseStarted = false;
+  const startPulse = () => {
+    if(pulseStarted) return;
+    pulseStarted = true;
+    try{ allLayers[standId]?.openPopup(); }catch{}
+    pulseStandLabelWhenReady(standId, 5000, { timeoutMs: 5200, intervalMs: 120 });
+  };
+
+  try{
+    map.once('moveend', () => setTimeout(startPulse, 350));
+    map.flyTo([lat, lng], 17, {duration:.9});
+  }catch(error){
+    console.warn('Stand flyTo skipped; using direct pulse fallback.', error);
+    try{ map.setView([lat, lng], 17); }catch{}
+  }
+
+  setTimeout(startPulse, 1800);
   const status = document.getElementById('status-bar');
   if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — label will pulse for 5 seconds`;
   return true;
@@ -3081,7 +3129,7 @@ function renderPanel(){
   setTextIfPresent('st-a', totalAcres>0?totalAcres.toFixed(1)+' ac':'—');
 }
 
-function flyToStand(id){const s=stands.find(s=>s.id===id);if(!s)return;map.flyTo([s.lat,s.lng],17,{duration:1.2});setTimeout(()=>{allLayers[id]?.openPopup();pulseStandLabel(id,5000);},1300);}
+function flyToStand(id){const s=stands.find(s=>s.id===id);if(!s)return;locateAndPulseStand(s,'Opened stand');}
 window.flyToStand=flyToStand;
 function flyToRoute(id){const l=allLayers[id];if(!l)return;map.flyToBounds(l.getBounds().pad(.15),{duration:1.2});}
 window.flyToRoute=flyToRoute;
