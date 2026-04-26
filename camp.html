@@ -805,6 +805,9 @@ function persist(){
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+function buildStewardDashboardUrl(){
+  return buildCampScopedUrl("steward-dashboard.html");
+}
 function formatLocation(){
   const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
   const parts=[]; if(city||state) parts.push([city,state].filter(Boolean).join(", ")); if(zip) parts.push(zip);
@@ -1085,8 +1088,10 @@ function bindMenuLinks(){
 }
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
+  const dashboardUrl = buildStewardDashboardUrl();
   const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
-  menu.innerHTML = `${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
+  const stewardDashboardLink = stewardMember ? `<a href="${esc(dashboardUrl)}">Steward Dashboard</a>` : "";
+  menu.innerHTML = `${stewardDashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
   const headerScoutBtn = document.getElementById("headerScoutBtn");
   const mobileScoutBtn = document.getElementById("mobileScoutBtn");
   if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
@@ -1760,8 +1765,15 @@ function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
 function getScoutEditUrl(type, item = {}, index = 0){
   const url = new URL('scout.html', window.location.href);
   if(activeCampId) url.searchParams.set('campId', activeCampId);
+  const itemId = getDeerItemId(item, type, index);
+  if(type === 'stand') {
+    url.searchParams.set('standId', itemId);
+    url.searchParams.set('editStand', itemId); // legacy fallback
+  } else {
+    url.searchParams.set('driveId', itemId);
+    url.searchParams.set('editDrive', itemId); // legacy fallback
+  }
   url.searchParams.set('editType', type);
-  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
   return url.toString();
 }
 let deerItemEditState = { type: '', index: -1 };
@@ -2156,21 +2168,15 @@ function replaceArrayContents(target, nextItems){
   (Array.isArray(nextItems) ? nextItems : []).forEach(item => target.push(item));
 }
 
-function readLatestCampDataFromLocalCache(){
-  const nextScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
-  const nextLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
-  const scopedMatches = nextScoped && typeof nextScoped === "object" && Object.keys(nextScoped).length;
-  const legacyMatches = nextLegacy && typeof nextLegacy === "object" && (!nextLegacy.campId || String(nextLegacy.campId).trim() === activeCampId);
-  return scopedMatches ? nextScoped : (legacyMatches ? nextLegacy : {});
-}
-
 async function pullLatestCampDataSilently(){
   try{
-    try{ await hydrateCampFromCloud(activeCampId); }
-    catch(error){ console.warn("Cloud camp refresh skipped; using local camp cache.", error); }
+    const cloudData = await hydrateCampFromCloud(activeCampId);
+    if(!cloudData || typeof cloudData !== "object") return;
 
-    const nextData = readLatestCampDataFromLocalCache();
-    if(!nextData || typeof nextData !== "object" || !Object.keys(nextData).length) return;
+    const nextScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+    const nextLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
+    const nextData = Object.keys(nextScoped).length ? nextScoped : nextLegacy;
+    if(!nextData || typeof nextData !== "object") return;
 
     const nextSnapshot = buildCampRefreshSnapshot(nextData);
     if(nextSnapshot === lastCampRefreshSnapshot) return;
@@ -2248,9 +2254,6 @@ function isCampRefreshStorageKey(key = "") {
     || key === campScopeKey(activeCampId, "dashboardSlim")
     || key === campScopeKey(activeCampId, "profileData")
     || key === campScopeKey(activeCampId, "refreshTick")
-    || key === "deercamp.lastSavedDeerStandPing"
-    || key === "deercamp.lastSavedDeerDrivePing"
-    || key === "deercamp.scoutRefreshTick"
     || (!!scopedPrefix && key.startsWith(scopedPrefix));
 }
 
