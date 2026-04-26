@@ -919,32 +919,17 @@ function mergeMemberProfile(previous = {}, member = {}) {
   return merged;
 }
 
-function isCampStewardProfile(member = {}) {
-  return String(member && member.role || "").trim().toLowerCase() === "camp steward";
-}
+const memberProfiles = getDashboardProfileSources().filter(m => {
+  const status = String(m && m.status || "Active").trim().toLowerCase();
+  return status !== "removed";
+}).sort((a,b) => profileValueScore(a) - profileValueScore(b));
 
-function getMemberLifecycleStatus(member = {}) {
-  if (isCampStewardProfile(member)) return String(member.status || "Active").trim().toLowerCase();
-  return String(member.status || "Draft").trim().toLowerCase();
-}
-
-function isRemovedMemberProfile(member = {}) {
-  return getMemberLifecycleStatus(member) === "removed";
-}
-
-function isPublicCampMemberProfile(member = {}) {
-  if (!member || typeof member !== "object") return false;
-  if (isCampStewardProfile(member)) return true;
-  const status = getMemberLifecycleStatus(member);
-  const hasEmail = Boolean(String(member.email || "").trim());
-  const isAcceptedStatus = status === "active" || status === "accepted";
-  const isPending = member.pendingInvite === true || status === "draft" || status === "invite sent" || status === "pending" || status === "pending invite";
-  return hasEmail && isAcceptedStatus && !isPending;
-}
-
-const memberProfiles = getDashboardProfileSources().filter(m => !isRemovedMemberProfile(m)).sort((a,b) => profileValueScore(a) - profileValueScore(b));
-
-const publicMemberProfiles = memberProfiles.filter(isPublicCampMemberProfile);
+const publicMemberProfiles = memberProfiles.filter(m => {
+  const status = String(m && m.status || "Active").trim().toLowerCase();
+  const role = String(m && m.role || "").trim().toLowerCase();
+  if (role === "camp steward") return true;
+  return status === "active" || status === "accepted";
+});
 function normalizeRoster(members = []) {
   const seen = new Map();
   (Array.isArray(members) ? members : []).forEach(member => {

@@ -11,9 +11,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let events = [];
   let currentDate = new Date();
+<<<<<<< Updated upstream
   const DASHBOARD_KEY = "deerCampStewardDashboard";
   const MEMBER_INVITE_KEY = "deerCampMemberInvite";
   let memberEventFeedback = null;
+=======
+>>>>>>> Stashed changes
   let calendarYear = currentDate.getFullYear();
 
   function getCampData() {
@@ -24,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+<<<<<<< Updated upstream
   function getDashboardData() {
     try {
       return JSON.parse(localStorage.getItem(DASHBOARD_KEY)) || {};
@@ -180,6 +184,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 
+=======
+>>>>>>> Stashed changes
   function formatDateKey(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -242,7 +248,11 @@ document.addEventListener("DOMContentLoaded", () => {
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (monthEvents.length === 0) {
+<<<<<<< Updated upstream
       eventList.innerHTML = `<p>No camp calendar events this month.</p>`;
+=======
+      eventList.innerHTML = `<p>No official season opener dates this month.</p>`;
+>>>>>>> Stashed changes
       return;
     }
 
@@ -265,7 +275,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const dayEvents = getEventsForDate(dateKey);
 
     if (dayEvents.length === 0) {
+<<<<<<< Updated upstream
       eventList.innerHTML = `<p>No camp calendar events for this day.</p>`;
+=======
+      eventList.innerHTML = `<p>No official season opener dates for this day.</p>`;
+>>>>>>> Stashed changes
       return;
     }
 
@@ -360,12 +374,16 @@ document.addEventListener("DOMContentLoaded", () => {
   function loadEvents() {
     const campData = getCampData();
     const storedEvents = Array.isArray(campData.calendarEvents) ? campData.calendarEvents : [];
+<<<<<<< Updated upstream
     events = storedEvents
       .filter((event) => event && event.date && (event.name || event.title))
       .map((event) => ({
         ...event,
         name: event.name || event.title
       }));
+=======
+    events = storedEvents.filter((event) => event && event.date && event.name);
+>>>>>>> Stashed changes
 
     const establishedYear = Number.parseInt(campData.established, 10);
     const firstEventDate = events.length ? new Date(`${events[0].date}T00:00:00`) : null;
@@ -382,11 +400,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     if (!events.length) {
+<<<<<<< Updated upstream
       eventList.innerHTML = `<p>No camp calendar events are loaded for this camp yet.</p>`;
     }
 
     renderCalendar();
     renderMemberCalendarForm();
+=======
+      eventList.innerHTML = `<p>No official season opener dates are loaded for this camp yet.</p>`;
+    }
+
+    renderCalendar();
+>>>>>>> Stashed changes
   }
 
   loadEvents();
