@@ -95,6 +95,20 @@
 
     .member-form-note.is-success{padding:10px 12px;border-radius:14px;background:rgba(73,102,71,.12);color:#27411e;border:1px solid rgba(73,102,71,.18)}
     .member-form-note.is-error{padding:10px 12px;border-radius:14px;background:rgba(139,45,29,.08);color:#8b2d1d;border:1px solid rgba(139,45,29,.18)}
+    .member-invite-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .invite-stat{padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.48);border:1px solid rgba(69,42,22,.08)}
+    .invite-stat strong{display:block;font-size:1.45rem;line-height:1;color:var(--brown-deep);margin-bottom:5px}
+    .invite-stat span{display:block;color:var(--muted);font-size:.86rem;line-height:1.35}
+    .member-help-callout{padding:12px 14px;border-radius:18px;background:rgba(106,68,39,.07);border:1px solid rgba(69,42,22,.08);color:var(--muted);line-height:1.5;font-size:.93rem}
+    .member-row{align-items:start}
+    .member-row.is-selected{outline:3px solid rgba(177,121,45,.24);background:linear-gradient(180deg, rgba(255,246,221,.74), rgba(255,255,255,.24))}
+    .member-status-pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800;white-space:nowrap}
+    .member-status-pill.needs-email{background:rgba(139,45,29,.08);color:#8b2d1d}
+    .member-status-pill.ready{background:rgba(177,121,45,.16);color:#855713}
+    .member-status-pill.sent{background:rgba(106,68,39,.10);color:var(--brown-deep)}
+    .member-status-pill.active{background:rgba(73,102,71,.12);color:var(--green)}
+    .member-editor-intro{grid-column:1 / -1;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.42);border:1px solid rgba(69,42,22,.08);color:var(--muted);line-height:1.5}
+    .member-editor-intro strong{display:block;color:var(--brown-deep);margin-bottom:4px}
     .profile-editor-block{grid-column:1 / -1;display:grid;gap:14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.36);border:1px solid rgba(69,42,22,.08)}
     .profile-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .profile-editor-head strong{color:var(--brown-deep)}
@@ -131,7 +145,7 @@
     @media (max-width:980px){.hero-panel,.grid-2{grid-template-columns:1fr}.preview-frame{min-height:240px}}
     @media (max-width:720px){
       .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions{flex-direction:column}
-      .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
+      .btn{width:100%}.mini-stats,.member-invite-summary{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
       .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
     }
   </style>
@@ -226,13 +240,24 @@
       <section class="section-card">
         <div>
           <h3>2. Members and invites</h3>
-          <p class="helper">See who is Active and who needs an email for the camp invitation.</p>
+          <p class="helper">Add people by name first. Add email when available. A member becomes active on the live camp only after accepting their invite.</p>
         </div>
+
+        <div class="member-invite-summary" aria-label="Member invitation summary">
+          <div class="invite-stat"><strong id="memberActiveCount">0</strong><span>Active</span></div>
+          <div class="invite-stat"><strong id="memberInvitedCount">0</strong><span>Invites sent</span></div>
+          <div class="invite-stat"><strong id="memberNeedsEmailCount">0</strong><span>Need email</span></div>
+        </div>
+        <div class="member-help-callout">Names can be saved now, even without emails. Use Edit when you have an email, then Send Invite. Draft and invited members stay off the live camp roster until they accept.</div>
 
         <div class="member-list" id="memberList"></div>
 
         <form id="memberForm" class="form-grid">
           <input id="memberEditIndex" type="hidden" value="" />
+          <div class="member-editor-intro">
+            <strong id="memberEditorTitle">Add or edit a camp member</strong>
+            Save a name now, add an email later, and send the invite when ready.
+          </div>
           <div id="memberNameField" class="field">
             <label for="memberName">Member Name</label>
             <input id="memberName" type="text" placeholder="Ben Larson" />
@@ -301,7 +326,7 @@
             </div>
           </div>
           <div class="field span-2 member-form-actions">
-            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
+            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Save Member</button>
             <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
             <button id="memberDeleteBtn" class="btn member-delete" type="button" hidden>Delete Member</button>
             <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
@@ -1172,37 +1197,75 @@
       updateInviteButton();
     }
 
+    function getMemberStatusMeta(member = {}) {
+      const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+      const status = normalizeMemberStatus(member);
+      if (role === "Camp Steward") return { label: "Camp Steward", css: "active", status, role };
+      if (status === "Active") return { label: "Active", css: "active", status, role };
+      if (status === "Invite Sent") return { label: "Invite Sent", css: "sent", status, role };
+      if (status === "Ready") return { label: "Ready to Invite", css: "ready", status, role };
+      if (status === "Sending") return { label: "Sending", css: "sent", status, role };
+      if (status === "Failed") return { label: "Invite Failed", css: "needs-email", status, role };
+      return { label: "Needs Email", css: "needs-email", status: "Draft", role };
+    }
+
+    function cleanMemberNote(note = "", member = {}) {
+      const raw = String(note || "").trim();
+      if (!raw) return "";
+      const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+      const normalized = raw.toLowerCase().replace(/\s+/g, " ");
+      const defaultDraftNotes = [
+        "add member details later.",
+        "add member details after this person accepts their deercamp invite.",
+        "camp member"
+      ];
+      if (role !== "Camp Steward" && defaultDraftNotes.includes(normalized)) return "";
+      return raw;
+    }
+
     function renderMembers() {
       const list = document.getElementById("memberList");
       const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
+      const activeCount = items.filter(member => getMemberStatusMeta(member).status === "Active" && getMemberStatusMeta(member).role !== "Camp Steward").length;
+      const invitedCount = items.filter(member => ["Invite Sent", "Sending", "Failed"].includes(getMemberStatusMeta(member).status)).length;
+      const needsEmailCount = items.filter(member => getMemberStatusMeta(member).role !== "Camp Steward" && !String(member.email || "").trim()).length;
+      const setCount = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value); };
+      setCount("memberActiveCount", activeCount);
+      setCount("memberInvitedCount", invitedCount);
+      setCount("memberNeedsEmailCount", needsEmailCount);
+
+      const selectedIndex = Number(document.getElementById("memberEditIndex")?.value || -1);
       list.innerHTML = items.length ? items.map((member, index) => {
-        const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
-        const statusLine = role === "Camp Steward"
+        const meta = getMemberStatusMeta(member);
+        const email = String(member.email || "").trim();
+        const statusLine = meta.role === "Camp Steward"
           ? ""
-          : (member.status === "Sending"
+          : (meta.status === "Sending"
               ? " • Sending..."
-              : member.status === "Invite Sent"
-                ? " • Invite sent"
-                : member.status === "Failed"
+              : meta.status === "Invite Sent"
+                ? " • Waiting for acceptance"
+                : meta.status === "Failed"
                   ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
-                  : member.pendingInvite
-                    ? " • Ready to send • Tap Send Member Invite button below"
+                  : meta.status === "Ready"
+                    ? " • Ready to send invite"
                     : "");
-        const emailLine = member.email
-          ? `${member.email}${statusLine}`
-          : (role === "Camp Steward" ? "Add steward email now." : "No email yet - tap Edit to add. Add member details later.");
-        const extraNote = member.note ? ` • ${member.note}` : "";
-        const resendButton = role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && String(member.email || "").trim()
+        const emailLine = email
+          ? `${email}${statusLine}`
+          : (meta.role === "Camp Steward" ? "Add steward email when available." : "No email yet — add email when available.");
+        const note = cleanMemberNote(member.note, member);
+        const extraNote = note ? ` • ${note}` : "";
+        const resendButton = meta.role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && email
           ? `<button class="member-resend" type="button" data-resend-member="${index}">${member.status === "Failed" ? "Retry" : "Resend"}</button>`
           : "";
         return `
-        <div class="member-row">
+        <div class="member-row ${index === selectedIndex ? "is-selected" : ""}">
           <div>
             <div class="member-name">${member.name || "Camp Member"}</div>
             <div class="member-sub">${emailLine}${extraNote}</div>
           </div>
           <div class="member-actions">
-            <div class="member-pill ${role === "Camp Steward" ? "gold" : "green"}">${role}</div>
+            <span class="member-status-pill ${meta.css}">${meta.label}</span>
+            <div class="member-pill ${meta.role === "Camp Steward" ? "gold" : "green"}">${meta.role}</div>
             ${resendButton}
             <button class="member-edit" type="button" data-edit-member="${index}">Edit</button>
           </div>
@@ -1225,8 +1288,11 @@
         void field.offsetWidth;
         field.classList.add("is-editing");
       });
+      const title = document.getElementById("memberEditorTitle");
+      if (title) title.textContent = name ? `Editing ${name}` : "Add or edit a camp member";
       const note = document.getElementById("memberFormNote");
       if (note) note.textContent = name ? `Editing ${name} below.` : "";
+      renderMembers();
     }
 
     function clearMemberEditPulse() {
@@ -1234,9 +1300,12 @@
         const field = document.getElementById(id);
         if (field) field.classList.remove("is-editing");
       });
+      const title = document.getElementById("memberEditorTitle");
+      if (title) title.textContent = "Add or edit a camp member";
       const note = document.getElementById("memberFormNote");
       if (note) note.textContent = "";
       clearMemberFormNoteStyle();
+      renderMembers();
     }
 
     function updateInviteButton() {
@@ -1357,7 +1426,7 @@
       document.getElementById("memberEmail").value = member.email || "";
       document.getElementById("memberNote").value = member.note || "";
       writeProfileFieldsToForm(member);
-      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward Profile" : "Save Member Profile";
+      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward" : "Save Member";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) {
         const isSteward = String(member.role || "").toLowerCase() === "camp steward";
@@ -1372,7 +1441,7 @@
       document.getElementById("memberForm").reset();
       document.getElementById("memberEditIndex").value = "";
       clearMemberPhoto();
-      document.getElementById("memberSubmitBtn").textContent = "Add Member";
+      document.getElementById("memberSubmitBtn").textContent = "Save Member";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) deleteBtn.hidden = true;
       clearMemberEditPulse();
