@@ -999,7 +999,9 @@
         bestCampMemory: '',
         specialty: '',
         note: 'Adds field content and helps keep camp traditions alive.',
-        photo: ''
+        photo: '',
+        profilePhoto: '',
+        avatar: ''
       };
     }
 
@@ -1083,7 +1085,33 @@
     }
 
     function canUseFirebaseStorage() {
-      return Boolean(window.firebase && typeof firebase.storage === 'function');
+      return Boolean((window.DeerCampStorage && typeof DeerCampStorage.uploadBlob === 'function') || (window.firebase && typeof firebase.storage === 'function'));
+    }
+
+    function withTimeout(promise, ms = 9000, fallback = null) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const timer = setTimeout(() => {
+          if (settled) return;
+          settled = true;
+          resolve(fallback);
+        }, ms);
+
+        Promise.resolve(promise)
+          .then(value => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(value);
+          })
+          .catch(error => {
+            console.warn('Timed Firebase Storage task skipped.', error);
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve(fallback);
+          });
+      });
     }
 
     function cleanStorageSegment(value = 'member') {
@@ -1095,21 +1123,35 @@
     }
 
     async function uploadMemberPhotoToStorage(blob, member = {}, invite = {}) {
-      if (!blob || !canUseFirebaseStorage()) return '';
+      if (!blob) return '';
       const campId = cleanStorageSegment(invite.campId || getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || 'camp');
       const memberKey = cleanStorageSegment(member.email || member.name || member.id || `member-${Date.now()}`);
       const path = `camps/${campId}/members/${memberKey}/profile-${Date.now()}.jpg`;
-      const ref = firebase.storage().ref().child(path);
-      const snapshot = await withTimeout(ref.put(blob, {
+      const metadata = {
         contentType: 'image/jpeg',
         customMetadata: {
           campId,
           memberName: String(member.name || ''),
           memberEmail: String(member.email || '')
         }
-      }), 9000, null);
-      if (!snapshot) return '';
-      return await withTimeout(snapshot.ref.getDownloadURL(), 9000, '');
+      };
+
+      try {
+        if (window.DeerCampStorage && typeof DeerCampStorage.uploadBlob === 'function') {
+          const uploaded = await withTimeout(DeerCampStorage.uploadBlob(path, blob, metadata), 12000, null);
+          return uploaded && uploaded.url ? uploaded.url : '';
+        }
+
+        if (window.firebase && typeof firebase.storage === 'function') {
+          const ref = firebase.storage().ref().child(path);
+          const snapshot = await withTimeout(ref.put(blob, metadata), 12000, null);
+          if (!snapshot) return '';
+          return await withTimeout(snapshot.ref.getDownloadURL(), 12000, '');
+        }
+      } catch (error) {
+        console.warn('Firebase Storage member photo upload failed.', error);
+      }
+      return '';
     }
 
     async function prepareMemberPhotoForSave(invite = {}) {
@@ -1141,6 +1183,8 @@
         const downloadUrl = await uploadMemberPhotoToStorage(blob, member, invite);
         if (downloadUrl) {
           state.member.photo = downloadUrl;
+          state.member.profilePhoto = downloadUrl;
+          state.member.avatar = downloadUrl;
           uploadedPhotoDataUrl = '';
           uploadedPhotoFile = null;
           uploadedPhotoPreviewUrl = '';
@@ -1235,6 +1279,8 @@
       const photoUrl = document.getElementById('memberPhoto').value.trim();
       if (photoUrl) {
         state.member.photo = photoUrl;
+        state.member.profilePhoto = photoUrl;
+        state.member.avatar = photoUrl;
       } else if (!uploadedPhotoFile && !uploadedPhotoPreviewUrl) {
         state.member.photo = state.member.photo || '';
       }
@@ -1242,6 +1288,10 @@
       state.member.role = 'Camp Member';
       state.member.roleLine = 'Camp Member';
       state.member.status = 'Active';
+      if (state.member.photo) {
+        state.member.profilePhoto = state.member.photo;
+        state.member.avatar = state.member.photo;
+      }
     }
 
     function renderAvatar(targetId, photo, name) {
@@ -1551,6 +1601,8 @@
         specialty: member.specialty,
         note: member.note,
         photo: member.photo,
+        profilePhoto: member.profilePhoto || member.photo || '',
+        avatar: member.avatar || member.profilePhoto || member.photo || '',
         responsibilities: Array.isArray(people[existingPersonIndex]?.responsibilities) && people[existingPersonIndex].responsibilities.length
           ? people[existingPersonIndex].responsibilities
           : [
