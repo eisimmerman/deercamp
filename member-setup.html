@@ -390,6 +390,7 @@
   </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
 <script src="firebase-web.js"></script>
 </head>
 <body>
@@ -537,64 +538,65 @@
               <div class="form-grid">
                 <div class="field required" id="memberNameField">
                   <label for="memberName">Full name</label>
-                  <input id="memberName" placeholder="e.g., Bruce Johnson" />
+                  <input id="memberName" placeholder="Bruce Johnson" />
                   <div class="field-error">Full name is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberNickname">Nickname</label>
-                  <input id="memberNickname" placeholder="e.g., Buckshot" />
+                  <input id="memberNickname" placeholder="Buckshot" />
                 </div>
                 <div class="field required" id="memberEmailField">
                   <label for="memberEmail">Email</label>
-                  <input id="memberEmail" type="email" placeholder="e.g., member@example.com" />
+                  <input id="memberEmail" type="email" placeholder="member@example.com" />
                   <div class="field-error">Email is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberPhone">Phone</label>
-                  <input id="memberPhone" placeholder="e.g., 555-123-4567 (optional)" />
+                  <input id="memberPhone" placeholder="Optional" />
                 </div>
                 <div class="field required" id="memberYearJoinedField">
                   <label for="memberYearJoined">Year joined camp</label>
-                  <input id="memberYearJoined" placeholder="e.g., 2026" />
+                  <input id="memberYearJoined" placeholder="2026" />
                   <div class="field-error">Year joined camp is required.</div>
                 </div>
                 <div class="field required" id="memberFavoriteStandField">
                   <label for="memberFavoriteStand">Favorite stand</label>
-                  <input id="memberFavoriteStand" placeholder="e.g., North Ridge" />
+                  <input id="memberFavoriteStand" placeholder="North Ridge" />
                   <div class="field-error">Favorite stand is required.</div>
                 </div>
                 <div class="field required" id="memberFavoriteGearField">
                   <label for="memberFavoriteGear">Favorite rifle / bow</label>
-                  <input id="memberFavoriteGear" placeholder="e.g., .308 / compound bow" />
+                  <input id="memberFavoriteGear" placeholder=".308 / compound bow" />
                   <div class="field-error">Favorite rifle / bow is required.</div>
                 </div>
                 <div class="field required" id="memberSpecialtyField">
                   <label for="memberSpecialty">Camp specialty</label>
-                  <input id="memberSpecialty" placeholder="e.g., Tracking, cooking, stories" />
+                  <input id="memberSpecialty" placeholder="Tracking, cooking, stories" />
                   <div class="field-error">Camp specialty is required.</div>
                 </div>
                 <div class="field span-2 required" id="memberHarvestHighlightField">
                   <label for="memberHarvestHighlight">Harvest highlight</label>
-                  <input id="memberHarvestHighlight" placeholder="e.g., Best deer or favorite field moment" />
+                  <input id="memberHarvestHighlight" placeholder="Best deer or favorite field moment" />
                   <div class="field-error">Harvest highlight is required.</div>
                 </div>
                 <div class="field span-2 required" id="memberBestMemoryField">
                   <label for="memberBestMemory">Best camp memory</label>
-                  <input id="memberBestMemory" placeholder="e.g., That one morning when..." />
+                  <input id="memberBestMemory" placeholder="That one morning when..." />
                   <div class="field-error">Best camp memory is required.</div>
                 </div>
                 <div class="field span-2">
                   <label for="memberPhoto">Profile photo URL</label>
-                  <input id="memberPhoto" placeholder="e.g., https://example.com/profile-photo.jpg" />
+                  <input id="memberPhoto" placeholder="Optional image URL" />
                   <div class="field-note">You can paste an image URL, or use the upload field below for a local image during setup.</div>
                 </div>
                 <div class="field span-2">
                   <label for="memberPhotoUpload">Upload profile photo</label>
                   <input id="memberPhotoUpload" type="file" accept="image/*" />
+                  <div class="field-note">Uploaded profile photos are saved to Firebase Storage and stored as lightweight image URLs.</div>
                 </div>
                 <div class="field span-2">
                   <label for="memberNote">Short camp note</label>
-                  <textarea id="memberNote" placeholder="e.g., Adds field content and helps keep camp traditions alive."></textarea>
+                  <textarea id="memberNote" placeholder="Adds field content and helps keep camp traditions alive."></textarea>
                 </div>
               </div>
             </div>
@@ -703,6 +705,8 @@
 
     let currentStep = 0;
     let uploadedPhotoDataUrl = '';
+    let uploadedPhotoFile = null;
+    let uploadedPhotoPreviewUrl = '';
 
     function parseJSON(value, fallback) {
       try {
@@ -807,37 +811,11 @@
       return {};
     }
 
-    function withTimeout(promise, ms = 3500, fallback = null) {
-      return new Promise((resolve) => {
-        let settled = false;
-        const timer = setTimeout(() => {
-          if (settled) return;
-          settled = true;
-          resolve(fallback);
-        }, ms);
-
-        Promise.resolve(promise)
-          .then(value => {
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            resolve(value);
-          })
-          .catch(error => {
-            console.warn('Timed async member setup task skipped.', error);
-            if (settled) return;
-            settled = true;
-            clearTimeout(timer);
-            resolve(fallback);
-          });
-      });
-    }
-
     async function hydrateCampFromCloud(campId) {
       const cleanCampId = String(campId || '').trim();
-      if (!cleanCampId || !window.DeerCampCloud || typeof DeerCampCloud.hydrateCampToLocal !== 'function') return null;
+      if (!cleanCampId || !window.DeerCampCloud) return null;
       try {
-        return await withTimeout(DeerCampCloud.hydrateCampToLocal(cleanCampId), 3500, null);
+        return await DeerCampCloud.hydrateCampToLocal(cleanCampId);
       } catch (error) {
         console.warn('Cloud hydration skipped for member setup.', error);
         return null;
@@ -1064,6 +1042,121 @@
       });
     }
 
+
+    function dataUrlToBlob(dataUrl = '') {
+      const parts = String(dataUrl || '').split(',');
+      if (parts.length < 2) return null;
+      const mimeMatch = parts[0].match(/data:([^;]+);base64/i);
+      const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const binary = atob(parts[1]);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: mime });
+    }
+
+    function loadImageFromSource(source) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Could not load profile photo.'));
+        img.src = source;
+      });
+    }
+
+    async function compressImageSourceToBlob(source, maxSize = 720, quality = 0.82) {
+      const img = await loadImageFromSource(source);
+      const sourceWidth = img.naturalWidth || img.width || maxSize;
+      const sourceHeight = img.naturalHeight || img.height || maxSize;
+      const scale = Math.min(1, maxSize / Math.max(sourceWidth, sourceHeight));
+      const width = Math.max(1, Math.round(sourceWidth * scale));
+      const height = Math.max(1, Math.round(sourceHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d', { alpha: false });
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(img, 0, 0, width, height);
+      return await new Promise((resolve) => {
+        canvas.toBlob(blob => resolve(blob || dataUrlToBlob(canvas.toDataURL('image/jpeg', quality))), 'image/jpeg', quality);
+      });
+    }
+
+    function canUseFirebaseStorage() {
+      return Boolean(window.firebase && typeof firebase.storage === 'function');
+    }
+
+    function cleanStorageSegment(value = 'member') {
+      return String(value || 'member')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'member';
+    }
+
+    async function uploadMemberPhotoToStorage(blob, member = {}, invite = {}) {
+      if (!blob || !canUseFirebaseStorage()) return '';
+      const campId = cleanStorageSegment(invite.campId || getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || 'camp');
+      const memberKey = cleanStorageSegment(member.email || member.name || member.id || `member-${Date.now()}`);
+      const path = `camps/${campId}/members/${memberKey}/profile-${Date.now()}.jpg`;
+      const ref = firebase.storage().ref().child(path);
+      const snapshot = await withTimeout(ref.put(blob, {
+        contentType: 'image/jpeg',
+        customMetadata: {
+          campId,
+          memberName: String(member.name || ''),
+          memberEmail: String(member.email || '')
+        }
+      }), 9000, null);
+      if (!snapshot) return '';
+      return await withTimeout(snapshot.ref.getDownloadURL(), 9000, '');
+    }
+
+    async function prepareMemberPhotoForSave(invite = {}) {
+      const member = state.member || {};
+      const photoField = String(document.getElementById('memberPhoto')?.value || '').trim();
+      const existingPhoto = String(member.photo || '').trim();
+
+      if (photoField && !photoField.startsWith('data:') && !photoField.startsWith('blob:')) {
+        state.member.photo = photoField;
+        return photoField;
+      }
+
+      try {
+        let blob = null;
+        if (uploadedPhotoFile) {
+          const previewUrl = uploadedPhotoPreviewUrl || URL.createObjectURL(uploadedPhotoFile);
+          blob = await compressImageSourceToBlob(previewUrl);
+        } else if (existingPhoto.startsWith('data:')) {
+          blob = await compressImageSourceToBlob(existingPhoto);
+        }
+
+        if (!blob) {
+          if (existingPhoto && !existingPhoto.startsWith('blob:') && !existingPhoto.startsWith('data:')) return existingPhoto;
+          state.member.photo = '';
+          return '';
+        }
+
+        setSavePill('Joining — uploading profile photo...');
+        const downloadUrl = await uploadMemberPhotoToStorage(blob, member, invite);
+        if (downloadUrl) {
+          state.member.photo = downloadUrl;
+          uploadedPhotoDataUrl = '';
+          uploadedPhotoFile = null;
+          uploadedPhotoPreviewUrl = '';
+          const photoInput = document.getElementById('memberPhoto');
+          if (photoInput) photoInput.value = downloadUrl;
+          return downloadUrl;
+        }
+      } catch (error) {
+        console.warn('Profile photo upload skipped; member can still join.', error);
+      }
+
+      // Never let a local image blob/data URL block Join Camp.
+      if (existingPhoto.startsWith('data:') || existingPhoto.startsWith('blob:')) state.member.photo = '';
+      return state.member.photo || '';
+    }
+
     function setSavePill(text) {
       document.getElementById('savePill').textContent = text;
     }
@@ -1140,7 +1233,11 @@
       state.member.bestCampMemory = document.getElementById('memberBestMemory').value.trim();
       state.member.note = document.getElementById('memberNote').value.trim() || 'Adds field content and helps keep camp traditions alive.';
       const photoUrl = document.getElementById('memberPhoto').value.trim();
-      state.member.photo = uploadedPhotoDataUrl || photoUrl || state.member.photo || '';
+      if (photoUrl) {
+        state.member.photo = photoUrl;
+      } else if (!uploadedPhotoFile && !uploadedPhotoPreviewUrl) {
+        state.member.photo = state.member.photo || '';
+      }
       state.member.id = slugify(state.member.email || state.member.name || state.member.id || `member-${Date.now()}`);
       state.member.role = 'Camp Member';
       state.member.roleLine = 'Camp Member';
@@ -1197,7 +1294,7 @@
       const harvest = state.member.harvestHighlight || '—';
       const memory = state.member.bestCampMemory || '—';
       const note = state.member.note || 'Adds field content and helps keep camp traditions alive.';
-      const photo = state.member.photo || '';
+      const photo = uploadedPhotoPreviewUrl || state.member.photo || '';
 
       document.getElementById('previewName').textContent = name;
       document.getElementById('previewRoleLine').textContent = state.member.roleLine || 'Camp Member';
@@ -1316,19 +1413,7 @@
       const inviteName = String(invite.name || '').trim().toLowerCase();
       const inviteToken = String(invite.inviteToken || '').trim();
 
-      if (!inviteCampId) {
-        showInviteStatus('invalid');
-        return false;
-      }
-
-      // Some early/local invite links were generated before inviteToken was consistently appended.
-      // Do not trap a member on the final screen when the camp context and completed profile are present.
-      if (!inviteToken) {
-        const completedName = String(state?.member?.name || '').trim();
-        const completedEmail = normalizeInviteEmail(String(state?.member?.email || '').trim());
-        if (completedName && completedEmail) {
-          return true;
-        }
+      if (!inviteCampId || !inviteToken) {
         showInviteStatus('invalid');
         return false;
       }
@@ -1408,6 +1493,7 @@
       syncStateFromForm();
 
       const invite = getInviteContext();
+      await prepareMemberPhotoForSave(invite);
       const cloudCampData = await hydrateCampFromCloud(invite.campId);
       const campData = cloudCampData && typeof cloudCampData === 'object' ? cloudCampData : getCampData();
       const dashboard = getDashboardData();
@@ -1514,10 +1600,7 @@
       if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
       localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
       try {
-        const saveCampId = invite.campId || updatedCampData.campId || '';
-        if (saveCampId && window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function') {
-          await withTimeout(DeerCampCloud.saveCamp(saveCampId, updatedCampData), 3500, null);
-        }
+        await DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData);
       } catch (error) {
         console.warn('Cloud save skipped for joined member.', error);
       }
@@ -1539,8 +1622,6 @@
     });
 
     document.getElementById('nextBtn').addEventListener('click', async () => {
-      const nextButton = document.getElementById('nextBtn');
-
       if (currentStep === 0) {
         showStep(1);
         return;
@@ -1558,50 +1639,21 @@
         return;
       }
 
-      try {
-        if (nextButton) {
-          nextButton.disabled = true;
-          nextButton.textContent = 'Joining...';
-        }
-        setSavePill('Joining — saving profile...');
+      if (!(await validateInviteOrBlock())) return;
 
-        if (!(await validateInviteOrBlock())) {
-          if (nextButton) {
-            nextButton.disabled = false;
-            nextButton.textContent = 'Join Camp';
-          }
-          return;
-        }
+      const invite = getInviteContext();
+      await mergeMemberIntoData();
+      const finalCampId =
+        invite.campId ||
+        getCampData().campId ||
+        getDashboardData()?.camp?.campId ||
+        '';
 
-        const invite = getInviteContext();
-        await mergeMemberIntoData();
-        const finalCampId =
-          invite.campId ||
-          getCampData().campId ||
-          getDashboardData()?.camp?.campId ||
-          localStorage.getItem(ACTIVE_CAMP_KEY) ||
-          '';
-
-        if (finalCampId) {
-          localStorage.setItem(ACTIVE_CAMP_KEY, finalCampId);
-        }
-
-        setSavePill('Joined — opening camp...');
-        const campUrl = buildCampUrl('camp.html', finalCampId);
-        window.location.href = campUrl;
-      } catch (error) {
-        console.error('Join Camp failed.', error);
-        setSavePill('Join failed — tap Join Camp again');
-        if (nextButton) {
-          nextButton.disabled = false;
-          nextButton.textContent = 'Join Camp';
-        }
-        const errorBox = document.getElementById('profileErrorBox');
-        if (errorBox) {
-          errorBox.textContent = 'DeerCamp could not finish joining. Your profile is still saved locally. Tap Join Camp again.';
-          errorBox.classList.add('show');
-        }
+      if (finalCampId) {
+        localStorage.setItem('deercamp.activeCampId', finalCampId);
       }
+
+      window.location.href = buildCampUrl('camp.html', finalCampId);
     });
 
     const trackedFields = [
@@ -1665,9 +1717,15 @@
       const file = event.target.files && event.target.files[0];
       if (!file) return;
       try {
-        uploadedPhotoDataUrl = await readFileAsDataURL(file);
-        state.member.photo = uploadedPhotoDataUrl;
-        persistState(true);
+        uploadedPhotoFile = file;
+        uploadedPhotoDataUrl = '';
+        if (uploadedPhotoPreviewUrl && uploadedPhotoPreviewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(uploadedPhotoPreviewUrl);
+        }
+        uploadedPhotoPreviewUrl = URL.createObjectURL(file);
+        const photoInput = document.getElementById('memberPhoto');
+        if (photoInput) photoInput.value = '';
+        setSavePill('Profile photo ready — uploads when you join');
         renderProfilePreview();
       } catch (error) {
         alert('Profile photo could not be processed.');
