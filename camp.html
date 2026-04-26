@@ -1760,8 +1760,15 @@ function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
 function getScoutEditUrl(type, item = {}, index = 0){
   const url = new URL('scout.html', window.location.href);
   if(activeCampId) url.searchParams.set('campId', activeCampId);
+  const itemId = getDeerItemId(item, type, index);
+  if(type === 'stand') {
+    url.searchParams.set('standId', itemId);
+    url.searchParams.set('editStand', itemId); // legacy fallback
+  } else {
+    url.searchParams.set('driveId', itemId);
+    url.searchParams.set('editDrive', itemId); // legacy fallback
+  }
   url.searchParams.set('editType', type);
-  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
   return url.toString();
 }
 let deerItemEditState = { type: '', index: -1 };
