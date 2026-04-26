@@ -537,55 +537,55 @@
               <div class="form-grid">
                 <div class="field required" id="memberNameField">
                   <label for="memberName">Full name</label>
-                  <input id="memberName" placeholder="Bruce Johnson" />
+                  <input id="memberName" placeholder="e.g., Bruce Johnson" />
                   <div class="field-error">Full name is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberNickname">Nickname</label>
-                  <input id="memberNickname" placeholder="Buckshot" />
+                  <input id="memberNickname" placeholder="e.g., Buckshot" />
                 </div>
                 <div class="field required" id="memberEmailField">
                   <label for="memberEmail">Email</label>
-                  <input id="memberEmail" type="email" placeholder="member@example.com" />
+                  <input id="memberEmail" type="email" placeholder="e.g., member@example.com" />
                   <div class="field-error">Email is required.</div>
                 </div>
                 <div class="field">
                   <label for="memberPhone">Phone</label>
-                  <input id="memberPhone" placeholder="Optional" />
+                  <input id="memberPhone" placeholder="e.g., 555-123-4567 (optional)" />
                 </div>
                 <div class="field required" id="memberYearJoinedField">
                   <label for="memberYearJoined">Year joined camp</label>
-                  <input id="memberYearJoined" placeholder="2026" />
+                  <input id="memberYearJoined" placeholder="e.g., 2026" />
                   <div class="field-error">Year joined camp is required.</div>
                 </div>
                 <div class="field required" id="memberFavoriteStandField">
                   <label for="memberFavoriteStand">Favorite stand</label>
-                  <input id="memberFavoriteStand" placeholder="North Ridge" />
+                  <input id="memberFavoriteStand" placeholder="e.g., North Ridge" />
                   <div class="field-error">Favorite stand is required.</div>
                 </div>
                 <div class="field required" id="memberFavoriteGearField">
                   <label for="memberFavoriteGear">Favorite rifle / bow</label>
-                  <input id="memberFavoriteGear" placeholder=".308 / compound bow" />
+                  <input id="memberFavoriteGear" placeholder="e.g., .308 / compound bow" />
                   <div class="field-error">Favorite rifle / bow is required.</div>
                 </div>
                 <div class="field required" id="memberSpecialtyField">
                   <label for="memberSpecialty">Camp specialty</label>
-                  <input id="memberSpecialty" placeholder="Tracking, cooking, stories" />
+                  <input id="memberSpecialty" placeholder="e.g., Tracking, cooking, stories" />
                   <div class="field-error">Camp specialty is required.</div>
                 </div>
                 <div class="field span-2 required" id="memberHarvestHighlightField">
                   <label for="memberHarvestHighlight">Harvest highlight</label>
-                  <input id="memberHarvestHighlight" placeholder="Best deer or favorite field moment" />
+                  <input id="memberHarvestHighlight" placeholder="e.g., Best deer or favorite field moment" />
                   <div class="field-error">Harvest highlight is required.</div>
                 </div>
                 <div class="field span-2 required" id="memberBestMemoryField">
                   <label for="memberBestMemory">Best camp memory</label>
-                  <input id="memberBestMemory" placeholder="That one morning when..." />
+                  <input id="memberBestMemory" placeholder="e.g., That one morning when..." />
                   <div class="field-error">Best camp memory is required.</div>
                 </div>
                 <div class="field span-2">
                   <label for="memberPhoto">Profile photo URL</label>
-                  <input id="memberPhoto" placeholder="Optional image URL" />
+                  <input id="memberPhoto" placeholder="e.g., https://example.com/profile-photo.jpg" />
                   <div class="field-note">You can paste an image URL, or use the upload field below for a local image during setup.</div>
                 </div>
                 <div class="field span-2">
@@ -594,7 +594,7 @@
                 </div>
                 <div class="field span-2">
                   <label for="memberNote">Short camp note</label>
-                  <textarea id="memberNote" placeholder="Adds field content and helps keep camp traditions alive."></textarea>
+                  <textarea id="memberNote" placeholder="e.g., Adds field content and helps keep camp traditions alive."></textarea>
                 </div>
               </div>
             </div>
@@ -1290,7 +1290,19 @@
       const inviteName = String(invite.name || '').trim().toLowerCase();
       const inviteToken = String(invite.inviteToken || '').trim();
 
-      if (!inviteCampId || !inviteToken) {
+      if (!inviteCampId) {
+        showInviteStatus('invalid');
+        return false;
+      }
+
+      // Some early/local invite links were generated before inviteToken was consistently appended.
+      // Do not trap a member on the final screen when the camp context and completed profile are present.
+      if (!inviteToken) {
+        const completedName = String(state?.member?.name || '').trim();
+        const completedEmail = normalizeInviteEmail(String(state?.member?.email || '').trim());
+        if (completedName && completedEmail) {
+          return true;
+        }
         showInviteStatus('invalid');
         return false;
       }
@@ -1529,7 +1541,9 @@
         localStorage.setItem('deercamp.activeCampId', finalCampId);
       }
 
-      window.location.href = buildCampUrl('camp.html', finalCampId);
+      setSavePill('Joined — opening camp...');
+      const campUrl = buildCampUrl('camp.html', finalCampId);
+      window.location.assign(campUrl);
     });
 
     const trackedFields = [
