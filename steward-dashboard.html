@@ -276,6 +276,7 @@
             <button id="memberSaveEmailBtn" class="btn btn-primary" type="button">Save Member Email</button>
             <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
           </div>
+          <div id="memberInviteNote" class="field span-2 member-form-note" aria-live="polite"></div>
           <div class="profile-editor-block">
             <div class="profile-editor-head">
               <div>
@@ -441,10 +442,21 @@
       if (variant) note.classList.add(`is-${variant}`);
     }
 
-    function clearMemberFormNoteStyle() {
-      const note = document.getElementById("memberFormNote");
+    function setMemberInviteNote(message = "", variant = "") {
+      const note = document.getElementById("memberInviteNote");
       if (!note) return;
+      note.textContent = message;
       note.classList.remove("is-success", "is-error");
+      if (variant) note.classList.add(`is-${variant}`);
+    }
+
+    function clearMemberFormNoteStyle() {
+      ["memberFormNote", "memberInviteNote"].forEach(id => {
+        const note = document.getElementById(id);
+        if (!note) return;
+        note.classList.remove("is-success", "is-error");
+        note.textContent = "";
+      });
     }
 
     function isLikelyEmail(value = "") {
@@ -1415,12 +1427,12 @@
     async function saveMemberInviteBasics({ shouldReset = false, showMessage = true } = {}) {
       const { editIndex, name, email, note } = getCurrentMemberFormBasics();
       if (!name) {
-        setMemberFormNote("Add a member name first.", "error");
+        setMemberInviteNote("Add a member name first.", "error");
         showToast("Add a member name first.");
         return null;
       }
       if (email && !isLikelyEmail(email)) {
-        setMemberFormNote("Enter a valid member email before saving.", "error");
+        setMemberInviteNote("Enter a valid member email before saving.", "error");
         showToast("Enter a valid member email before saving.");
         return null;
       }
@@ -1429,7 +1441,7 @@
       const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
       const editingRole = String(editingMember?.role || '').trim().toLowerCase();
       if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
-        setMemberFormNote("Member email cannot match the Camp Steward email.", "error");
+        setMemberInviteNote("Member email cannot match the Camp Steward email.", "error");
         showToast("Member email cannot match the Camp Steward email.");
         return null;
       }
@@ -1500,14 +1512,14 @@
         }
         if (showMessage) {
           const message = email ? `${name} email saved. Ready to send invite.` : `${name} saved. Add an email when you have it.`;
-          setMemberFormNote(message, "success");
+          setMemberInviteNote(message, "success");
           showToast(message);
         }
         if (shouldReset) resetMemberForm();
         return state.members[Number(document.getElementById("memberEditIndex").value)] || member;
       } catch (error) {
         console.error("Member email save failed.", error);
-        setMemberFormNote(`${name} email did not save. Check browser storage/console, then try again.`, "error");
+        setMemberInviteNote(`${name} email did not save. Check browser storage/console, then try again.`, "error");
         showToast("Member email save failed.");
         return null;
       } finally {
@@ -1687,7 +1699,7 @@
       }
 
       if (email && !isLikelyEmail(email)) {
-        setMemberFormNote("Enter a valid member email before saving.", "error");
+        setMemberInviteNote("Enter a valid member email before saving.", "error");
         showToast("Enter a valid member email before saving.");
         return;
       }
@@ -1697,7 +1709,7 @@
       const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
       const editingRole = String(editingMember?.role || '').trim().toLowerCase();
       if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
-        setMemberFormNote("Member email cannot match the Camp Steward email.", "error");
+        setMemberInviteNote("Member email cannot match the Camp Steward email.", "error");
         showToast("Member email cannot match the Camp Steward email.");
         return;
       }
@@ -1855,11 +1867,11 @@
       renderPreview();
       updateInviteButton();
       if (result && result.success) {
-        setMemberFormNote(`Invite sent to ${member.name}.`, "success");
+        setMemberInviteNote(`Invite sent to ${member.name}.`, "success");
         showToast(`Invite sent to ${member.name}.`);
       } else {
         const errorMessage = result?.error || "No invite was sent.";
-        setMemberFormNote(errorMessage, "error");
+        setMemberInviteNote(errorMessage, "error");
         showToast(errorMessage);
       }
     });
