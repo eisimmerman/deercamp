@@ -41,6 +41,7 @@
   .mobile-scout-pill{justify-content:center}
   .mobile-scout-pill .scout-product-icon{width:22px;height:22px;flex-basis:22px}
   .menu-scout-icon{display:inline-block;width:18px;height:18px;border-radius:999px;object-fit:cover;vertical-align:-4px;margin-right:7px}
+  .menu-dashboard-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;margin-right:7px;vertical-align:-3px;background:linear-gradient(180deg,#6a4427,#452a16);color:#fff8ef;font-size:.74rem;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.16)}
   .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
   .menu.open{display:block}
   .menu a{display:block;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:700}
@@ -715,15 +716,24 @@ const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
 const dashboardSectionSources = [
+  preHydrateLegacy && preHydrateLegacy.enabledSections,
+  preHydrateScoped && preHydrateScoped.enabledSections,
+  preHydrateProfileData && preHydrateProfileData.enabledSections,
   preHydrateGenericDashboard && preHydrateGenericDashboard.sections,
   preHydrateDashboard && preHydrateDashboard.sections,
+  postHydrateProfileData && postHydrateProfileData.enabledSections,
+  postHydrateGenericDashboard && postHydrateGenericDashboard.sections,
+  postHydrateDashboard && postHydrateDashboard.sections,
   safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {}).sections,
   safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {}).sections,
+  safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {}).enabledSections,
+  data.enabledSections,
+  data.sections,
   data.dashboardSlim && data.dashboardSlim.sections
 ].filter(source => source && typeof source === "object");
 dashboardSectionSources.forEach(source => Object.assign(enabledSections, source));
-if(enabledSections.campdeerdrives) enabledSections.deerdrives = true;
-if(enabledSections.campdeerstands) enabledSections.stands = true;
+if(enabledSections.campdeerdrives || enabledSections.deerdrives) { enabledSections.campdeerdrives = true; enabledSections.deerdrives = true; }
+if(enabledSections.campdeerstands || enabledSections.stands) { enabledSections.campdeerstands = true; enabledSections.stands = true; }
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
@@ -1170,8 +1180,12 @@ function bindMenuLinks(){
 }
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
-  const dashboardLink = hasStewardDashboardAccess() ? `<a href="${esc(buildStewardDashboardUrl())}">Steward Dashboard</a>` : "";
-  const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
+  const dashboardLink = `<a href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>`;
+  const sectionLinks = visibleSections()
+    .slice()
+    .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
+    .map(section => `<a href="#${section.key}">${section.title}</a>`)
+    .join('');
   menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
   const headerScoutBtn = document.getElementById("headerScoutBtn");
   const mobileScoutBtn = document.getElementById("mobileScoutBtn");
@@ -1229,11 +1243,12 @@ function visibleSections(){
     {key:"campdeerstands",title:"CampDeerStands"},
     {key:"campdeerdrives",title:"CampDeerDrives"},
   ];
+  const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
-    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
+    if (s.key === "campdeerstands") return !!(truthySection("campdeerstands", "stands") || (Array.isArray(deerStandPosts) && deerStandPosts.length));
+    if (s.key === "campdeerdrives") return !!(truthySection("campdeerdrives", "deerdrives") || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
     return !!enabledSections[map[s.key]];
   });
 }
