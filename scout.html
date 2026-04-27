@@ -812,6 +812,67 @@ function campScopeKey(campId,suffix){
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
 }
+function blankDeerDrivePlan(){
+  return {driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+}
+function isGeneratedDeerDriveRoute(route){
+  if(!route || typeof route !== 'object') return false;
+  const autoIds = Array.isArray(deerDrivePlan && deerDrivePlan.autoRouteIds) ? deerDrivePlan.autoRouteIds.map(String) : [];
+  return route.generated === 'deerdrive' || autoIds.includes(String(route.id || ''));
+}
+function clearDeerDriveBuilderDraft(options={}){
+  const silent = !!options.silent;
+  const keepModalClosed = !!options.keepModalClosed;
+
+  [...drivers, ...standers].forEach(item=>{
+    if(allLayers[item.id]){ try{ map.removeLayer(allLayers[item.id]); }catch(e){} delete allLayers[item.id]; }
+  });
+
+  const generatedRouteIds = new Set((routes || []).filter(isGeneratedDeerDriveRoute).map(route=>String(route.id || '')));
+  generatedRouteIds.forEach(id=>{
+    if(allLayers[id]){ try{ map.removeLayer(allLayers[id]); }catch(e){} delete allLayers[id]; }
+  });
+
+  drivers = [];
+  standers = [];
+  routes = (routes || []).filter(route => !generatedRouteIds.has(String(route.id || '')));
+  deerDriveAnchor = null;
+  deerDrivePlan = blankDeerDrivePlan();
+  clearRouteEndArrow();
+  updateDeerDriveActionButtons();
+  if(keepModalClosed) document.getElementById('modal-deerdrive-builder')?.classList.remove('open');
+  try{ saveLocal(); }catch(e){}
+  try{ renderPanel(); }catch(e){}
+  if(!silent){
+    document.getElementById('status-bar').innerHTML='DeerDrive Builder cleared. Start a new drive by choosing D/P, S/B, and wind.';
+  }
+}
+function getActiveScoutCampDataSnapshot(){
+  const scopedFromUrl = getCampIdFromUrl();
+  const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+  const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+  const genericCampId = String(genericCampData.campId || genericCampData.id || '').trim();
+  const activeCampId = String(scopedFromUrl || activeFromStorage || genericCampId || '').trim();
+  const scopedKey = campScopeKey(activeCampId, 'campData');
+  const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
+  return {activeCampId, scoped, generic: genericCampData};
+}
+function campHasSavedDeerDrives(){
+  const {scoped, generic} = getActiveScoutCampDataSnapshot();
+  return [scoped, generic].some(data => {
+    if(!data || typeof data !== 'object') return false;
+    return ['deerDrivePosts','deerDrives','savedDeerDrives','scoutDeerDrives'].some(key => Array.isArray(data[key]) && data[key].filter(Boolean).length > 0);
+  });
+}
+function clearStaleDeerDriveBuilderDraftIfNeeded(){
+  const hasDraft = Boolean((drivers && drivers.length) || (standers && standers.length) || (deerDrivePlan && (deerDrivePlan.driveName || deerDrivePlan.savedDriveSummary || deerDrivePlan.driverCount || deerDrivePlan.standerCount || (Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length))));
+  if(hasDraft && !campHasSavedDeerDrives()){
+    clearDeerDriveBuilderDraft({silent:true, keepModalClosed:true});
+    document.getElementById('status-bar').innerHTML='Old DeerDrive Builder draft cleared. CampDeerDrives has no saved drives, so Scout is ready for a new drive.';
+    return true;
+  }
+  return false;
+}
 
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
@@ -2033,10 +2094,13 @@ function autoDrawDeerDriveRoutes(){
   document.getElementById('status-bar').innerHTML='3. Auto-Draw Drive Route created the DeerDrive push routes with visible end arrows.';
 }
 function openDeerDriveBuilderFromToolbar(){
+  // Toolbar step 1 starts a fresh drive. Existing saved drives should be opened
+  // from CampDeerDrives/Open in Scout, not preloaded into the Builder.
+  clearDeerDriveBuilderDraft({silent:true, keepModalClosed:true});
   deerDriveAnchor = map.getCenter();
   setMode('deerdrivebuilder');
   openDeerDriveBuilderModal();
-  document.getElementById('status-bar').innerHTML='1. DeerDrive Builder — choose counts, then drag the blue and yellow circles into final positions on the map';
+  document.getElementById('status-bar').innerHTML='1. DeerDrive Builder — starting a new drive. Choose counts, wind, then drag the blue and yellow circles into position.';
 }
 
 // ===== DEERDRIVE BUILDER LOGIC START: DO NOT EDIT DURING MENU BAR CHANGES =====
@@ -2199,7 +2263,7 @@ function clearAllMarks(){
   acrePts = [];
   acreCalcM2 = 0;
   deerDriveAnchor = null;
-  deerDrivePlan = {driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+  deerDrivePlan = blankDeerDrivePlan();
   clearRouteEndArrow();
   map.closePopup();
   cleanupAcre();
@@ -3520,7 +3584,7 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
@@ -3597,7 +3661,8 @@ try{
   const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign({driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]}, d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    clearStaleDeerDriveBuilderDraftIfNeeded();
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
       const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
