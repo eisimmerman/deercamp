@@ -629,6 +629,38 @@ async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"")
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
+function mergeUniqueByIdOrTitle(...sources){
+  const out=[];
+  const seen=new Set();
+  sources.forEach(source=>{
+    (Array.isArray(source) ? source : []).forEach((item,idx)=>{
+      if(!item || typeof item !== "object") return;
+      const title=String(item.title || item.driveName || item.name || "").trim().toLowerCase();
+      const key=String(item.id || item.driveId || item.savedSummary?.id || title || `item-${out.length}-${idx}`).trim().toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push(item);
+    });
+  });
+  return out;
+}
+function getRawDeerDrivePosts(payload={}){
+  return mergeUniqueByIdOrTitle(
+    payload.deerDrivePosts,
+    payload.deerDrives,
+    payload.savedDeerDrives,
+    payload.scoutDeerDrives
+  );
+}
+function getRawDeerStandPosts(payload={}){
+  return mergeUniqueByIdOrTitle(
+    payload.deerStandPosts,
+    payload.deerStands,
+    payload.stands,
+    payload.savedDeerStands,
+    payload.scoutDeerStands
+  );
+}
 let data = {};
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
@@ -680,8 +712,8 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
-let deerDrivePosts = (Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : [])).filter(Boolean);
-let deerStandPosts = (Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : []))).filter(Boolean);
+let deerDrivePosts = getRawDeerDrivePosts(data).filter(Boolean);
+let deerStandPosts = getRawDeerStandPosts(data).filter(Boolean);
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
 const LEGACY_SEED_TITLES = new Set([
@@ -1173,8 +1205,8 @@ function visibleSections(){
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands);
-    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives);
+    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
+    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
     return !!enabledSections[map[s.key]];
   });
 }
@@ -2245,8 +2277,8 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
-    deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
-    deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
+    deerDrivePosts = normalizeDeerDrivePosts(getRawDeerDrivePosts(data));
+    deerStandPosts = normalizeDeerStandPosts(getRawDeerStandPosts(data));
 
     document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
     document.getElementById("campLocation").textContent = formatLocation();

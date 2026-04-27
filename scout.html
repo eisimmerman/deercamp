@@ -1660,8 +1660,12 @@ function compactDrivePayloadForCloud(payload={}){
   };
   const next = Object.assign({}, payload);
   next.enabledSections = Object.assign({}, payload.enabledSections || {}, {campdeerdrives:true, deerdrives:true, campupdate:true});
-  next.deerDrivePosts = (Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : []).map(compactDrive);
-  next.deerDrives = (Array.isArray(payload.deerDrives) ? payload.deerDrives : next.deerDrivePosts).map(compactDrive);
+  const rawPosts = Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts.filter(Boolean) : [];
+  const rawDrives = Array.isArray(payload.deerDrives) ? payload.deerDrives.filter(Boolean) : [];
+  const merged = rawPosts.length ? rawPosts : rawDrives;
+  const fallback = rawDrives.length ? rawDrives : rawPosts;
+  next.deerDrivePosts = merged.map(compactDrive);
+  next.deerDrives = fallback.length ? fallback.map(compactDrive) : next.deerDrivePosts.slice();
   return next;
 }
 async function saveDriveCampPayloadToCloud(activeCampId, payload){
