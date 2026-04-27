@@ -960,6 +960,16 @@
         stewardProfileUpdatedAt: nextCampData.stewardProfileUpdatedAt || nextCampData.profileUpdatedAt || new Date().toISOString(),
         storageMode: "profile-only"
       };
+      profileOnly.deerDrivePosts = Array.isArray(nextCampData.deerDrivePosts) ? nextCampData.deerDrivePosts.slice(0, 12) : [];
+      profileOnly.deerDrives = Array.isArray(nextCampData.deerDrives) ? nextCampData.deerDrives.slice(0, 12) : profileOnly.deerDrivePosts.slice();
+      profileOnly.savedDeerDrives = Array.isArray(nextCampData.savedDeerDrives) ? nextCampData.savedDeerDrives.slice(0, 12) : profileOnly.deerDrivePosts.slice();
+      profileOnly.scoutDeerDrives = Array.isArray(nextCampData.scoutDeerDrives) ? nextCampData.scoutDeerDrives.slice(0, 12) : profileOnly.deerDrivePosts.slice();
+      profileOnly.deerStandPosts = Array.isArray(nextCampData.deerStandPosts) ? nextCampData.deerStandPosts.slice(0, 20) : [];
+      profileOnly.deerStands = Array.isArray(nextCampData.deerStands) ? nextCampData.deerStands.slice(0, 20) : profileOnly.deerStandPosts.slice();
+      profileOnly.stands = Array.isArray(nextCampData.stands) ? nextCampData.stands.slice(0, 20) : profileOnly.deerStandPosts.slice();
+      profileOnly.savedDeerStands = Array.isArray(nextCampData.savedDeerStands) ? nextCampData.savedDeerStands.slice(0, 20) : profileOnly.deerStandPosts.slice();
+      profileOnly.lastDeerDriveSaveAt = nextCampData.lastDeerDriveSaveAt || "";
+      profileOnly.lastDeerStandSaveAt = nextCampData.lastDeerStandSaveAt || "";
       return stripLargeEmbeddedMedia(profileOnly, { maxDataUrlLength: 70000, keepProfilePhoto: true });
     }
 
@@ -975,6 +985,53 @@
         try { localStorage.removeItem(key); } catch {}
         return false;
       }
+    }
+
+    function campItemIdentity(item = {}, fallback = "") {
+      const title = String(item.title || item.driveName || item.standName || item.name || "").trim().toLowerCase();
+      return String(item.id || item.driveId || item.standId || item.savedSummary?.id || title || fallback).trim().toLowerCase();
+    }
+
+    function mergeUniqueCampItems(...sources) {
+      const out = [];
+      const seen = new Set();
+      sources.forEach(source => {
+        (Array.isArray(source) ? source : []).forEach((item, index) => {
+          if (!item || typeof item !== "object") return;
+          const key = campItemIdentity(item, `item-${out.length}-${index}`);
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          out.push({ ...item });
+        });
+      });
+      return out;
+    }
+
+    function getCurrentLocalCampSnapshots() {
+      return [
+        campData,
+        safeParse(localStorage.getItem(scopedCampDataKey), {}),
+        safeParse(localStorage.getItem(CAMP_DATA_KEY), {}),
+        safeParse(localStorage.getItem(scopedProfileDataKey), {}),
+        safeParse(localStorage.getItem(scopedDashboardKey), {}),
+        safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {})
+      ].filter(source => source && typeof source === "object");
+    }
+
+    function collectCampArraysFromSnapshots(keys = []) {
+      const snapshots = getCurrentLocalCampSnapshots();
+      const arrays = [];
+      snapshots.forEach(source => {
+        keys.forEach(key => {
+          if (Array.isArray(source[key])) arrays.push(source[key]);
+        });
+        if (source.dashboardSlim && typeof source.dashboardSlim === "object") {
+          keys.forEach(key => {
+            if (Array.isArray(source.dashboardSlim[key])) arrays.push(source.dashboardSlim[key]);
+          });
+        }
+      });
+      return mergeUniqueCampItems(...arrays);
     }
 
     function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
@@ -1070,6 +1127,10 @@
           .map(member => ({ ...member }))
       };
 
+      const preservedDeerDrivePosts = collectCampArraysFromSnapshots(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]);
+      const preservedDeerStandPosts = collectCampArraysFromSnapshots(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]);
+      const savedCampSnapshot = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
+
       const nextCampData = Object.assign({}, campData, {
         campId: state.campId,
         name: state.camp.name,
@@ -1095,7 +1156,17 @@
         dashboardMembers: nextDashboard.members.map(member => ({ ...member })),
         dashboardPeople: nextDashboard.people.map(member => ({ ...member })),
         dashboardSlim: nextDashboard,
-        profileUpdatedAt
+        profileUpdatedAt,
+        deerDrivePosts: preservedDeerDrivePosts,
+        deerDrives: preservedDeerDrivePosts.slice(),
+        savedDeerDrives: preservedDeerDrivePosts.slice(),
+        scoutDeerDrives: preservedDeerDrivePosts.slice(),
+        deerStandPosts: preservedDeerStandPosts,
+        deerStands: preservedDeerStandPosts.slice(),
+        stands: preservedDeerStandPosts.slice(),
+        savedDeerStands: preservedDeerStandPosts.slice(),
+        lastDeerDriveSaveAt: savedCampSnapshot.lastDeerDriveSaveAt || campData.lastDeerDriveSaveAt || "",
+        lastDeerStandSaveAt: savedCampSnapshot.lastDeerStandSaveAt || campData.lastDeerStandSaveAt || ""
       });
 
       const stewardProfile = getStewardProfileSnapshot(memberProfilesOut);

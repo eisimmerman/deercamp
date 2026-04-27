@@ -41,7 +41,6 @@
   .mobile-scout-pill{justify-content:center}
   .mobile-scout-pill .scout-product-icon{width:22px;height:22px;flex-basis:22px}
   .menu-scout-icon{display:inline-block;width:18px;height:18px;border-radius:999px;object-fit:cover;vertical-align:-4px;margin-right:7px}
-  .menu-dashboard-icon{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:999px;margin-right:7px;vertical-align:-3px;background:linear-gradient(180deg,#6a4427,#452a16);color:#fff8ef;font-size:.74rem;line-height:1;box-shadow:0 1px 4px rgba(0,0,0,.16)}
   .menu{display:none;position:absolute;top:calc(100% - 6px);right:18px;min-width:220px;padding:10px;border-radius:16px;background:rgba(255,250,244,.96);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1001}
   .menu.open{display:block}
   .menu a{display:block;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:700}
@@ -629,37 +628,38 @@ async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"")
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
-function mergeUniqueByIdOrTitle(...sources){
-  const out=[];
-  const seen=new Set();
-  sources.forEach(source=>{
-    (Array.isArray(source) ? source : []).forEach((item,idx)=>{
-      if(!item || typeof item !== "object") return;
-      const title=String(item.title || item.driveName || item.name || "").trim().toLowerCase();
-      const key=String(item.id || item.driveId || item.savedSummary?.id || title || `item-${out.length}-${idx}`).trim().toLowerCase();
-      if(seen.has(key)) return;
+function campItemIdentity(item = {}, fallback = "") {
+  const title = String(item.title || item.driveName || item.standName || item.name || "").trim().toLowerCase();
+  return String(item.id || item.driveId || item.standId || item.savedSummary?.id || title || fallback).trim().toLowerCase();
+}
+function mergeUniqueCampItems(...sources) {
+  const out = [];
+  const seen = new Set();
+  sources.forEach(source => {
+    (Array.isArray(source) ? source : []).forEach((item, index) => {
+      if (!item || typeof item !== "object") return;
+      const key = campItemIdentity(item, `item-${out.length}-${index}`);
+      if (!key || seen.has(key)) return;
       seen.add(key);
       out.push(item);
     });
   });
   return out;
 }
-function getRawDeerDrivePosts(payload={}){
-  return mergeUniqueByIdOrTitle(
-    payload.deerDrivePosts,
-    payload.deerDrives,
-    payload.savedDeerDrives,
-    payload.scoutDeerDrives
-  );
-}
-function getRawDeerStandPosts(payload={}){
-  return mergeUniqueByIdOrTitle(
-    payload.deerStandPosts,
-    payload.deerStands,
-    payload.stands,
-    payload.savedDeerStands,
-    payload.scoutDeerStands
-  );
+function collectCampItemsFromSources(keys = [], sources = []) {
+  const arrays = [];
+  sources.forEach(source => {
+    if (!source || typeof source !== "object") return;
+    keys.forEach(key => {
+      if (Array.isArray(source[key])) arrays.push(source[key]);
+    });
+    if (source.dashboardSlim && typeof source.dashboardSlim === "object") {
+      keys.forEach(key => {
+        if (Array.isArray(source.dashboardSlim[key])) arrays.push(source.dashboardSlim[key]);
+      });
+    }
+  });
+  return mergeUniqueCampItems(...arrays);
 }
 let data = {};
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
@@ -676,9 +676,40 @@ await hydrateCampFromCloud(activeCampId);
 
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
+const postHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
+const postHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
+const postHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
 let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
 data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
+
+const campLoadSources = [
+  preHydrateScoped,
+  preHydrateLegacy,
+  preHydrateProfileData,
+  preHydrateDashboard,
+  preHydrateGenericDashboard,
+  scoped,
+  legacy,
+  postHydrateProfileData,
+  postHydrateDashboard,
+  postHydrateGenericDashboard,
+  data
+];
+const preservedLoadDeerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], campLoadSources);
+const preservedLoadDeerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], campLoadSources);
+if (preservedLoadDeerDrivePosts.length) {
+  data.deerDrivePosts = preservedLoadDeerDrivePosts;
+  data.deerDrives = preservedLoadDeerDrivePosts.slice();
+  data.savedDeerDrives = preservedLoadDeerDrivePosts.slice();
+  data.scoutDeerDrives = preservedLoadDeerDrivePosts.slice();
+}
+if (preservedLoadDeerStandPosts.length) {
+  data.deerStandPosts = preservedLoadDeerStandPosts;
+  data.deerStands = preservedLoadDeerStandPosts.slice();
+  data.stands = preservedLoadDeerStandPosts.slice();
+  data.savedDeerStands = preservedLoadDeerStandPosts.slice();
+}
 
 const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
@@ -712,8 +743,8 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
-let deerDrivePosts = getRawDeerDrivePosts(data).filter(Boolean);
-let deerStandPosts = getRawDeerStandPosts(data).filter(Boolean);
+let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data]).filter(Boolean);
+let deerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], [data]).filter(Boolean);
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
 const LEGACY_SEED_TITLES = new Set([
@@ -1139,12 +1170,8 @@ function bindMenuLinks(){
 }
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
-  const dashboardLink = `<a href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>`;
-  const sectionLinks = visibleSections()
-    .slice()
-    .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
-    .map(section => `<a href="#${section.key}">${section.title}</a>`)
-    .join('');
+  const dashboardLink = hasStewardDashboardAccess() ? `<a href="${esc(buildStewardDashboardUrl())}">Steward Dashboard</a>` : "";
+  const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
   menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
   const headerScoutBtn = document.getElementById("headerScoutBtn");
   const mobileScoutBtn = document.getElementById("mobileScoutBtn");
@@ -2277,8 +2304,8 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
-    deerDrivePosts = normalizeDeerDrivePosts(getRawDeerDrivePosts(data));
-    deerStandPosts = normalizeDeerStandPosts(getRawDeerStandPosts(data));
+    deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
+    deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
 
     document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
     document.getElementById("campLocation").textContent = formatLocation();
