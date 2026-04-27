@@ -447,7 +447,8 @@
       <input type="hidden" id="campDeerDrives" value="">
     </div>
 
-    <button type="submit" class="build-btn">Build My Camp</button>
+    <button type="submit" class="build-btn" id="buildCampSubmitBtn">Build My Camp</button>
+    <div id="buildFormStatus" class="field-helper" aria-live="polite"></div>
 
   </form>
 
@@ -1896,6 +1897,68 @@ updateTraditionBuilderStatus();
 renderRecipePreview();
 
 
+function setBuildFormStatus(message, isError = false) {
+  const statusEl = document.getElementById("buildFormStatus");
+  if (!statusEl) return;
+  statusEl.textContent = message || "";
+  statusEl.classList.toggle("is-warning", Boolean(isError));
+}
+
+function setBuildButtonBusy(isBusy = false) {
+  const submitBtn = document.getElementById("buildCampSubmitBtn");
+  if (!submitBtn) return;
+  submitBtn.disabled = Boolean(isBusy);
+  submitBtn.textContent = isBusy ? "Building Your Camp..." : "Build My Camp";
+}
+
+function withTimeout(promise, timeoutMs = 1200) {
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((resolve) => setTimeout(resolve, timeoutMs))
+  ]);
+}
+
+function saveLastWelcomeEmailStatus(payload = {}) {
+  try {
+    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify(payload));
+  } catch (error) {
+    // Local storage may be full or unavailable. Do not block camp creation.
+  }
+}
+
+function sendStewardWelcomeEmailInBackground(welcomePayload = {}, stewardEmail = "") {
+  if (!stewardEmail) {
+    saveLastWelcomeEmailStatus({
+      ok: false,
+      sentAt: new Date().toISOString(),
+      error: "No steward email provided."
+    });
+    return;
+  }
+
+  Promise.resolve()
+    .then(() => triggerStewardWelcomeEmail(welcomePayload))
+    .then((welcomeResult) => {
+      saveLastWelcomeEmailStatus({
+        ok: true,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        subject: welcomeResult?.subject || "",
+        setupLink: welcomeResult?.setupLink || ""
+      });
+    })
+    .catch((error) => {
+      console.error("Steward welcome email failed:", error);
+      saveLastWelcomeEmailStatus({
+        ok: false,
+        sentAt: new Date().toISOString(),
+        to: stewardEmail,
+        error: error.message || "Welcome email failed."
+      });
+    });
+}
+
+
 function incrementCreatedCampCounter(campId) {
   const COUNTER_KEY = "deercamp.createdCount";
   const IDS_KEY = "deercamp.createdCampIds";
@@ -1927,7 +1990,16 @@ function incrementCreatedCampCounter(campId) {
 document.getElementById("campForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
-  await autofillZip(false);
+  setBuildButtonBusy(true);
+  setBuildFormStatus("Building your DeerCamp and opening the next setup step...");
+
+  try {
+    await withTimeout(autofillZip(false), 1200);
+  } catch (error) {
+    // ZIP lookup should help the Steward, not block camp creation.
+  }
+
+  try {
 
   const name = document.getElementById("campName").value.trim();
   const city = document.getElementById("campCity").value.trim();
@@ -2104,37 +2176,16 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     send: true
   };
 
-  if (stewardEmail) {
-    try {
-      const welcomeResult = await Promise.race([
-        triggerStewardWelcomeEmail(welcomePayload),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("Welcome email timed out.")), 3500))
-      ]);
-      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
-        ok: true,
-        sentAt: new Date().toISOString(),
-        to: stewardEmail,
-        subject: welcomeResult?.subject || "",
-        setupLink: welcomeResult?.setupLink || ""
-      }));
-    } catch (error) {
-      console.error("Steward welcome email failed:", error);
-      localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
-        ok: false,
-        sentAt: new Date().toISOString(),
-        to: stewardEmail,
-        error: error.message || "Welcome email failed."
-      }));
-    }
-  } else {
-    localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify({
-      ok: false,
-      sentAt: new Date().toISOString(),
-      error: "No steward email provided."
-    }));
-  }
+  sendStewardWelcomeEmailInBackground(welcomePayload, stewardEmail);
 
+  setBuildFormStatus("Camp created. Opening Steward setup...");
   window.location.href = buildBuilderResumeUrl("buildyourcamp.html", welcomePayload);
+
+  } catch (error) {
+    console.error("Build camp submit failed:", error);
+    setBuildButtonBusy(false);
+    setBuildFormStatus("Camp could not be created. Please check the fields and try again.", true);
+  }
 });
 </script>
 </body>
