@@ -91,26 +91,10 @@
     .member-resend{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(73,102,71,.18);background:#fff;color:var(--green);font-size:.78rem;font-weight:700;cursor:pointer}
     .member-delete{min-height:28px;padding:4px 10px;border-radius:999px;border:1px solid rgba(139,45,29,.18);background:#fff;color:#8b2d1d;font-size:.78rem;font-weight:700;cursor:pointer}
     .member-form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .member-invite-actions{padding:12px 0 4px;border-bottom:1px solid rgba(69,42,22,.08)}
-    .profile-form-actions{padding-top:2px}
     .member-form-note{min-height:1.2em;color:var(--brown-deep);font-size:.9rem;font-weight:700}
 
     .member-form-note.is-success{padding:10px 12px;border-radius:14px;background:rgba(73,102,71,.12);color:#27411e;border:1px solid rgba(73,102,71,.18)}
     .member-form-note.is-error{padding:10px 12px;border-radius:14px;background:rgba(139,45,29,.08);color:#8b2d1d;border:1px solid rgba(139,45,29,.18)}
-    .member-invite-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-    .invite-stat{padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.48);border:1px solid rgba(69,42,22,.08)}
-    .invite-stat strong{display:block;font-size:1.45rem;line-height:1;color:var(--brown-deep);margin-bottom:5px}
-    .invite-stat span{display:block;color:var(--muted);font-size:.86rem;line-height:1.35}
-    .member-help-callout{padding:12px 14px;border-radius:18px;background:rgba(106,68,39,.07);border:1px solid rgba(69,42,22,.08);color:var(--muted);line-height:1.5;font-size:.93rem}
-    .member-row{align-items:start}
-    .member-row.is-selected{outline:3px solid rgba(177,121,45,.24);background:linear-gradient(180deg, rgba(255,246,221,.74), rgba(255,255,255,.24))}
-    .member-status-pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800;white-space:nowrap}
-    .member-status-pill.needs-email{background:rgba(139,45,29,.08);color:#8b2d1d}
-    .member-status-pill.ready{background:rgba(177,121,45,.16);color:#855713}
-    .member-status-pill.sent{background:rgba(106,68,39,.10);color:var(--brown-deep)}
-    .member-status-pill.active{background:rgba(73,102,71,.12);color:var(--green)}
-    .member-editor-intro{grid-column:1 / -1;padding:12px 14px;border-radius:18px;background:rgba(255,255,255,.42);border:1px solid rgba(69,42,22,.08);color:var(--muted);line-height:1.5}
-    .member-editor-intro strong{display:block;color:var(--brown-deep);margin-bottom:4px}
     .profile-editor-block{grid-column:1 / -1;display:grid;gap:14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.36);border:1px solid rgba(69,42,22,.08)}
     .profile-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .profile-editor-head strong{color:var(--brown-deep)}
@@ -147,7 +131,7 @@
     @media (max-width:980px){.hero-panel,.grid-2{grid-template-columns:1fr}.preview-frame{min-height:240px}}
     @media (max-width:720px){
       .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions{flex-direction:column}
-      .btn{width:100%}.mini-stats,.member-invite-summary{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
+      .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
       .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
     }
   </style>
@@ -242,24 +226,13 @@
       <section class="section-card">
         <div>
           <h3>2. Members and invites</h3>
-          <p class="helper">Add people by name first. Add email when available. A member becomes active on the live camp only after accepting their invite.</p>
+          <p class="helper">See who is Active and who needs an email for the camp invitation.</p>
         </div>
-
-        <div class="member-invite-summary" aria-label="Member invitation summary">
-          <div class="invite-stat"><strong id="memberActiveCount">0</strong><span>Active</span></div>
-          <div class="invite-stat"><strong id="memberInvitedCount">0</strong><span>Invites sent</span></div>
-          <div class="invite-stat"><strong id="memberNeedsEmailCount">0</strong><span>Need email</span></div>
-        </div>
-        <div class="member-help-callout">Names can be saved now, even without emails. Use Edit when you have an email, then Send Invite. Draft and invited members stay off the live camp roster until they accept.</div>
 
         <div class="member-list" id="memberList"></div>
 
         <form id="memberForm" class="form-grid">
           <input id="memberEditIndex" type="hidden" value="" />
-          <div class="member-editor-intro">
-            <strong id="memberEditorTitle">Add or edit a camp member</strong>
-            Save a name now, add an email later, and send the invite when ready.
-          </div>
           <div id="memberNameField" class="field">
             <label for="memberName">Member Name</label>
             <input id="memberName" type="text" placeholder="Ben Larson" />
@@ -272,11 +245,6 @@
             <label for="memberNote">Quick Note</label>
             <input id="memberNote" type="text" placeholder="West Ridge crew" />
           </div>
-          <div class="field span-2 member-form-actions member-invite-actions">
-            <button id="memberSaveEmailBtn" class="btn btn-primary" type="button">Save Member Email</button>
-            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
-          </div>
-          <div id="memberInviteNote" class="field span-2 member-form-note" aria-live="polite"></div>
           <div class="profile-editor-block">
             <div class="profile-editor-head">
               <div>
@@ -332,10 +300,11 @@
               </div>
             </div>
           </div>
-          <div class="field span-2 member-form-actions profile-form-actions">
-            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Save Member</button>
-            <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
+          <div class="field span-2 member-form-actions">
+            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
+            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
             <button id="memberDeleteBtn" class="btn member-delete" type="button" hidden>Delete Member</button>
+            <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
           </div>
           <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
         </form>
@@ -442,21 +411,10 @@
       if (variant) note.classList.add(`is-${variant}`);
     }
 
-    function setMemberInviteNote(message = "", variant = "") {
-      const note = document.getElementById("memberInviteNote");
-      if (!note) return;
-      note.textContent = message;
-      note.classList.remove("is-success", "is-error");
-      if (variant) note.classList.add(`is-${variant}`);
-    }
-
     function clearMemberFormNoteStyle() {
-      ["memberFormNote", "memberInviteNote"].forEach(id => {
-        const note = document.getElementById(id);
-        if (!note) return;
-        note.classList.remove("is-success", "is-error");
-        note.textContent = "";
-      });
+      const note = document.getElementById("memberFormNote");
+      if (!note) return;
+      note.classList.remove("is-success", "is-error");
     }
 
     function isLikelyEmail(value = "") {
@@ -1214,53 +1172,42 @@
       updateInviteButton();
     }
 
-    function getMemberStatusMeta(member = {}) {
-      const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
-      const status = normalizeMemberStatus(member);
-      if (role === "Camp Steward") return { label: "Camp Steward", css: "active", status, role };
-      if (status === "Active") return { label: "Active", css: "active", status, role };
-      if (status === "Invite Sent") return { label: "Invite Sent", css: "sent", status, role };
-      if (status === "Ready") return { label: "Ready to Invite", css: "ready", status, role };
-      if (status === "Sending") return { label: "Sending", css: "sent", status, role };
-      if (status === "Failed") return { label: "Invite Failed", css: "needs-email", status, role };
-      return { label: "Needs Email", css: "needs-email", status: "Draft", role };
-    }
-
     function renderMembers() {
       const list = document.getElementById("memberList");
       const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
-      const activeCount = items.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && normalizeMemberStatus(member) === "Active").length;
-      const invitedCount = items.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && normalizeMemberStatus(member) === "Invite Sent").length;
-      const needsEmailCount = items.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && !String(member.email || "").trim()).length;
-      const setCount = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value); };
-      setCount("memberActiveCount", activeCount);
-      setCount("memberInvitedCount", invitedCount);
-      setCount("memberNeedsEmailCount", needsEmailCount);
-
-      const selectedIndex = document.getElementById("memberEditIndex")?.value || "";
       list.innerHTML = items.length ? items.map((member, index) => {
-        const meta = getMemberStatusMeta(member);
+        const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+        const statusLine = role === "Camp Steward"
+          ? ""
+          : (member.status === "Sending"
+              ? " • Sending..."
+              : member.status === "Invite Sent"
+                ? " • Invite sent"
+                : member.status === "Failed"
+                  ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
+                  : member.pendingInvite
+                    ? " • Ready to send • Tap Send Member Invite button below"
+                    : "");
         const emailLine = member.email
-          ? `${member.email}`
-          : (meta.role === "Camp Steward" ? "Add steward email when available." : "No email yet — tap Edit to add.");
-        const noteLine = member.note ? ` • ${member.note}` : "";
-        const resendButton = meta.role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && String(member.email || "").trim()
+          ? `${member.email}${statusLine}`
+          : (role === "Camp Steward" ? "Add steward email now." : "No email yet - tap Edit to add. Add member details later.");
+        const extraNote = member.note ? ` • ${member.note}` : "";
+        const resendButton = role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && String(member.email || "").trim()
           ? `<button class="member-resend" type="button" data-resend-member="${index}">${member.status === "Failed" ? "Retry" : "Resend"}</button>`
           : "";
         return `
-        <div class="member-row ${String(selectedIndex) === String(index) ? "is-selected" : ""}">
+        <div class="member-row">
           <div>
             <div class="member-name">${member.name || "Camp Member"}</div>
-            <div class="member-sub">${emailLine}${noteLine}</div>
+            <div class="member-sub">${emailLine}${extraNote}</div>
           </div>
           <div class="member-actions">
-            <div class="member-status-pill ${meta.css}">${meta.label}</div>
-            <div class="member-pill ${meta.role === "Camp Steward" ? "gold" : "green"}">${meta.role}</div>
+            <div class="member-pill ${role === "Camp Steward" ? "gold" : "green"}">${role}</div>
             ${resendButton}
             <button class="member-edit" type="button" data-edit-member="${index}">Edit</button>
           </div>
         </div>`;
-      }).join("") : `<div class="member-row"><div><div class="member-name">No members yet</div><div class="member-sub">Add the first member below. You can save a name now and add email later.</div></div></div>`;
+      }).join("") : `<div class="member-row"><div><div class="member-name">No members yet</div><div class="member-sub">Add the first member below.</div></div></div>`;
 
       list.querySelectorAll("[data-edit-member]").forEach(button => {
         button.addEventListener("click", () => loadMemberForEdit(Number(button.dataset.editMember)));
@@ -1278,11 +1225,8 @@
         void field.offsetWidth;
         field.classList.add("is-editing");
       });
-      const title = document.getElementById("memberEditorTitle");
-      if (title) title.textContent = name ? `Selected member: ${name}` : "Add or edit a camp member";
       const note = document.getElementById("memberFormNote");
-      if (note) note.textContent = "";
-      clearMemberFormNoteStyle();
+      if (note) note.textContent = name ? `Editing ${name} below.` : "";
     }
 
     function clearMemberEditPulse() {
@@ -1295,31 +1239,12 @@
       clearMemberFormNoteStyle();
     }
 
-    function getCurrentMemberFormBasics() {
-      return {
-        editIndex: document.getElementById("memberEditIndex")?.value || "",
-        name: document.getElementById("memberName")?.value.trim() || "",
-        email: document.getElementById("memberEmail")?.value.trim() || "",
-        note: document.getElementById("memberNote")?.value.trim() || ""
-      };
-    }
-
-    function getSelectedMemberFromForm() {
-      const { editIndex } = getCurrentMemberFormBasics();
-      return editIndex !== "" ? state.members[Number(editIndex)] : null;
-    }
-
     function updateInviteButton() {
       const inviteBtn = document.getElementById("memberInviteBtn");
       if (!inviteBtn) return;
-      const { name, email } = getCurrentMemberFormBasics();
-      const selected = getSelectedMemberFromForm();
-      const isSteward = String(selected?.role || "").toLowerCase() === "camp steward";
-      const selectedStatus = normalizeMemberStatus(selected || {});
-      const canInviteSelected = Boolean(selected && !isSteward && String(selected.email || "").trim() && ["Ready", "Failed"].includes(selectedStatus));
-      const canInviteUnsaved = Boolean(!selected && name && email && isLikelyEmail(email));
-      inviteBtn.hidden = !(canInviteSelected || canInviteUnsaved);
-      inviteBtn.textContent = selectedStatus === "Failed" ? "Retry Member Invite" : "Send Member Invite";
+      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+      inviteBtn.hidden = pending.length === 0;
+      inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
     }
 
     async function sendMemberInvites(members) {
@@ -1424,112 +1349,6 @@
       }
     }
 
-    async function saveMemberInviteBasics({ shouldReset = false, showMessage = true } = {}) {
-      const { editIndex, name, email, note } = getCurrentMemberFormBasics();
-      if (!name) {
-        setMemberInviteNote("Add a member name first.", "error");
-        showToast("Add a member name first.");
-        return null;
-      }
-      if (email && !isLikelyEmail(email)) {
-        setMemberInviteNote("Enter a valid member email before saving.", "error");
-        showToast("Enter a valid member email before saving.");
-        return null;
-      }
-      const stewardEmailLower = String(state.stewardEmail || '').trim().toLowerCase();
-      const emailLower = String(email || '').trim().toLowerCase();
-      const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
-      const editingRole = String(editingMember?.role || '').trim().toLowerCase();
-      if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
-        setMemberInviteNote("Member email cannot match the Camp Steward email.", "error");
-        showToast("Member email cannot match the Camp Steward email.");
-        return null;
-      }
-
-      let member;
-      if (editIndex !== "") {
-        member = state.members[Number(editIndex)];
-        if (!member) return null;
-        const previousEmail = String(member.email || "").trim();
-        const previousStatus = String(member.status || "").trim().toLowerCase();
-        member.name = name;
-        member.email = email;
-        member.note = note;
-        if (String(member.role || "").toLowerCase() === "camp steward") {
-          state.stewardName = name;
-          state.stewardEmail = email;
-          member.pendingInvite = false;
-          member.status = "Active";
-        } else if (!email) {
-          member.pendingInvite = false;
-          member.status = "Draft";
-          member.inviteToken = "";
-          member.inviteSentAt = "";
-        } else if ((previousStatus === "active" || previousStatus === "accepted") && previousEmail.toLowerCase() === email.toLowerCase()) {
-          member.pendingInvite = false;
-          member.status = "Active";
-        } else if (previousStatus === "invite sent" && previousEmail.toLowerCase() === email.toLowerCase()) {
-          member.pendingInvite = false;
-          member.status = "Invite Sent";
-        } else {
-          member.pendingInvite = true;
-          member.status = "Ready";
-          member.inviteToken = "";
-          member.inviteSentAt = "";
-        }
-        member.inviteError = "";
-      } else {
-        member = {
-          name,
-          email,
-          note,
-          role: "Camp Member",
-          status: email ? "Ready" : "Draft",
-          pendingInvite: Boolean(email),
-          inviteToken: "",
-          inviteSentAt: "",
-          inviteError: ""
-        };
-        const duplicateIndex = state.members.findIndex(existing => memberIdentityKey(existing) === memberIdentityKey(member));
-        if (duplicateIndex >= 0) {
-          purgeMemberEverywhere(state.members[duplicateIndex]);
-        }
-        state.members.push(member);
-      }
-
-      const saveBtn = document.getElementById("memberSaveEmailBtn");
-      const oldLabel = saveBtn ? saveBtn.textContent : "";
-      try {
-        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = "Saving..."; }
-        const savedCampData = syncCampData();
-        const savedIndex = state.members.findIndex(existing => membersMatch(existing, member));
-        if (savedIndex >= 0) document.getElementById("memberEditIndex").value = String(savedIndex);
-        renderMembers();
-        renderPreview();
-        updateInviteButton();
-        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
-          await DeerCampCloud.saveCamp(state.campId, savedCampData);
-        }
-        if (showMessage) {
-          const message = email ? `${name} email saved. Ready to send invite.` : `${name} saved. Add an email when you have it.`;
-          setMemberInviteNote(message, "success");
-          showToast(message);
-        }
-        if (shouldReset) resetMemberForm();
-        return state.members[Number(document.getElementById("memberEditIndex").value)] || member;
-      } catch (error) {
-        console.error("Member email save failed.", error);
-        setMemberInviteNote(`${name} email did not save. Check browser storage/console, then try again.`, "error");
-        showToast("Member email save failed.");
-        return null;
-      } finally {
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.textContent = oldLabel || "Save Member Email";
-        }
-      }
-    }
-
     function loadMemberForEdit(index) {
       const member = state.members[index];
       if (!member) return;
@@ -1538,7 +1357,7 @@
       document.getElementById("memberEmail").value = member.email || "";
       document.getElementById("memberNote").value = member.note || "";
       writeProfileFieldsToForm(member);
-      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward" : "Save Member";
+      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward Profile" : "Save Member Profile";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) {
         const isSteward = String(member.role || "").toLowerCase() === "camp steward";
@@ -1553,7 +1372,7 @@
       document.getElementById("memberForm").reset();
       document.getElementById("memberEditIndex").value = "";
       clearMemberPhoto();
-      document.getElementById("memberSubmitBtn").textContent = "Save Member";
+      document.getElementById("memberSubmitBtn").textContent = "Add Member";
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) deleteBtn.hidden = true;
       clearMemberEditPulse();
@@ -1699,7 +1518,7 @@
       }
 
       if (email && !isLikelyEmail(email)) {
-        setMemberInviteNote("Enter a valid member email before saving.", "error");
+        setMemberFormNote("Enter a valid member email before saving.", "error");
         showToast("Enter a valid member email before saving.");
         return;
       }
@@ -1709,7 +1528,7 @@
       const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
       const editingRole = String(editingMember?.role || '').trim().toLowerCase();
       if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
-        setMemberInviteNote("Member email cannot match the Camp Steward email.", "error");
+        setMemberFormNote("Member email cannot match the Camp Steward email.", "error");
         showToast("Member email cannot match the Camp Steward email.");
         return;
       }
@@ -1784,7 +1603,7 @@
           if (submitBtn) {
             submitBtn.disabled = false;
             setTimeout(() => {
-              submitBtn.textContent = isStewardSave ? "Save Steward" : (oldSubmitLabel || "Save Member");
+              submitBtn.textContent = isStewardSave ? "Save Steward Profile" : (oldSubmitLabel || "Save Member Profile");
             }, 2400);
           }
         }
@@ -1821,44 +1640,42 @@
       showToast(`${name} added to the camp.`);
     });
 
-    document.getElementById("memberSaveEmailBtn")?.addEventListener("click", () => saveMemberInviteBasics({ showMessage: true }));
-
-    ["memberName", "memberEmail", "memberNote"].forEach(id => {
-      document.getElementById(id)?.addEventListener("input", updateInviteButton);
-    });
-
     document.getElementById("memberInviteBtn").addEventListener("click", async () => {
       const inviteBtn = document.getElementById("memberInviteBtn");
-      let member = getSelectedMemberFromForm();
-      if (!member || String(member.email || "").trim() !== String(document.getElementById("memberEmail")?.value || "").trim()) {
-        member = await saveMemberInviteBasics({ showMessage: false });
-      }
-      if (!member || String(member.role || "").toLowerCase() === "camp steward" || !String(member.email || "").trim()) {
-        showToast("Add and save a member email before sending the invite.");
+      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+      if (!pending.length) {
+        showToast("No new member invites are ready to send.");
         return;
       }
 
       const originalLabel = inviteBtn.textContent;
       inviteBtn.disabled = true;
-      inviteBtn.textContent = "Sending Invite...";
-      member.status = "Sending";
-      member.inviteError = "";
+      inviteBtn.textContent = "Sending Invites...";
+      pending.forEach(member => {
+        member.status = "Sending";
+      });
       renderMembers();
 
-      const results = await sendMemberInvites([member]);
-      const result = results[0];
-      if (result && result.success) {
-        result.member.pendingInvite = false;
-        result.member.status = "Invite Sent";
-        result.member.inviteToken = result.inviteToken;
-        result.member.inviteSentAt = new Date().toISOString();
-        result.member.inviteError = "";
-      } else if (result) {
-        result.member.status = "Failed";
-        result.member.pendingInvite = true;
-        result.member.inviteError = result.error || "Failed to send invite.";
-        console.error(`Invite failed for ${result.member.name}:`, result.error);
-      }
+      const results = await sendMemberInvites(pending);
+      let successCount = 0;
+      let failCount = 0;
+
+      results.forEach(result => {
+        if (result.success) {
+          result.member.pendingInvite = false;
+          result.member.status = "Invite Sent";
+          result.member.inviteToken = result.inviteToken;
+          result.member.inviteSentAt = new Date().toISOString();
+          result.member.inviteError = "";
+          successCount += 1;
+        } else {
+          result.member.status = "Failed";
+          result.member.pendingInvite = true;
+          result.member.inviteError = result.error || "Failed to send invite.";
+          failCount += 1;
+          console.error(`Invite failed for ${result.member.name}:`, result.error);
+        }
+      });
 
       inviteBtn.disabled = false;
       inviteBtn.textContent = originalLabel;
@@ -1866,13 +1683,13 @@
       renderMembers();
       renderPreview();
       updateInviteButton();
-      if (result && result.success) {
-        setMemberInviteNote(`Invite sent to ${member.name}.`, "success");
-        showToast(`Invite sent to ${member.name}.`);
+      if (failCount === 0) {
+        showToast(successCount > 1 ? `${successCount} member invites sent.` : `Invite sent to ${pending[0].name}.`);
+      } else if (successCount > 0) {
+        showToast(`${successCount} sent, ${failCount} failed.`);
       } else {
-        const errorMessage = result?.error || "No invite was sent.";
-        setMemberInviteNote(errorMessage, "error");
-        showToast(errorMessage);
+        const firstError = results.find(result => !result.success)?.error || "No invites were sent.";
+        showToast(firstError);
       }
     });
 
