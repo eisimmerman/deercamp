@@ -97,10 +97,6 @@ header::-webkit-scrollbar{height:0;}
 /* STATUS BAR */
 #status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
 
-.scout-toast{position:fixed;right:14px;bottom:48px;z-index:2200;max-width:min(360px,calc(100vw - 28px));padding:10px 12px;border-radius:10px;background:rgba(18,10,2,.96);border:1px solid var(--moss);color:#cffff1;font-size:.62rem;line-height:1.45;box-shadow:0 10px 28px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s ease,transform .18s ease;}
-.scout-toast.show{opacity:1;transform:translateY(0);}
-
-
 /* FABs */
 .fab{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:1000;border-radius:20px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.6);display:none;border:none;transition:background .15s;}
 .fab.visible{display:block;}
@@ -817,32 +813,6 @@ function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
 }
 
-function showScoutToast(message='', duration=3600){
-  let toast=document.getElementById('scout-toast');
-  if(!toast){
-    toast=document.createElement('div');
-    toast.id='scout-toast';
-    toast.className='scout-toast';
-    document.body.appendChild(toast);
-  }
-  toast.textContent=String(message||'');
-  toast.classList.add('show');
-  clearTimeout(showScoutToast._timer);
-  showScoutToast._timer=setTimeout(()=>toast.classList.remove('show'), duration);
-}
-function pingCampRefresh(kind='scout'){
-  const stamp=String(Date.now());
-  try{localStorage.setItem('deercamp.lastScoutRefreshPing', stamp);}catch(e){}
-  try{localStorage.setItem(`deercamp.last${String(kind||'scout').replace(/(^.|[^a-z0-9].)/gi, m=>m.toUpperCase()).replace(/[^a-z0-9]/gi,'')}Ping`, stamp);}catch(e){}
-  try{
-    if(window.BroadcastChannel){
-      const channel=new BroadcastChannel('deercamp-refresh');
-      channel.postMessage({kind, campId:getCampIdFromUrl()||localStorage.getItem(ACTIVE_CAMP_KEY)||'', at:Number(stamp)});
-      setTimeout(()=>{try{channel.close();}catch(e){}},250);
-    }
-  }catch(e){}
-}
-
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
 
@@ -1285,6 +1255,17 @@ function renderSaveDriveRouteTiles(){
   const grid = document.getElementById('save-drive-route-grid');
   if(!grid) return;
   const driveRoutes = getSavedDriveRoutes();
+  const savedRouteSummaries = Array.isArray(deerDrivePlan.savedDriveRouteSummaries) ? deerDrivePlan.savedDriveRouteSummaries : [];
+  if(!driveRoutes.length && savedRouteSummaries.length){
+    grid.innerHTML = savedRouteSummaries.map((route, idx)=>`
+      <div class="save-drive-route-tile">
+        <div class="save-drive-route-name">🦌 ${route.name || `${getCurrentDriveName()} Route ${idx+1}`}</div>
+        <div class="save-drive-route-meta">${Number(route.miles || 0).toFixed(2)} mile · ${route.direction || 'Saved route'}</div>
+        <div class="save-drive-route-badge">Deer Drive</div>
+      </div>
+    `).join('');
+    return;
+  }
   if(!driveRoutes.length){
     grid.innerHTML = `<div class="save-drive-empty" style="grid-column:1 / -1;">No auto-drawn drive routes are available yet. Tap 3. Auto-Draw Drive Route first.</div>`;
     return;
@@ -1305,11 +1286,16 @@ async function renderSaveDriveSummary(){
   document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
   document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
 
-  const summaryImage = await generateDeerDriveThumbnailDataUrl(760, 428);
+  const existingImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {});
+  const generatedImage = existingImage || await generateDeerDriveThumbnailDataUrl(760, 428);
   deerDrivePlan.savedDriveSummary = Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
-    thumbnail: summaryImage,
-    originalMapImage: summaryImage,
-    detailImage: summaryImage
+    thumbnail: generatedImage,
+    originalMapImage: generatedImage,
+    detailImage: generatedImage,
+    imageUrl: !isDataMediaUrl(generatedImage) ? generatedImage : (deerDrivePlan.savedDriveSummary?.imageUrl || ''),
+    thumbnailUrl: !isDataMediaUrl(generatedImage) ? generatedImage : (deerDrivePlan.savedDriveSummary?.thumbnailUrl || ''),
+    detailImageUrl: !isDataMediaUrl(generatedImage) ? generatedImage : (deerDrivePlan.savedDriveSummary?.detailImageUrl || ''),
+    originalMapImageUrl: !isDataMediaUrl(generatedImage) ? generatedImage : (deerDrivePlan.savedDriveSummary?.originalMapImageUrl || '')
   });
 
   await renderSaveDriveMapPreview();
@@ -1382,6 +1368,50 @@ function canvasToCompressedDataUrl(canvas, maxLength=620000){
     if(dataUrl && dataUrl.length <= maxLength) return dataUrl;
   }
   return canvas.toDataURL('image/jpeg', 0.30);
+}
+
+function isDataMediaUrl(value=''){
+  return /^data:(image|audio)\//i.test(String(value || ''));
+}
+function firstNonEmptyScoutString(...values){
+  for(const value of values){
+    const clean = String(value || '').trim();
+    if(clean) return clean;
+  }
+  return '';
+}
+function getSavedDriveImageUrl(source = {}){
+  const summary = source && source.savedSummary && typeof source.savedSummary === 'object' ? source.savedSummary : source;
+  return firstNonEmptyScoutString(
+    source.imageUrl, source.thumbnailUrl, source.thumbUrl, source.mapImageUrl, source.detailImageUrl, source.originalMapImageUrl,
+    source.firebaseUrl, source.storageUrl, source.downloadUrl, source.downloadURL,
+    summary.imageUrl, summary.thumbnailUrl, summary.thumbUrl, summary.mapImageUrl, summary.detailImageUrl, summary.originalMapImageUrl,
+    summary.firebaseUrl, summary.storageUrl, summary.downloadUrl, summary.downloadURL,
+    source.image, source.thumbnail, source.detailImage, source.originalMapImage,
+    summary.thumbnail, summary.detailImage, summary.originalMapImage
+  );
+}
+async function uploadDeerDriveImageToFirebaseStorage(dataUrl='', driveId='', kind='thumbnail'){
+  const raw = String(dataUrl || '').trim();
+  if(!raw || !isDataMediaUrl(raw)) return raw;
+  if(!(window.firebase && firebase.storage)) return '';
+  try{
+    const campId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || 'active-camp').trim() || 'active-camp';
+    const response = await fetch(raw);
+    const blob = await response.blob();
+    const safeDriveId = slugifyValue(driveId || getCurrentDriveName() || 'deer-drive') || 'deer-drive';
+    const ext = blob.type && /png/i.test(blob.type) ? 'png' : 'jpg';
+    const path = `camps/${campId}/deer-drives/${safeDriveId}/${kind}-${Date.now()}.${ext}`;
+    const ref = firebase.storage().ref().child(path);
+    const snap = await ref.put(blob, {
+      contentType: blob.type || 'image/jpeg',
+      customMetadata: {campId, driveId: safeDriveId, source: 'DeerCamp Scout Elite'}
+    });
+    return await snap.ref.getDownloadURL();
+  }catch(error){
+    console.warn('DeerDrive image upload skipped; using compressed local fallback.', error);
+    return '';
+  }
 }
 function getDrivePreviewContainerCrop(){
   const points = [
@@ -1679,11 +1709,19 @@ function compactDrivePayloadForCloud(payload={}){
     next.thumbnail = stripImage(next.thumbnail);
     next.detailImage = stripImage(next.detailImage);
     next.originalMapImage = stripImage(next.originalMapImage);
+    next.imageUrl = stripImage(next.imageUrl);
+    next.thumbnailUrl = stripImage(next.thumbnailUrl);
+    next.detailImageUrl = stripImage(next.detailImageUrl);
+    next.originalMapImageUrl = stripImage(next.originalMapImageUrl);
     if(next.savedSummary && typeof next.savedSummary === 'object'){
       next.savedSummary = Object.assign({}, next.savedSummary, {
         thumbnail: stripImage(next.savedSummary.thumbnail),
         detailImage: stripImage(next.savedSummary.detailImage),
-        originalMapImage: stripImage(next.savedSummary.originalMapImage)
+        originalMapImage: stripImage(next.savedSummary.originalMapImage),
+        imageUrl: stripImage(next.savedSummary.imageUrl),
+        thumbnailUrl: stripImage(next.savedSummary.thumbnailUrl),
+        detailImageUrl: stripImage(next.savedSummary.detailImageUrl),
+        originalMapImageUrl: stripImage(next.savedSummary.originalMapImageUrl)
       });
     }
     return next;
@@ -1726,8 +1764,10 @@ async function persistDriveToCamp(){
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
   const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
-  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(760, 428);
-  const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || savedImage;
+  const generatedImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {}) || await generateDeerDriveThumbnailDataUrl(760, 428);
+  const uploadedImageUrl = await uploadDeerDriveImageToFirebaseStorage(generatedImage, driveId, 'map');
+  const savedImage = uploadedImageUrl || generatedImage;
+  const savedLargeImage = savedImage;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
@@ -1739,6 +1779,10 @@ async function persistDriveToCamp(){
     thumbnail: savedImage,
     detailImage: savedLargeImage,
     originalMapImage: savedLargeImage,
+    imageUrl: !isDataMediaUrl(savedImage) ? savedImage : '',
+    thumbnailUrl: !isDataMediaUrl(savedImage) ? savedImage : '',
+    detailImageUrl: !isDataMediaUrl(savedLargeImage) ? savedLargeImage : '',
+    originalMapImageUrl: !isDataMediaUrl(savedLargeImage) ? savedLargeImage : '',
     author,
     createdAt: timestampIso,
     createdAtMs: timestampMs,
@@ -1786,23 +1830,9 @@ async function persistDriveToCamp(){
     contentSubmissions: nextContentSubmissions,
     deerDrivePosts: nextDeerDrivePosts,
     deerDrives: nextDeerDrivePosts,
-    savedDeerDrives: nextDeerDrivePosts,
-    scoutDeerDrives: nextDeerDrivePosts,
     lastDeerDriveSaveAt: timestampIso
   });
   const result = safeSetCampDataForSave(scopedCampDataKey, nextCampData);
-  try{
-    const dashKey = campScopeKey(activeCampId, 'dashboardSlim');
-    const dash = safeParse(localStorage.getItem(dashKey), safeParse(localStorage.getItem('deercamp.stewardDashboardSlim'), {}));
-    if(dash && typeof dash === 'object'){
-      dash.sections = Object.assign({}, dash.sections || {}, {campupdate:true, campdeerdrives:true, deerdrives:true});
-      dash.deerDrivePosts = nextDeerDrivePosts;
-      dash.deerDrives = nextDeerDrivePosts;
-      dash.savedDeerDrives = nextDeerDrivePosts;
-      localStorage.setItem(dashKey, JSON.stringify(dash));
-      localStorage.setItem('deercamp.stewardDashboardSlim', JSON.stringify(dash));
-    }
-  }catch(error){console.warn('Dashboard deer drive sync skipped.', error);}
   const cloudWrote = result && result.ok ? await saveDriveCampPayloadToCloud(activeCampId, result.data || nextCampData) : false;
   const verify = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
   const verifyDrives = Array.isArray(verify.deerDrivePosts) ? verify.deerDrivePosts : [];
@@ -1819,16 +1849,23 @@ async function commitSavedDriveSummary(){
   if(saveStatus) saveStatus.textContent = 'Saving drive...';
   try{
     deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
-    const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(760, 428);
+    const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`;
+    const generatedImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {}) || await generateDeerDriveThumbnailDataUrl(760, 428);
+    const uploadedImageUrl = await uploadDeerDriveImageToFirebaseStorage(generatedImage, driveId, 'map');
+    const savedImage = uploadedImageUrl || generatedImage;
     deerDrivePlan.savedDriveSummary = {
-      id: deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${Date.now()}`,
+      id: driveId,
       driveName: getCurrentDriveName(),
       windLabel: deerDrivePlan.windLabel || '',
       routeIds: getSavedDriveRoutes().map(r=>r.id),
       savedAt: new Date().toISOString(),
       thumbnail: savedImage,
       originalMapImage: savedImage,
-      detailImage: savedImage
+      detailImage: savedImage,
+      imageUrl: !isDataMediaUrl(savedImage) ? savedImage : '',
+      thumbnailUrl: !isDataMediaUrl(savedImage) ? savedImage : '',
+      detailImageUrl: !isDataMediaUrl(savedImage) ? savedImage : '',
+      originalMapImageUrl: !isDataMediaUrl(savedImage) ? savedImage : ''
     };
     const posted = await persistDriveToCamp();
     saveLocal();
@@ -1848,7 +1885,7 @@ async function commitSavedDriveSummary(){
     console.error('Save Drive failed', err);
     const msg = err && err.name === 'QuotaExceededError'
       ? 'Save failed: browser storage is full. Clear older saved deer drives and try again.'
-      : `Save failed: ${err && err.message ? err.message : 'Check the Scout tab URL and try again.'}`;
+      : 'Save failed. Check the Scout tab URL and try again.';
     document.getElementById('status-bar').innerHTML = msg;
     if(saveStatus) saveStatus.textContent = msg;
   }finally{
@@ -2291,9 +2328,6 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 <div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
 <div class="pu-acts">
   <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
-  <button class="pu-btn pu-edit" onclick="tapMoveStand(${s.id})">Tap &amp; Move</button>
-  <button class="pu-btn pu-edit" onclick="tapPlaceStand(${s.id})">Tap &amp; Place</button>
-  <button class="pu-btn pu-edit" onclick="showAllStands()">Show All Stands</button>
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
@@ -2455,71 +2489,9 @@ function showStandMapLocator(stand, durationMs=15000){
   }
 }
 function addStandToMap(s){
-  const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:false}).addTo(map).bindPopup(standPopupHTML(s)), s);
-  m.on('dragend', evt=>{
-    const ll=evt.target.getLatLng();
-    const stand=stands.find(item=>String(item.id)===String(s.id));
-    if(stand){
-      stand.lat=ll.lat; stand.lng=ll.lng;
-      evt.target.setPopupContent(standPopupHTML(stand));
-      try{evt.target.setTooltipContent(escHtml(getStandLabelText(stand)));}catch(e){}
-      saveLocal();
-      persistStandToCamp(stand).then(()=>{showScoutToast(`${stand.name || 'Stand'} moved and saved.`); pingCampRefresh('deerstand');}).catch(error=>console.warn('Moved stand camp sync skipped.', error));
-    }
-    try{evt.target.dragging.disable();}catch(e){}
-    document.getElementById('status-bar').innerHTML=`✅ Stand moved: ${stand?.name || s.name || 'Stand'}`;
-  });
+  const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s)), s);
   allLayers[s.id]=m;
 }
-
-function getStandByAnyId(id){
-  return stands.find(item=>String(item.id)===String(id)||String(item.standId||'')===String(id)||String(item.name||'')===String(id)||String(item.title||'')===String(id)) || null;
-}
-function tapMoveStand(id){
-  const stand=getStandByAnyId(id);
-  const layer=stand ? allLayers[stand.id] : null;
-  if(!stand || !layer){document.getElementById('status-bar').innerHTML='Could not find that stand to move.';return;}
-  try{map.closePopup();}catch(e){}
-  try{layer.dragging.enable();}catch(e){}
-  try{layer.openTooltip();}catch(e){}
-  try{map.panTo([stand.lat, stand.lng]);}catch(e){}
-  pulseStandLabelWhenReady(stand.id, 4500, {timeoutMs:5000});
-  document.getElementById('status-bar').innerHTML=`Tap & Move active — drag ${stand.name || 'this stand'} to its new spot. It saves when you release it.`;
-  showScoutToast(`Drag ${stand.name || 'the stand'} to its new spot. It saves on release.`, 5200);
-}
-function tapPlaceStand(id){
-  const stand=getStandByAnyId(id);
-  if(!stand){document.getElementById('status-bar').innerHTML='Could not find that stand to place.';return;}
-  try{map.closePopup();}catch(e){}
-  document.getElementById('status-bar').innerHTML=`Tap & Place active — tap the new location for ${stand.name || 'this stand'}.`;
-  showScoutToast(`Tap the map where ${stand.name || 'this stand'} should move.`, 5200);
-  map.once('click', async event=>{
-    stand.lat=event.latlng.lat;
-    stand.lng=event.latlng.lng;
-    const oldLayer=allLayers[stand.id];
-    try{if(oldLayer) map.removeLayer(oldLayer);}catch(e){}
-    delete allLayers[stand.id];
-    addStandToMap(stand);
-    try{map.panTo([stand.lat, stand.lng]);}catch(e){}
-    saveLocal();
-    try{await persistStandToCamp(stand); showScoutToast(`${stand.name || 'Stand'} placed and saved.`); pingCampRefresh('deerstand');}
-    catch(error){console.warn('Placed stand camp sync skipped.', error); showScoutToast(`${stand.name || 'Stand'} moved on map. Camp sync is pending.`, 5200);}
-    document.getElementById('status-bar').innerHTML=`✅ Stand placed: ${stand.name || 'Stand'}`;
-    pulseStandLabelWhenReady(stand.id, 4500, {timeoutMs:5000});
-  });
-}
-function showAllStands(){
-  const valid=stands.filter(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
-  if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
-  const bounds=L.latLngBounds(valid.map(item=>[Number(item.lat), Number(item.lng)]));
-  try{map.fitBounds(bounds.pad(.18), {maxZoom:17});}catch(e){}
-  valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}});
-  document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
-  showScoutToast(`Showing all stands (${valid.length}).`, 2800);
-}
-window.tapMoveStand=tapMoveStand;
-window.tapPlaceStand=tapPlaceStand;
-window.showAllStands=showAllStands;
 
 function dataUrlApproxBytes(dataUrl=''){
   const clean=String(dataUrl||'');
@@ -3045,6 +3017,83 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
   return true;
 }
+function getAllSavedDeerDrivesForScout(){
+  const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
+  const sources = [
+    safeParse(localStorage.getItem(CAMP_DATA_KEY), {}),
+    safeParse(localStorage.getItem(campScopeKey(activeCampId, 'campData')), {}),
+    safeParse(localStorage.getItem(campScopeKey(activeCampId, 'dashboardSlim')), {}),
+    safeParse(localStorage.getItem(campScopeKey(activeCampId, 'profileData')), {}),
+    safeParse(localStorage.getItem('deercamp.stewardDashboardSlim'), {})
+  ];
+  const out = [];
+  const seen = new Set();
+  sources.forEach(source => {
+    if(!source || typeof source !== 'object') return;
+    ['deerDrivePosts','deerDrives','savedDeerDrives','scoutDeerDrives'].forEach(key => {
+      (Array.isArray(source[key]) ? source[key] : []).forEach(item => {
+        if(!item || typeof item !== 'object') return;
+        const id = String(item.id || item.driveId || item.savedSummary?.id || item.title || item.driveName || '').trim();
+        if(!id || seen.has(id)) return;
+        seen.add(id);
+        out.push(item);
+      });
+    });
+    if(source.dashboardSlim && typeof source.dashboardSlim === 'object'){
+      ['deerDrivePosts','deerDrives','savedDeerDrives','scoutDeerDrives'].forEach(key => {
+        (Array.isArray(source.dashboardSlim[key]) ? source.dashboardSlim[key] : []).forEach(item => {
+          if(!item || typeof item !== 'object') return;
+          const id = String(item.id || item.driveId || item.savedSummary?.id || item.title || item.driveName || '').trim();
+          if(!id || seen.has(id)) return;
+          seen.add(id);
+          out.push(item);
+        });
+      });
+    }
+  });
+  return out;
+}
+function findSavedDeerDriveForScout(key=''){
+  const clean = String(key || '').trim();
+  const slug = slugifyValue(clean);
+  return getAllSavedDeerDrivesForScout().find(item => {
+    const candidates = [item.id, item.driveId, item.savedSummary?.id, item.title, item.driveName, item.savedSummary?.driveName].map(value => String(value || '').trim());
+    return candidates.some(value => value === clean || slugifyValue(value) === slug);
+  }) || null;
+}
+async function openSavedDeerDriveEditModal(item = {}){
+  if(!item || typeof item !== 'object') return false;
+  const title = String(item.title || item.driveName || item.savedSummary?.driveName || 'Saved Deer Drive').trim();
+  deerDrivePlan.driveName = title;
+  deerDrivePlan.windFrom = String(item.windFrom || item.savedSummary?.windFrom || '').trim();
+  deerDrivePlan.windTo = String(item.windTo || item.savedSummary?.windTo || '').trim();
+  deerDrivePlan.windLabel = String(item.windLabel || item.savedSummary?.windLabel || ((deerDrivePlan.windFrom && deerDrivePlan.windTo) ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : '')).trim();
+  deerDrivePlan.savedDriveNotes = String(item.notes || item.body || item.description || '').trim();
+  deerDrivePlan.savedDriveRouteSummaries = Array.isArray(item.routeSummaries) ? item.routeSummaries.slice() : [];
+  const image = getSavedDriveImageUrl(item);
+  deerDrivePlan.savedDriveSummary = Object.assign({}, item.savedSummary || {}, {
+    id: String(item.id || item.driveId || item.savedSummary?.id || `deerdrive-${slugifyValue(title) || 'drive'}`).trim(),
+    driveName: title,
+    windLabel: deerDrivePlan.windLabel,
+    thumbnail: image,
+    originalMapImage: image,
+    detailImage: image,
+    imageUrl: !isDataMediaUrl(image) ? image : '',
+    thumbnailUrl: !isDataMediaUrl(image) ? image : '',
+    detailImageUrl: !isDataMediaUrl(image) ? image : '',
+    originalMapImageUrl: !isDataMediaUrl(image) ? image : ''
+  });
+  document.getElementById('save-drive-title').textContent = title;
+  document.getElementById('save-drive-notes').value = deerDrivePlan.savedDriveNotes;
+  document.getElementById('save-drive-directional-compass').innerHTML = getSimpleCompassSVG();
+  document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
+  document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || 'Wind direction';
+  await renderSaveDriveMapPreview();
+  renderSaveDriveRouteTiles();
+  document.getElementById('modal-save-drive').classList.add('open');
+  document.getElementById('status-bar').innerHTML = `Editing saved DeerDrive: ${title}. Update notes, then tap Save to repost.`;
+  return true;
+}
 async function openDeepLinkedScoutEdit(){
   try{
     const params = new URLSearchParams(window.location.search);
@@ -3068,9 +3117,12 @@ async function openDeepLinkedScoutEdit(){
     }
 
     if(driveKey){
-      document.getElementById('status-bar').innerHTML = 'Drive link opened Scout. Use DeerDrive Builder or Save Drive to revise and repost this drive.';
-      try{ openDeerDriveBuilderFromToolbar(); }catch{}
-      return true;
+      const match = findSavedDeerDriveForScout(driveKey);
+      if(match){
+        return await openSavedDeerDriveEditModal(match);
+      }
+      document.getElementById('status-bar').innerHTML = 'Drive link opened Scout, but that saved drive was not found in local or camp data.';
+      return false;
     }
 
     return false;
@@ -3414,7 +3466,7 @@ function getHelperPanelHTML(){
       · Tap 📍 Stand button on the Menu bar to change mouse pointer to a “+”<br>
       · Tap map where you want to place stand<br>
       · Enter stand details and tap Save.<br>
-      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerStands section
+      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerDrives section
     </div>
   </div>`;
 }

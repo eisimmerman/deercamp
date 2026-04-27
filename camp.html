@@ -1865,6 +1865,25 @@ function getScoutEditUrl(type, item = {}, index = 0){
   url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
   return url.toString();
 }
+
+function firstNonEmptyString(...values){
+  for(const value of values){
+    const clean = String(value || '').trim();
+    if(clean) return clean;
+  }
+  return '';
+}
+function getDeerDriveImageSrc(item = {}){
+  const summary = item && item.savedSummary && typeof item.savedSummary === 'object' ? item.savedSummary : {};
+  return firstNonEmptyString(
+    item.imageUrl, item.thumbnailUrl, item.thumbUrl, item.mapImageUrl, item.detailImageUrl, item.originalMapImageUrl,
+    item.firebaseUrl, item.storageUrl, item.downloadUrl, item.downloadURL, item.photoUrl, item.photoURL,
+    summary.imageUrl, summary.thumbnailUrl, summary.thumbUrl, summary.mapImageUrl, summary.detailImageUrl, summary.originalMapImageUrl,
+    summary.firebaseUrl, summary.storageUrl, summary.downloadUrl, summary.downloadURL,
+    item.image, item.thumbnail, item.detailImage, item.originalMapImage,
+    summary.thumbnail, summary.detailImage, summary.originalMapImage
+  );
+}
 let deerItemEditState = { type: '', index: -1 };
 function getDeerEditCollection(type){
   return type === 'drive' ? deerDrivePosts : deerStandPosts;
@@ -2034,7 +2053,7 @@ function renderDeerDrives(delta = 0){
         <h3 class="feed-title">${esc(item.title)}</h3>
         <p class="feed-meta">${esc(item.author)} • ${esc(new Date(item.createdAtMs || Date.now()).toLocaleDateString())}${item.windLabel ? ` • ${esc(item.windLabel)}` : ""}</p>
         <p class="feed-body">${esc(item.body || "")}</p>
-        <div class="feed-card-media">${(item.image || item.thumbnail || item.detailImage || item.originalMapImage || item.savedSummary?.thumbnail || item.savedSummary?.detailImage || item.savedSummary?.originalMapImage) ? `<button type="button" data-deerdrive-thumb="${idx}" aria-label="Open ${esc(item.title)} deer drive"><img src="${esc(item.image || item.thumbnail || item.detailImage || item.originalMapImage || item.savedSummary?.thumbnail || item.savedSummary?.detailImage || item.savedSummary?.originalMapImage)}" alt="${esc(item.title)} thumbnail"></button>` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
+        <div class="feed-card-media">${getDeerDriveImageSrc(item) ? `<button type="button" data-deerdrive-thumb="${idx}" aria-label="Open ${esc(item.title)} deer drive"><img src="${esc(getDeerDriveImageSrc(item))}" alt="${esc(item.title)} thumbnail"></button>` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
         <div class="feed-tags">
           <span class="tag">${item.routeCount || 0} route${Number(item.routeCount || 0) === 1 ? '' : 's'}</span>
           ${(Array.isArray(item.tags) ? item.tags : []).slice(0,2).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
@@ -2100,7 +2119,7 @@ function openDeerDriveModal(idx){
   document.getElementById('deerDriveModalMeta').textContent = `${item.author || 'Camp Steward'} • ${new Date(item.createdAtMs || Date.now()).toLocaleString()}${item.windLabel ? ` • ${item.windLabel}` : ''}`;
   document.getElementById('deerDriveModalBody').textContent = item.body || 'No drive notes added.';
   document.getElementById('deerDriveModalTags').innerHTML = (Array.isArray(item.tags) ? item.tags : []).map(tag => `<span class="tag">${esc(tag)}</span>`).join('');
-  const driveImageSrc = item.originalMapImage || item.detailImage || item.image || item.thumbnail || item.savedSummary?.originalMapImage || item.savedSummary?.detailImage || item.savedSummary?.thumbnail || '';
+  const driveImageSrc = getDeerDriveImageSrc(item);
   document.getElementById('deerDriveModalImage').innerHTML = driveImageSrc ? `<img src="${esc(driveImageSrc)}" alt="${esc(item.title)}">` : `<div class="empty">Drive image unavailable.</div>`;
   document.getElementById('deerDriveModalRoutes').innerHTML = (Array.isArray(item.routeSummaries) && item.routeSummaries.length)
     ? item.routeSummaries.map(route => `<div class="deerdrive-route-item"><p class="deerdrive-route-name">${esc(route.name || 'Route')}</p><p class="deerdrive-route-meta">${Number(route.miles || 0).toFixed(2)} mile • ${esc(route.direction || '')}</p></div>`).join('')
