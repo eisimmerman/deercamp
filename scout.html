@@ -97,6 +97,10 @@ header::-webkit-scrollbar{height:0;}
 /* STATUS BAR */
 #status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
 
+.scout-toast{position:fixed;right:14px;bottom:48px;z-index:2200;max-width:min(360px,calc(100vw - 28px));padding:10px 12px;border-radius:10px;background:rgba(18,10,2,.96);border:1px solid var(--moss);color:#cffff1;font-size:.62rem;line-height:1.45;box-shadow:0 10px 28px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s ease,transform .18s ease;}
+.scout-toast.show{opacity:1;transform:translateY(0);}
+
+
 /* FABs */
 .fab{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:1000;border-radius:20px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.6);display:none;border:none;transition:background .15s;}
 .fab.visible{display:block;}
@@ -811,6 +815,32 @@ function campScopeKey(campId,suffix){
 }
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
+}
+
+function showScoutToast(message='', duration=3600){
+  let toast=document.getElementById('scout-toast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='scout-toast';
+    toast.className='scout-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent=String(message||'');
+  toast.classList.add('show');
+  clearTimeout(showScoutToast._timer);
+  showScoutToast._timer=setTimeout(()=>toast.classList.remove('show'), duration);
+}
+function pingCampRefresh(kind='scout'){
+  const stamp=String(Date.now());
+  try{localStorage.setItem('deercamp.lastScoutRefreshPing', stamp);}catch(e){}
+  try{localStorage.setItem(`deercamp.last${String(kind||'scout').replace(/(^.|[^a-z0-9].)/gi, m=>m.toUpperCase()).replace(/[^a-z0-9]/gi,'')}Ping`, stamp);}catch(e){}
+  try{
+    if(window.BroadcastChannel){
+      const channel=new BroadcastChannel('deercamp-refresh');
+      channel.postMessage({kind, campId:getCampIdFromUrl()||localStorage.getItem(ACTIVE_CAMP_KEY)||'', at:Number(stamp)});
+      setTimeout(()=>{try{channel.close();}catch(e){}},250);
+    }
+  }catch(e){}
 }
 
 // Acreage
@@ -1756,9 +1786,23 @@ async function persistDriveToCamp(){
     contentSubmissions: nextContentSubmissions,
     deerDrivePosts: nextDeerDrivePosts,
     deerDrives: nextDeerDrivePosts,
+    savedDeerDrives: nextDeerDrivePosts,
+    scoutDeerDrives: nextDeerDrivePosts,
     lastDeerDriveSaveAt: timestampIso
   });
   const result = safeSetCampDataForSave(scopedCampDataKey, nextCampData);
+  try{
+    const dashKey = campScopeKey(activeCampId, 'dashboardSlim');
+    const dash = safeParse(localStorage.getItem(dashKey), safeParse(localStorage.getItem('deercamp.stewardDashboardSlim'), {}));
+    if(dash && typeof dash === 'object'){
+      dash.sections = Object.assign({}, dash.sections || {}, {campupdate:true, campdeerdrives:true, deerdrives:true});
+      dash.deerDrivePosts = nextDeerDrivePosts;
+      dash.deerDrives = nextDeerDrivePosts;
+      dash.savedDeerDrives = nextDeerDrivePosts;
+      localStorage.setItem(dashKey, JSON.stringify(dash));
+      localStorage.setItem('deercamp.stewardDashboardSlim', JSON.stringify(dash));
+    }
+  }catch(error){console.warn('Dashboard deer drive sync skipped.', error);}
   const cloudWrote = result && result.ok ? await saveDriveCampPayloadToCloud(activeCampId, result.data || nextCampData) : false;
   const verify = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
   const verifyDrives = Array.isArray(verify.deerDrivePosts) ? verify.deerDrivePosts : [];
@@ -1804,7 +1848,7 @@ async function commitSavedDriveSummary(){
     console.error('Save Drive failed', err);
     const msg = err && err.name === 'QuotaExceededError'
       ? 'Save failed: browser storage is full. Clear older saved deer drives and try again.'
-      : 'Save failed. Check the Scout tab URL and try again.';
+      : `Save failed: ${err && err.message ? err.message : 'Check the Scout tab URL and try again.'}`;
     document.getElementById('status-bar').innerHTML = msg;
     if(saveStatus) saveStatus.textContent = msg;
   }finally{
@@ -2247,6 +2291,9 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 <div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
 <div class="pu-acts">
   <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
+  <button class="pu-btn pu-edit" onclick="tapMoveStand(${s.id})">Tap &amp; Move</button>
+  <button class="pu-btn pu-edit" onclick="tapPlaceStand(${s.id})">Tap &amp; Place</button>
+  <button class="pu-btn pu-edit" onclick="showAllStands()">Show All Stands</button>
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
@@ -2408,9 +2455,71 @@ function showStandMapLocator(stand, durationMs=15000){
   }
 }
 function addStandToMap(s){
-  const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s)), s);
+  const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:false}).addTo(map).bindPopup(standPopupHTML(s)), s);
+  m.on('dragend', evt=>{
+    const ll=evt.target.getLatLng();
+    const stand=stands.find(item=>String(item.id)===String(s.id));
+    if(stand){
+      stand.lat=ll.lat; stand.lng=ll.lng;
+      evt.target.setPopupContent(standPopupHTML(stand));
+      try{evt.target.setTooltipContent(escHtml(getStandLabelText(stand)));}catch(e){}
+      saveLocal();
+      persistStandToCamp(stand).then(()=>{showScoutToast(`${stand.name || 'Stand'} moved and saved.`); pingCampRefresh('deerstand');}).catch(error=>console.warn('Moved stand camp sync skipped.', error));
+    }
+    try{evt.target.dragging.disable();}catch(e){}
+    document.getElementById('status-bar').innerHTML=`✅ Stand moved: ${stand?.name || s.name || 'Stand'}`;
+  });
   allLayers[s.id]=m;
 }
+
+function getStandByAnyId(id){
+  return stands.find(item=>String(item.id)===String(id)||String(item.standId||'')===String(id)||String(item.name||'')===String(id)||String(item.title||'')===String(id)) || null;
+}
+function tapMoveStand(id){
+  const stand=getStandByAnyId(id);
+  const layer=stand ? allLayers[stand.id] : null;
+  if(!stand || !layer){document.getElementById('status-bar').innerHTML='Could not find that stand to move.';return;}
+  try{map.closePopup();}catch(e){}
+  try{layer.dragging.enable();}catch(e){}
+  try{layer.openTooltip();}catch(e){}
+  try{map.panTo([stand.lat, stand.lng]);}catch(e){}
+  pulseStandLabelWhenReady(stand.id, 4500, {timeoutMs:5000});
+  document.getElementById('status-bar').innerHTML=`Tap & Move active — drag ${stand.name || 'this stand'} to its new spot. It saves when you release it.`;
+  showScoutToast(`Drag ${stand.name || 'the stand'} to its new spot. It saves on release.`, 5200);
+}
+function tapPlaceStand(id){
+  const stand=getStandByAnyId(id);
+  if(!stand){document.getElementById('status-bar').innerHTML='Could not find that stand to place.';return;}
+  try{map.closePopup();}catch(e){}
+  document.getElementById('status-bar').innerHTML=`Tap & Place active — tap the new location for ${stand.name || 'this stand'}.`;
+  showScoutToast(`Tap the map where ${stand.name || 'this stand'} should move.`, 5200);
+  map.once('click', async event=>{
+    stand.lat=event.latlng.lat;
+    stand.lng=event.latlng.lng;
+    const oldLayer=allLayers[stand.id];
+    try{if(oldLayer) map.removeLayer(oldLayer);}catch(e){}
+    delete allLayers[stand.id];
+    addStandToMap(stand);
+    try{map.panTo([stand.lat, stand.lng]);}catch(e){}
+    saveLocal();
+    try{await persistStandToCamp(stand); showScoutToast(`${stand.name || 'Stand'} placed and saved.`); pingCampRefresh('deerstand');}
+    catch(error){console.warn('Placed stand camp sync skipped.', error); showScoutToast(`${stand.name || 'Stand'} moved on map. Camp sync is pending.`, 5200);}
+    document.getElementById('status-bar').innerHTML=`✅ Stand placed: ${stand.name || 'Stand'}`;
+    pulseStandLabelWhenReady(stand.id, 4500, {timeoutMs:5000});
+  });
+}
+function showAllStands(){
+  const valid=stands.filter(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
+  if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
+  const bounds=L.latLngBounds(valid.map(item=>[Number(item.lat), Number(item.lng)]));
+  try{map.fitBounds(bounds.pad(.18), {maxZoom:17});}catch(e){}
+  valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}});
+  document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
+  showScoutToast(`Showing all stands (${valid.length}).`, 2800);
+}
+window.tapMoveStand=tapMoveStand;
+window.tapPlaceStand=tapPlaceStand;
+window.showAllStands=showAllStands;
 
 function dataUrlApproxBytes(dataUrl=''){
   const clean=String(dataUrl||'');
@@ -3305,7 +3414,7 @@ function getHelperPanelHTML(){
       · Tap 📍 Stand button on the Menu bar to change mouse pointer to a “+”<br>
       · Tap map where you want to place stand<br>
       · Enter stand details and tap Save.<br>
-      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerDrives section
+      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerStands section
     </div>
   </div>`;
 }
