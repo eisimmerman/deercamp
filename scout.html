@@ -1689,9 +1689,65 @@ function trimOversizedSavedDriveImages(item){
 function makeImageSafeForLocalStorage(dataUrl, maxLength=650000){
   return (typeof dataUrl === 'string' && dataUrl.length <= maxLength) ? dataUrl : '';
 }
+
+function isDataImageUrl(value=''){
+  return /^data:image//i.test(String(value||''));
+}
+function stripEmbeddedMediaValue(value=''){
+  return isDataImageUrl(value) ? '' : String(value || '');
+}
+function stripHeavyMediaFields(item){
+  if(!item || typeof item !== 'object') return item;
+  const next = Object.assign({}, item);
+  ['image','photo','thumbnail','detailImage','originalMapImage','heroImage','largeImage','fullImage','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
+    if(key in next && isDataImageUrl(next[key])) next[key] = '';
+  });
+  if(next.savedSummary && typeof next.savedSummary === 'object'){
+    next.savedSummary = Object.assign({}, next.savedSummary);
+    ['image','thumbnail','detailImage','originalMapImage','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
+      if(key in next.savedSummary && isDataImageUrl(next.savedSummary[key])) next.savedSummary[key] = '';
+    });
+  }
+  return next;
+}
+function compactCampPayloadForLocalStorage(payload={}){
+  const next = Object.assign({}, payload);
+  const compactList = (list, limit=12) => Array.isArray(list) ? list.slice(0, limit).map(stripHeavyMediaFields) : list;
+  next.feedEntries = compactList(next.feedEntries, 12) || [];
+  next.campPhotoGallery = compactList(next.campPhotoGallery, 10) || [];
+  next.contentSubmissions = Array.isArray(next.contentSubmissions) ? next.contentSubmissions.slice(0, 30).map(stripHeavyMediaFields) : [];
+  next.deerDrivePosts = compactList(next.deerDrivePosts, 12) || [];
+  next.deerDrives = compactList(next.deerDrives, 12) || next.deerDrivePosts;
+  next.savedDeerDrives = compactList(next.savedDeerDrives, 12) || next.deerDrivePosts;
+  next.scoutDeerDrives = compactList(next.scoutDeerDrives, 12) || next.deerDrivePosts;
+  next.deerStandPosts = compactList(next.deerStandPosts, 24) || [];
+  next.deerStands = compactList(next.deerStands, 24) || [];
+  return next;
+}
+async function uploadDriveImagePairToStorage(activeCampId, driveId, imageDataUrl){
+  if(!isDataImageUrl(imageDataUrl)) return {displayUrl:String(imageDataUrl||''), thumbUrl:String(imageDataUrl||''), storageUploaded:false};
+  if(!(window.DeerCampStorage && typeof window.DeerCampStorage.uploadCampImagePair === 'function')){
+    return {displayUrl:'', thumbUrl:'', storageUploaded:false, skipped:true};
+  }
+  try{
+    const uploaded = await window.DeerCampStorage.uploadCampImagePair({
+      campId:activeCampId,
+      folder:'deerdrives',
+      entityId:driveId,
+      displayDataUrl:imageDataUrl,
+      thumbDataUrl:imageDataUrl
+    });
+    const displayUrl = String(uploaded?.displayUrl || uploaded?.downloadURL || uploaded?.url || uploaded?.thumbUrl || '').trim();
+    const thumbUrl = String(uploaded?.thumbUrl || displayUrl || '').trim();
+    return Object.assign({}, uploaded || {}, {displayUrl, thumbUrl, storageUploaded:Boolean(displayUrl || thumbUrl)});
+  }catch(error){
+    console.warn('Firebase Storage DeerDrive image upload failed.', error);
+    return {displayUrl:'', thumbUrl:'', storageUploaded:false, error};
+  }
+}
 function safeSetCampDataForSave(scopedCampDataKey, nextCampData){
   const attempts = [];
-  attempts.push(nextCampData);
+  attempts.push(compactCampPayloadForLocalStorage(nextCampData));
   attempts.push(Object.assign({}, nextCampData, {
     deerDrivePosts: (nextCampData.deerDrivePosts || []).map((item, idx)=>idx === 0 ? Object.assign({}, item, {
       detailImage: makeImageSafeForLocalStorage(item.detailImage),
@@ -1761,6 +1817,8 @@ function compactDrivePayloadForCloud(payload={}){
   next.enabledSections = Object.assign({}, payload.enabledSections || {}, {campdeerdrives:true, deerdrives:true, campupdate:true});
   next.deerDrivePosts = (Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : []).map(compactDrive);
   next.deerDrives = (Array.isArray(payload.deerDrives) ? payload.deerDrives : next.deerDrivePosts).map(compactDrive);
+  next.savedDeerDrives = (Array.isArray(payload.savedDeerDrives) ? payload.savedDeerDrives : next.deerDrivePosts).map(compactDrive);
+  next.scoutDeerDrives = (Array.isArray(payload.scoutDeerDrives) ? payload.scoutDeerDrives : next.deerDrivePosts).map(compactDrive);
   return next;
 }
 async function saveDriveCampPayloadToCloud(activeCampId, payload){
@@ -1791,8 +1849,10 @@ async function persistDriveToCamp(){
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
   const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
-  const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(760, 428);
-  const savedLargeImage = deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || savedImage;
+  const rawSavedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(760, 428);
+  const uploadedDriveImage = await uploadDriveImagePairToStorage(activeCampId, driveId, rawSavedImage);
+  const savedImage = uploadedDriveImage.thumbUrl || uploadedDriveImage.displayUrl || makeImageSafeForLocalStorage(rawSavedImage, 260000);
+  const savedLargeImage = uploadedDriveImage.displayUrl || uploadedDriveImage.thumbUrl || makeImageSafeForLocalStorage(rawSavedImage, 260000) || savedImage;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
@@ -1802,6 +1862,10 @@ async function persistDriveToCamp(){
     body: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} planned for this drive.`,
     image: savedImage,
     thumbnail: savedImage,
+    imageUrl: savedLargeImage || savedImage,
+    thumbnailUrl: savedImage || savedLargeImage,
+    mapImageUrl: savedLargeImage || savedImage,
+    storageUrl: savedLargeImage || savedImage,
     detailImage: savedLargeImage,
     originalMapImage: savedLargeImage,
     author,
@@ -1814,7 +1878,14 @@ async function persistDriveToCamp(){
     notes,
     routeSummaries,
     routeCount: routeSummaries.length,
-    savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {})
+    savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
+      thumbnail: savedImage,
+      originalMapImage: savedLargeImage,
+      detailImage: savedLargeImage,
+      imageUrl: savedLargeImage || savedImage,
+      thumbnailUrl: savedImage || savedLargeImage,
+      storageUploaded: Boolean(uploadedDriveImage.storageUploaded)
+    })
   };
   const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId).map(trimOversizedSavedDriveImages)].slice(0, 8);
 
@@ -1851,10 +1922,13 @@ async function persistDriveToCamp(){
     contentSubmissions: nextContentSubmissions,
     deerDrivePosts: nextDeerDrivePosts,
     deerDrives: nextDeerDrivePosts,
+    savedDeerDrives: nextDeerDrivePosts,
+    scoutDeerDrives: nextDeerDrivePosts,
     lastDeerDriveSaveAt: timestampIso
   });
-  const result = safeSetCampDataForSave(scopedCampDataKey, nextCampData);
-  const cloudWrote = result && result.ok ? await saveDriveCampPayloadToCloud(activeCampId, result.data || nextCampData) : false;
+  const localPayload = compactCampPayloadForLocalStorage(nextCampData);
+  const result = safeSetCampDataForSave(scopedCampDataKey, localPayload);
+  const cloudWrote = result && result.ok ? await saveDriveCampPayloadToCloud(activeCampId, localPayload) : false;
   const verify = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
   const verifyDrives = Array.isArray(verify.deerDrivePosts) ? verify.deerDrivePosts : [];
   const found = verifyDrives.some(item => String(item.id || '') === driveId);
@@ -1897,9 +1971,11 @@ async function commitSavedDriveSummary(){
     if(saveBtn) saveBtn.textContent = 'Saved';
   }catch(err){
     console.error('Save Drive failed', err);
-    const msg = err && err.name === 'QuotaExceededError'
-      ? 'Save failed: browser storage is full. Clear older saved deer drives and try again.'
-      : 'Save failed. Check the Scout tab URL and try again.';
+    const errName = String(err && (err.name || err.code) || '');
+    const errMessage = String(err && err.message || '');
+    const msg = errName === 'QuotaExceededError' || /quota|storage/i.test(errMessage)
+      ? 'Save failed: browser storage is full. DeerDrive media was not written locally; try again after clearing old local test data.'
+      : `Save failed: ${errMessage || 'Unable to write DeerDrive to camp storage.'}`;
     document.getElementById('status-bar').innerHTML = msg;
     if(saveStatus) saveStatus.textContent = msg;
   }finally{
