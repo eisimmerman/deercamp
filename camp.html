@@ -805,9 +805,6 @@ function persist(){
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
-function buildStewardDashboardUrl(){
-  return buildCampScopedUrl("steward-dashboard.html");
-}
 function formatLocation(){
   const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
   const parts=[]; if(city||state) parts.push([city,state].filter(Boolean).join(", ")); if(zip) parts.push(zip);
@@ -1088,10 +1085,8 @@ function bindMenuLinks(){
 }
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
-  const dashboardUrl = buildStewardDashboardUrl();
   const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
-  const stewardDashboardLink = stewardMember ? `<a href="${esc(dashboardUrl)}">Steward Dashboard</a>` : "";
-  menu.innerHTML = `${stewardDashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
+  menu.innerHTML = `${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
   const headerScoutBtn = document.getElementById("headerScoutBtn");
   const mobileScoutBtn = document.getElementById("mobileScoutBtn");
   if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
@@ -1151,8 +1146,8 @@ function visibleSections(){
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands);
-    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives);
+    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
+    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
     return !!enabledSections[map[s.key]];
   });
 }
@@ -1469,6 +1464,34 @@ visibleSections().forEach(section=>{
   }
   content.appendChild(container);
 });
+function ensureDeerShelfSectionsMounted(){
+  if((Array.isArray(deerStandPosts) && deerStandPosts.length) && !document.getElementById("campdeerstands")){
+    const container=document.createElement("section");
+    container.className="content-section";
+    container.id="campdeerstands";
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
+        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
+      </div>
+      <div id="deerStandsGrid" class="deer-shelf-grid"></div>
+      <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>`;
+    content.appendChild(container);
+  }
+  if((Array.isArray(deerDrivePosts) && deerDrivePosts.length) && !document.getElementById("campdeerdrives")){
+    const container=document.createElement("section");
+    container.className="content-section";
+    container.id="campdeerdrives";
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
+        <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
+      </div>
+      <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
+      <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
+    content.appendChild(container);
+  }
+}
 function renderCampMembersSection(){
   const grid=document.getElementById('campMembersGrid'); if(!grid) return;
   const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
@@ -1765,15 +1788,8 @@ function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
 function getScoutEditUrl(type, item = {}, index = 0){
   const url = new URL('scout.html', window.location.href);
   if(activeCampId) url.searchParams.set('campId', activeCampId);
-  const itemId = getDeerItemId(item, type, index);
-  if(type === 'stand') {
-    url.searchParams.set('standId', itemId);
-    url.searchParams.set('editStand', itemId); // legacy fallback
-  } else {
-    url.searchParams.set('driveId', itemId);
-    url.searchParams.set('editDrive', itemId); // legacy fallback
-  }
   url.searchParams.set('editType', type);
+  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
   return url.toString();
 }
 let deerItemEditState = { type: '', index: -1 };
@@ -2214,6 +2230,7 @@ async function pullLatestCampDataSilently(){
     document.getElementById("heroImage").style.setProperty("--hero-image", `url('${nextHeroPath}')`);
     document.getElementById("heroMainImage").src = nextHeroPath;
 
+    ensureDeerShelfSectionsMounted();
     renderMenu();
     populateMemberSelects();
     renderFeed();
@@ -2300,7 +2317,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSectionsMounted(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>
