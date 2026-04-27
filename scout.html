@@ -96,8 +96,6 @@ header::-webkit-scrollbar{height:0;}
 
 /* STATUS BAR */
 #status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
-.scout-toast{position:fixed;left:50%;bottom:48px;transform:translate(-50%,12px);z-index:2200;min-width:220px;max-width:calc(100vw - 28px);padding:10px 14px;border-radius:14px;background:#f0e8d8;color:#1c1208;border:1px solid #3d5c2e;box-shadow:0 12px 34px rgba(0,0,0,.48);font:700 .68rem 'IBM Plex Mono',monospace;text-align:center;opacity:0;pointer-events:none;transition:opacity .18s ease, transform .18s ease;}
-.scout-toast.show{opacity:1;transform:translate(-50%,0);}
 
 /* FABs */
 .fab{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:1000;border-radius:20px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.6);display:none;border:none;transition:background .15s;}
@@ -142,8 +140,20 @@ header::-webkit-scrollbar{height:0;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
 .leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
-.leaflet-tooltip.stand-name-label.stand-label-pulse{animation:standLabelPulse .72s ease-in-out infinite;background:#d4820a;color:#fff;border-color:#fff8ef;box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 18px rgba(0,0,0,.45);}
-@keyframes standLabelPulse{0%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,130,10,.82),0 8px 18px rgba(0,0,0,.45);}55%{transform:scale(1.14);box-shadow:0 0 0 10px rgba(212,130,10,.18),0 10px 22px rgba(0,0,0,.5);}100%{transform:scale(1);box-shadow:0 0 0 0 rgba(212,130,10,0),0 8px 18px rgba(0,0,0,.45);}}
+/* Compact deep-link focus: keep the selected stand obvious without covering the map. */
+.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
+.stand-screen-focus{display:none!important;}
+.stand-focus-toast{display:none!important;}
+.stand-map-locator{position:relative;width:54px;height:54px;pointer-events:none;transform:translate(-27px,-43px);}
+.stand-map-locator .sml-label,.stand-map-locator .sml-arrow{display:none!important;}
+.stand-map-locator .sml-ring{position:absolute;left:50%;top:50%;width:38px;height:38px;margin-left:-19px;margin-top:-19px;border-radius:999px;border:3px solid rgba(255,248,239,.95);background:rgba(212,130,10,.10);box-shadow:0 0 0 2px rgba(212,130,10,.48),0 0 12px rgba(212,130,10,.55);animation:standRingSoftPulse .9s ease-in-out infinite;}
+@keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:translateY(0);}50%{opacity:.48;transform:translateY(-1px);}}
+@keyframes standRingSoftPulse{0%,100%{transform:scale(.72);opacity:.95;}50%{transform:scale(1.28);opacity:.28;}}
+@keyframes standMapLocatorBlink{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusArrow{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusRing{0%,100%{opacity:.9;}50%{opacity:.35;}}
+
 .card-name{font-size:.7rem;color:var(--tan);margin-bottom:2px;}
 .card-meta{font-size:.57rem;color:var(--sage);}
 .card-badge{display:inline-block;padding:1px 5px;border-radius:3px;font-size:.5rem;text-transform:uppercase;letter-spacing:.4px;margin-top:3px;}
@@ -474,17 +484,18 @@ textarea{resize:vertical;min-height:55px;}
     <div class="fg">
       <label>Type</label>
       <select id="f-type">
-        <option value="hanging-tree-stand">🌲 Hanging Tree Stand</option>
-        <option value="ground-blind">🏠 Ground Blind</option>
-        <option value="elevated-box-blind">🪟 Elevated Box Blind</option>
-        <option value="ladder-stand">🪜 Ladder Stand</option>
-        <option value="panel-blind">▦ Panel Blind</option>
-        <option value="tripod">🔭 Tripod</option>
-        <option value="natural-ground-blind">🌿 Natural Ground Blind</option>
+        <option value="treestand">🌲 Treestand</option>
+        <option value="blind">🏠 Ground Blind</option>
+        <option value="boxblind">🪟 Box Blind</option>
+        <option value="ladder">🪜 Ladder Stand</option>
+        <option value="foodplot">🌾 Food Plot</option>
+        <option value="trailcam">📷 Trail Camera</option>
+        <option value="scrape">🦌 Scrape / Rub</option>
+        <option value="waypoint">📌 Waypoint</option>
       </select>
     </div>
     <div class="fg">
-      <label>Prevailing Wind at this Stand (blows FROM)</label>
+      <label>Best Wind to Hunt Stand From:</label>
       <div class="wind-picker" id="stand-wind-picker">
         <button class="wpb" data-dir="N"  onclick="pickWind('N')">↓ N</button>
         <button class="wpb" data-dir="NE" onclick="pickWind('NE')">↙ NE</button>
@@ -752,36 +763,15 @@ textarea{resize:vertical;min-height:55px;}
 // CONFIG
 // ═══════════════════════════════════════════════
 const TYPE_CFG = {
-  'hanging-tree-stand': { color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
-  'ground-blind': { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
-  'elevated-box-blind': { color:'#5f4b2d', emoji:'🪟', label:'Elevated Box Blind' },
-  'ladder-stand': { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
-  'panel-blind': { color:'#6b5a32', emoji:'▦', label:'Panel Blind' },
-  tripod: { color:'#8b5a2b', emoji:'🔭', label:'Tripod' },
-  'natural-ground-blind': { color:'#3d5c2e', emoji:'🌿', label:'Natural Ground Blind' },
-  // Legacy aliases so older saved Scout/Camp records still render cleanly.
-  hangingstand:{ color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
-  treestand:{ color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
-  blind:{ color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
-  boxblind:{ color:'#5f4b2d', emoji:'🪟', label:'Elevated Box Blind' },
-  ladder:{ color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
-  panelblind:{ color:'#6b5a32', emoji:'▦', label:'Panel Blind' },
-  naturalblind:{ color:'#3d5c2e', emoji:'🌿', label:'Natural Ground Blind' },
-  foodplot:{ color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
-  trailcam:{ color:'#5a4a80', emoji:'📷', label:'Trail Camera' },
-  scrape:{ color:'#7a3d1a', emoji:'🦌', label:'Scrape/Rub' },
-  waypoint:{ color:'#2a5a7a', emoji:'📌', label:'Waypoint' },
+  treestand:{ color:'#a0522d', emoji:'🌲', label:'Treestand' },
+  blind:    { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
+  boxblind: { color:'#5f4b2d', emoji:'🪟', label:'Box Blind' },
+  ladder:   { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
+  foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
+  trailcam: { color:'#5a4a80', emoji:'📷', label:'Trail Cam' },
+  scrape:   { color:'#7a3d1a', emoji:'🦌', label:'Scrape/Rub' },
+  waypoint: { color:'#2a5a7a', emoji:'📌', label:'Waypoint' },
 };
-function normalizeStandType(type=''){
-  const raw = String(type || '').trim();
-  const aliases = {
-    hangingstand:'hanging-tree-stand', treestand:'hanging-tree-stand',
-    blind:'ground-blind', boxblind:'elevated-box-blind', ladder:'ladder-stand',
-    panelblind:'panel-blind', naturalblind:'natural-ground-blind', foodplot:'natural-ground-blind'
-  };
-  const normalized = aliases[raw] || raw || 'hanging-tree-stand';
-  return TYPE_CFG[normalized] ? normalized : 'hanging-tree-stand';
-}
 // Opposite directions for recommender logic
 const OPP = {N:'S',NE:'SW',E:'W',SE:'NW',S:'N',SW:'NE',W:'E',NW:'SE'};
 const TOWARD_DEG = {N:180,NE:225,E:270,SE:315,S:0,SW:45,W:90,NW:135};
@@ -815,34 +805,12 @@ const CAMP_SCOPE_PREFIX='deercamp.camps.';
 function getCampIdFromUrl(){
   try{return String(new URLSearchParams(window.location.search).get('campId')||'').trim()}catch{return ''}
 }
-function pingCampRefresh(reason='scout-update'){
-  const campId = getCampIdFromUrl() || String(localStorage.getItem(ACTIVE_CAMP_KEY)||'').trim();
-  const tick = String(Date.now());
-  try{localStorage.setItem('deercamp.lastScoutRefreshPing', tick);}catch(e){}
-  try{if(campId)localStorage.setItem(campScopeKey(campId,'refreshTick'), tick);}catch(e){}
-  try{if(campId)localStorage.setItem(campScopeKey(campId,`refresh.${reason}`), tick);}catch(e){}
-}
 function campScopeKey(campId,suffix){
   const clean=String(campId||'').trim();
   return clean?`${CAMP_SCOPE_PREFIX}${clean}.${suffix}`:'';
 }
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
-}
-function showScoutToast(message='', duration=2600){
-  let toast=document.getElementById('scout-toast');
-  if(!toast){
-    toast=document.createElement('div');
-    toast.id='scout-toast';
-    toast.className='scout-toast';
-    toast.setAttribute('role','status');
-    toast.setAttribute('aria-live','polite');
-    document.body.appendChild(toast);
-  }
-  toast.textContent=String(message||'');
-  toast.classList.add('show');
-  clearTimeout(showScoutToast._timer);
-  showScoutToast._timer=setTimeout(()=>toast.classList.remove('show'), duration);
 }
 
 // Acreage
@@ -1307,13 +1275,11 @@ async function renderSaveDriveSummary(){
   document.getElementById('save-drive-wind-compass').innerHTML = getWindCompassSVG(deerDrivePlan.windFrom, deerDrivePlan.windTo);
   document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
 
-  const existingSummary = deerDrivePlan.savedDriveSummary || {};
   const summaryImage = await generateDeerDriveThumbnailDataUrl(760, 428);
-  const preferredImage = summaryImage || existingSummary.thumbnail || existingSummary.detailImage || existingSummary.originalMapImage || '';
-  deerDrivePlan.savedDriveSummary = Object.assign({}, existingSummary, {
-    thumbnail: preferredImage,
-    originalMapImage: summaryImage || existingSummary.originalMapImage || preferredImage,
-    detailImage: summaryImage || existingSummary.detailImage || preferredImage
+  deerDrivePlan.savedDriveSummary = Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
+    thumbnail: summaryImage,
+    originalMapImage: summaryImage,
+    detailImage: summaryImage
   });
 
   await renderSaveDriveMapPreview();
@@ -1667,7 +1633,6 @@ function safeSetCampDataForSave(scopedCampDataKey, nextCampData){
       localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(payload));
       if(scopedCampDataKey) localStorage.setItem(scopedCampDataKey, JSON.stringify(payload));
       localStorage.setItem('deercamp.lastSavedDeerDrivePing', String(Date.now()));
-      try{ pingCampRefresh('deerdrive'); }catch(e){}
       return {ok:true, data:payload};
     }catch(err){
       lastErr = err;
@@ -1675,6 +1640,43 @@ function safeSetCampDataForSave(scopedCampDataKey, nextCampData){
     }
   }
   throw lastErr || new Error('Unable to save camp data.');
+}
+function compactDrivePayloadForCloud(payload={}){
+  const stripImage = (value='') => (typeof value === 'string' && value.startsWith('data:')) ? '' : String(value || '');
+  const compactDrive = (item={}) => {
+    const next = Object.assign({}, item);
+    next.image = stripImage(next.image);
+    next.thumbnail = stripImage(next.thumbnail);
+    next.detailImage = stripImage(next.detailImage);
+    next.originalMapImage = stripImage(next.originalMapImage);
+    if(next.savedSummary && typeof next.savedSummary === 'object'){
+      next.savedSummary = Object.assign({}, next.savedSummary, {
+        thumbnail: stripImage(next.savedSummary.thumbnail),
+        detailImage: stripImage(next.savedSummary.detailImage),
+        originalMapImage: stripImage(next.savedSummary.originalMapImage)
+      });
+    }
+    return next;
+  };
+  const next = Object.assign({}, payload);
+  next.enabledSections = Object.assign({}, payload.enabledSections || {}, {campdeerdrives:true, deerdrives:true, campupdate:true});
+  next.deerDrivePosts = (Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : []).map(compactDrive);
+  next.deerDrives = (Array.isArray(payload.deerDrives) ? payload.deerDrives : next.deerDrivePosts).map(compactDrive);
+  return next;
+}
+async function saveDriveCampPayloadToCloud(activeCampId, payload){
+  let cloudWrote = false;
+  if(window.DeerCampCloud && typeof window.DeerCampCloud.saveCamp === 'function'){
+    try{
+      const cloudPayload = compactDrivePayloadForCloud(payload);
+      cloudWrote = await window.DeerCampCloud.saveCamp(activeCampId, cloudPayload);
+    }catch(error){
+      console.warn('Firestore deer drive save skipped.', error);
+    }
+  }
+  try{localStorage.setItem('deercamp.lastSavedDeerDrivePing', String(Date.now()));}catch(e){}
+  pingCampRefresh('deerdrive');
+  return Boolean(cloudWrote);
 }
 async function persistDriveToCamp(){
   const scopedFromUrl = getCampIdFromUrl();
@@ -1753,17 +1755,11 @@ async function persistDriveToCamp(){
     lastDeerDriveSaveAt: timestampIso
   });
   const result = safeSetCampDataForSave(scopedCampDataKey, nextCampData);
-  const payloadForCloud = result && result.data ? result.data : nextCampData;
-  let cloudWrote = false;
-  if(window.DeerCampCloud && typeof window.DeerCampCloud.saveCamp === 'function'){
-    try{ cloudWrote = await window.DeerCampCloud.saveCamp(activeCampId, payloadForCloud); }
-    catch(error){ console.warn('Firestore deer drive save skipped.', error); }
-  }
-  try{ pingCampRefresh('deerdrive'); }catch(e){}
+  const cloudWrote = result && result.ok ? await saveDriveCampPayloadToCloud(activeCampId, result.data || nextCampData) : false;
   const verify = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
   const verifyDrives = Array.isArray(verify.deerDrivePosts) ? verify.deerDrivePosts : [];
   const found = verifyDrives.some(item => String(item.id || '') === driveId);
-  return {ok:found || cloudWrote, driveId, campId:activeCampId, driveCount:verifyDrives.length, cloudWrote};
+  return {ok:found || cloudWrote, driveId, campId:activeCampId, driveCount:verifyDrives.length};
 }
 async function commitSavedDriveSummary(){
   const saveBtn = document.getElementById('save-drive-confirm-btn');
@@ -1797,6 +1793,8 @@ async function commitSavedDriveSummary(){
     const msg = `Saved to CampDeerDrives (${posted.driveCount} saved).`;
     document.getElementById('status-bar').innerHTML = `4. Save Drive posted ${getCurrentDriveName()} to CampUpdate and CampDeerDrives.`;
     if(saveStatus) saveStatus.textContent = msg;
+    showScoutToast('Deer drive saved to CampDeerDrives');
+    pingCampRefresh('deerdrive');
     if(saveBtn) saveBtn.textContent = 'Saved';
   }catch(err){
     console.error('Save Drive failed', err);
@@ -2224,7 +2222,7 @@ window.saveDriveSnapshot=saveDriveSnapshot;
 // STANDS
 // ═══════════════════════════════════════════════
 function makeIcon(type){
-  const c=TYPE_CFG[type]||TYPE_CFG['hanging-tree-stand'];
+  const c=TYPE_CFG[type]||TYPE_CFG.treestand;
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
     <ellipse cx="18" cy="41" rx="6" ry="2.5" fill="rgba(0,0,0,.35)"/>
     <path d="M18 39 L11 20 Q18 2 25 20 Z" fill="${c.color}" opacity=".85"/>
@@ -2235,20 +2233,16 @@ function makeIcon(type){
   return L.divIcon({html:svg,className:'',iconSize:[36,44],iconAnchor:[18,41],popupAnchor:[0,-38]});
 }
 function standPopupHTML(s){
-  const type = normalizeStandType(s.type);
-  const c=TYPE_CFG[type]||TYPE_CFG['hanging-tree-stand'];
+  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
   const tod=s.tod?` · ${TOD_LABELS[s.tod]||s.tod}`:'';
-  return`<div class="pu-name">${escHtml(s.name || 'Stand')}</div>
-<div class="pu-type">${c.emoji} ${c.label}${s.season?' · '+escHtml(s.season):''}${tod}</div>
-${s.wind?`<div class="pu-wind">💨 Best wind from ${escHtml(s.wind)}</div>`:''}
+  return`<div class="pu-name">${s.name}</div>
+<div class="pu-type">${c.emoji} ${c.label}${s.season?' · '+s.season:''}${tod}</div>
+${s.wind?`<div class="pu-wind">💨 Best wind from ${s.wind}</div>`:''}
 <div class="pu-notes">Access: ${ACCESS_LABELS[s.access||'good']||'Good'} · Pressure: ${PRESSURE_LABELS[s.pressure||'fresh']||'Fresh'} · Season Fit: ${SEASON_PHASE_LABELS[s.seasonPhase||'any']||'Any'}</div>
-${s.notes?`<div class="pu-notes">${escHtml(s.notes)}</div>`:''}
-<div class="pu-coords">📍 ${Number(s.lat).toFixed(5)}, ${Number(s.lng).toFixed(5)}</div>
+${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
+<div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
 <div class="pu-acts">
   <button class="pu-btn pu-edit" onclick="editStandById(${s.id})">Edit</button>
-  <button class="pu-btn pu-edit" onclick="enableStandMove(${s.id})">Tap & Move</button>
-  <button class="pu-btn pu-edit" onclick="enableStandTapPlace(${s.id})">Tap & Place</button>
-  <button class="pu-btn pu-edit" onclick="showAllStands()">Show all stands</button>
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
@@ -2257,8 +2251,7 @@ function getStandLabelText(s = {}){
 }
 function bindStandNameLabel(marker, stand){
   if(!marker || !stand) return marker;
-  const label = getStandLabelText(stand);
-  marker.bindTooltip(escHtml(label), {
+  marker.bindTooltip(escHtml(getStandLabelText(stand)), {
     permanent:true,
     direction:'top',
     offset:[0,-42],
@@ -2280,6 +2273,7 @@ function pulseStandLabel(id, durationMs=10000){
   tooltipEl.classList.remove('stand-label-pulse');
   void tooltipEl.offsetWidth;
   tooltipEl.classList.add('stand-label-pulse');
+
   pulseStandLabel._timers = pulseStandLabel._timers || {};
   clearTimeout(pulseStandLabel._timers[id]);
   pulseStandLabel._timers[id] = setTimeout(()=>{
@@ -2290,7 +2284,7 @@ function pulseStandLabel(id, durationMs=10000){
 }
 function pulseStandLabelWhenReady(id, durationMs=10000, options={}){
   const start = Date.now();
-  const timeoutMs = Number(options.timeoutMs || 4200);
+  const timeoutMs = Number(options.timeoutMs || 11000);
   const intervalMs = Number(options.intervalMs || 120);
   const tryPulse = () => {
     try{
@@ -2306,15 +2300,111 @@ function pulseStandLabelWhenReady(id, durationMs=10000, options={}){
   };
   return tryPulse();
 }
+function showStandFocusBeacon(stand, durationMs=10000){
+  try{
+    const existing=document.getElementById('stand-screen-focus');
+    if(existing) existing.remove();
+    const existingToast=document.getElementById('stand-focus-toast');
+    if(existingToast) existingToast.remove();
+
+    const lat=Number(stand?.lat);
+    const lng=Number(stand?.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+    const label=escHtml(getStandLabelText(stand));
+
+    const el=document.createElement('div');
+    el.id='stand-screen-focus';
+    el.className='stand-screen-focus';
+    el.innerHTML=`<div class="ssf-label">▶ ${label} ◀</div><div class="ssf-arrow">▼</div><div class="ssf-ring"></div>`;
+    document.body.appendChild(el);
+
+    const toast=document.createElement('div');
+    toast.id='stand-focus-toast';
+    toast.className='stand-focus-toast';
+    toast.textContent=`LOCATING: ${getStandLabelText(stand)}`;
+    document.body.appendChild(toast);
+
+    const updatePosition=()=>{
+      try{
+        const mapEl=map.getContainer();
+        const rect=mapEl.getBoundingClientRect();
+        const pt=map.latLngToContainerPoint([lat,lng]);
+        el.style.left=`${Math.round(rect.left + pt.x)}px`;
+        el.style.top=`${Math.round(rect.top + pt.y)}px`;
+      }catch(e){}
+    };
+
+    updatePosition();
+    requestAnimationFrame(updatePosition);
+    [90,180,360,700,1100,1600,2300,3200].forEach(ms=>setTimeout(updatePosition,ms));
+    map.on('move zoom zoomanim resize moveend zoomend', updatePosition);
+
+    clearInterval(showStandFocusBeacon._blinkInterval);
+    let blinkOn=true;
+    showStandFocusBeacon._blinkInterval=setInterval(()=>{
+      blinkOn=!blinkOn;
+      el.style.opacity=blinkOn?'1':'.32';
+      toast.style.opacity=blinkOn?'1':'.38';
+      const labelEl=el.querySelector('.ssf-label');
+      if(labelEl){
+        labelEl.style.background=blinkOn?'#fff200':'#ff3b00';
+        labelEl.style.color=blinkOn?'#111':'#fff';
+      }
+    },260);
+
+    clearTimeout(showStandFocusBeacon._timer);
+    showStandFocusBeacon._timer=setTimeout(()=>{
+      try{ map.off('move zoom zoomanim resize moveend zoomend', updatePosition); }catch(e){}
+      clearInterval(showStandFocusBeacon._blinkInterval);
+      try{ el.remove(); }catch(e){}
+      try{ toast.remove(); }catch(e){}
+    }, durationMs);
+    return true;
+  }catch(error){
+    console.warn('Stand focus beacon skipped.', error);
+    return false;
+  }
+}
+function showStandMapLocator(stand, durationMs=15000){
+  try{
+    const lat=Number(stand?.lat);
+    const lng=Number(stand?.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+
+    if(showStandMapLocator._marker){
+      try{ map.removeLayer(showStandMapLocator._marker); }catch(e){}
+      showStandMapLocator._marker=null;
+    }
+    const existingToast=document.getElementById('stand-focus-toast');
+    if(existingToast) existingToast.remove();
+    clearTimeout(showStandMapLocator._timer);
+
+    const icon=L.divIcon({
+      className:'',
+      html:`<div class="stand-map-locator" aria-hidden="true"><div class="sml-ring"></div></div>`,
+      iconSize:[54,54],
+      iconAnchor:[27,43]
+    });
+    const marker=L.marker([lat,lng],{icon,interactive:false,zIndexOffset:1000000}).addTo(map);
+    showStandMapLocator._marker=marker;
+
+    // Force Leaflet to recalculate marker position after final paint.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try{ marker.setLatLng([lat,lng]); }catch(e){}
+    }));
+
+    showStandMapLocator._timer=setTimeout(()=>{
+      try{ map.removeLayer(marker); }catch(e){}
+      if(showStandMapLocator._marker===marker) showStandMapLocator._marker=null;
+    },durationMs);
+    return true;
+  }catch(error){
+    console.warn('Stand map locator skipped.', error);
+    return false;
+  }
+}
 function addStandToMap(s){
-  s.type = normalizeStandType(s.type);
-  const marker=L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:true}).addTo(map).bindPopup(standPopupHTML(s));
-  try{ marker.dragging.disable(); }catch(e){}
-  marker.on('dragend', async evt=>{
-    const ll=evt.target.getLatLng();
-    await updateStandLocation(s.id, ll, {fromDrag:true});
-  });
-  const m=bindStandNameLabel(marker, s);
+  const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type)}).addTo(map).bindPopup(standPopupHTML(s)), s);
   allLayers[s.id]=m;
 }
 
@@ -2432,7 +2522,7 @@ function getScoutActiveCampData(){
   return {activeCampId, scopedCampDataKey, baseCampData:Object.keys(scoped).length?scoped:genericCampData};
 }
 function makeStandPostSummary(s){
-  const c=TYPE_CFG[s.type]||TYPE_CFG['hanging-tree-stand'];
+  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
   return [c.label, s.wind?`wind ${s.wind}`:'', s.tod?(TOD_LABELS[s.tod]||s.tod):'', (s.seasonPhase&&s.seasonPhase!=='any')?(SEASON_PHASE_LABELS[s.seasonPhase]||s.seasonPhase):''].filter(Boolean).join(' • ') || 'Stand saved from Scout.';
 }
 async function persistStandToCamp(s){
@@ -2471,7 +2561,7 @@ async function persistStandToCamp(s){
   }
 
   const image=thumbUrl||displayUrl||(!hasDataImage(s.thumbnail)?String(s.thumbnail||'').trim():'');
-  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG['hanging-tree-stand']).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
+  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
   const existing=Array.isArray(baseCampData.deerStandPosts)?baseCampData.deerStandPosts.filter(Boolean):(Array.isArray(baseCampData.deerStands)?baseCampData.deerStands.filter(Boolean):[]);
   const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId};
   const content=Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions.filter(Boolean):[];
@@ -2553,7 +2643,7 @@ async function persistStandToCamp(s){
 function openStandModal(stand=null){
   document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
   document.getElementById('f-name').value=stand?.name||'';
-  document.getElementById('f-type').value=normalizeStandType(stand?.type||'hanging-tree-stand');
+  document.getElementById('f-type').value=stand?.type||'treestand';
   document.getElementById('f-notes').value=stand?.notes||'';
   document.getElementById('f-season').value=stand?.season||'';
   document.getElementById('f-tod').value=stand?.tod||'';
@@ -2595,7 +2685,7 @@ async function saveStand(){
     if(saveBtn) saveBtn.textContent='Saving...';
     if(feedback){feedback.textContent='Saving stand...';feedback.classList.add('show');}
     const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
-    const type=normalizeStandType(document.getElementById('f-type').value);
+    const type=document.getElementById('f-type').value;
     const notes=document.getElementById('f-notes').value.trim();
     const season=document.getElementById('f-season').value.trim();
     const tod=document.getElementById('f-tod').value;
@@ -2649,12 +2739,6 @@ window.closeStandModal=closeStandModal;
 window.pickWind=pickWind;
 function editStandById(id){editingStandId=id;const s=stands.find(s=>String(s.id)===String(id)||String(s.standId||'')===String(id)||String(s.name||'')===String(id)||String(s.title||'')===String(id));if(s)openStandModal(s);map.closePopup();}
 window.editStandById=editStandById;
-function getDeepLinkCampData(){
-  const campId = getCampIdFromUrl() || String(localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
-  const scoped = campId ? safeParse(localStorage.getItem(campScopeKey(campId, 'campData')), {}) : {};
-  const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
-  return Object.keys(scoped || {}).length ? scoped : generic;
-}
 function itemMatchesDeepLink(item = {}, key = ''){
   const cleanKey = String(key || '').trim();
   if(!cleanKey) return false;
@@ -2664,237 +2748,250 @@ function itemMatchesDeepLink(item = {}, key = ''){
   ].map(value => String(value || '').trim()).filter(Boolean);
   return candidates.some(value => value === cleanKey || slugifyValue(value) === slugifyValue(cleanKey));
 }
-function findCampStandById(standKey){
-  const campData = getDeepLinkCampData();
-  const candidates = [
-    ...(Array.isArray(campData.deerStandPosts) ? campData.deerStandPosts : []),
-    ...(Array.isArray(campData.deerStands) ? campData.deerStands : []),
-    ...(Array.isArray(campData.stands) ? campData.stands : [])
-  ];
-  return candidates.find(item => itemMatchesDeepLink(item, standKey)) || null;
+function findStandForDeepLink(standKey){
+  return stands.find(s => itemMatchesDeepLink(s, standKey)) || null;
 }
-function findCampDriveById(driveKey){
-  const campData = getDeepLinkCampData();
-  const candidates = [
-    ...(Array.isArray(campData.deerDrivePosts) ? campData.deerDrivePosts : []),
-    ...(Array.isArray(campData.deerDrives) ? campData.deerDrives : [])
-  ];
-  return candidates.find(item => itemMatchesDeepLink(item, driveKey)) || null;
+function normalizeCampStandToScoutStand(item = {}){
+  const lat = Number(item.lat ?? item.latitude);
+  const lng = Number(item.lng ?? item.longitude);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  const idSeed = item.scoutId || item.id || item.standId || item.campStandId || item.title || item.name || `stand-${lat}-${lng}`;
+  return {
+    id: item.scoutId || item.localScoutId || item.mapId || item.id || Date.now() + Math.floor(Math.random()*10000),
+    campStandId: item.id || item.campStandId || item.standId || '',
+    standId: item.standId || item.id || item.campStandId || '',
+    slug: item.slug || slugifyValue(idSeed),
+    name: item.name || item.title || 'Saved Stand',
+    title: item.title || item.name || 'Saved Stand',
+    type: item.type || item.scoutType || 'treestand',
+    notes: item.notes || item.body || '',
+    season: item.season || '',
+    tod: item.tod || '',
+    wind: item.wind || '',
+    access: item.access || 'good',
+    pressure: item.pressure || 'fresh',
+    seasonPhase: item.seasonPhase || 'any',
+    photo: item.displayUrl || item.imageUrl || item.thumbnail || item.thumbUrl || '',
+    thumbnail: item.thumbnail || item.thumbUrl || item.displayUrl || item.imageUrl || '',
+    lat,
+    lng
+  };
 }
-function openSavedDriveFromDeepLink(driveKey){
-  const match = findCampDriveById(driveKey);
-  if(!match){
-    document.getElementById('status-bar').innerHTML = 'Drive link opened Scout. Saved drive not found locally yet — refresh camp data, then try Open in Scout again.';
-    try{ openDeerDriveBuilderFromToolbar(); }catch{}
-    return false;
+
+function mergeScoutStandFromCamp(item = {}){
+  const stand = normalizeCampStandToScoutStand(item);
+  if(!stand) return null;
+  const existing = stands.find(s =>
+    itemMatchesDeepLink(s, stand.campStandId) ||
+    itemMatchesDeepLink(s, stand.standId) ||
+    itemMatchesDeepLink(s, stand.id) ||
+    (Math.abs(Number(s.lat)-Number(stand.lat)) < 0.000001 && Math.abs(Number(s.lng)-Number(stand.lng)) < 0.000001 && slugifyValue(s.name) === slugifyValue(stand.name))
+  );
+  if(existing){
+    Object.assign(existing, Object.fromEntries(Object.entries(stand).filter(([,value]) => value !== '' && value !== null && value !== undefined)));
+    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(escHtml(getStandLabelText(existing)));
+    return existing;
   }
-  const driveTitle = String(match.title || match.name || match.driveName || 'Saved Deer Drive').trim();
-  deerDrivePlan.driveName = driveTitle;
-  deerDrivePlan.windFrom = String(match.windFrom || match.savedSummary?.windFrom || '').trim();
-  deerDrivePlan.windTo = String(match.windTo || match.savedSummary?.windTo || '').trim();
-  deerDrivePlan.windLabel = String(match.windLabel || match.savedSummary?.windLabel || '').trim();
-  deerDrivePlan.savedDriveNotes = String(match.notes || match.body || match.description || '').trim();
-  deerDrivePlan.savedDriveSummary = Object.assign({}, match.savedSummary || {}, {
-    id: String(match.id || match.driveId || driveKey).trim(),
-    driveName: driveTitle,
-    thumbnail: match.thumbnail || match.image || match.savedSummary?.thumbnail || '',
-    detailImage: match.detailImage || match.originalMapImage || match.image || match.savedSummary?.detailImage || '',
-    originalMapImage: match.originalMapImage || match.detailImage || match.image || match.savedSummary?.originalMapImage || '',
-    routeSummaries: Array.isArray(match.routeSummaries) ? match.routeSummaries : []
+  stands.push(stand);
+  addStandToMap(stand);
+  return stand;
+}
+
+async function hydrateScoutStandsFromCampForDeepLink(){
+  const campId = getCampIdFromUrl();
+  const sources = [];
+  try{
+    const scopedKey = campScopeKey(campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
+    const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
+    const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+    sources.push(scoped, generic);
+  }catch(e){}
+
+  if(campId && window.DeerCampCloud && typeof window.DeerCampCloud.getCamp === 'function'){
+    try{
+      const cloudCamp = await window.DeerCampCloud.getCamp(campId);
+      if(cloudCamp) sources.push(cloudCamp);
+    }catch(error){
+      console.warn('Scout deep-link cloud stand hydration skipped.', error);
+    }
+  }
+
+  let added = 0;
+  sources.forEach(data => {
+    const campStands = [
+      ...(Array.isArray(data?.deerStandPosts) ? data.deerStandPosts : []),
+      ...(Array.isArray(data?.deerStands) ? data.deerStands : [])
+    ];
+    campStands.forEach(item => { if(mergeScoutStandFromCamp(item)) added += 1; });
   });
-  setMode('view');
-  document.getElementById('status-bar').innerHTML = `Opened saved DeerDrive: ${driveTitle}`;
-  setTimeout(async () => {
-    try{ await renderSaveDriveSummary(); document.getElementById('modal-save-drive')?.classList.add('open'); }
-    catch(error){ console.warn('Could not open saved drive preview.', error); }
-  }, 450);
+
+  if(added){
+    try{ saveLocal(); renderPanel(); }catch(e){}
+  }
+  return added;
+}
+function hideStandLabelsForDeepLink(selectedStandId=null){
+  try{
+    stands.forEach(item=>{
+      const layer=allLayers[item.id];
+      if(!layer || typeof layer.getTooltip !== 'function') return;
+      const tooltip=layer.getTooltip();
+      const el=tooltip && typeof tooltip.getElement === 'function' ? tooltip.getElement() : null;
+      if(el){
+        el.style.opacity = selectedStandId && String(item.id) === String(selectedStandId) ? '1' : '0';
+        el.style.pointerEvents = 'none';
+      }
+    });
+  }catch(error){
+    console.warn('Stand label hide skipped.', error);
+  }
+}
+function restoreStandLabelsAfterDeepLink(){
+  try{
+    stands.forEach(item=>{
+      const layer=allLayers[item.id];
+      if(!layer || typeof layer.getTooltip !== 'function') return;
+      const tooltip=layer.getTooltip();
+      const el=tooltip && typeof tooltip.getElement === 'function' ? tooltip.getElement() : null;
+      if(el){
+        el.style.opacity = '';
+        el.style.pointerEvents = '';
+      }
+    });
+  }catch(error){
+    console.warn('Stand label restore skipped.', error);
+  }
+}
+function clearExistingStandLocators(){
+  try{
+    if(showStandMapLocator._marker){ map.removeLayer(showStandMapLocator._marker); showStandMapLocator._marker=null; }
+  }catch(e){}
+  try{ document.getElementById('stand-screen-focus')?.remove(); }catch(e){}
+  try{ document.getElementById('stand-focus-toast')?.remove(); }catch(e){}
+  try{ clearTimeout(showStandMapLocator._timer); }catch(e){}
+  try{ clearTimeout(showStandFocusBeacon._timer); }catch(e){}
+  try{ clearInterval(showStandFocusBeacon._blinkInterval); }catch(e){}
+}
+
+function forceMapToStandView(stand, zoomLevel=18){
+  if(!stand) return false;
+  const lat = Number(stand.lat);
+  const lng = Number(stand.lng);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
+  try{ map.stop(); }catch(e){}
+  try{ map.invalidateSize(true); }catch(e){}
+  try{ map.setMaxZoom(Math.max(map.getMaxZoom ? map.getMaxZoom() : 19, zoomLevel)); }catch(e){}
+  try{ map.setView([lat,lng], zoomLevel, {animate:false, reset:true}); }catch(e){
+    try{ map.panTo([lat,lng], {animate:false}); map.setZoom(zoomLevel, {animate:false}); }catch(_){}
+  }
   return true;
 }
-function openCampStandFromDeepLink(standKey){
-  const savedStand = findCampStandById(standKey);
-  if(!savedStand) return false;
-  const lat = Number(savedStand.lat);
-  const lng = Number(savedStand.lng);
-  if(Number.isFinite(lat) && Number.isFinite(lng)){
-    const transient = {
-      id: savedStand.scoutId || savedStand.id || savedStand.standId || Date.now(),
-      standId: savedStand.standId || savedStand.id || '',
-      name: savedStand.name || savedStand.title || 'Saved Stand',
-      type: savedStand.type || 'treestand',
-      notes: savedStand.notes || savedStand.body || savedStand.description || '',
-      wind: savedStand.wind || '',
-      tod: savedStand.tod || savedStand.timeOfDay || '',
-      access: savedStand.access || '',
-      pressure: savedStand.pressure || '',
-      season: savedStand.season || '',
-      seasonPhase: savedStand.seasonPhase || '',
-      lat, lng
-    };
-    const existing = stands.find(item => itemMatchesDeepLink(item, standKey));
-    if(!existing) { stands.push(transient); addStandToMap(transient); }
-    const target = existing || transient;
-    setTimeout(()=>locateAndPulseStand(target, 'Opened stand'), 450);
-    document.getElementById('status-bar').innerHTML = `Opened stand: ${target.name || 'Saved Stand'}`;
-    return true;
-  }
-  return false;
-}
+
 function locateAndPulseStand(stand, statusPrefix='Located stand'){
   if(!stand) return false;
   const standId = stand.id;
   const lat = Number(stand.lat);
   const lng = Number(stand.lng);
   if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
-  const openPopup = () => { try{ allLayers[standId]?.setPopupContent(standPopupHTML(stand)); allLayers[standId]?.openPopup(); }catch(e){} };
-  try{
-    map.once('moveend', () => setTimeout(openPopup, 250));
-    map.flyTo([lat, lng], 17, {duration:.9});
-  }catch(error){
-    console.warn('Stand flyTo skipped; using setView fallback.', error);
-    try{ map.setView([lat, lng], 17); }catch(e){}
-    setTimeout(openPopup, 250);
-  }
-  setTimeout(openPopup, 1200);
+
+  const focusDurationMs = 15000;
+  const targetZoom = 18;
   const status = document.getElementById('status-bar');
-  if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'}`;
+  if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — centering map on stand`;
+
+  clearExistingStandLocators();
+  hideStandLabelsForDeepLink(standId);
+
+  // Hard-set the map repeatedly during the first few seconds. This prevents the
+  // initial all-stand fit/render pass from leaving the map at the wide stacked-label view.
+  const forceTimes = [0, 120, 350, 700, 1100, 1600, 2300, 3200];
+  forceTimes.forEach(ms => setTimeout(() => {
+    forceMapToStandView(stand, targetZoom);
+    try{
+      const layer = allLayers[standId];
+      if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
+    }catch(e){}
+  }, ms));
+
+  const startLocator = () => {
+    forceMapToStandView(stand, targetZoom);
+    try{
+      const layer = allLayers[standId];
+      if(layer && typeof layer.setZIndexOffset === 'function') layer.setZIndexOffset(1000000);
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
+      if(layer && typeof layer.openPopup === 'function') layer.openPopup();
+    }catch(e){}
+    restoreStandLabelsAfterDeepLink();
+    showStandMapLocator(stand, focusDurationMs);
+    pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
+    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — highlighted on the map`;
+  };
+
+  // Start only after the final forced recenter, so the flash is visible at the target stand.
+  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
   return true;
 }
-function openDeepLinkedScoutEdit(){
+async function openDeepLinkedScoutEdit(){
   try{
     const params = new URLSearchParams(window.location.search);
-    const driveKey = params.get('driveId') || params.get('editDrive');
     const standKey = params.get('standId') || params.get('editStand');
-
-    if(driveKey){
-      openSavedDriveFromDeepLink(driveKey);
-      return;
-    }
+    const driveKey = params.get('driveId') || params.get('editDrive');
 
     if(standKey){
-      const match = stands.find(s => itemMatchesDeepLink(s, standKey));
-      if(match){
-        setTimeout(()=>locateAndPulseStand(match, 'Opened stand'), 450);
-        return;
+      let match = findStandForDeepLink(standKey);
+      if(!match){
+        const status = document.getElementById('status-bar');
+        if(status) status.innerHTML = 'Stand link opened Scout. Loading saved camp stand data...';
+        await hydrateScoutStandsFromCampForDeepLink();
+        match = findStandForDeepLink(standKey);
       }
-      if(openCampStandFromDeepLink(standKey)) return;
-      document.getElementById('status-bar').innerHTML = 'Stand link opened Scout. Saved stand not found locally yet — refresh camp data, then try Open in Scout again.';
+      if(match){
+        setTimeout(()=>locateAndPulseStand(match, 'Opened stand'), 250);
+        return true;
+      }
+      document.getElementById('status-bar').innerHTML = 'Stand link opened Scout, but that stand ID was not found in local or camp data.';
+      return false;
     }
+
+    if(driveKey){
+      document.getElementById('status-bar').innerHTML = 'Drive link opened Scout. Use DeerDrive Builder or Save Drive to revise and repost this drive.';
+      try{ openDeerDriveBuilderFromToolbar(); }catch{}
+      return true;
+    }
+
+    return false;
   }catch(error){
     console.warn('Scout deep edit link skipped.', error);
+    return false;
   }
 }
-
-function getStandById(id){
-  return stands.find(s => String(s.id)===String(id) || String(s.campStandId||'')===String(id) || String(s.standId||'')===String(id)) || null;
-}
-async function updateStandLocation(id, latlng, options={}){
-  const stand=getStandById(id);
-  if(!stand || !latlng) return false;
-  stand.lat=latlng.lat;
-  stand.lng=latlng.lng;
-  const layer=allLayers[stand.id];
-  if(layer){
-    try{ layer.setLatLng([stand.lat, stand.lng]); }catch(e){}
-    try{ layer.setPopupContent(standPopupHTML(stand)); }catch(e){}
-    try{ if(layer.setTooltipContent) layer.setTooltipContent(escHtml(getStandLabelText(stand))); }catch(e){}
-    try{ layer.dragging.disable(); }catch(e){}
-  }
-  try{ await persistStandToCamp(stand); }catch(error){ console.warn('Stand location camp sync skipped.', error); }
-  saveLocal(); renderPanel(); pingCampRefresh('deerstand');
-  const msg=`Deer stand moved: ${stand.name || 'Stand'}`;
-  document.getElementById('status-bar').innerHTML=`✅ ${msg}`;
-  showScoutToast(msg);
-  return true;
-}
-function enableStandMove(id){
-  const stand=getStandById(id);
-  if(!stand) return;
-  const layer=allLayers[stand.id];
-  if(layer && layer.dragging){
-    try{ layer.dragging.enable(); layer.openPopup(); }catch(e){}
-    document.getElementById('status-bar').innerHTML=`Tap & Move: drag ${stand.name || 'this stand'} to a new spot. It saves when released.`;
-    showScoutToast('Drag the stand, then release to save.');
-  }
-}
-function enableStandTapPlace(id){
-  const stand=getStandById(id);
-  if(!stand) return;
-  pendingStandPlaceId=stand.id;
-  try{ map.closePopup(); }catch(e){}
-  document.getElementById('status-bar').innerHTML=`Tap & Place: tap the map where ${stand.name || 'this stand'} should move.`;
-  showScoutToast('Tap the new stand location.');
-}
-async function placeStandAtLatLng(id, latlng){
-  pendingStandPlaceId=null;
-  await updateStandLocation(id, latlng, {fromTap:true});
-  const stand=getStandById(id);
-  if(stand){
-    try{ map.panTo([stand.lat, stand.lng]); }catch(e){}
-    setTimeout(()=>{try{allLayers[stand.id]?.openPopup();}catch(e){}},250);
-  }
-}
-function showAllStands(){
-  const pts=(Array.isArray(stands)?stands:[]).map(s=>[Number(s.lat),Number(s.lng)]).filter(pt=>Number.isFinite(pt[0])&&Number.isFinite(pt[1]));
-  if(pts.length){ try{ map.flyToBounds(pts,{padding:[70,70],duration:.8}); }catch(e){} }
-  try{ map.closePopup(); }catch(e){}
-}
-async function persistStandDeleteToCamp(target={}){
-  const {activeCampId, scopedCampDataKey, baseCampData}=getScoutActiveCampData();
-  const targetName=String(target.name||target.title||'').trim().toLowerCase();
-  const targetIds=[target.id,target.scoutId,target.campStandId,target.standId].map(v=>String(v||'').trim()).filter(Boolean);
-  const isMatch=(item={})=>{
-    const ids=[item.id,item.scoutId,item.campStandId,item.standId].map(v=>String(v||'').trim()).filter(Boolean);
-    if(targetIds.some(id=>ids.includes(id))) return true;
-    const name=String(item.name||item.title||'').trim().toLowerCase();
-    return !!(targetName && name && targetName===name);
+function runDeepLinkedScoutEditRetries(){
+  let attempts = 0;
+  const maxAttempts = 18;
+  const tryOpen = async () => {
+    attempts += 1;
+    const handled = await openDeepLinkedScoutEdit();
+    if(handled) return;
+    if(attempts < maxAttempts) setTimeout(tryOpen, 450 + attempts * 180);
   };
-  const filterList=(items)=> (Array.isArray(items)?items:[]).filter(item=>!isMatch(item));
-  const content=(Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions:[]).filter(item=>{
-    if(!item || typeof item!=='object') return false;
-    if(targetIds.includes(String(item.standId||'').trim())) return false;
-    const title=String(item.title||'').toLowerCase();
-    return !(targetName && title.includes(targetName) && title.includes('campdeerstands'));
-  });
-  const nextCampData=Object.assign({}, baseCampData, {
-    campId:activeCampId,
-    deerStandPosts:filterList(baseCampData.deerStandPosts),
-    deerStands:filterList(baseCampData.deerStands),
-    stands:filterList(baseCampData.stands),
-    contentSubmissions:content,
-    lastDeerStandDeleteAt:new Date().toISOString()
-  });
-  const json=JSON.stringify(nextCampData);
-  try{ localStorage.setItem(CAMP_DATA_KEY,json); }catch(e){}
-  try{ if(scopedCampDataKey)localStorage.setItem(scopedCampDataKey,json); }catch(e){}
-  let cloudWrote=false;
-  if(window.DeerCampCloud && typeof window.DeerCampCloud.saveCamp==='function'){
-    try{ cloudWrote=await window.DeerCampCloud.saveCamp(activeCampId,nextCampData); }catch(error){ console.warn('Firestore deer stand delete skipped.', error); }
-  }
-  try{ localStorage.setItem('deercamp.lastDeletedDeerStandPing',String(Date.now())); }catch(e){}
-  pingCampRefresh('deerstand-delete');
-  return {ok:true, cloudWrote};
-}
 
-async function deleteStand(){await delStandById(editingStandId);closeStandModal();}
-async function delStandById(id){
-  const stand=getStandById(id) || {id};
-  if(allLayers[stand.id] || allLayers[id]){
-    const layer=allLayers[stand.id] || allLayers[id];
-    try{ map.removeLayer(layer); }catch(e){}
-    delete allLayers[stand.id]; delete allLayers[id];
+  // Run once immediately after map ready, then keep retrying while local/Firebase
+  // camp data and stand markers finish hydrating.
+  if(map && typeof map.whenReady === 'function'){
+    map.whenReady(() => setTimeout(tryOpen, 300));
+  }else{
+    setTimeout(tryOpen, 500);
   }
-  stands=stands.filter(s=>String(s.id)!==String(id) && String(s.id)!==String(stand.id));
-  try{ await persistStandDeleteToCamp(stand); }catch(error){ console.warn('Camp stand delete sync skipped.', error); }
-  map.closePopup(); saveLocal(); renderPanel(); pingCampRefresh('deerstand-delete');
-  const msg='Deer stand deleted';
-  document.getElementById('status-bar').innerHTML=`✅ ${msg}`;
-  showScoutToast(msg);
+}
+function deleteStand(){delStandById(editingStandId);closeStandModal();}
+function delStandById(id){
+  if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
+  stands=stands.filter(s=>s.id!==id);
+  map.closePopup();saveLocal();renderPanel();
   if(recOpen) runRecommender();
 }
 window.delStandById=delStandById;
-window.enableStandMove=enableStandMove;
-window.enableStandTapPlace=enableStandTapPlace;
-window.showAllStands=showAllStands;
 
 // ═══════════════════════════════════════════════
 // WIND ARROWS
@@ -2982,7 +3079,17 @@ window.delWind=delWind;
 function updateCompass(){
   const arrow=document.getElementById('compass-arrow');
   const label=document.getElementById('compass-label');
-  if(!globalWind){arrow.setAttribute('transform','translate(43,43) rotate(0)');label.textContent='No Wind';return;}
+
+  // The current Scout compass is a static SVG without compass-arrow/compass-label IDs.
+  // Guard these lookups so one missing decorative element cannot stop the deep-link
+  // startup code that runs after init.
+  if(!arrow || !label) return;
+
+  if(!globalWind){
+    arrow.setAttribute('transform','translate(43,43) rotate(0)');
+    label.textContent='No Wind';
+    return;
+  }
   arrow.setAttribute('transform',`translate(43,43) rotate(${TOWARD_DEG[globalWind]||0})`);
   label.textContent=`→${globalWind}`;
 }
@@ -3117,7 +3224,7 @@ function runRecommender(){
   scored.forEach((s,i)=>{
     const pct=best>0?Math.round((s.score/best)*100):0;
     const isTop=i===0&&s.score>0;
-    const cfg=TYPE_CFG[s.type]||TYPE_CFG['hanging-tree-stand'];
+    const cfg=TYPE_CFG[s.type]||TYPE_CFG.treestand;
     const bar=`<div style="height:4px;background:#2a1050;border-radius:2px;margin-top:5px;overflow:hidden"><div style="height:100%;width:${Math.max(0,pct)}%;background:${s.score>20?'#c87aff':s.score>0?'#7a5aaa':'#5a2a3a'};border-radius:2px;transition:width .4s"></div></div>`;
     html+=`<div class="rec-card${isTop?' top':''}" onclick="flyToStand(${s.id})">
       <div class="rec-rank">${isTop?'⭐ Top Pick':'Rank #'+(i+1)}</div>
@@ -3240,7 +3347,7 @@ function renderPanel(){
   if(stands.length){
     html+=`<div class="panel-section-label">Stands (${stands.length})</div>`;
     html+=stands.map(s=>{
-      const c=TYPE_CFG[s.type]||TYPE_CFG['hanging-tree-stand'];
+      const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
       return`<div class="stand-card" onclick="flyToStand(${s.id})">
         <div class="card-name">${c.emoji} ${s.name}</div>
         <div class="card-meta">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}${s.wind?' · 💨'+s.wind:''} · ${ACCESS_LABELS[s.access||'good']} access · ${PRESSURE_LABELS[s.pressure||'fresh']}</div>
@@ -3434,12 +3541,14 @@ try{
     if(windArrows.length && !recWind){globalWind=windArrows[windArrows.length-1].dir;updateCompass();}
     syncRecUI();
     if(recOpen || recWind) runRecommender();
+    const hasScoutDeepLink = (()=>{ try{ const p=new URLSearchParams(window.location.search); return !!(p.get('standId') || p.get('editStand') || p.get('driveId') || p.get('editDrive')); }catch{return false;} })();
     const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
-    if(allPts.length) map.flyToBounds(allPts,{padding:[60,60]});
+    if(allPts.length && !hasScoutDeepLink) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
-openDeepLinkedScoutEdit();
+runDeepLinkedScoutEditRetries();
+window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
 </script>
 </body>
 </html>

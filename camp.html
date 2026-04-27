@@ -650,6 +650,16 @@ data.campId = activeCampId;
 const enabledSections = Object.assign({
   campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
+const dashboardSectionSources = [
+  preHydrateGenericDashboard && preHydrateGenericDashboard.sections,
+  preHydrateDashboard && preHydrateDashboard.sections,
+  safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {}).sections,
+  safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {}).sections,
+  data.dashboardSlim && data.dashboardSlim.sections
+].filter(source => source && typeof source === "object");
+dashboardSectionSources.forEach(source => Object.assign(enabledSections, source));
+if(enabledSections.campdeerdrives) enabledSections.deerdrives = true;
+if(enabledSections.campdeerstands) enabledSections.stands = true;
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
@@ -805,6 +815,17 @@ function persist(){
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
+function hasStewardDashboardAccess(){
+  try{
+    const hasNamedSteward = Boolean(String(data.stewardName || data.steward || data.campSteward || "").trim());
+    const rosterHasSteward = Array.isArray(roster) && roster.some(member => String(member.role || "").trim().toLowerCase() === "camp steward");
+    const dashboardHasSteward = [preHydrateDashboard, preHydrateGenericDashboard, data.dashboardSlim].some(source => source && typeof source === "object" && String(source.stewardName || source.steward || source.stewardEmail || "").trim());
+    return hasNamedSteward || rosterHasSteward || dashboardHasSteward;
+  }catch(error){
+    return Boolean(String(data.stewardName || data.steward || "").trim());
+  }
+}
 function formatLocation(){
   const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
   const parts=[]; if(city||state) parts.push([city,state].filter(Boolean).join(", ")); if(zip) parts.push(zip);
@@ -1083,16 +1104,11 @@ function bindMenuLinks(){
     });
   });
 }
-function canShowStewardDashboardLink(){
-  if(stewardMember) return true;
-  if(String(data.stewardName || data.steward || data.stewardEmail || "").trim()) return true;
-  const dash = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {}));
-  return !!(dash && (dash.stewardName || dash.stewardEmail || dash.campId === activeCampId));
-}
 function renderMenu(){
   const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
+  const dashboardLink = hasStewardDashboardAccess() ? `<a href="${esc(buildStewardDashboardUrl())}">Steward Dashboard</a>` : "";
   const sectionLinks = visibleSections().map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
-  menu.innerHTML = `${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
+  menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
   const headerScoutBtn = document.getElementById("headerScoutBtn");
   const mobileScoutBtn = document.getElementById("mobileScoutBtn");
   if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
@@ -1152,8 +1168,8 @@ function visibleSections(){
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
-    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
+    if (s.key === "campdeerstands") return !!(enabledSections.campdeerstands || enabledSections.stands);
+    if (s.key === "campdeerdrives") return !!(enabledSections.campdeerdrives || enabledSections.deerdrives);
     return !!enabledSections[map[s.key]];
   });
 }
@@ -1830,28 +1846,27 @@ function deleteDeerItemEdit(){
   closeDeerItemEdit();
 }
 
-
 function ensureDeerShelfSections(){
   const page = document.getElementById("content");
   if(!page) return;
-  if((enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length)) && !document.getElementById("campdeerstands")){
+  const needsStands = Boolean(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
+  const needsDrives = Boolean(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
+  if(needsStands && !document.getElementById("campdeerstands")){
     page.insertAdjacentHTML("beforeend", `<section class="content-section" id="campdeerstands">
       <div class="feed-header">
-        <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
-        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
+        <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Saved deer stands posted from Scout with stand details and quick return links.</p></div>
+        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${Array.isArray(deerStandPosts) ? deerStandPosts.length : 0} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
       </div>
-      <div id="deerStandsGrid" class="deer-shelf-grid"></div>
-      <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>
+      <div id="deerStandsGrid" class="deer-shelf-grid"></div><div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Open DeerCamp Scout Elite to save one.</div>
     </section>`);
   }
-  if((enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length)) && !document.getElementById("campdeerdrives")){
+  if(needsDrives && !document.getElementById("campdeerdrives")){
     page.insertAdjacentHTML("beforeend", `<section class="content-section" id="campdeerdrives">
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
-        <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
+        <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${Array.isArray(deerDrivePosts) ? deerDrivePosts.length : 0} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
       </div>
-      <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
-      <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>
+      <div id="deerDrivesGrid" class="deer-shelf-grid"></div><div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Open DeerCamp Scout Elite to save one.</div>
     </section>`);
   }
 }
@@ -2190,7 +2205,8 @@ function replaceArrayContents(target, nextItems){
 
 async function pullLatestCampDataSilently(){
   try{
-    await hydrateCampFromCloud(activeCampId);
+    const cloudData = await hydrateCampFromCloud(activeCampId);
+    if(!cloudData || typeof cloudData !== "object") return;
 
     const nextScoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
     const nextLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
@@ -2202,10 +2218,6 @@ async function pullLatestCampDataSilently(){
 
     Object.keys(data).forEach(key => { delete data[key]; });
     Object.assign(data, nextData, { campId: activeCampId });
-    Object.keys(enabledSections).forEach(key => { delete enabledSections[key]; });
-    Object.assign(enabledSections, {
-      campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerstands:false,campmaps:false
-    }, data.enabledSections || {});
 
     selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
     contentSubmissions = normalizeContentSubmissions(Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [], Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events) ? data.events : []));
@@ -2324,7 +2336,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>
