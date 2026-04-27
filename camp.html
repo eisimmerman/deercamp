@@ -1884,6 +1884,26 @@ function getDeerDriveImageSrc(item = {}){
     summary.thumbnail, summary.detailImage, summary.originalMapImage
   );
 }
+
+function getDeerDriveFallbackImageSrc(item = {}){
+  if(!item || typeof item !== 'object') return '';
+  const summary = item.savedSummary && typeof item.savedSummary === 'object' ? item.savedSummary : {};
+  const title = esc(item.title || item.driveName || summary.driveName || 'Saved Deer Drive');
+  const wind = esc(item.windLabel || summary.windLabel || '');
+  const notes = esc(item.notes || item.body || item.description || '').slice(0,150);
+  const routes = Array.isArray(item.routeSummaries) ? item.routeSummaries : [];
+  const routeRows = (routes.length ? routes : [{name:'Saved route', miles:0, direction:''}]).slice(0,4).map((route, idx)=>{
+    const y = 190 + idx * 62;
+    const name = esc(route.name || `${item.title || 'Deer Drive'} Route ${idx+1}`);
+    const meta = esc(`${Number(route.miles || 0).toFixed(2)} mile${route.direction ? ' • ' + route.direction : ''}`);
+    return `<g transform="translate(74 ${y})"><rect width="520" height="46" rx="10" fill="#221608" stroke="#50361f"/><text x="20" y="20" font-family="Arial" font-size="16" font-weight="700" fill="#c4a97a">Deer Drive Route</text><text x="20" y="36" font-family="Arial" font-size="12" fill="#6b7c4d">${name} · ${meta}</text></g>`;
+  }).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="428" viewBox="0 0 760 428"><rect width="760" height="428" rx="26" fill="#e9decf"/><rect x="22" y="22" width="716" height="384" rx="22" fill="#f5f1eb" stroke="#8f8a82"/><text x="380" y="62" text-anchor="middle" font-family="Arial" font-size="24" font-weight="700" fill="#111">${title}</text>${wind ? `<text x="380" y="90" text-anchor="middle" font-family="Arial" font-size="14" fill="#51493f">${wind}</text>` : ''}<g transform="translate(115 114)"><circle cx="38" cy="38" r="28" fill="#2b6cb0" stroke="#fff" stroke-width="4"/><text x="38" y="45" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#fff">D/P</text><circle cx="180" cy="38" r="28" fill="#f4d03f" stroke="#fff" stroke-width="4"/><text x="180" y="45" text-anchor="middle" font-family="Arial" font-size="18" font-weight="700" fill="#231a13">S/B</text><path d="M 70 38 C 96 12, 128 12, 154 38" fill="none" stroke="#d4820a" stroke-width="6" stroke-dasharray="12 8"/><path d="M 148 24 L 166 38 L 148 52" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>${routeRows}<text x="74" y="386" font-family="Arial" font-size="13" fill="#111">Drive Notes: ${notes}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+function getDeerDriveDisplayImageSrc(item = {}){
+  return getDeerDriveImageSrc(item) || getDeerDriveFallbackImageSrc(item);
+}
 let deerItemEditState = { type: '', index: -1 };
 function getDeerEditCollection(type){
   return type === 'drive' ? deerDrivePosts : deerStandPosts;
@@ -2053,7 +2073,7 @@ function renderDeerDrives(delta = 0){
         <h3 class="feed-title">${esc(item.title)}</h3>
         <p class="feed-meta">${esc(item.author)} • ${esc(new Date(item.createdAtMs || Date.now()).toLocaleDateString())}${item.windLabel ? ` • ${esc(item.windLabel)}` : ""}</p>
         <p class="feed-body">${esc(item.body || "")}</p>
-        <div class="feed-card-media">${getDeerDriveImageSrc(item) ? `<button type="button" data-deerdrive-thumb="${idx}" aria-label="Open ${esc(item.title)} deer drive"><img src="${esc(getDeerDriveImageSrc(item))}" alt="${esc(item.title)} thumbnail"></button>` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
+        <div class="feed-card-media">${getDeerDriveDisplayImageSrc(item) ? `<button type="button" data-deerdrive-thumb="${idx}" aria-label="Open ${esc(item.title)} deer drive"><img src="${esc(getDeerDriveDisplayImageSrc(item))}" alt="${esc(item.title)} thumbnail"></button>` : `<div class="empty">Drive thumbnail unavailable.</div>`}</div>
         <div class="feed-tags">
           <span class="tag">${item.routeCount || 0} route${Number(item.routeCount || 0) === 1 ? '' : 's'}</span>
           ${(Array.isArray(item.tags) ? item.tags : []).slice(0,2).map(tag => `<span class="tag">${esc(tag)}</span>`).join("")}
@@ -2119,7 +2139,7 @@ function openDeerDriveModal(idx){
   document.getElementById('deerDriveModalMeta').textContent = `${item.author || 'Camp Steward'} • ${new Date(item.createdAtMs || Date.now()).toLocaleString()}${item.windLabel ? ` • ${item.windLabel}` : ''}`;
   document.getElementById('deerDriveModalBody').textContent = item.body || 'No drive notes added.';
   document.getElementById('deerDriveModalTags').innerHTML = (Array.isArray(item.tags) ? item.tags : []).map(tag => `<span class="tag">${esc(tag)}</span>`).join('');
-  const driveImageSrc = getDeerDriveImageSrc(item);
+  const driveImageSrc = getDeerDriveDisplayImageSrc(item);
   document.getElementById('deerDriveModalImage').innerHTML = driveImageSrc ? `<img src="${esc(driveImageSrc)}" alt="${esc(item.title)}">` : `<div class="empty">Drive image unavailable.</div>`;
   document.getElementById('deerDriveModalRoutes').innerHTML = (Array.isArray(item.routeSummaries) && item.routeSummaries.length)
     ? item.routeSummaries.map(route => `<div class="deerdrive-route-item"><p class="deerdrive-route-name">${esc(route.name || 'Route')}</p><p class="deerdrive-route-meta">${Number(route.miles || 0).toFixed(2)} mile • ${esc(route.direction || '')}</p></div>`).join('')

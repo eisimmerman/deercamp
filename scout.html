@@ -97,6 +97,9 @@ header::-webkit-scrollbar{height:0;}
 /* STATUS BAR */
 #status-bar{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--panel);border:1px solid var(--moss);border-radius:20px;padding:6px 16px;font-size:.6rem;color:var(--sage);letter-spacing:.4px;pointer-events:none;white-space:nowrap;}
 
+.scout-toast{position:fixed;right:14px;bottom:48px;z-index:2200;max-width:min(360px,calc(100vw - 28px));padding:10px 12px;border-radius:10px;background:rgba(18,10,2,.96);border:1px solid var(--moss);color:#cffff1;font-size:.62rem;line-height:1.45;box-shadow:0 10px 28px rgba(0,0,0,.5);opacity:0;transform:translateY(8px);pointer-events:none;transition:opacity .18s ease,transform .18s ease;}
+.scout-toast.show{opacity:1;transform:translateY(0);}
+
 /* FABs */
 .fab{position:fixed;bottom:48px;left:50%;transform:translateX(-50%);z-index:1000;border-radius:20px;padding:8px 18px;font-family:'IBM Plex Mono',monospace;font-size:.66rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.6);display:none;border:none;transition:background .15s;}
 .fab.visible{display:block;}
@@ -813,6 +816,32 @@ function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
 }
 
+function showScoutToast(message='', duration=3600){
+  let toast=document.getElementById('scout-toast');
+  if(!toast){
+    toast=document.createElement('div');
+    toast.id='scout-toast';
+    toast.className='scout-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent=String(message||'');
+  toast.classList.add('show');
+  clearTimeout(showScoutToast._timer);
+  showScoutToast._timer=setTimeout(()=>toast.classList.remove('show'), duration);
+}
+function pingCampRefresh(kind='scout'){
+  const stamp=String(Date.now());
+  try{localStorage.setItem('deercamp.lastScoutRefreshPing', stamp);}catch(e){}
+  try{localStorage.setItem(`deercamp.last${String(kind||'scout').replace(/(^.|[^a-z0-9].)/gi, m=>m.toUpperCase()).replace(/[^a-z0-9]/gi,'')}Ping`, stamp);}catch(e){}
+  try{
+    if(window.BroadcastChannel){
+      const channel=new BroadcastChannel('deercamp-refresh');
+      channel.postMessage({kind, campId:getCampIdFromUrl()||localStorage.getItem(ACTIVE_CAMP_KEY)||'', at:Number(stamp)});
+      setTimeout(()=>{try{channel.close();}catch(e){}},250);
+    }
+  }catch(e){}
+}
+
 // Acreage
 let acrePts=[], acrePolyLine=null, acreFillPoly=null, acreCalcM2=0;
 
@@ -1212,8 +1241,24 @@ async function fillSaveDriveMapPreview(targetId, preferredImage='thumbnail'){
   preview.classList.remove('empty');
 
   let imageUrl = preferredImage === 'large'
-    ? (deerDrivePlan.savedDriveSummary?.originalMapImage || deerDrivePlan.savedDriveSummary?.detailImage || '')
-    : (deerDrivePlan.savedDriveSummary?.thumbnail || '');
+    ? firstNonEmptyScoutString(
+        deerDrivePlan.savedDriveSummary?.originalMapImageUrl,
+        deerDrivePlan.savedDriveSummary?.detailImageUrl,
+        deerDrivePlan.savedDriveSummary?.originalMapImage,
+        deerDrivePlan.savedDriveSummary?.detailImage,
+        deerDrivePlan.savedDriveSummary?.imageUrl,
+        deerDrivePlan.savedDriveSummary?.thumbnailUrl,
+        deerDrivePlan.savedDriveSummary?.thumbnail
+      )
+    : firstNonEmptyScoutString(
+        deerDrivePlan.savedDriveSummary?.thumbnailUrl,
+        deerDrivePlan.savedDriveSummary?.imageUrl,
+        deerDrivePlan.savedDriveSummary?.thumbnail,
+        deerDrivePlan.savedDriveSummary?.detailImageUrl,
+        deerDrivePlan.savedDriveSummary?.originalMapImageUrl,
+        deerDrivePlan.savedDriveSummary?.detailImage,
+        deerDrivePlan.savedDriveSummary?.originalMapImage
+      );
   if(!imageUrl){
     try{
       imageUrl = await generateDeerDriveThumbnailDataUrl(760, 428);
@@ -1221,6 +1266,9 @@ async function fillSaveDriveMapPreview(targetId, preferredImage='thumbnail'){
       console.warn('Unable to generate deer drive preview image.', err);
       imageUrl = '';
     }
+  }
+  if(!imageUrl){
+    imageUrl = generateSavedDriveFallbackImageDataUrl(deerDrivePlan.savedDriveSummary || {});
   }
 
   if(!imageUrl){
@@ -1287,7 +1335,8 @@ async function renderSaveDriveSummary(){
   document.getElementById('save-drive-wind-label').textContent = deerDrivePlan.windLabel || (deerDrivePlan.windFrom && deerDrivePlan.windTo ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : 'Wind direction');
 
   const existingImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {});
-  const generatedImage = existingImage || await generateDeerDriveThumbnailDataUrl(760, 428);
+  let generatedImage = existingImage || await generateDeerDriveThumbnailDataUrl(760, 428);
+  if(!generatedImage) generatedImage = generateSavedDriveFallbackImageDataUrl(deerDrivePlan.savedDriveSummary || {});
   deerDrivePlan.savedDriveSummary = Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
     thumbnail: generatedImage,
     originalMapImage: generatedImage,
@@ -1390,6 +1439,24 @@ function getSavedDriveImageUrl(source = {}){
     source.image, source.thumbnail, source.detailImage, source.originalMapImage,
     summary.thumbnail, summary.detailImage, summary.originalMapImage
   );
+}
+
+function generateSavedDriveFallbackImageDataUrl(source = {}){
+  const summary = source && source.savedSummary && typeof source.savedSummary === 'object' ? source.savedSummary : {};
+  const title = escHtml(String(source.title || source.driveName || summary.driveName || deerDrivePlan.driveName || 'Saved Deer Drive').trim());
+  const wind = escHtml(String(source.windLabel || summary.windLabel || deerDrivePlan.windLabel || '').trim());
+  const notes = escHtml(String(source.notes || source.body || source.description || deerDrivePlan.savedDriveNotes || '').trim()).slice(0, 150);
+  const routes = Array.isArray(source.routeSummaries) && source.routeSummaries.length
+    ? source.routeSummaries
+    : (Array.isArray(deerDrivePlan.savedDriveRouteSummaries) ? deerDrivePlan.savedDriveRouteSummaries : []);
+  const routeRows = (routes.length ? routes : [{name:'Saved route', miles:0, direction:''}]).slice(0,4).map((route, idx) => {
+    const y = 190 + idx * 62;
+    const name = escHtml(route.name || `${title} Route ${idx+1}`);
+    const meta = escHtml(`${Number(route.miles || 0).toFixed(2)} mile${route.direction ? ' • ' + route.direction : ''}`);
+    return `<g transform="translate(74 ${y})"><rect width="520" height="46" rx="10" fill="#221608" stroke="#50361f"/><text x="20" y="20" font-family="IBM Plex Mono, monospace" font-size="16" fill="#c4a97a">🦌 ${name}</text><text x="20" y="36" font-family="IBM Plex Mono, monospace" font-size="11" fill="#6b7c4d">${meta}</text></g>`;
+  }).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="760" height="428" viewBox="0 0 760 428"><rect width="760" height="428" rx="26" fill="#e9decf"/><rect x="22" y="22" width="716" height="384" rx="22" fill="#f5f1eb" stroke="#8f8a82"/><text x="380" y="62" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="24" font-weight="700" fill="#111">${title}</text>${wind ? `<text x="380" y="90" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="14" fill="#51493f">${wind}</text>` : ''}<g transform="translate(115 114)"><circle cx="38" cy="38" r="28" fill="#2b6cb0" stroke="#fff" stroke-width="4"/><text x="38" y="45" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="700" fill="#fff">D/P</text><circle cx="180" cy="38" r="28" fill="#f4d03f" stroke="#fff" stroke-width="4"/><text x="180" y="45" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="18" font-weight="700" fill="#231a13">S/B</text><path d="M 70 38 C 96 12, 128 12, 154 38" fill="none" stroke="#d4820a" stroke-width="6" stroke-dasharray="12 8"/><path d="M 148 24 L 166 38 L 148 52" fill="none" stroke="#111" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></g>${routeRows}<text x="74" y="386" font-family="IBM Plex Mono, monospace" font-size="13" fill="#111">Drive Notes: ${notes}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 async function uploadDeerDriveImageToFirebaseStorage(dataUrl='', driveId='', kind='thumbnail'){
   const raw = String(dataUrl || '').trim();
@@ -1734,6 +1801,8 @@ function compactDrivePayloadForCloud(payload={}){
   const fallback = rawDrives.length ? rawDrives : rawPosts;
   next.deerDrivePosts = merged.map(compactDrive);
   next.deerDrives = fallback.length ? fallback.map(compactDrive) : next.deerDrivePosts.slice();
+  next.savedDeerDrives = next.deerDrivePosts.slice();
+  next.scoutDeerDrives = next.deerDrivePosts.slice();
   return next;
 }
 async function saveDriveCampPayloadToCloud(activeCampId, payload){
@@ -1764,7 +1833,8 @@ async function persistDriveToCamp(){
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
   const driveId = deerDrivePlan.savedDriveSummary?.id || `deerdrive-${slugifyValue(getCurrentDriveName()) || 'drive'}-${timestampMs}`;
-  const generatedImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {}) || await generateDeerDriveThumbnailDataUrl(760, 428);
+  let generatedImage = getSavedDriveImageUrl(deerDrivePlan.savedDriveSummary || {}) || await generateDeerDriveThumbnailDataUrl(760, 428);
+  if(!generatedImage) generatedImage = generateSavedDriveFallbackImageDataUrl(deerDrivePlan.savedDriveSummary || {});
   const uploadedImageUrl = await uploadDeerDriveImageToFirebaseStorage(generatedImage, driveId, 'map');
   const savedImage = uploadedImageUrl || generatedImage;
   const savedLargeImage = savedImage;
@@ -1830,6 +1900,8 @@ async function persistDriveToCamp(){
     contentSubmissions: nextContentSubmissions,
     deerDrivePosts: nextDeerDrivePosts,
     deerDrives: nextDeerDrivePosts,
+    savedDeerDrives: nextDeerDrivePosts,
+    scoutDeerDrives: nextDeerDrivePosts,
     lastDeerDriveSaveAt: timestampIso
   });
   const result = safeSetCampDataForSave(scopedCampDataKey, nextCampData);
@@ -3070,7 +3142,7 @@ async function openSavedDeerDriveEditModal(item = {}){
   deerDrivePlan.windLabel = String(item.windLabel || item.savedSummary?.windLabel || ((deerDrivePlan.windFrom && deerDrivePlan.windTo) ? `${deerDrivePlan.windFrom} to ${deerDrivePlan.windTo}` : '')).trim();
   deerDrivePlan.savedDriveNotes = String(item.notes || item.body || item.description || '').trim();
   deerDrivePlan.savedDriveRouteSummaries = Array.isArray(item.routeSummaries) ? item.routeSummaries.slice() : [];
-  const image = getSavedDriveImageUrl(item);
+  const image = getSavedDriveImageUrl(item) || generateSavedDriveFallbackImageDataUrl(item);
   deerDrivePlan.savedDriveSummary = Object.assign({}, item.savedSummary || {}, {
     id: String(item.id || item.driveId || item.savedSummary?.id || `deerdrive-${slugifyValue(title) || 'drive'}`).trim(),
     driveName: title,
