@@ -1700,6 +1700,49 @@ function buildDriveRouteSummaries(){
   });
 }
 
+function buildDriveGeometryPayload(){
+  const normalizePoint = (item={}, fallbackLabel='') => {
+    const lat = Number(item.lat);
+    const lng = Number(item.lng);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      lat,
+      lng,
+      label: String(item.label || item.name || fallbackLabel || '').trim(),
+      role: String(item.role || '').trim(),
+      slot: Number(item.slot || 0)
+    };
+  };
+  const driversPayload = (Array.isArray(drivers) ? drivers : []).map((item, idx) => normalizePoint(item, `D/P ${idx + 1}`)).filter(Boolean);
+  const standersPayload = (Array.isArray(standers) ? standers : []).map((item, idx) => normalizePoint(item, `S/B ${idx + 1}`)).filter(Boolean);
+  const routesPayload = getSavedDriveRoutes().map((route, idx) => {
+    const pts = (Array.isArray(route.pts) ? route.pts : []).map(pt => {
+      if(Array.isArray(pt) && pt.length >= 2){
+        const lat = Number(pt[0]);
+        const lng = Number(pt[1]);
+        return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+      }
+      if(pt && typeof pt === 'object'){
+        const lat = Number(pt.lat);
+        const lng = Number(pt.lng);
+        return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
+      }
+      return null;
+    }).filter(Boolean);
+    if(!pts.length) return null;
+    return {
+      id: route.id || `route-${idx + 1}`,
+      name: String(route.name || `${getCurrentDriveName()} Route ${idx + 1}`).trim(),
+      pts
+    };
+  }).filter(Boolean);
+  return {
+    drivers: driversPayload,
+    standers: standersPayload,
+    routes: routesPayload
+  };
+}
+
 function trimOversizedSavedDriveImages(item){
   if(!item || typeof item !== 'object') return item;
   const clone = Object.assign({}, item);
@@ -1888,6 +1931,7 @@ async function persistDriveToCamp(){
   const savedLargeImage = uploadedDriveImage.displayUrl || uploadedDriveImage.thumbUrl || makeImageSafeForLocalStorage(rawSavedImage, 260000) || savedImage;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
+  const geometry = buildDriveGeometryPayload();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
   const driveEntry = {
     id: driveId,
@@ -1911,13 +1955,15 @@ async function persistDriveToCamp(){
     notes,
     routeSummaries,
     routeCount: routeSummaries.length,
+    geometry,
     savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
       thumbnail: savedImage,
       originalMapImage: savedLargeImage,
       detailImage: savedLargeImage,
       imageUrl: savedLargeImage || savedImage,
       thumbnailUrl: savedImage || savedLargeImage,
-      storageUploaded: Boolean(uploadedDriveImage.storageUploaded)
+      storageUploaded: Boolean(uploadedDriveImage.storageUploaded),
+      geometry
     })
   };
   const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId).map(trimOversizedSavedDriveImages)].slice(0, 8);

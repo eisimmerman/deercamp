@@ -191,6 +191,27 @@
   .all-drives-tile-title{margin:0;color:#3a2717;font-size:1.02rem;font-weight:800}
   .all-drives-tile-meta{margin:0;color:#6b4624;font-size:.86rem;font-weight:700;line-height:1.35}
   .show-all-drives-btn{min-height:34px;padding:0 13px;font-size:.84rem;box-shadow:none}
+  .show-all-stands-btn{min-height:34px;padding:0 13px;font-size:.84rem;box-shadow:none}
+  .poster-map-card{position:relative;width:min(1220px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24);padding:18px}
+  .poster-map-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:18px;align-items:start}
+  .poster-map-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .poster-preview-panel{display:grid;gap:10px}
+  .poster-preview-frame{background:#efe6d7;border:1px solid rgba(69,42,22,.12);border-radius:18px;padding:12px;display:flex;justify-content:center;align-items:flex-start;overflow:auto}
+  .poster-preview-art{width:min(100%,760px);aspect-ratio:2/3;background:#fff;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.12);overflow:hidden;border:1px solid rgba(69,42,22,.12)}
+  .poster-preview-art svg{display:block;width:100%;height:auto}
+  .poster-preview-note{margin:0;color:#6b5644;line-height:1.45;font-size:.88rem}
+  .poster-side-panel{display:grid;gap:12px}
+  .poster-stat-card,.poster-list-card{border:1px solid rgba(69,42,22,.1);border-radius:18px;background:rgba(255,255,255,.7);padding:14px}
+  .poster-stat-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .poster-stat-label{margin:0 0 3px;color:#7b5a33;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .poster-stat-value{margin:0;color:#3a2717;font-size:1rem;font-weight:800}
+  .poster-list-title{margin:0 0 10px;color:#3a2717;font-size:1rem;font-weight:800}
+  .poster-list{list-style:none;padding:0;margin:0;display:grid;gap:8px}
+  .poster-list li{display:flex;align-items:flex-start;gap:10px;color:#4d3827;font-size:.9rem;line-height:1.35}
+  .poster-swatch{width:12px;height:12px;border-radius:999px;flex:0 0 12px;border:1px solid rgba(0,0,0,.18);margin-top:3px}
+  .poster-helper-list{margin:0;padding-left:18px;color:#5c4738;line-height:1.45;font-size:.88rem}
+  .poster-helper-list li+li{margin-top:6px}
+  @media (max-width:980px){.poster-map-layout{grid-template-columns:1fr}.poster-preview-art{width:min(100%,680px)}}
   .deerdrive-card{align-self:stretch;cursor:pointer}
   .deerdrive-card .feed-card-copy{display:grid;gap:10px}
   .deerdrive-card .feed-card-media{display:flex;align-items:center;justify-content:flex-start;order:4;margin-top:2px}
@@ -474,6 +495,47 @@
       </div>
     </div>
     <div id="allDrivesGrid" class="all-drives-grid"></div>
+  </div>
+</div>
+
+<div id="propertyPosterBackdrop" class="all-drives-backdrop"></div>
+<div id="propertyPosterModal" class="all-drives-modal" aria-hidden="true">
+  <div class="poster-map-card" role="dialog" aria-modal="true" aria-label="Property poster preview">
+    <button type="button" id="propertyPosterClose" class="close" aria-label="Close property poster preview">×</button>
+    <div class="all-drives-head">
+      <div>
+        <h3 id="propertyPosterTitle" class="all-drives-title">Property Map Poster Preview</h3>
+        <p id="propertyPosterSubtitle" class="all-drives-subtitle">Poster-ready preview for this camp.</p>
+      </div>
+      <div class="poster-map-actions">
+        <button type="button" id="propertyPosterDownloadBtn" class="btn btn-primary">External Print Save</button>
+      </div>
+    </div>
+    <div class="poster-map-layout">
+      <div class="poster-preview-panel">
+        <div class="poster-preview-frame">
+          <div id="propertyPosterPreview" class="poster-preview-art"></div>
+        </div>
+        <p id="propertyPosterNote" class="poster-preview-note">Preview scaled for screen. External Print Save downloads a print-ready SVG poster file.</p>
+      </div>
+      <div class="poster-side-panel">
+        <div class="poster-stat-card">
+          <div id="propertyPosterStats" class="poster-stat-grid"></div>
+        </div>
+        <div class="poster-list-card">
+          <p id="propertyPosterListTitle" class="poster-list-title">Included items</p>
+          <ul id="propertyPosterList" class="poster-list"></ul>
+        </div>
+        <div class="poster-list-card">
+          <p class="poster-list-title">How to use this</p>
+          <ul class="poster-helper-list">
+            <li>Use <strong>External Print Save</strong> to download a print-ready SVG poster file.</li>
+            <li>The exported poster is sized at a 24 x 36 proportion for local or online printing.</li>
+            <li>Older deer drives without saved route geometry will be skipped until they are re-saved from Scout.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1418,7 +1480,8 @@ function normalizeDeerDrivePosts(items = []){
       detailImage: String(item.detailImage || item.image || "").trim(),
       originalMapImage: String(item.originalMapImage || item.detailImage || item.image || "").trim(),
       routeCount: Number(item.routeCount || (Array.isArray(item.routeSummaries) ? item.routeSummaries.length : 0)),
-      routeSummaries: Array.isArray(item.routeSummaries) ? item.routeSummaries : []
+      routeSummaries: Array.isArray(item.routeSummaries) ? item.routeSummaries : [],
+      geometry: item.geometry && typeof item.geometry === "object" ? item.geometry : (item.savedSummary && typeof item.savedSummary.geometry === "object" ? item.savedSummary.geometry : null)
     });
   });
   return out.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
@@ -1529,7 +1592,7 @@ visibleSections().forEach(section=>{
     container.innerHTML=`
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Named stand locations and hunt-position notes for this camp.</p></div>
-        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
+        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${deerStandPosts.length} saved</span><button id="showAllStandsBtn" class="btn btn-secondary show-all-stands-btn" type="button">Show all Stands</button><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
       </div>
       <div id="deerStandsGrid" class="deer-shelf-grid"></div>
       <div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Create one in Scout and save it to CampDeerStands.</div>`;
@@ -1999,7 +2062,7 @@ function ensureDeerShelfSections(){
     page.insertAdjacentHTML("beforeend", `<section class="content-section" id="campdeerstands">
       <div class="feed-header">
         <div><h2 style="margin:0">CampDeerStands</h2><p class="section-helper" style="margin:8px 0 0">Saved deer stands posted from Scout with stand details and quick return links.</p></div>
-        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${Array.isArray(deerStandPosts) ? deerStandPosts.length : 0} saved</span><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
+        <div class="deer-shelf-controls"><span id="deerStandsCount" class="pill">${Array.isArray(deerStandPosts) ? deerStandPosts.length : 0} saved</span><button id="showAllStandsBtn" class="btn btn-secondary show-all-stands-btn" type="button">Show all Stands</button><button id="deerStandsPrev" class="arrow" type="button" aria-label="Previous deer stands" hidden>◀</button><button id="deerStandsNext" class="arrow" type="button" aria-label="Next deer stands" hidden>▶</button></div>
       </div>
       <div id="deerStandsGrid" class="deer-shelf-grid"></div><div id="deerStandsEmpty" class="empty" hidden>No deer stands saved yet. Open DeerCamp Scout Elite to save one.</div>
     </section>`);
@@ -2024,6 +2087,7 @@ function renderDeerStands(delta = 0){
     grid.innerHTML = "";
     empty.hidden = false;
     updateShelfNav("deerStands", 0, 0, renderDeerStands);
+    syncShowAllStandsButton();
     return;
   }
   deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset + Number(delta || 0), safeItems.length);
@@ -2073,6 +2137,7 @@ function renderDeerStands(delta = 0){
     grid.innerHTML = `<div class="empty">Deer stand details could not be displayed. Refresh or add a new stand from Scout.</div>`;
   }
   grid.querySelectorAll('[data-deerstand-edit]').forEach(btn=>btn.addEventListener('click',(event)=>{ event.stopPropagation(); openDeerItemEdit('stand', Number(btn.dataset.deerstandEdit)); }));
+  syncShowAllStandsButton();
 }
 function renderDeerDrives(delta = 0){
   const grid = document.getElementById("deerDrivesGrid");
@@ -2123,64 +2188,343 @@ function renderDeerDrives(delta = 0){
 
 
 
-function renderAllDeerDrivesModal(){
-  const grid = document.getElementById('allDrivesGrid');
-  const subtitle = document.getElementById('allDrivesSubtitle');
-  if(!grid) return;
-  const items = Array.isArray(deerDrivePosts) ? deerDrivePosts : [];
-  if(subtitle){
-    subtitle.textContent = items.length
-      ? `${items.length} saved deer drive${items.length === 1 ? '' : 's'} for this property. Tap any map picture to open that drive.`
-      : 'No saved deer drive map pictures are available yet.';
-  }
-  if(!items.length){
-    grid.innerHTML = '<div class="empty">No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>';
-    return;
-  }
-  grid.innerHTML = items.map((item, idx) => {
-    const image = getDeerDriveDisplayImageSrc(item);
-    const routeCount = Number(item.routeCount || (Array.isArray(item.routeSummaries) ? item.routeSummaries.length : 0));
-    const metaParts = [
-      routeCount ? `${routeCount} route${routeCount === 1 ? '' : 's'}` : '',
-      item.windLabel || '',
-      item.author || 'Camp Steward'
-    ].filter(Boolean);
-    return `<button type="button" class="all-drives-tile" data-all-drive-index="${idx}">
-      ${image ? `<img class="all-drives-image" src="${esc(image)}" alt="${esc(item.title || 'Saved deer drive')} map picture">` : `<div class="empty">Drive map picture unavailable.</div>`}
-      <div>
-        <p class="all-drives-tile-title">${esc(item.title || `Deer Drive ${idx + 1}`)}</p>
-        <p class="all-drives-tile-meta">${esc(metaParts.join(' • ') || 'Saved deer drive')}</p>
-      </div>
-    </button>`;
-  }).join('');
-  grid.querySelectorAll('[data-all-drive-index]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      closeAllDeerDrivesModal(false);
-      openDeerDriveModal(Number(btn.dataset.allDriveIndex));
-    });
-  });
+let propertyPosterState = { type: '', svg: '', filename: '' };
+const POSTER_SWATCHES = ['#855d29','#426b3f','#7b3f00','#4f5d75','#8c5a7e','#587291','#a4472d','#3a6d61'];
+function getPosterCampTitle(){
+  return String(data.campName || data.name || 'DeerCamp Property').trim() || 'DeerCamp Property';
 }
-function openAllDeerDrivesModal(){
-  renderAllDeerDrivesModal();
-  document.getElementById('allDrivesBackdrop')?.classList.add('open');
-  document.getElementById('allDrivesModal')?.classList.add('open');
-  document.getElementById('allDrivesModal')?.setAttribute('aria-hidden','false');
+function getPropertyPosterFilename(type){
+  const base = slugify(`${getPosterCampTitle()} ${type === 'drives' ? 'deer drives' : 'deer stands'} poster`) || (type === 'drives' ? 'deer-drives-poster' : 'deer-stands-poster');
+  return `${base}.svg`;
+}
+function getPosterBounds(points = []){
+  const valid = (Array.isArray(points) ? points : []).filter(pt => Number.isFinite(Number(pt?.lat)) && Number.isFinite(Number(pt?.lng)));
+  if(!valid.length) return null;
+  let minLat = Math.min(...valid.map(pt => Number(pt.lat)));
+  let maxLat = Math.max(...valid.map(pt => Number(pt.lat)));
+  let minLng = Math.min(...valid.map(pt => Number(pt.lng)));
+  let maxLng = Math.max(...valid.map(pt => Number(pt.lng)));
+  const latPad = Math.max((maxLat - minLat) * 0.14, 0.00045);
+  const lngPad = Math.max((maxLng - minLng) * 0.14, 0.00045);
+  return { minLat: minLat - latPad, maxLat: maxLat + latPad, minLng: minLng - lngPad, maxLng: maxLng + lngPad };
+}
+function projectPosterPoint(lat, lng, bounds, frame){
+  const width = Math.max(bounds.maxLng - bounds.minLng, 0.00001);
+  const height = Math.max(bounds.maxLat - bounds.minLat, 0.00001);
+  const x = frame.x + ((Number(lng) - bounds.minLng) / width) * frame.w;
+  const y = frame.y + (1 - ((Number(lat) - bounds.minLat) / height)) * frame.h;
+  return { x, y };
+}
+function posterLabelWidth(label = '', minWidth = 170){
+  return Math.max(minWidth, (String(label || '').length * 12) + 22);
+}
+function getStandPosterMarkerStyle(standType = ''){
+  const key = slugify(String(standType || '').toLowerCase()) || 'stand';
+  const styles = {
+    elevatedboxblind: { fill:'#8b5a2b', text:'EB', label:'Elevated Box Blind' },
+    'elevated-box-blind': { fill:'#8b5a2b', text:'EB', label:'Elevated Box Blind' },
+    groundboxblind: { fill:'#6f4e37', text:'GB', label:'Ground Box Blind' },
+    'ground-box-blind': { fill:'#6f4e37', text:'GB', label:'Ground Box Blind' },
+    groundblind: { fill:'#7d6b3b', text:'BL', label:'Ground Blind' },
+    'ground-blind': { fill:'#7d6b3b', text:'BL', label:'Ground Blind' },
+    hangingtreestand: { fill:'#466a55', text:'HT', label:'Hanging Tree Stand' },
+    'hanging-tree-stand': { fill:'#466a55', text:'HT', label:'Hanging Tree Stand' },
+    ladderstand: { fill:'#4d6c84', text:'LS', label:'Ladder Stand' },
+    'ladder-stand': { fill:'#4d6c84', text:'LS', label:'Ladder Stand' },
+    tripodstand: { fill:'#8a6c2f', text:'TS', label:'Tripod Stand' },
+    'tripod-stand': { fill:'#8a6c2f', text:'TS', label:'Tripod Stand' },
+    naturalgroundblind: { fill:'#5f6b48', text:'NB', label:'Natural Ground Blind' },
+    'natural-ground-blind': { fill:'#5f6b48', text:'NB', label:'Natural Ground Blind' },
+    treestand: { fill:'#466a55', text:'TS', label:'Tree Stand' },
+    'tree-stand': { fill:'#466a55', text:'TS', label:'Tree Stand' }
+  };
+  return styles[key] || { fill:'#6b5b4b', text:'ST', label: String(standType || 'Stand').trim() || 'Stand' };
+}
+function getDriveGeometry(item = {}){
+  const geometry = item.geometry && typeof item.geometry === 'object' ? item.geometry : (item.savedSummary && typeof item.savedSummary.geometry === 'object' ? item.savedSummary.geometry : null);
+  if(!geometry || typeof geometry !== 'object') return null;
+  const normalizePoint = (pt, fallbackLabel='') => {
+    if(!pt || typeof pt !== 'object') return null;
+    const lat = Number(pt.lat ?? pt.latitude);
+    const lng = Number(pt.lng ?? pt.longitude);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng, label: String(pt.label || pt.name || fallbackLabel || '').trim(), slot: Number(pt.slot || 0), role: String(pt.role || '').trim() };
+  };
+  const drivers = (Array.isArray(geometry.drivers) ? geometry.drivers : []).map((pt, idx) => normalizePoint(pt, `D/P ${idx + 1}`)).filter(Boolean);
+  const standers = (Array.isArray(geometry.standers) ? geometry.standers : []).map((pt, idx) => normalizePoint(pt, `S/B ${idx + 1}`)).filter(Boolean);
+  const routes = (Array.isArray(geometry.routes) ? geometry.routes : []).map((route, idx) => {
+    const pts = (Array.isArray(route?.pts) ? route.pts : []).map(pt => {
+      if(Array.isArray(pt) && pt.length >= 2) return { lat: Number(pt[0]), lng: Number(pt[1]) };
+      if(pt && typeof pt === 'object') return { lat: Number(pt.lat), lng: Number(pt.lng) };
+      return null;
+    }).filter(pt => Number.isFinite(pt?.lat) && Number.isFinite(pt?.lng));
+    if(!pts.length) return null;
+    return { name: String(route?.name || `${item.title || 'Drive'} Route ${idx + 1}`).trim(), pts };
+  }).filter(Boolean);
+  return (drivers.length || standers.length || routes.length) ? { drivers, standers, routes } : null;
+}
+function getPosterStatsMarkup(pairs = []){
+  return pairs.map(([label, value]) => `<div><p class="poster-stat-label">${esc(label)}</p><p class="poster-stat-value">${esc(String(value))}</p></div>`).join('');
+}
+function buildStandPosterData(){
+  const stands = (Array.isArray(deerStandPosts) ? deerStandPosts : []).filter(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng)));
+  if(!stands.length){
+    return {
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 3600"><rect width="2400" height="3600" fill="#f3eadb"/><text x="1200" y="1800" text-anchor="middle" font-size="72" font-family="Arial" fill="#5e4a38">No saved deer stands available.</text></svg>`,
+      statsHtml: getPosterStatsMarkup([['Saved stands', '0'], ['Stand types', '0'], ['Camp', getPosterCampTitle()], ['Format', '24 x 36 SVG']]),
+      listTitle: 'Included stands',
+      listHtml: '<li>No deer stands with map coordinates are available yet.</li>',
+      subtitle: 'No saved stand coordinates are available yet.',
+      note: 'Preview scaled for screen. External Print Save downloads a print-ready SVG poster file.'
+    };
+  }
+  const frame = { x: 160, y: 430, w: 1680, h: 2580 };
+  const bounds = getPosterBounds(stands);
+  const typeCounts = {};
+  const projected = stands.map((item, idx) => {
+    const style = getStandPosterMarkerStyle(item.standType || item.type || '');
+    typeCounts[style.label] = (typeCounts[style.label] || 0) + 1;
+    return { item, style, pt: projectPosterPoint(item.lat, item.lng, bounds, frame), idx };
+  });
+  const legendItems = Object.entries(typeCounts).sort((a,b)=>a[0].localeCompare(b[0]));
+  const gridLines = Array.from({length:5}, (_,i) => {
+    const y = frame.y + (frame.h / 4) * i;
+    const x = frame.x + (frame.w / 4) * i;
+    return `<line x1="${frame.x}" y1="${y}" x2="${frame.x + frame.w}" y2="${y}" stroke="#d8cab5" stroke-width="3"/><line x1="${x}" y1="${frame.y}" x2="${x}" y2="${frame.y + frame.h}" stroke="#d8cab5" stroke-width="3"/>`;
+  }).join('');
+  const markerSvg = projected.map(({ item, style, pt }, idx) => {
+    const label = String(item.title || `Stand ${idx + 1}`);
+    const boxWidth = posterLabelWidth(label, 176);
+    return `<g>
+      <circle cx="${pt.x}" cy="${pt.y}" r="22" fill="${style.fill}" stroke="#ffffff" stroke-width="6"/>
+      <text x="${pt.x}" y="${pt.y + 7}" text-anchor="middle" font-size="20" font-family="Arial" font-weight="700" fill="#ffffff">${esc(style.text)}</text>
+      <rect x="${pt.x + 28}" y="${pt.y - 22}" rx="12" ry="12" width="${boxWidth}" height="34" fill="#fffdf9" opacity=".96"/>
+      <text x="${pt.x + 42}" y="${pt.y + 1}" font-size="24" font-family="Arial" font-weight="700" fill="#3a2717">${esc(label)}</text>
+    </g>`;
+  }).join('');
+  const legendSvg = legendItems.map((entry, idx) => {
+    const label = entry[0];
+    const count = entry[1];
+    const style = getStandPosterMarkerStyle(label);
+    const y = 770 + (idx * 54);
+    return `<g><circle cx="1918" cy="${y}" r="11" fill="${style.fill}"/><text x="1944" y="${y + 7}" font-size="24" font-family="Arial" fill="#3a2717">${esc(label)} (${count})</text></g>`;
+  }).join('');
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 3600">
+    <rect width="2400" height="3600" fill="#f3eadb"/>
+    <rect x="80" y="80" width="2240" height="3440" rx="30" fill="#fffaf2" stroke="#d6c5ad" stroke-width="4"/>
+    <text x="160" y="190" font-size="78" font-family="Arial" font-weight="700" fill="#3a2717">${esc(getPosterCampTitle())}</text>
+    <text x="160" y="260" font-size="36" font-family="Arial" fill="#7b5a33">All Deer Stands • Poster Preview • 24 x 36</text>
+    <rect x="160" y="430" width="1680" height="2580" rx="26" fill="#efe5d2" stroke="#d1bea5" stroke-width="4"/>
+    ${gridLines}
+    ${markerSvg}
+    <text x="1888" y="260" font-size="34" font-family="Arial" font-weight="700" fill="#3a2717">Stand Summary</text>
+    <text x="1888" y="320" font-size="28" font-family="Arial" fill="#5d4633">${stands.length} saved stand${stands.length === 1 ? '' : 's'}</text>
+    <text x="1888" y="370" font-size="28" font-family="Arial" fill="#5d4633">${legendItems.length} stand type${legendItems.length === 1 ? '' : 's'}</text>
+    <rect x="1888" y="430" width="350" height="1220" rx="24" fill="#f8f1e5" stroke="#d6c5ad" stroke-width="3"/>
+    <text x="1910" y="488" font-size="30" font-family="Arial" font-weight="700" fill="#3a2717">Legend</text>
+    ${legendSvg}
+    <rect x="1888" y="1690" width="350" height="250" rx="24" fill="#f8f1e5" stroke="#d6c5ad" stroke-width="3"/>
+    <text x="1910" y="1750" font-size="30" font-family="Arial" font-weight="700" fill="#3a2717">Print Notes</text>
+    <text x="1910" y="1810" font-size="24" font-family="Arial" fill="#5d4633">• Save as SVG for printing</text>
+    <text x="1910" y="1850" font-size="24" font-family="Arial" fill="#5d4633">• Built from saved stand map</text>
+    <text x="1910" y="1890" font-size="24" font-family="Arial" fill="#5d4633">• Includes stand labels + types</text>
+    <text x="160" y="3180" font-size="24" font-family="Arial" fill="#7b5a33">Generated by DeerCamp • External Print Save exports this poster as a print-ready SVG.</text>
+    <g transform="translate(2130 3090)">
+      <polygon points="0,46 24,0 48,46" fill="#6f5335"/>
+      <rect x="20" y="46" width="8" height="80" fill="#6f5335"/>
+      <text x="24" y="-12" text-anchor="middle" font-size="30" font-family="Arial" font-weight="700" fill="#6f5335">N</text>
+    </g>
+  </svg>`;
+  const listHtml = projected.map(({ item, style }) => `<li><span class="poster-swatch" style="background:${style.fill}"></span><span><strong>${esc(item.title || 'Saved stand')}</strong><br>${esc(style.label)}</span></li>`).join('');
+  return {
+    svg,
+    statsHtml: getPosterStatsMarkup([['Saved stands', stands.length], ['Stand types', legendItems.length], ['Camp', getPosterCampTitle()], ['Format', '24 x 36 SVG']]),
+    listTitle: 'Included stands',
+    listHtml,
+    subtitle: `${stands.length} saved deer stand${stands.length === 1 ? '' : 's'} plotted together on one property poster.`,
+    note: 'Preview scaled for screen. External Print Save downloads a print-ready SVG poster file.'
+  };
+}
+function buildDrivePosterData(){
+  const driveItems = (Array.isArray(deerDrivePosts) ? deerDrivePosts : []);
+  const plotted = driveItems.map((item, idx) => ({ item, geometry: getDriveGeometry(item), idx })).filter(entry => entry.geometry);
+  const skipped = driveItems.length - plotted.length;
+  if(!plotted.length){
+    return {
+      svg: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 3600"><rect width="2400" height="3600" fill="#f3eadb"/><text x="1200" y="1760" text-anchor="middle" font-size="72" font-family="Arial" fill="#5e4a38">No deer drives with saved map geometry yet.</text><text x="1200" y="1840" text-anchor="middle" font-size="34" font-family="Arial" fill="#7b5a33">Re-save each drive in Scout to include the full poster map data.</text></svg>`,
+      statsHtml: getPosterStatsMarkup([['Saved drives', driveItems.length], ['Plotted drives', '0'], ['Camp', getPosterCampTitle()], ['Format', '24 x 36 SVG']]),
+      listTitle: 'Included drives',
+      listHtml: '<li>No deer drive geometry is available yet. Re-save a drive in Scout, then reopen this poster preview.</li>',
+      subtitle: 'Saved drive geometry is required for the combined property poster.',
+      note: 'Preview scaled for screen. Re-save older drives in Scout so DeerCamp can plot them on one property poster.'
+    };
+  }
+  const allPoints = [];
+  plotted.forEach(entry => {
+    entry.geometry.drivers.forEach(pt => allPoints.push(pt));
+    entry.geometry.standers.forEach(pt => allPoints.push(pt));
+    entry.geometry.routes.forEach(route => route.pts.forEach(pt => allPoints.push(pt)));
+  });
+  const frame = { x: 160, y: 430, w: 1680, h: 2580 };
+  const bounds = getPosterBounds(allPoints);
+  const gridLines = Array.from({length:5}, (_,i) => {
+    const y = frame.y + (frame.h / 4) * i;
+    const x = frame.x + (frame.w / 4) * i;
+    return `<line x1="${frame.x}" y1="${y}" x2="${frame.x + frame.w}" y2="${y}" stroke="#d8cab5" stroke-width="3"/><line x1="${x}" y1="${frame.y}" x2="${x}" y2="${frame.y + frame.h}" stroke="#d8cab5" stroke-width="3"/>`;
+  }).join('');
+  let totalRoutes = 0;
+  const plottedLines = plotted.map((entry, idx) => {
+    const color = POSTER_SWATCHES[idx % POSTER_SWATCHES.length];
+    entry.color = color;
+    const routeSvg = entry.geometry.routes.map((route, routeIdx) => {
+      totalRoutes += 1;
+      const points = route.pts.map(pt => {
+        const projected = projectPosterPoint(pt.lat, pt.lng, bounds, frame);
+        return `${projected.x},${projected.y}`;
+      }).join(' ');
+      const mid = route.pts[Math.floor(route.pts.length / 2)] || route.pts[0];
+      const midProjected = projectPosterPoint(mid.lat, mid.lng, bounds, frame);
+      return `<g>
+        <polyline points="${points}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" opacity=".92"/>
+        <rect x="${midProjected.x - 24}" y="${midProjected.y - 24}" width="48" height="48" rx="12" fill="#fffdf9" opacity=".95"/>
+        <text x="${midProjected.x}" y="${midProjected.y + 8}" text-anchor="middle" font-size="22" font-family="Arial" font-weight="700" fill="${color}">${routeIdx + 1}</text>
+      </g>`;
+    }).join('');
+    const driverSvg = entry.geometry.drivers.map((pt, driverIdx) => {
+      const projected = projectPosterPoint(pt.lat, pt.lng, bounds, frame);
+      const label = pt.label || `D/P ${driverIdx + 1}`;
+      return `<g>
+        <circle cx="${projected.x}" cy="${projected.y}" r="18" fill="#3d78b8" stroke="#ffffff" stroke-width="5"/>
+        <text x="${projected.x}" y="${projected.y + 6}" text-anchor="middle" font-size="16" font-family="Arial" font-weight="700" fill="#ffffff">D</text>
+        <text x="${projected.x + 24}" y="${projected.y - 14}" font-size="20" font-family="Arial" font-weight="700" fill="#2d5277">${esc(label)}</text>
+      </g>`;
+    }).join('');
+    const standerSvg = entry.geometry.standers.map((pt, standerIdx) => {
+      const projected = projectPosterPoint(pt.lat, pt.lng, bounds, frame);
+      const label = pt.label || `S/B ${standerIdx + 1}`;
+      return `<g>
+        <circle cx="${projected.x}" cy="${projected.y}" r="18" fill="#c29a2f" stroke="#ffffff" stroke-width="5"/>
+        <text x="${projected.x}" y="${projected.y + 6}" text-anchor="middle" font-size="16" font-family="Arial" font-weight="700" fill="#ffffff">S</text>
+        <text x="${projected.x + 24}" y="${projected.y - 14}" font-size="20" font-family="Arial" font-weight="700" fill="#6e5321">${esc(label)}</text>
+      </g>`;
+    }).join('');
+    const anchorPoint = entry.geometry.routes[0]?.pts[0] || entry.geometry.drivers[0] || entry.geometry.standers[0];
+    const labelPoint = anchorPoint ? projectPosterPoint(anchorPoint.lat, anchorPoint.lng, bounds, frame) : { x: frame.x + 20, y: frame.y + 40 + (idx * 40) };
+    const title = String(entry.item.title || `Deer Drive ${idx + 1}`);
+    return `${routeSvg}${driverSvg}${standerSvg}<g><rect x="${labelPoint.x + 20}" y="${labelPoint.y + 18}" width="${posterLabelWidth(title, 180)}" height="36" rx="12" ry="12" fill="#fffdf9" opacity=".95"/><text x="${labelPoint.x + 34}" y="${labelPoint.y + 42}" font-size="24" font-family="Arial" font-weight="700" fill="${color}">${esc(title)}</text></g>`;
+  }).join('');
+  const legendSvg = plotted.map((entry, idx) => {
+    const y = 760 + (idx * 72);
+    const routeCount = Array.isArray(entry.geometry.routes) ? entry.geometry.routes.length : 0;
+    return `<g><rect x="1910" y="${y - 16}" width="18" height="18" rx="5" fill="${entry.color}"/><text x="1942" y="${y}" font-size="24" font-family="Arial" fill="#3a2717">${esc(entry.item.title || `Drive ${idx + 1}`)} (${routeCount})</text></g>`;
+  }).join('');
+  const windText = plotted.map(entry => entry.item.windLabel).filter(Boolean).join(' • ');
+  const subtitlePieces = [`${plotted.length} plotted deer drive${plotted.length === 1 ? '' : 's'}`, `${totalRoutes} route${totalRoutes === 1 ? '' : 's'}`];
+  if(skipped > 0) subtitlePieces.push(`${skipped} older drive${skipped === 1 ? '' : 's'} need re-save`);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 3600">
+    <rect width="2400" height="3600" fill="#f3eadb"/>
+    <rect x="80" y="80" width="2240" height="3440" rx="30" fill="#fffaf2" stroke="#d6c5ad" stroke-width="4"/>
+    <text x="160" y="190" font-size="78" font-family="Arial" font-weight="700" fill="#3a2717">${esc(getPosterCampTitle())}</text>
+    <text x="160" y="260" font-size="36" font-family="Arial" fill="#7b5a33">All Deer Drives • Poster Preview • 24 x 36</text>
+    <rect x="160" y="430" width="1680" height="2580" rx="26" fill="#efe5d2" stroke="#d1bea5" stroke-width="4"/>
+    ${gridLines}
+    ${plottedLines}
+    <text x="1888" y="260" font-size="34" font-family="Arial" font-weight="700" fill="#3a2717">Drive Summary</text>
+    <text x="1888" y="320" font-size="28" font-family="Arial" fill="#5d4633">${subtitlePieces.join(' • ')}</text>
+    <text x="1888" y="370" font-size="28" font-family="Arial" fill="#5d4633">Drivers = blue • Standers = gold</text>
+    <rect x="1888" y="430" width="350" height="1260" rx="24" fill="#f8f1e5" stroke="#d6c5ad" stroke-width="3"/>
+    <text x="1910" y="488" font-size="30" font-family="Arial" font-weight="700" fill="#3a2717">Legend</text>
+    ${legendSvg}
+    <rect x="1888" y="1730" width="350" height="250" rx="24" fill="#f8f1e5" stroke="#d6c5ad" stroke-width="3"/>
+    <text x="1910" y="1790" font-size="30" font-family="Arial" font-weight="700" fill="#3a2717">Wind / Notes</text>
+    <text x="1910" y="1850" font-size="22" font-family="Arial" fill="#5d4633">${esc(windText || 'Saved wind directions appear on drive cards.')}</text>
+    <text x="160" y="3180" font-size="24" font-family="Arial" fill="#7b5a33">Generated by DeerCamp • External Print Save exports this poster as a print-ready SVG.</text>
+    <g transform="translate(2130 3090)">
+      <polygon points="0,46 24,0 48,46" fill="#6f5335"/>
+      <rect x="20" y="46" width="8" height="80" fill="#6f5335"/>
+      <text x="24" y="-12" text-anchor="middle" font-size="30" font-family="Arial" font-weight="700" fill="#6f5335">N</text>
+    </g>
+  </svg>`;
+  const listHtml = plotted.map(entry => {
+    const routeCount = Array.isArray(entry.geometry.routes) ? entry.geometry.routes.length : 0;
+    return `<li><span class="poster-swatch" style="background:${entry.color}"></span><span><strong>${esc(entry.item.title || 'Saved deer drive')}</strong><br>${routeCount} route${routeCount === 1 ? '' : 's'}${entry.item.windLabel ? ` • ${esc(entry.item.windLabel)}` : ''}</span></li>`;
+  }).join('') + (skipped > 0 ? `<li><span class="poster-swatch" style="background:#d7cab7"></span><span><strong>${skipped} older drive${skipped === 1 ? '' : 's'}</strong><br>Not included yet because those saves do not contain route geometry. Re-save in Scout to include them.</span></li>` : '');
+  return {
+    svg,
+    statsHtml: getPosterStatsMarkup([['Saved drives', driveItems.length], ['Plotted drives', plotted.length], ['Route count', totalRoutes], ['Format', '24 x 36 SVG']]),
+    listTitle: 'Included drives',
+    listHtml,
+    subtitle: `${plotted.length} saved deer drive${plotted.length === 1 ? '' : 's'} plotted together on one property poster.${skipped > 0 ? ` ${skipped} older drive${skipped === 1 ? '' : 's'} need re-save in Scout to appear here.` : ''}`,
+    note: 'Preview scaled for screen. External Print Save downloads a print-ready SVG poster file.'
+  };
+}
+function renderPropertyPosterModal(type = 'drives'){
+  const payload = type === 'stands' ? buildStandPosterData() : buildDrivePosterData();
+  propertyPosterState = { type, svg: payload.svg, filename: getPropertyPosterFilename(type) };
+  const title = type === 'stands' ? 'All Deer Stands Poster Preview' : 'All Deer Drives Poster Preview';
+  const preview = document.getElementById('propertyPosterPreview');
+  if(preview) preview.innerHTML = payload.svg;
+  const titleEl = document.getElementById('propertyPosterTitle');
+  const subtitleEl = document.getElementById('propertyPosterSubtitle');
+  const statsEl = document.getElementById('propertyPosterStats');
+  const listTitleEl = document.getElementById('propertyPosterListTitle');
+  const listEl = document.getElementById('propertyPosterList');
+  const noteEl = document.getElementById('propertyPosterNote');
+  if(titleEl) titleEl.textContent = title;
+  if(subtitleEl) subtitleEl.textContent = payload.subtitle || '';
+  if(statsEl) statsEl.innerHTML = payload.statsHtml || '';
+  if(listTitleEl) listTitleEl.textContent = payload.listTitle || 'Included items';
+  if(listEl) listEl.innerHTML = payload.listHtml || '';
+  if(noteEl) noteEl.textContent = payload.note || 'Preview scaled for screen. External Print Save downloads a print-ready SVG poster file.';
+}
+function openPropertyPosterModal(type = 'drives'){
+  renderPropertyPosterModal(type);
+  document.getElementById('propertyPosterBackdrop')?.classList.add('open');
+  document.getElementById('propertyPosterModal')?.classList.add('open');
+  document.getElementById('propertyPosterModal')?.setAttribute('aria-hidden','false');
   document.body.classList.add('modal-open');
 }
-function closeAllDeerDrivesModal(clearBodyLock = true){
-  document.getElementById('allDrivesBackdrop')?.classList.remove('open');
-  document.getElementById('allDrivesModal')?.classList.remove('open');
-  document.getElementById('allDrivesModal')?.setAttribute('aria-hidden','true');
+function closePropertyPosterModal(clearBodyLock = true){
+  document.getElementById('propertyPosterBackdrop')?.classList.remove('open');
+  document.getElementById('propertyPosterModal')?.classList.remove('open');
+  document.getElementById('propertyPosterModal')?.setAttribute('aria-hidden','true');
   if(clearBodyLock) document.body.classList.remove('modal-open');
+}
+function downloadPropertyPosterSvg(){
+  if(!propertyPosterState.svg) return;
+  const blob = new Blob([propertyPosterState.svg], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = propertyPosterState.filename || getPropertyPosterFilename(propertyPosterState.type || 'drives');
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1200);
+}
+function syncShowAllStandsButton(){
+  const btn = document.getElementById('showAllStandsBtn');
+  if(!btn) return;
+  const count = Array.isArray(deerStandPosts) ? deerStandPosts.filter(item => Number.isFinite(Number(item.lat)) && Number.isFinite(Number(item.lng))).length : 0;
+  btn.hidden = !count;
+  btn.disabled = !count;
+  btn.onclick = () => openPropertyPosterModal('stands');
 }
 function syncShowAllDrivesButton(){
   const btn = document.getElementById('showAllDrivesBtn');
   if(!btn) return;
-  const total = Array.isArray(deerDrivePosts) ? deerDrivePosts.length : 0;
-  btn.hidden = total < 1;
-  btn.disabled = total < 1;
-  btn.onclick = openAllDeerDrivesModal;
+  const count = Array.isArray(deerDrivePosts) ? deerDrivePosts.length : 0;
+  btn.hidden = !count;
+  btn.disabled = !count;
+  btn.onclick = () => openPropertyPosterModal('drives');
 }
+document.getElementById('propertyPosterDownloadBtn')?.addEventListener('click', downloadPropertyPosterSvg);
+document.getElementById('propertyPosterClose')?.addEventListener('click', () => closePropertyPosterModal(true));
+document.getElementById('propertyPosterBackdrop')?.addEventListener('click', () => closePropertyPosterModal(true));
+function renderAllDeerDrivesModal(){ return renderPropertyPosterModal('drives'); }
+function openAllDeerDrivesModal(){ return openPropertyPosterModal('drives'); }
+function closeAllDeerDrivesModal(clearBodyLock = true){ return closePropertyPosterModal(clearBodyLock); }
+
 
 let modalDeerDriveIndex = -1;
 function getDeerDriveDirectionalCompassSVG(){
@@ -2468,7 +2812,7 @@ async function pullLatestCampDataSilently(){
     renderRecipes();
     if(document.getElementById("deerStandsGrid")) renderDeerStands();
     if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
-    if(document.getElementById("allDrivesModal")?.classList.contains("open")) renderAllDeerDrivesModal();
+    if(document.getElementById("propertyPosterModal")?.classList.contains("open")) renderPropertyPosterModal(propertyPosterState.type || "drives");
     populateCalendarGrid();
     calendarEventsOffset = 0;
     renderCalendarEvents();
