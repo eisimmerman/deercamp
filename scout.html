@@ -3189,17 +3189,17 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   const lng = Number(stand.lng);
   if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
 
-  const focusDurationMs = 15000;
   const targetZoom = 18;
   const status = document.getElementById('status-bar');
   if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — centering map on stand`;
 
+  // Remove any old locator/pulse artifacts before opening the stand.
   clearExistingStandLocators();
   hideStandLabelsForDeepLink(standId);
 
-  // Hard-set the map repeatedly during the first few seconds. This prevents the
-  // initial all-stand fit/render pass from leaving the map at the wide stacked-label view.
-  const forceTimes = [0, 120, 350, 700, 1100, 1600, 2300, 3200];
+  // Keep the reliable recenter behavior, but do not add any flashing locator ring
+  // or pulsing tooltip. Open in Scout should feel like a normal fly-to + popup.
+  const forceTimes = [0, 120, 350, 700, 1100];
   forceTimes.forEach(ms => setTimeout(() => {
     forceMapToStandView(stand, targetZoom);
     try{
@@ -3209,7 +3209,7 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
     }catch(e){}
   }, ms));
 
-  const startLocator = () => {
+  const openStandPopup = () => {
     forceMapToStandView(stand, targetZoom);
     try{
       const layer = allLayers[standId];
@@ -3218,13 +3218,10 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
       if(layer && typeof layer.openPopup === 'function') layer.openPopup();
     }catch(e){}
     restoreStandLabelsAfterDeepLink();
-    showStandMapLocator(stand, focusDurationMs);
-    pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
-    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — highlighted on the map`;
+    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — opened on the map`;
   };
 
-  // Start only after the final forced recenter, so the flash is visible at the target stand.
-  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
+  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(openStandPopup)), 900);
   return true;
 }
 async function openDeepLinkedScoutEdit(){
