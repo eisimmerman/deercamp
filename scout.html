@@ -138,8 +138,9 @@ header::-webkit-scrollbar{height:0;}
 .panel-section-label{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);padding:8px 4px 3px;}
 .stand-card{background:#221608;border:1px solid #3a2c1e;border-radius:6px;padding:9px 10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s,background .15s;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
-.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:4px 7px;white-space:normal;text-align:center;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
+.leaflet-tooltip.stand-name-label .stand-type-label{display:block;margin-top:2px;font-size:8px;font-weight:600;color:var(--tan);letter-spacing:.35px;text-transform:uppercase;}
 /* Compact deep-link focus: keep the selected stand obvious without covering the map. */
 .leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
 .stand-screen-focus{display:none!important;}
@@ -2459,15 +2460,26 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
+function getStandTypeLabel(s = {}){
+  const typeKey = normalizeStandType(s.type || s.standType || s.typeLabel || 'elevatedboxblind');
+  return (TYPE_CFG[typeKey] || TYPE_CFG.elevatedboxblind).label;
+}
 function getStandLabelText(s = {}){
-  return String(s.name || s.title || 'Stand').trim() || 'Stand';
+  const name = String(s.name || s.title || 'Stand').trim() || 'Stand';
+  const typeLabel = getStandTypeLabel(s);
+  return typeLabel ? `${name} — ${typeLabel}` : name;
+}
+function getStandLabelHTML(s = {}){
+  const name = String(s.name || s.title || 'Stand').trim() || 'Stand';
+  const typeLabel = getStandTypeLabel(s);
+  return `${escHtml(name)}${typeLabel ? `<span class="stand-type-label">${escHtml(typeLabel)}</span>` : ''}`;
 }
 function bindStandNameLabel(marker, stand){
   if(!marker || !stand) return marker;
-  marker.bindTooltip(escHtml(getStandLabelText(stand)), {
+  marker.bindTooltip(getStandLabelHTML(stand), {
     permanent:true,
     direction:'top',
-    offset:[0,-42],
+    offset:[0,-46],
     opacity:1,
     className:'stand-name-label'
   });
@@ -2625,7 +2637,7 @@ function addStandToMap(s){
       stand.lat=ll.lat;
       stand.lng=ll.lng;
       evt.target.setPopupContent(standPopupHTML(stand));
-      try{evt.target.setTooltipContent(escHtml(getStandLabelText(stand)));}catch(e){}
+      try{evt.target.setTooltipContent(getStandLabelHTML(stand));}catch(e){}
       saveLocal();
       persistStandToCamp(stand)
         .then(()=>{showScoutToast(`${stand.name || 'Stand'} moved and saved.`); pingCampRefresh('deerstand');})
@@ -2979,7 +2991,7 @@ async function saveStand(){
     let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(escHtml(getStandLabelText(s))); savedStand=s;}
+      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(getStandLabelHTML(s)); savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -3046,7 +3058,7 @@ function normalizeCampStandToScoutStand(item = {}){
     slug: item.slug || slugifyValue(idSeed),
     name: item.name || item.title || 'Saved Stand',
     title: item.title || item.name || 'Saved Stand',
-    type: normalizeStandType(item.type || item.scoutType || 'elevatedboxblind'),
+    type: normalizeStandType(item.standType || item.typeLabel || item.scoutType || item.type || 'elevatedboxblind'),
     notes: item.notes || item.body || '',
     season: item.season || '',
     tod: item.tod || '',
@@ -3072,7 +3084,7 @@ function mergeScoutStandFromCamp(item = {}){
   );
   if(existing){
     Object.assign(existing, Object.fromEntries(Object.entries(stand).filter(([,value]) => value !== '' && value !== null && value !== undefined)));
-    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(escHtml(getStandLabelText(existing)));
+    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(getStandLabelHTML(existing));
     return existing;
   }
   stands.push(stand);
@@ -3730,7 +3742,7 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=(d.stands||[]).map(item=>Object.assign({}, item, {type: normalizeStandType(item.standType || item.typeLabel || item.type || item.scoutType || 'elevatedboxblind')}));routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
@@ -3760,9 +3772,9 @@ function buildPrintLegend(){
   const stats=document.getElementById('pl-stats');
   let items='';
   // Stand types present
-  const usedTypes=[...new Set(stands.map(s=>s.type))];
+  const usedTypes=[...new Set(stands.map(s=>normalizeStandType(s.type)))];
   usedTypes.forEach(t=>{
-    const c=TYPE_CFG[t];
+    const c=TYPE_CFG[t] || TYPE_CFG.elevatedboxblind;
     items+=`<div class="pl-item"><div class="pl-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>`;
   });
   // Route types
@@ -3807,7 +3819,7 @@ try{
   const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=(d.stands||[]).map(item=>Object.assign({}, item, {type: normalizeStandType(item.standType || item.typeLabel || item.type || item.scoutType || 'elevatedboxblind')}));routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     clearStaleDeerDriveBuilderDraftIfNeeded();
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
