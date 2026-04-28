@@ -1059,8 +1059,19 @@
     function loadImageFromSource(source) {
       return new Promise((resolve, reject) => {
         const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Could not load profile photo.'));
+        const timer = setTimeout(() => {
+          img.onload = null;
+          img.onerror = null;
+          reject(new Error('Profile photo load timed out.'));
+        }, 8000);
+        img.onload = () => {
+          clearTimeout(timer);
+          resolve(img);
+        };
+        img.onerror = () => {
+          clearTimeout(timer);
+          reject(new Error('Could not load profile photo.'));
+        };
         img.src = source;
       });
     }
@@ -1161,6 +1172,8 @@
 
       if (photoField && !photoField.startsWith('data:') && !photoField.startsWith('blob:')) {
         state.member.photo = photoField;
+        state.member.profilePhoto = photoField;
+        state.member.avatar = photoField;
         return photoField;
       }
 
@@ -1168,25 +1181,30 @@
         let blob = null;
         if (uploadedPhotoFile) {
           const previewUrl = uploadedPhotoPreviewUrl || URL.createObjectURL(uploadedPhotoFile);
-          blob = await compressImageSourceToBlob(previewUrl);
+          blob = await withTimeout(compressImageSourceToBlob(previewUrl), 9000, null);
         } else if (existingPhoto.startsWith('data:')) {
-          blob = await compressImageSourceToBlob(existingPhoto);
+          blob = await withTimeout(compressImageSourceToBlob(existingPhoto), 9000, null);
         }
 
         if (!blob) {
           if (existingPhoto && !existingPhoto.startsWith('blob:') && !existingPhoto.startsWith('data:')) return existingPhoto;
           state.member.photo = '';
+          state.member.profilePhoto = '';
+          state.member.avatar = '';
           return '';
         }
 
         setSavePill('Joining — uploading profile photo...');
-        const downloadUrl = await uploadMemberPhotoToStorage(blob, member, invite);
+        const downloadUrl = await withTimeout(uploadMemberPhotoToStorage(blob, member, invite), 14000, '');
         if (downloadUrl) {
           state.member.photo = downloadUrl;
           state.member.profilePhoto = downloadUrl;
           state.member.avatar = downloadUrl;
           uploadedPhotoDataUrl = '';
           uploadedPhotoFile = null;
+          if (uploadedPhotoPreviewUrl && uploadedPhotoPreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(uploadedPhotoPreviewUrl);
+          }
           uploadedPhotoPreviewUrl = '';
           const photoInput = document.getElementById('memberPhoto');
           if (photoInput) photoInput.value = downloadUrl;
@@ -1197,7 +1215,19 @@
       }
 
       // Never let a local image blob/data URL block Join Camp.
-      if (existingPhoto.startsWith('data:') || existingPhoto.startsWith('blob:')) state.member.photo = '';
+      if (existingPhoto.startsWith('data:') || existingPhoto.startsWith('blob:') || uploadedPhotoFile || uploadedPhotoPreviewUrl) {
+        state.member.photo = '';
+        state.member.profilePhoto = '';
+        state.member.avatar = '';
+      }
+      uploadedPhotoDataUrl = '';
+      uploadedPhotoFile = null;
+      if (uploadedPhotoPreviewUrl && uploadedPhotoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(uploadedPhotoPreviewUrl);
+      }
+      uploadedPhotoPreviewUrl = '';
+      const photoInput = document.getElementById('memberPhoto');
+      if (photoInput && (photoInput.value.startsWith('data:') || photoInput.value.startsWith('blob:'))) photoInput.value = '';
       return state.member.photo || '';
     }
 
@@ -1544,7 +1574,8 @@
 
       const invite = getInviteContext();
       await prepareMemberPhotoForSave(invite);
-      const cloudCampData = await hydrateCampFromCloud(invite.campId);
+      setSavePill('Joining — saving member profile...');
+      const cloudCampData = await withTimeout(hydrateCampFromCloud(invite.campId), 9000, null);
       const campData = cloudCampData && typeof cloudCampData === 'object' ? cloudCampData : getCampData();
       const dashboard = getDashboardData();
       const member = { ...state.member };
@@ -1652,7 +1683,9 @@
       if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
       localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
       try {
-        await DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData);
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function') {
+          await withTimeout(DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData), 10000, null);
+        }
       } catch (error) {
         console.warn('Cloud save skipped for joined member.', error);
       }
@@ -1674,38 +1707,64 @@
     });
 
     document.getElementById('nextBtn').addEventListener('click', async () => {
-      if (currentStep === 0) {
-        showStep(1);
-        return;
+      const nextButton = document.getElementById('nextBtn');
+      const viewButton = document.getElementById('viewCampBtn');
+      const originalNextLabel = nextButton ? nextButton.textContent : '';
+      try {
+        if (currentStep === 0) {
+          showStep(1);
+          return;
+        }
+
+        if (currentStep === 1) {
+          if (!validateProfileStep()) return;
+          persistState(true);
+          showStep(2);
+          return;
+        }
+
+        if (!validateProfileStep()) {
+          showStep(1);
+          return;
+        }
+
+        if (nextButton) {
+          nextButton.disabled = true;
+          nextButton.textContent = 'Joining...';
+        }
+        if (viewButton) viewButton.disabled = true;
+        setSavePill('Joining — preparing profile...');
+
+        if (!(await withTimeout(validateInviteOrBlock(), 12000, true))) return;
+
+        const invite = getInviteContext();
+        await withTimeout(mergeMemberIntoData(), 24000, null);
+        const finalCampId =
+          invite.campId ||
+          getCampData().campId ||
+          getDashboardData()?.camp?.campId ||
+          '';
+
+        if (finalCampId) {
+          localStorage.setItem('deercamp.activeCampId', finalCampId);
+        }
+
+        setSavePill('Joining — opening camp...');
+        window.location.href = buildCampUrl('camp.html', finalCampId);
+      } catch (error) {
+        console.warn('Join Camp had a recoverable issue; opening camp anyway.', error);
+        const invite = getInviteContext();
+        const fallbackCampId = invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '';
+        if (fallbackCampId) localStorage.setItem('deercamp.activeCampId', fallbackCampId);
+        setSavePill('Opening camp...');
+        window.location.href = buildCampUrl('camp.html', fallbackCampId);
+      } finally {
+        if (nextButton) {
+          nextButton.disabled = false;
+          nextButton.textContent = originalNextLabel || 'Join Camp';
+        }
+        if (viewButton) viewButton.disabled = false;
       }
-
-      if (currentStep === 1) {
-        if (!validateProfileStep()) return;
-        persistState(true);
-        showStep(2);
-        return;
-      }
-
-      if (!validateProfileStep()) {
-        showStep(1);
-        return;
-      }
-
-      if (!(await validateInviteOrBlock())) return;
-
-      const invite = getInviteContext();
-      await mergeMemberIntoData();
-      const finalCampId =
-        invite.campId ||
-        getCampData().campId ||
-        getDashboardData()?.camp?.campId ||
-        '';
-
-      if (finalCampId) {
-        localStorage.setItem('deercamp.activeCampId', finalCampId);
-      }
-
-      window.location.href = buildCampUrl('camp.html', finalCampId);
     });
 
     const trackedFields = [
