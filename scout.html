@@ -140,18 +140,19 @@ header::-webkit-scrollbar{height:0;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
 .leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
-/* Scout opens should use normal map movement only. No orange/yellow focus glow. */
-.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(18,10,2,.88)!important;color:#f0e8d8!important;border:1px solid rgba(240,232,216,.42)!important;box-shadow:0 4px 12px rgba(0,0,0,.38)!important;animation:none!important;}
+/* Compact deep-link focus: keep the selected stand obvious without covering the map. */
+.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
 .stand-screen-focus{display:none!important;}
 .stand-focus-toast{display:none!important;}
-.stand-map-locator{display:none!important;}
-.stand-map-locator .sml-label,.stand-map-locator .sml-arrow,.stand-map-locator .sml-ring{display:none!important;}
-@keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:none;}50%{opacity:1;transform:none;}}
-@keyframes standRingSoftPulse{0%,100%{transform:none;opacity:0;}50%{transform:none;opacity:0;}}
-@keyframes standMapLocatorBlink{0%,100%{opacity:1;}50%{opacity:1;}}
-@keyframes standScreenFocusPulse{0%,100%{opacity:1;}50%{opacity:1;}}
-@keyframes standScreenFocusArrow{0%,100%{opacity:1;}50%{opacity:1;}}
-@keyframes standScreenFocusRing{0%,100%{opacity:0;}50%{opacity:0;}}
+.stand-map-locator{position:relative;width:54px;height:54px;pointer-events:none;transform:translate(-27px,-43px);}
+.stand-map-locator .sml-label,.stand-map-locator .sml-arrow{display:none!important;}
+.stand-map-locator .sml-ring{position:absolute;left:50%;top:50%;width:38px;height:38px;margin-left:-19px;margin-top:-19px;border-radius:999px;border:3px solid rgba(255,248,239,.95);background:rgba(212,130,10,.10);box-shadow:0 0 0 2px rgba(212,130,10,.48),0 0 12px rgba(212,130,10,.55);animation:standRingSoftPulse .9s ease-in-out infinite;}
+@keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:translateY(0);}50%{opacity:.48;transform:translateY(-1px);}}
+@keyframes standRingSoftPulse{0%,100%{transform:scale(.72);opacity:.95;}50%{transform:scale(1.28);opacity:.28;}}
+@keyframes standMapLocatorBlink{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusArrow{0%,100%{opacity:1;}50%{opacity:.55;}}
+@keyframes standScreenFocusRing{0%,100%{opacity:.9;}50%{opacity:.35;}}
 
 .card-name{font-size:.7rem;color:var(--tan);margin-bottom:2px;}
 .card-meta{font-size:.57rem;color:var(--sage);}
@@ -384,6 +385,8 @@ textarea{resize:vertical;min-height:55px;}
   <button class="hdr-btn hg" id="btn-clear-deerdrive" onclick="clearAllMarks()">🧹 Clear All</button>
   <div class="vr"></div>
   <button class="hdr-btn hlock" id="btn-freeze" onclick="toggleMapFreeze()">📌 Freeze Map</button>
+  <button class="hdr-btn hrec" onclick="toggleRec()">🦌 Recommender</button>
+  <button class="hdr-btn hp"   onclick="printMap()">🖨 Print PDF</button>
 </header>
 
 <div id="map"></div>
@@ -2478,20 +2481,140 @@ function getStandTooltipElement(id){
   return typeof tooltip.getElement === 'function' ? tooltip.getElement() : null;
 }
 function pulseStandLabel(id, durationMs=10000){
-  // Standard Scout behavior: no flashing/pulsing locator effects.
-  return false;
+  const tooltipEl = getStandTooltipElement(id);
+  if(!tooltipEl) return false;
+  tooltipEl.classList.remove('stand-label-pulse');
+  void tooltipEl.offsetWidth;
+  tooltipEl.classList.add('stand-label-pulse');
+
+  pulseStandLabel._timers = pulseStandLabel._timers || {};
+  clearTimeout(pulseStandLabel._timers[id]);
+  pulseStandLabel._timers[id] = setTimeout(()=>{
+    const latestEl = getStandTooltipElement(id);
+    if(latestEl) latestEl.classList.remove('stand-label-pulse');
+  }, durationMs);
+  return true;
 }
 function pulseStandLabelWhenReady(id, durationMs=10000, options={}){
-  // Standard Scout behavior: no flashing/pulsing locator effects.
-  return false;
+  const start = Date.now();
+  const timeoutMs = Number(options.timeoutMs || 11000);
+  const intervalMs = Number(options.intervalMs || 120);
+  const tryPulse = () => {
+    try{
+      const layer = allLayers[id];
+      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
+      if(pulseStandLabel(id, durationMs)) return true;
+    }catch(error){
+      console.warn('Stand label pulse retry skipped.', error);
+    }
+    if(Date.now() - start >= timeoutMs) return false;
+    setTimeout(tryPulse, intervalMs);
+    return false;
+  };
+  return tryPulse();
 }
 function showStandFocusBeacon(stand, durationMs=10000){
-  // Standard Scout behavior: no full-screen beacon.
-  return false;
+  try{
+    const existing=document.getElementById('stand-screen-focus');
+    if(existing) existing.remove();
+    const existingToast=document.getElementById('stand-focus-toast');
+    if(existingToast) existingToast.remove();
+
+    const lat=Number(stand?.lat);
+    const lng=Number(stand?.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+    const label=escHtml(getStandLabelText(stand));
+
+    const el=document.createElement('div');
+    el.id='stand-screen-focus';
+    el.className='stand-screen-focus';
+    el.innerHTML=`<div class="ssf-label">▶ ${label} ◀</div><div class="ssf-arrow">▼</div><div class="ssf-ring"></div>`;
+    document.body.appendChild(el);
+
+    const toast=document.createElement('div');
+    toast.id='stand-focus-toast';
+    toast.className='stand-focus-toast';
+    toast.textContent=`LOCATING: ${getStandLabelText(stand)}`;
+    document.body.appendChild(toast);
+
+    const updatePosition=()=>{
+      try{
+        const mapEl=map.getContainer();
+        const rect=mapEl.getBoundingClientRect();
+        const pt=map.latLngToContainerPoint([lat,lng]);
+        el.style.left=`${Math.round(rect.left + pt.x)}px`;
+        el.style.top=`${Math.round(rect.top + pt.y)}px`;
+      }catch(e){}
+    };
+
+    updatePosition();
+    requestAnimationFrame(updatePosition);
+    [90,180,360,700,1100,1600,2300,3200].forEach(ms=>setTimeout(updatePosition,ms));
+    map.on('move zoom zoomanim resize moveend zoomend', updatePosition);
+
+    clearInterval(showStandFocusBeacon._blinkInterval);
+    let blinkOn=true;
+    showStandFocusBeacon._blinkInterval=setInterval(()=>{
+      blinkOn=!blinkOn;
+      el.style.opacity=blinkOn?'1':'.32';
+      toast.style.opacity=blinkOn?'1':'.38';
+      const labelEl=el.querySelector('.ssf-label');
+      if(labelEl){
+        labelEl.style.background=blinkOn?'#fff200':'#ff3b00';
+        labelEl.style.color=blinkOn?'#111':'#fff';
+      }
+    },260);
+
+    clearTimeout(showStandFocusBeacon._timer);
+    showStandFocusBeacon._timer=setTimeout(()=>{
+      try{ map.off('move zoom zoomanim resize moveend zoomend', updatePosition); }catch(e){}
+      clearInterval(showStandFocusBeacon._blinkInterval);
+      try{ el.remove(); }catch(e){}
+      try{ toast.remove(); }catch(e){}
+    }, durationMs);
+    return true;
+  }catch(error){
+    console.warn('Stand focus beacon skipped.', error);
+    return false;
+  }
 }
 function showStandMapLocator(stand, durationMs=15000){
-  // Standard Scout behavior: no map locator ring.
-  return false;
+  try{
+    const lat=Number(stand?.lat);
+    const lng=Number(stand?.lng);
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
+
+    if(showStandMapLocator._marker){
+      try{ map.removeLayer(showStandMapLocator._marker); }catch(e){}
+      showStandMapLocator._marker=null;
+    }
+    const existingToast=document.getElementById('stand-focus-toast');
+    if(existingToast) existingToast.remove();
+    clearTimeout(showStandMapLocator._timer);
+
+    const icon=L.divIcon({
+      className:'',
+      html:`<div class="stand-map-locator" aria-hidden="true"><div class="sml-ring"></div></div>`,
+      iconSize:[54,54],
+      iconAnchor:[27,43]
+    });
+    const marker=L.marker([lat,lng],{icon,interactive:false,zIndexOffset:1000000}).addTo(map);
+    showStandMapLocator._marker=marker;
+
+    // Force Leaflet to recalculate marker position after final paint.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try{ marker.setLatLng([lat,lng]); }catch(e){}
+    }));
+
+    showStandMapLocator._timer=setTimeout(()=>{
+      try{ map.removeLayer(marker); }catch(e){}
+      if(showStandMapLocator._marker===marker) showStandMapLocator._marker=null;
+    },durationMs);
+    return true;
+  }catch(error){
+    console.warn('Stand map locator skipped.', error);
+    return false;
+  }
 }
 function addStandToMap(s){
   const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:false}).addTo(map).bindPopup(standPopupHTML(s)), s);
@@ -3704,7 +3827,7 @@ try{
     if(recOpen || recWind) runRecommender();
     const hasScoutDeepLink = (()=>{ try{ const p=new URLSearchParams(window.location.search); return !!(p.get('standId') || p.get('editStand') || p.get('driveId') || p.get('editDrive')); }catch{return false;} })();
     const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
-    if(allPts.length && !hasScoutDeepLink) map.fitBounds(allPts,{padding:[60,60], animate:false});
+    if(allPts.length && !hasScoutDeepLink) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
