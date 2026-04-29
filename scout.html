@@ -75,8 +75,14 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .route-end-icon.route{color:#fff8ef;}
 .route-end-icon.drive{color:#fff8ef;}
 
+
+.map-title-badge{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:940;pointer-events:none;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:220px;max-width:min(72vw,560px);padding:8px 14px;border-radius:12px;background:rgba(18,10,2,.84);border:1px solid rgba(240,232,216,.22);box-shadow:0 8px 20px rgba(0,0,0,.26);backdrop-filter:blur(2px);}
+.map-title-badge.is-empty{display:none;}
+.map-title-main{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;line-height:1.1;color:var(--cream);text-align:center;white-space:normal;word-break:break-word;}
+.map-title-sub{font-family:'IBM Plex Mono',monospace;font-size:.56rem;letter-spacing:.8px;text-transform:uppercase;color:var(--tan);text-align:center;}
+
 /* MAP */
-#map{flex:1;z-index:1;}
+#map{flex:1;z-index:1;position:relative;}
 .leaflet-container{background:#1a2810;}
 .leaflet-control-zoom a{background:var(--wood)!important;color:var(--tan)!important;border-color:var(--moss)!important;font-family:'IBM Plex Mono',monospace!important;}
 .leaflet-control-zoom a:hover{background:var(--moss)!important;}
@@ -142,7 +148,7 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .panel-section-label{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);padding:8px 4px 3px;}
 .stand-card{background:#221608;border:1px solid #3a2c1e;border-radius:6px;padding:9px 10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s,background .15s;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
-.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.92);border:1px solid rgba(240,232,216,.42);border-radius:8px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.15px;padding:4px 7px;white-space:normal;max-width:140px;line-height:1.2;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
 /* Compact deep-link focus: keep the selected stand obvious without covering the map. */
 .leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
@@ -332,13 +338,19 @@ textarea{resize:vertical;min-height:55px;}
 .acreage-result.show{display:block;}
 
 /* PRINT */
+@page{size:landscape;margin:.35in;}
 @media print{
-  body{overflow:visible;height:auto;}
+  html,body{overflow:visible!important;height:auto!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,.modal-overlay,.print-legend-screen{display:none!important;}
-  #map{height:85vh;page-break-after:avoid;}
-  .leaflet-control-zoom{display:none!important;}
+  #map{display:block!important;height:7.6in;min-height:7.6in;margin:10px 0 12px;border:1.5px solid #444;page-break-after:avoid;break-inside:avoid;}
+  .leaflet-control-container,.leaflet-control-zoom,.leaflet-control-attribution{display:none!important;}
+  .leaflet-pane,.leaflet-top,.leaflet-bottom,.leaflet-control-container,.leaflet-tooltip,.leaflet-marker-icon,.leaflet-overlay-pane svg{visibility:visible!important;opacity:1!important;}
   #print-header,#print-legend{display:block!important;}
   #print-legend{page-break-before:avoid;}
+  .map-title-badge{display:flex!important;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.94);border:1.5px solid #444;box-shadow:none;backdrop-filter:none;}
+  .map-title-main{color:#111;font-size:16px;}
+  .map-title-sub{color:#444;font-size:8px;letter-spacing:1px;}
+  .leaflet-tooltip.stand-name-label{font-size:8px!important;max-width:110px!important;padding:2px 5px!important;border-radius:6px!important;line-height:1.15!important;background:rgba(24,18,12,.96)!important;color:#fff8ef!important;box-shadow:none!important;}
 }
 #print-header{display:none;padding:10px 16px 6px;font-family:'Playfair Display',serif;font-size:14px;color:#000;border-bottom:1.5px solid #333;background:#fff;}
 #print-header .ph-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:#555;margin-top:2px;}
@@ -355,7 +367,7 @@ textarea{resize:vertical;min-height:55px;}
 
 <!-- Print header (hidden screen, shown on print) -->
 <div id="print-header">
-  <strong>DeerCamp Scout Elite</strong> — Hunt Property Map &nbsp;|&nbsp; <span id="print-date"></span>
+  <strong id="print-camp-name">DeerCamp</strong> — Hunt Property Map &nbsp;|&nbsp; <span id="print-date"></span>
   <div class="ph-sub" id="print-sub"></div>
 </div>
 
@@ -390,6 +402,10 @@ textarea{resize:vertical;min-height:55px;}
   </header>
 
 <div id="map"></div>
+<div id="map-title-badge" class="map-title-badge is-empty" aria-hidden="true">
+  <div id="map-title-main" class="map-title-main"></div>
+  <div id="map-title-sub" class="map-title-sub">Hunt Property Map</div>
+</div>
 
 <div id="status-bar">👁 View mode — use the toolbar to build your hunt map</div>
 
@@ -842,12 +858,13 @@ function showAllDrives(){
 
 function openBuilderPosterPreview(){
   if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
-  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for output.`;
+  updatePrintableCampBranding();
+  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for high-resolution output.`;
 }
 
-function externalPrintSave(){
+async function externalPrintSave(){
   if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
-  printMap();
+  await printMap();
 }
 
 window.showAllDrives = showAllDrives;
@@ -880,6 +897,39 @@ function campScopeKey(campId,suffix){
 }
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
+}
+function getActiveCampDisplayName(){
+  try{
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = String(params.get('campName') || params.get('name') || '').trim();
+    if(fromUrl) return fromUrl;
+  }catch(e){}
+  try{
+    const scopedFromUrl = getCampIdFromUrl();
+    const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+    const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+    const genericCampId = String(genericCampData.campId || genericCampData.id || '').trim();
+    const activeCampId = String(scopedFromUrl || activeFromStorage || genericCampId || '').trim();
+    const scopedKey = campScopeKey(activeCampId, 'campData');
+    const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
+    const sources = [scoped, genericCampData];
+    for(const src of sources){
+      const candidate = String(src?.campName || src?.name || src?.title || src?.campTitle || src?.camp || '').trim();
+      if(candidate) return candidate;
+    }
+  }catch(e){}
+  return 'DeerCamp';
+}
+function updatePrintableCampBranding(){
+  const campName = getActiveCampDisplayName();
+  const badge = document.getElementById('map-title-badge');
+  const mapEl = document.getElementById('map');
+  if(badge && mapEl && badge.parentElement !== mapEl) mapEl.appendChild(badge);
+  const titleMain = document.getElementById('map-title-main');
+  const printCampName = document.getElementById('print-camp-name');
+  if(titleMain) titleMain.textContent = campName;
+  if(printCampName) printCampName.textContent = campName;
+  if(badge) badge.classList.toggle('is-empty', !campName);
 }
 
 function showScoutToast(message, durationMs=3200){
@@ -995,6 +1045,7 @@ L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/Worl
   attribution:'', maxZoom:19, opacity:0.5, crossOrigin:'anonymous'
 }).addTo(map);
 
+try{ updatePrintableCampBranding(); }catch(e){}
 map.on('moveend', syncHelperToggleSide);
 map.on('click', e=>{
   if (mode==='stand') { pendingLL=e.latlng; editingStandId=null; openStandModal(); }
@@ -2499,12 +2550,27 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 function getStandLabelText(s = {}){
   return String(s.name || s.title || 'Stand').trim() || 'Stand';
 }
+function getStandLabelPlacement(stand){
+  const index = Math.max(0, stands.findIndex(item => String(item.id) === String(stand?.id)));
+  const placements = [
+    {direction:'top', offset:[0,-42]},
+    {direction:'right', offset:[18,0]},
+    {direction:'left', offset:[-18,0]},
+    {direction:'bottom', offset:[0,14]},
+    {direction:'top', offset:[20,-30]},
+    {direction:'top', offset:[-20,-30]},
+    {direction:'right', offset:[16,-14]},
+    {direction:'left', offset:[-16,-14]}
+  ];
+  return placements[index % placements.length];
+}
 function bindStandNameLabel(marker, stand){
   if(!marker || !stand) return marker;
+  const placement = getStandLabelPlacement(stand);
   marker.bindTooltip(escHtml(getStandLabelText(stand)), {
     permanent:true,
-    direction:'top',
-    offset:[0,-42],
+    direction:placement.direction,
+    offset:placement.offset,
     opacity:1,
     className:'stand-name-label'
   });
@@ -2719,8 +2785,8 @@ function showAllStands(){
   const valid=stands.filter(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
   if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
   const bounds=L.latLngBounds(valid.map(item=>[Number(item.lat), Number(item.lng)]));
-  try{map.fitBounds(bounds.pad(.18), {maxZoom:17});}catch(e){}
-  valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}});
+  try{map.fitBounds(bounds.pad(.24), {maxZoom:17, animate:false});}catch(e){}
+  setTimeout(()=>{ valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}}); }, 180);
   document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
   showScoutToast(`Showing all stands (${valid.length}).`, 2800);
 }
@@ -3147,6 +3213,7 @@ async function hydrateScoutStandsFromCampForDeepLink(){
 
   if(added){
     try{ saveLocal(); renderPanel(); }catch(e){}
+    try{ updatePrintableCampBranding(); }catch(e){}
   }
   return added;
 }
@@ -3814,17 +3881,26 @@ function buildPrintLegend(){
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
   stats.innerHTML=`<div>Stands: ${stands.length}</div><div>Routes: ${routes.length}</div><div>Boundaries: ${boundaries.length}</div>${totalAcres>0?`<div>Total area: ${totalAcres.toFixed(1)} ac</div>`:''}`;
 }
-function printMap(){
+function waitForScoutPrint(ms=900){
+  return new Promise(resolve=>setTimeout(resolve, ms));
+}
+async function printMap(){
+  updatePrintableCampBranding();
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('print-date').textContent=d;
   const sub=[];
+  sub.push(SCOUT_BUILDER_MODE === 'drive' ? 'Drive Builder' : 'Stand Builder');
   if(stands.length) sub.push(`${stands.length} stand${stands.length!==1?'s':''}`);
   if(routes.length) sub.push(`${routes.length} route${routes.length!==1?'s':''}`);
   const totalAcres=areaPolys.reduce((s,a)=>s+a.acres,0);
   if(totalAcres>0) sub.push(`${totalAcres.toFixed(1)} acres measured`);
   document.getElementById('print-sub').textContent=sub.join(' · ');
   buildPrintLegend();
-  setTimeout(()=>{map.invalidateSize();window.print();},250);
+  try{ map.invalidateSize(true); }catch(e){}
+  await waitForScoutPrint(650);
+  try{ map.invalidateSize(true); }catch(e){}
+  await waitForScoutPrint(550);
+  window.print();
 }
 
 // ═══════════════════════════════════════════════
@@ -3867,7 +3943,7 @@ try{
     if(allPts.length && !hasScoutDeepLink) map.flyToBounds(allPts,{padding:[60,60]});
   }
 }catch(e){}
-applyScoutBuilderMode();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
+applyScoutBuilderMode();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();
 runDeepLinkedScoutEditRetries();
 window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
 </script>
