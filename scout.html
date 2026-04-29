@@ -1,13 +1,4 @@
-<
-function openBuilderPosterPreview(){
-  if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
-  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for output.`;
-}
-function externalPrintSave(){
-  if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
-  printMap();
-}
-!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -493,14 +484,13 @@ textarea{resize:vertical;min-height:55px;}
     <div class="fg">
       <label>Type</label>
       <select id="f-type">
-        <option value="treestand">🌲 Treestand</option>
-        <option value="blind">🏠 Ground Blind</option>
-        <option value="boxblind">🪟 Box Blind</option>
-        <option value="ladder">🪜 Ladder Stand</option>
-        <option value="foodplot">🌾 Food Plot</option>
-        <option value="trailcam">📷 Trail Camera</option>
-        <option value="scrape">🦌 Scrape / Rub</option>
-        <option value="waypoint">📌 Waypoint</option>
+        <option value="elevatedboxblind">🪟 Elevated Box Blind</option>
+        <option value="groundboxblind">🪟 Ground Box Blind</option>
+        <option value="groundblind">🏠 Ground Blind</option>
+        <option value="hangingstand">🌲 Hanging Tree Stand</option>
+        <option value="ladderstand">🪜 Ladder Stand</option>
+        <option value="tripodstand">🔭 Tripod Stand</option>
+        <option value="naturalgroundblind">🌿 Natural Ground Blind</option>
       </select>
     </div>
     <div class="fg">
@@ -772,11 +762,21 @@ textarea{resize:vertical;min-height:55px;}
 // CONFIG
 // ═══════════════════════════════════════════════
 const TYPE_CFG = {
-  treestand:{ color:'#a0522d', emoji:'🌲', label:'Treestand' },
+  // Current approved DeerCamp stand types
+  elevatedboxblind:{ color:'#5f4b2d', emoji:'🪟', label:'Elevated Box Blind' },
+  groundboxblind:  { color:'#6a5234', emoji:'🪟', label:'Ground Box Blind' },
+  groundblind:     { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
+  hangingstand:    { color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
+  ladderstand:     { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
+  tripodstand:     { color:'#76522c', emoji:'🔭', label:'Tripod Stand' },
+  naturalgroundblind:{ color:'#3d7a3d', emoji:'🌿', label:'Natural Ground Blind' },
+
+  // Legacy aliases kept so older saved stands still render safely
+  treestand:{ color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
   blind:    { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
-  boxblind: { color:'#5f4b2d', emoji:'🪟', label:'Box Blind' },
+  boxblind: { color:'#5f4b2d', emoji:'🪟', label:'Ground Box Blind' },
   ladder:   { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
-  foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
+  foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Natural Ground Blind' },
   trailcam: { color:'#5a4a80', emoji:'📷', label:'Trail Cam' },
   scrape:   { color:'#7a3d1a', emoji:'🦌', label:'Scrape/Rub' },
   waypoint: { color:'#2a5a7a', emoji:'📌', label:'Waypoint' },
@@ -793,6 +793,66 @@ const TOD_LABELS = {'':'Any', morning:'Morning', evening:'Evening', 'all-day':'A
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
+const SCOUT_BUILDER_MODE = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const explicit = String(params.get('builder') || '').trim().toLowerCase();
+    if (explicit === 'drive') return 'drive';
+    if (explicit === 'stand') return 'stand';
+    if (params.get('editDrive') || params.get('driveId')) return 'drive';
+    return 'stand';
+  } catch {
+    return 'stand';
+  }
+})();
+document.body.classList.add(SCOUT_BUILDER_MODE === 'drive' ? 'builder-drive' : 'builder-stand');
+
+function applyScoutBuilderMode(){
+  const title = SCOUT_BUILDER_MODE === 'drive' ? 'Drive Builder' : 'Stand Builder';
+  document.title = `DeerCamp Scout Elite — ${title}`;
+  const status = document.getElementById('status-bar');
+  if(status){
+    status.innerHTML = SCOUT_BUILDER_MODE === 'drive'
+      ? '🦌 Drive Builder — build, set, auto-draw, save, preview, and print deer drives only.'
+      : '📍 Stand Builder — view, place, save, preview, and print deer stands only.';
+  }
+  try { setMode('view'); } catch(error) {}
+}
+
+function getBuilderVisibleDriveRoutes(){
+  const autoIds = Array.isArray(deerDrivePlan?.autoRouteIds) ? deerDrivePlan.autoRouteIds.map(String) : [];
+  const generated = routes.filter(route => route && (route.generated === 'deerdrive' || autoIds.includes(String(route.id || ''))));
+  return generated.length ? generated : routes.filter(route => route && route.type === 'route');
+}
+
+function showAllDrives(){
+  const pts = [
+    ...drivers.map(item => [Number(item.lat), Number(item.lng)]),
+    ...standers.map(item => [Number(item.lat), Number(item.lng)]),
+    ...getBuilderVisibleDriveRoutes().flatMap(route => (route.pts || []).map(pt => Array.isArray(pt) ? [Number(pt[0]), Number(pt[1])] : [Number(pt.lat), Number(pt.lng)]))
+  ].filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+  if(!pts.length){
+    document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
+    return;
+  }
+  try{ map.fitBounds(L.latLngBounds(pts).pad(.18), {maxZoom:17, animate:false}); }catch(error){}
+  document.getElementById('status-bar').innerHTML=`Showing all drive points/routes (${pts.length}).`;
+  showScoutToast('Showing all drives.', 2800);
+}
+
+function openBuilderPosterPreview(){
+  if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
+  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for output.`;
+}
+
+function externalPrintSave(){
+  if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
+  printMap();
+}
+
+window.showAllDrives = showAllDrives;
+window.openBuilderPosterPreview = openBuilderPosterPreview;
+window.externalPrintSave = externalPrintSave;
 let stands=[],routes=[],boundaries=[],windArrows=[],areaPolys=[],drivers=[],standers=[];
 let allLayers={};
 let mode='view', pendingLL=null, editingStandId=null;
@@ -2903,7 +2963,7 @@ async function persistStandToCamp(s){
 function openStandModal(stand=null){
   document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
   document.getElementById('f-name').value=stand?.name||'';
-  document.getElementById('f-type').value=stand?.type||'treestand';
+  document.getElementById('f-type').value=stand?.type||'elevatedboxblind';
   document.getElementById('f-notes').value=stand?.notes||'';
   document.getElementById('f-season').value=stand?.season||'';
   document.getElementById('f-tod').value=stand?.tod||'';
