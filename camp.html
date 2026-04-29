@@ -37,6 +37,12 @@
   .header-actions{display:flex;align-items:center;gap:10px}
   .scout-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(73,102,71,.22);background:rgba(255,255,255,.94);color:#27411e;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
   .scout-btn:hover{background:#fff;transform:translateY(-1px)}
+  .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
+  .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
+  .scout-builder-menu.open{display:grid;gap:6px}
+  .scout-builder-menu a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:800;white-space:nowrap}
+  .scout-builder-menu a:hover{background:rgba(124,79,35,.08)}
+  .mobile-actions-right .scout-menu-wrap{align-self:flex-end;pointer-events:auto}
   .scout-product-icon{display:inline-block;width:24px;height:24px;border-radius:999px;object-fit:cover;flex:0 0 24px;box-shadow:0 1px 4px rgba(0,0,0,.16)}
   .mobile-scout-pill{justify-content:center}
   .mobile-scout-pill .scout-product-icon{width:22px;height:22px;flex-basis:22px}
@@ -322,7 +328,7 @@
   <div class="mobile-top-bar">
     <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
-      <a id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" href="scout.html" target="_blank" rel="noopener noreferrer"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</a>
+      <div class="scout-menu-wrap"><button id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="mobileScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="mobileStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="mobileDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
   </div>
@@ -357,7 +363,7 @@
     </div>
     <div class="header-right">
       <div class="header-actions">
-        <a id="headerScoutBtn" class="scout-btn" href="scout.html" target="_blank" rel="noopener noreferrer"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</a>
+        <div class="scout-menu-wrap"><button id="headerScoutBtn" class="scout-btn" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="headerScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="headerStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="headerDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
         <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
       </div>
     </div>
@@ -889,6 +895,36 @@ function persist(){
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+function buildScoutBuilderUrl(builder){
+  const u=new URL("scout.html", window.location.href);
+  if(activeCampId) u.searchParams.set("campId", activeCampId);
+  u.searchParams.set("builder", builder === "drive" ? "drive" : "stand");
+  u.searchParams.set("campName", data.name || data.campName || "DeerCamp");
+  return `${u.pathname}?${u.searchParams.toString()}`;
+}
+function closeScoutBuilderMenus(){
+  document.querySelectorAll('.scout-builder-menu.open').forEach(menu=>menu.classList.remove('open'));
+  document.querySelectorAll('#headerScoutBtn,#mobileScoutBtn').forEach(btn=>btn?.setAttribute('aria-expanded','false'));
+}
+function toggleScoutBuilderMenu(menuId, buttonId){
+  const menuEl=document.getElementById(menuId);
+  const btn=document.getElementById(buttonId);
+  if(!menuEl) return;
+  const shouldOpen=!menuEl.classList.contains('open');
+  closeScoutBuilderMenus();
+  menuEl.classList.toggle('open', shouldOpen);
+  btn?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+}
+function bindScoutBuilderMenus(){
+  const standUrl=buildScoutBuilderUrl('stand');
+  const driveUrl=buildScoutBuilderUrl('drive');
+  ['headerStandBuilderLink','mobileStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=standUrl;});
+  ['headerDriveBuilderLink','mobileDriveBuilderLink','menuDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=driveUrl;});
+  const headerBtn=document.getElementById('headerScoutBtn');
+  const mobileBtn=document.getElementById('mobileScoutBtn');
+  if(headerBtn && !headerBtn.dataset.scoutMenuBound){headerBtn.dataset.scoutMenuBound='1'; headerBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('headerScoutBuilderMenu','headerScoutBtn');});}
+  if(mobileBtn && !mobileBtn.dataset.scoutMenuBound){mobileBtn.dataset.scoutMenuBound='1'; mobileBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('mobileScoutBuilderMenu','mobileScoutBtn');});}
+}
 function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
 function hasStewardDashboardAccess(){
   try{
@@ -1162,7 +1198,9 @@ function toggleMenuVisibility(nextState){
 menuToggle.addEventListener("click",()=>toggleMenuVisibility());
 mobileMenuToggle?.addEventListener("click",()=>toggleMenuVisibility());
 document.addEventListener("click",e=>{
-  if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false)
+  if(e.target.closest && e.target.closest('.scout-menu-wrap')) return;
+  if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false);
+  closeScoutBuilderMenus();
 });
 function bindMenuLinks(){
   menu.querySelectorAll('a[href^="#"]').forEach(link=>{
@@ -1179,18 +1217,17 @@ function bindMenuLinks(){
   });
 }
 function renderMenu(){
-  const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
+  const standBuilderUrl = buildScoutBuilderUrl('stand');
+  const driveBuilderUrl = buildScoutBuilderUrl('drive');
   const dashboardLink = `<a href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>`;
   const sectionLinks = visibleSections()
     .slice()
     .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
     .map(section => `<a href="#${section.key}">${section.title}</a>`)
     .join('');
-  menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
-  const headerScoutBtn = document.getElementById("headerScoutBtn");
-  const mobileScoutBtn = document.getElementById("mobileScoutBtn");
-  if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
-  if(mobileScoutBtn) mobileScoutBtn.href = scoutUrl;
+  const scoutLinks = `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>`;
+  menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
+  bindScoutBuilderMenus();
   bindMenuLinks();
 }
 
