@@ -3224,8 +3224,11 @@ async function openDeepLinkedScoutEdit(){
     }
 
     if(driveKey){
-      document.getElementById('status-bar').innerHTML = 'Drive link opened Scout. Use DeerDrive Builder or Save Drive to revise and repost this drive.';
-      try{ openDeerDriveBuilderFromToolbar(); }catch{}
+      const status = document.getElementById('status-bar');
+      if(status) status.innerHTML = 'Drive link opened the Drive Builder tab. Showing saved drive map geometry when available.';
+      setTimeout(()=>{
+        try{ showAllDrives(); }catch(error){ console.warn('Drive deep-link show-all skipped.', error); }
+      }, 350);
       return true;
     }
 
@@ -3781,8 +3784,14 @@ function printMap(){
 // ═══════════════════════════════════════════════
 function getScoutBuilderMode(){
   try{
-    const raw = String(new URLSearchParams(window.location.search).get('builder') || '').trim().toLowerCase();
-    return raw === 'stand' || raw === 'drive' ? raw : 'all';
+    const params = new URLSearchParams(window.location.search);
+    const raw = String(params.get('builder') || '').trim().toLowerCase();
+    if(raw === 'stand' || raw === 'drive') return raw;
+    if(params.get('standId') || params.get('editStand')) return 'stand';
+    if(params.get('driveId') || params.get('editDrive')) return 'drive';
+    const editType = String(params.get('editType') || '').trim().toLowerCase();
+    if(editType === 'stand' || editType === 'drive') return editType;
+    return 'all';
   }catch(e){ return 'all'; }
 }
 function applyScoutBuilderMode(){

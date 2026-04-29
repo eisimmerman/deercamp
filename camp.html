@@ -1894,10 +1894,13 @@ function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
   return String(item.id || item.standId || item.driveId || item.slug || item.title || item.name || `${fallbackPrefix}-${index}`).trim();
 }
 function getScoutEditUrl(type, item = {}, index = 0){
+  const cleanType = String(type || '').trim().toLowerCase() === 'drive' ? 'drive' : 'stand';
   const url = new URL('scout.html', window.location.href);
   if(activeCampId) url.searchParams.set('campId', activeCampId);
-  url.searchParams.set('editType', type);
-  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
+  url.searchParams.set('builder', cleanType);
+  url.searchParams.set('editType', cleanType);
+  url.searchParams.set(cleanType === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, cleanType, index));
+  url.searchParams.set('campName', data.name || data.campName || 'DeerCamp');
   return url.toString();
 }
 
