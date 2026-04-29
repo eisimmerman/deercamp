@@ -493,14 +493,13 @@ textarea{resize:vertical;min-height:55px;}
     <div class="fg">
       <label>Type</label>
       <select id="f-type">
-        <option value="treestand">🌲 Treestand</option>
-        <option value="blind">🏠 Ground Blind</option>
-        <option value="boxblind">🪟 Box Blind</option>
-        <option value="ladder">🪜 Ladder Stand</option>
-        <option value="foodplot">🌾 Food Plot</option>
-        <option value="trailcam">📷 Trail Camera</option>
-        <option value="scrape">🦌 Scrape / Rub</option>
-        <option value="waypoint">📌 Waypoint</option>
+        <option value="elevatedboxblind">🪟 Elevated Box Blind</option>
+        <option value="groundboxblind">🏠 Ground Box Blind</option>
+        <option value="groundblind">🌿 Ground Blind</option>
+        <option value="hangingtreestand">🌲 Hanging Tree Stand</option>
+        <option value="ladderstand">🪜 Ladder Stand</option>
+        <option value="tripodstand">🔭 Tripod Stand</option>
+        <option value="naturalgroundblind">🍂 Natural Ground Blind</option>
       </select>
     </div>
     <div class="fg">
@@ -772,15 +771,52 @@ textarea{resize:vertical;min-height:55px;}
 // CONFIG
 // ═══════════════════════════════════════════════
 const TYPE_CFG = {
-  treestand:{ color:'#a0522d', emoji:'🌲', label:'Treestand' },
-  blind:    { color:'#4a6741', emoji:'🏠', label:'Ground Blind' },
-  boxblind: { color:'#5f4b2d', emoji:'🪟', label:'Box Blind' },
-  ladder:   { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
-  foodplot: { color:'#3d7a3d', emoji:'🌾', label:'Food Plot' },
-  trailcam: { color:'#5a4a80', emoji:'📷', label:'Trail Cam' },
-  scrape:   { color:'#7a3d1a', emoji:'🦌', label:'Scrape/Rub' },
-  waypoint: { color:'#2a5a7a', emoji:'📌', label:'Waypoint' },
+  elevatedboxblind:  { color:'#5f4b2d', emoji:'🪟', label:'Elevated Box Blind' },
+  groundboxblind:    { color:'#4a6741', emoji:'🏠', label:'Ground Box Blind' },
+  groundblind:       { color:'#3d5c2e', emoji:'🌿', label:'Ground Blind' },
+  hangingtreestand:  { color:'#a0522d', emoji:'🌲', label:'Hanging Tree Stand' },
+  ladderstand:       { color:'#8b6914', emoji:'🪜', label:'Ladder Stand' },
+  tripodstand:       { color:'#7a5a2a', emoji:'🔭', label:'Tripod Stand' },
+  naturalgroundblind:{ color:'#4f6a35', emoji:'🍂', label:'Natural Ground Blind' },
 };
+
+const LEGACY_STAND_TYPE_ALIASES = {
+  treestand: 'hangingtreestand',
+  tree: 'hangingtreestand',
+  hanging: 'hangingtreestand',
+  hangingstand: 'hangingtreestand',
+  hangingtreestand: 'hangingtreestand',
+  blind: 'groundblind',
+  ground: 'groundblind',
+  groundblind: 'groundblind',
+  boxblind: 'elevatedboxblind',
+  box: 'elevatedboxblind',
+  elevatedbox: 'elevatedboxblind',
+  elevatedboxblind: 'elevatedboxblind',
+  groundbox: 'groundboxblind',
+  groundboxblind: 'groundboxblind',
+  ladder: 'ladderstand',
+  ladderstand: 'ladderstand',
+  tripod: 'tripodstand',
+  tripodstand: 'tripodstand',
+  natural: 'naturalgroundblind',
+  naturalblind: 'naturalgroundblind',
+  naturalgroundblind: 'naturalgroundblind',
+  foodplot: 'naturalgroundblind',
+  trailcam: 'naturalgroundblind',
+  scrape: 'naturalgroundblind',
+  waypoint: 'naturalgroundblind'
+};
+
+function normalizeStandType(type = '') {
+  const clean = String(type || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  if (TYPE_CFG[clean]) return clean;
+  return LEGACY_STAND_TYPE_ALIASES[clean] || 'elevatedboxblind';
+}
+
+function getStandTypeConfig(type = '') {
+  return TYPE_CFG[normalizeStandType(type)] || TYPE_CFG.elevatedboxblind;
+}
 // Opposite directions for recommender logic
 const OPP = {N:'S',NE:'SW',E:'W',SE:'NW',S:'N',SW:'NE',W:'E',NW:'SE'};
 const TOWARD_DEG = {N:180,NE:225,E:270,SE:315,S:0,SW:45,W:90,NW:135};
@@ -2452,7 +2488,7 @@ window.saveDriveSnapshot=saveDriveSnapshot;
 // STANDS
 // ═══════════════════════════════════════════════
 function makeIcon(type){
-  const c=TYPE_CFG[type]||TYPE_CFG.treestand;
+  const c=getStandTypeConfig(type);
   const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="36" height="44" viewBox="0 0 36 44">
     <ellipse cx="18" cy="41" rx="6" ry="2.5" fill="rgba(0,0,0,.35)"/>
     <path d="M18 39 L11 20 Q18 2 25 20 Z" fill="${c.color}" opacity=".85"/>
@@ -2463,7 +2499,7 @@ function makeIcon(type){
   return L.divIcon({html:svg,className:'',iconSize:[36,44],iconAnchor:[18,41],popupAnchor:[0,-38]});
 }
 function standPopupHTML(s){
-  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+  const c=getStandTypeConfig(s.type);
   const tod=s.tod?` · ${TOD_LABELS[s.tod]||s.tod}`:'';
   return`<div class="pu-name">${s.name}</div>
 <div class="pu-type">${c.emoji} ${c.label}${s.season?' · '+s.season:''}${tod}</div>
@@ -2704,7 +2740,7 @@ function getScoutActiveCampData(){
   return {activeCampId, scopedCampDataKey, baseCampData:Object.keys(scoped).length?scoped:genericCampData};
 }
 function makeStandPostSummary(s){
-  const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+  const c=getStandTypeConfig(s.type);
   return [c.label, s.wind?`wind ${s.wind}`:'', s.tod?(TOD_LABELS[s.tod]||s.tod):'', (s.seasonPhase&&s.seasonPhase!=='any')?(SEASON_PHASE_LABELS[s.seasonPhase]||s.seasonPhase):''].filter(Boolean).join(' • ') || 'Stand saved from Scout.';
 }
 async function persistStandToCamp(s){
@@ -2743,7 +2779,7 @@ async function persistStandToCamp(s){
   }
 
   const image=thumbUrl||displayUrl||(!hasDataImage(s.thumbnail)?String(s.thumbnail||'').trim():'');
-  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
+  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:getStandTypeConfig(s.type).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
   const existing=Array.isArray(baseCampData.deerStandPosts)?baseCampData.deerStandPosts.filter(Boolean):(Array.isArray(baseCampData.deerStands)?baseCampData.deerStands.filter(Boolean):[]);
   const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId};
   const content=Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions.filter(Boolean):[];
@@ -2825,7 +2861,7 @@ async function persistStandToCamp(s){
 function openStandModal(stand=null){
   document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
   document.getElementById('f-name').value=stand?.name||'';
-  document.getElementById('f-type').value=stand?.type||'treestand';
+  document.getElementById('f-type').value=normalizeStandType(stand?.type || 'elevatedboxblind');
   document.getElementById('f-notes').value=stand?.notes||'';
   document.getElementById('f-season').value=stand?.season||'';
   document.getElementById('f-tod').value=stand?.tod||'';
@@ -2867,7 +2903,7 @@ async function saveStand(){
     if(saveBtn) saveBtn.textContent='Saving...';
     if(feedback){feedback.textContent='Saving stand...';feedback.classList.add('show');}
     const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
-    const type=document.getElementById('f-type').value;
+    const type=normalizeStandType(document.getElementById('f-type').value);
     const notes=document.getElementById('f-notes').value.trim();
     const season=document.getElementById('f-season').value.trim();
     const tod=document.getElementById('f-tod').value;
@@ -2945,7 +2981,7 @@ function normalizeCampStandToScoutStand(item = {}){
     slug: item.slug || slugifyValue(idSeed),
     name: item.name || item.title || 'Saved Stand',
     title: item.title || item.name || 'Saved Stand',
-    type: item.type || item.scoutType || 'treestand',
+    type: normalizeStandType(item.type || item.scoutType || item.standType || ''),
     notes: item.notes || item.body || '',
     season: item.season || '',
     tod: item.tod || '',
@@ -3371,8 +3407,9 @@ function runRecommender(){
     if(s.tod==='evening') {score+=8;reasons.push('🌆 Evening stand');}
     if(s.tod==='all-day') {score+=12;reasons.push('☀️ All-day stand');}
     // Type bonus
-    if(s.type==='treestand'){score+=5;reasons.push('🌲 Elevated — scent disperses better');}
-    if(s.type==='foodplot'){score+=3;reasons.push('🌾 Food plot — high deer activity');}
+    const normalizedStandType = normalizeStandType(s.type);
+    if(normalizedStandType==='hangingtreestand' || normalizedStandType==='elevatedboxblind' || normalizedStandType==='ladderstand' || normalizedStandType==='tripodstand'){score+=5;reasons.push('🌲 Elevated stand — scent disperses better');}
+    if(normalizedStandType==='groundblind' || normalizedStandType==='groundboxblind' || normalizedStandType==='naturalgroundblind'){score+=3;reasons.push('🌿 Ground cover — lower profile setup');}
     return {...s,score,reasons};
   }).sort((a,b)=>b.score-a.score);
 
@@ -3381,7 +3418,7 @@ function runRecommender(){
   scored.forEach((s,i)=>{
     const pct=best>0?Math.round((s.score/best)*100):0;
     const isTop=i===0&&s.score>0;
-    const cfg=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+    const cfg=getStandTypeConfig(s.type);
     const bar=`<div style="height:4px;background:#2a1050;border-radius:2px;margin-top:5px;overflow:hidden"><div style="height:100%;width:${Math.max(0,pct)}%;background:${s.score>20?'#c87aff':s.score>0?'#7a5aaa':'#5a2a3a'};border-radius:2px;transition:width .4s"></div></div>`;
     html+=`<div class="rec-card${isTop?' top':''}" onclick="flyToStand(${s.id})">
       <div class="rec-rank">${isTop?'⭐ Top Pick':'Rank #'+(i+1)}</div>
@@ -3504,7 +3541,7 @@ function renderPanel(){
   if(stands.length){
     html+=`<div class="panel-section-label">Stands (${stands.length})</div>`;
     html+=stands.map(s=>{
-      const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
+      const c=getStandTypeConfig(s.type);
       return`<div class="stand-card" onclick="flyToStand(${s.id})">
         <div class="card-name">${c.emoji} ${s.name}</div>
         <div class="card-meta">${s.lat.toFixed(4)}, ${s.lng.toFixed(4)}${s.wind?' · 💨'+s.wind:''} · ${ACCESS_LABELS[s.access||'good']} access · ${PRESSURE_LABELS[s.pressure||'fresh']}</div>
@@ -3634,9 +3671,9 @@ function buildPrintLegend(){
   const stats=document.getElementById('pl-stats');
   let items='';
   // Stand types present
-  const usedTypes=[...new Set(stands.map(s=>s.type))];
+  const usedTypes=[...new Set(stands.map(s=>normalizeStandType(s.type)))];
   usedTypes.forEach(t=>{
-    const c=TYPE_CFG[t];
+    const c=getStandTypeConfig(t);
     items+=`<div class="pl-item"><div class="pl-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>`;
   });
   // Route types
