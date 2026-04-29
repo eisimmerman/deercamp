@@ -138,22 +138,20 @@ header::-webkit-scrollbar{height:0;}
 .panel-section-label{font-size:.5rem;text-transform:uppercase;letter-spacing:1px;color:var(--sage);padding:8px 4px 3px;}
 .stand-card{background:#221608;border:1px solid #3a2c1e;border-radius:6px;padding:9px 10px;margin-bottom:5px;cursor:pointer;transition:border-color .15s,background .15s;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
-.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:4px 7px;white-space:normal;text-align:center;line-height:1.25;text-shadow:0 1px 2px rgba(0,0,0,.45);}
+.leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.88);border:1px solid rgba(240,232,216,.42);border-radius:6px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.2px;padding:3px 6px;white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
-.leaflet-tooltip.stand-name-label .stand-type-label{display:block;margin-top:2px;font-size:8px;font-weight:600;color:var(--tan);letter-spacing:.35px;text-transform:uppercase;}
-/* Compact deep-link focus: keep the selected stand obvious without covering the map. */
-.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
+/* Scout opens should use normal map movement only. No orange/yellow focus glow. */
+.leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(18,10,2,.88)!important;color:#f0e8d8!important;border:1px solid rgba(240,232,216,.42)!important;box-shadow:0 4px 12px rgba(0,0,0,.38)!important;animation:none!important;}
 .stand-screen-focus{display:none!important;}
 .stand-focus-toast{display:none!important;}
-.stand-map-locator{position:relative;width:54px;height:54px;pointer-events:none;transform:translate(-27px,-43px);}
-.stand-map-locator .sml-label,.stand-map-locator .sml-arrow{display:none!important;}
-.stand-map-locator .sml-ring{position:absolute;left:50%;top:50%;width:38px;height:38px;margin-left:-19px;margin-top:-19px;border-radius:999px;border:3px solid rgba(255,248,239,.95);background:rgba(212,130,10,.10);box-shadow:0 0 0 2px rgba(212,130,10,.48),0 0 12px rgba(212,130,10,.55);animation:standRingSoftPulse .9s ease-in-out infinite;}
-@keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:translateY(0);}50%{opacity:.48;transform:translateY(-1px);}}
-@keyframes standRingSoftPulse{0%,100%{transform:scale(.72);opacity:.95;}50%{transform:scale(1.28);opacity:.28;}}
-@keyframes standMapLocatorBlink{0%,100%{opacity:1;}50%{opacity:.55;}}
-@keyframes standScreenFocusPulse{0%,100%{opacity:1;}50%{opacity:.55;}}
-@keyframes standScreenFocusArrow{0%,100%{opacity:1;}50%{opacity:.55;}}
-@keyframes standScreenFocusRing{0%,100%{opacity:.9;}50%{opacity:.35;}}
+.stand-map-locator{display:none!important;}
+.stand-map-locator .sml-label,.stand-map-locator .sml-arrow,.stand-map-locator .sml-ring{display:none!important;}
+@keyframes standLabelSoftPulse{0%,100%{opacity:1;transform:none;}50%{opacity:1;transform:none;}}
+@keyframes standRingSoftPulse{0%,100%{transform:none;opacity:0;}50%{transform:none;opacity:0;}}
+@keyframes standMapLocatorBlink{0%,100%{opacity:1;}50%{opacity:1;}}
+@keyframes standScreenFocusPulse{0%,100%{opacity:1;}50%{opacity:1;}}
+@keyframes standScreenFocusArrow{0%,100%{opacity:1;}50%{opacity:1;}}
+@keyframes standScreenFocusRing{0%,100%{opacity:0;}50%{opacity:0;}}
 
 .card-name{font-size:.7rem;color:var(--tan);margin-bottom:2px;}
 .card-meta{font-size:.57rem;color:var(--sage);}
@@ -1700,49 +1698,6 @@ function buildDriveRouteSummaries(){
   });
 }
 
-function buildDriveGeometryPayload(){
-  const normalizePoint = (item={}, fallbackLabel='') => {
-    const lat = Number(item.lat);
-    const lng = Number(item.lng);
-    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return {
-      lat,
-      lng,
-      label: String(item.label || item.name || fallbackLabel || '').trim(),
-      role: String(item.role || '').trim(),
-      slot: Number(item.slot || 0)
-    };
-  };
-  const driversPayload = (Array.isArray(drivers) ? drivers : []).map((item, idx) => normalizePoint(item, `D/P ${idx + 1}`)).filter(Boolean);
-  const standersPayload = (Array.isArray(standers) ? standers : []).map((item, idx) => normalizePoint(item, `S/B ${idx + 1}`)).filter(Boolean);
-  const routesPayload = getSavedDriveRoutes().map((route, idx) => {
-    const pts = (Array.isArray(route.pts) ? route.pts : []).map(pt => {
-      if(Array.isArray(pt) && pt.length >= 2){
-        const lat = Number(pt[0]);
-        const lng = Number(pt[1]);
-        return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-      }
-      if(pt && typeof pt === 'object'){
-        const lat = Number(pt.lat);
-        const lng = Number(pt.lng);
-        return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
-      }
-      return null;
-    }).filter(Boolean);
-    if(!pts.length) return null;
-    return {
-      id: route.id || `route-${idx + 1}`,
-      name: String(route.name || `${getCurrentDriveName()} Route ${idx + 1}`).trim(),
-      pts
-    };
-  }).filter(Boolean);
-  return {
-    drivers: driversPayload,
-    standers: standersPayload,
-    routes: routesPayload
-  };
-}
-
 function trimOversizedSavedDriveImages(item){
   if(!item || typeof item !== 'object') return item;
   const clone = Object.assign({}, item);
@@ -1931,7 +1886,6 @@ async function persistDriveToCamp(){
   const savedLargeImage = uploadedDriveImage.displayUrl || uploadedDriveImage.thumbUrl || makeImageSafeForLocalStorage(rawSavedImage, 260000) || savedImage;
   const notes = deerDrivePlan.savedDriveNotes || '';
   const routeSummaries = buildDriveRouteSummaries();
-  const geometry = buildDriveGeometryPayload();
   const author = String(baseCampData.stewardName || baseCampData.steward || 'Camp Steward').trim() || 'Camp Steward';
   const driveEntry = {
     id: driveId,
@@ -1955,15 +1909,13 @@ async function persistDriveToCamp(){
     notes,
     routeSummaries,
     routeCount: routeSummaries.length,
-    geometry,
     savedSummary: Object.assign({}, deerDrivePlan.savedDriveSummary || {}, {
       thumbnail: savedImage,
       originalMapImage: savedLargeImage,
       detailImage: savedLargeImage,
       imageUrl: savedLargeImage || savedImage,
       thumbnailUrl: savedImage || savedLargeImage,
-      storageUploaded: Boolean(uploadedDriveImage.storageUploaded),
-      geometry
+      storageUploaded: Boolean(uploadedDriveImage.storageUploaded)
     })
   };
   const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId).map(trimOversizedSavedDriveImages)].slice(0, 8);
@@ -2506,26 +2458,15 @@ ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
   <button class="pu-btn pu-del"  onclick="delStandById(${s.id})">Delete</button>
 </div>`;
 }
-function getStandTypeLabel(s = {}){
-  const typeKey = normalizeStandType(s.type || s.standType || s.typeLabel || 'elevatedboxblind');
-  return (TYPE_CFG[typeKey] || TYPE_CFG.elevatedboxblind).label;
-}
 function getStandLabelText(s = {}){
-  const name = String(s.name || s.title || 'Stand').trim() || 'Stand';
-  const typeLabel = getStandTypeLabel(s);
-  return typeLabel ? `${name} — ${typeLabel}` : name;
-}
-function getStandLabelHTML(s = {}){
-  const name = String(s.name || s.title || 'Stand').trim() || 'Stand';
-  const typeLabel = getStandTypeLabel(s);
-  return `${escHtml(name)}${typeLabel ? `<span class="stand-type-label">${escHtml(typeLabel)}</span>` : ''}`;
+  return String(s.name || s.title || 'Stand').trim() || 'Stand';
 }
 function bindStandNameLabel(marker, stand){
   if(!marker || !stand) return marker;
-  marker.bindTooltip(getStandLabelHTML(stand), {
+  marker.bindTooltip(escHtml(getStandLabelText(stand)), {
     permanent:true,
     direction:'top',
-    offset:[0,-46],
+    offset:[0,-42],
     opacity:1,
     className:'stand-name-label'
   });
@@ -2539,140 +2480,20 @@ function getStandTooltipElement(id){
   return typeof tooltip.getElement === 'function' ? tooltip.getElement() : null;
 }
 function pulseStandLabel(id, durationMs=10000){
-  const tooltipEl = getStandTooltipElement(id);
-  if(!tooltipEl) return false;
-  tooltipEl.classList.remove('stand-label-pulse');
-  void tooltipEl.offsetWidth;
-  tooltipEl.classList.add('stand-label-pulse');
-
-  pulseStandLabel._timers = pulseStandLabel._timers || {};
-  clearTimeout(pulseStandLabel._timers[id]);
-  pulseStandLabel._timers[id] = setTimeout(()=>{
-    const latestEl = getStandTooltipElement(id);
-    if(latestEl) latestEl.classList.remove('stand-label-pulse');
-  }, durationMs);
-  return true;
+  // Standard Scout behavior: no flashing/pulsing locator effects.
+  return false;
 }
 function pulseStandLabelWhenReady(id, durationMs=10000, options={}){
-  const start = Date.now();
-  const timeoutMs = Number(options.timeoutMs || 11000);
-  const intervalMs = Number(options.intervalMs || 120);
-  const tryPulse = () => {
-    try{
-      const layer = allLayers[id];
-      if(layer && typeof layer.openTooltip === 'function') layer.openTooltip();
-      if(pulseStandLabel(id, durationMs)) return true;
-    }catch(error){
-      console.warn('Stand label pulse retry skipped.', error);
-    }
-    if(Date.now() - start >= timeoutMs) return false;
-    setTimeout(tryPulse, intervalMs);
-    return false;
-  };
-  return tryPulse();
+  // Standard Scout behavior: no flashing/pulsing locator effects.
+  return false;
 }
 function showStandFocusBeacon(stand, durationMs=10000){
-  try{
-    const existing=document.getElementById('stand-screen-focus');
-    if(existing) existing.remove();
-    const existingToast=document.getElementById('stand-focus-toast');
-    if(existingToast) existingToast.remove();
-
-    const lat=Number(stand?.lat);
-    const lng=Number(stand?.lng);
-    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
-    const label=escHtml(getStandLabelText(stand));
-
-    const el=document.createElement('div');
-    el.id='stand-screen-focus';
-    el.className='stand-screen-focus';
-    el.innerHTML=`<div class="ssf-label">▶ ${label} ◀</div><div class="ssf-arrow">▼</div><div class="ssf-ring"></div>`;
-    document.body.appendChild(el);
-
-    const toast=document.createElement('div');
-    toast.id='stand-focus-toast';
-    toast.className='stand-focus-toast';
-    toast.textContent=`LOCATING: ${getStandLabelText(stand)}`;
-    document.body.appendChild(toast);
-
-    const updatePosition=()=>{
-      try{
-        const mapEl=map.getContainer();
-        const rect=mapEl.getBoundingClientRect();
-        const pt=map.latLngToContainerPoint([lat,lng]);
-        el.style.left=`${Math.round(rect.left + pt.x)}px`;
-        el.style.top=`${Math.round(rect.top + pt.y)}px`;
-      }catch(e){}
-    };
-
-    updatePosition();
-    requestAnimationFrame(updatePosition);
-    [90,180,360,700,1100,1600,2300,3200].forEach(ms=>setTimeout(updatePosition,ms));
-    map.on('move zoom zoomanim resize moveend zoomend', updatePosition);
-
-    clearInterval(showStandFocusBeacon._blinkInterval);
-    let blinkOn=true;
-    showStandFocusBeacon._blinkInterval=setInterval(()=>{
-      blinkOn=!blinkOn;
-      el.style.opacity=blinkOn?'1':'.32';
-      toast.style.opacity=blinkOn?'1':'.38';
-      const labelEl=el.querySelector('.ssf-label');
-      if(labelEl){
-        labelEl.style.background=blinkOn?'#fff200':'#ff3b00';
-        labelEl.style.color=blinkOn?'#111':'#fff';
-      }
-    },260);
-
-    clearTimeout(showStandFocusBeacon._timer);
-    showStandFocusBeacon._timer=setTimeout(()=>{
-      try{ map.off('move zoom zoomanim resize moveend zoomend', updatePosition); }catch(e){}
-      clearInterval(showStandFocusBeacon._blinkInterval);
-      try{ el.remove(); }catch(e){}
-      try{ toast.remove(); }catch(e){}
-    }, durationMs);
-    return true;
-  }catch(error){
-    console.warn('Stand focus beacon skipped.', error);
-    return false;
-  }
+  // Standard Scout behavior: no full-screen beacon.
+  return false;
 }
 function showStandMapLocator(stand, durationMs=15000){
-  try{
-    const lat=Number(stand?.lat);
-    const lng=Number(stand?.lng);
-    if(!Number.isFinite(lat)||!Number.isFinite(lng)) return false;
-
-    if(showStandMapLocator._marker){
-      try{ map.removeLayer(showStandMapLocator._marker); }catch(e){}
-      showStandMapLocator._marker=null;
-    }
-    const existingToast=document.getElementById('stand-focus-toast');
-    if(existingToast) existingToast.remove();
-    clearTimeout(showStandMapLocator._timer);
-
-    const icon=L.divIcon({
-      className:'',
-      html:`<div class="stand-map-locator" aria-hidden="true"><div class="sml-ring"></div></div>`,
-      iconSize:[54,54],
-      iconAnchor:[27,43]
-    });
-    const marker=L.marker([lat,lng],{icon,interactive:false,zIndexOffset:1000000}).addTo(map);
-    showStandMapLocator._marker=marker;
-
-    // Force Leaflet to recalculate marker position after final paint.
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      try{ marker.setLatLng([lat,lng]); }catch(e){}
-    }));
-
-    showStandMapLocator._timer=setTimeout(()=>{
-      try{ map.removeLayer(marker); }catch(e){}
-      if(showStandMapLocator._marker===marker) showStandMapLocator._marker=null;
-    },durationMs);
-    return true;
-  }catch(error){
-    console.warn('Stand map locator skipped.', error);
-    return false;
-  }
+  // Standard Scout behavior: no map locator ring.
+  return false;
 }
 function addStandToMap(s){
   const m=bindStandNameLabel(L.marker([s.lat,s.lng],{icon:makeIcon(s.type), draggable:false}).addTo(map).bindPopup(standPopupHTML(s)), s);
@@ -2683,7 +2504,7 @@ function addStandToMap(s){
       stand.lat=ll.lat;
       stand.lng=ll.lng;
       evt.target.setPopupContent(standPopupHTML(stand));
-      try{evt.target.setTooltipContent(getStandLabelHTML(stand));}catch(e){}
+      try{evt.target.setTooltipContent(escHtml(getStandLabelText(stand)));}catch(e){}
       saveLocal();
       persistStandToCamp(stand)
         .then(()=>{showScoutToast(`${stand.name || 'Stand'} moved and saved.`); pingCampRefresh('deerstand');})
@@ -3037,7 +2858,7 @@ async function saveStand(){
     let savedStand=null;
     if(editingStandId!==null){
       const s=stands.find(s=>s.id===editingStandId);
-      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(getStandLabelHTML(s)); savedStand=s;}
+      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(escHtml(getStandLabelText(s))); savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -3104,7 +2925,7 @@ function normalizeCampStandToScoutStand(item = {}){
     slug: item.slug || slugifyValue(idSeed),
     name: item.name || item.title || 'Saved Stand',
     title: item.title || item.name || 'Saved Stand',
-    type: normalizeStandType(item.standType || item.typeLabel || item.scoutType || item.type || 'elevatedboxblind'),
+    type: normalizeStandType(item.type || item.scoutType || 'elevatedboxblind'),
     notes: item.notes || item.body || '',
     season: item.season || '',
     tod: item.tod || '',
@@ -3130,7 +2951,7 @@ function mergeScoutStandFromCamp(item = {}){
   );
   if(existing){
     Object.assign(existing, Object.fromEntries(Object.entries(stand).filter(([,value]) => value !== '' && value !== null && value !== undefined)));
-    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(getStandLabelHTML(existing));
+    if(allLayers[existing.id]?.setTooltipContent) allLayers[existing.id].setTooltipContent(escHtml(getStandLabelText(existing)));
     return existing;
   }
   stands.push(stand);
@@ -3235,17 +3056,17 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
   const lng = Number(stand.lng);
   if(!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
 
+  const focusDurationMs = 15000;
   const targetZoom = 18;
   const status = document.getElementById('status-bar');
   if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — centering map on stand`;
 
-  // Remove any old locator/pulse artifacts before opening the stand.
   clearExistingStandLocators();
   hideStandLabelsForDeepLink(standId);
 
-  // Keep the reliable recenter behavior, but do not add any flashing locator ring
-  // or pulsing tooltip. Open in Scout should feel like a normal fly-to + popup.
-  const forceTimes = [0, 120, 350, 700, 1100];
+  // Hard-set the map repeatedly during the first few seconds. This prevents the
+  // initial all-stand fit/render pass from leaving the map at the wide stacked-label view.
+  const forceTimes = [0, 120, 350, 700, 1100, 1600, 2300, 3200];
   forceTimes.forEach(ms => setTimeout(() => {
     forceMapToStandView(stand, targetZoom);
     try{
@@ -3255,7 +3076,7 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
     }catch(e){}
   }, ms));
 
-  const openStandPopup = () => {
+  const startLocator = () => {
     forceMapToStandView(stand, targetZoom);
     try{
       const layer = allLayers[standId];
@@ -3264,10 +3085,13 @@ function locateAndPulseStand(stand, statusPrefix='Located stand'){
       if(layer && typeof layer.openPopup === 'function') layer.openPopup();
     }catch(e){}
     restoreStandLabelsAfterDeepLink();
-    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — opened on the map`;
+    showStandMapLocator(stand, focusDurationMs);
+    pulseStandLabelWhenReady(standId, focusDurationMs, { timeoutMs: focusDurationMs, intervalMs: 120 });
+    if(status) status.innerHTML = `${statusPrefix}: ${stand.name || stand.title || 'Saved Stand'} — highlighted on the map`;
   };
 
-  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(openStandPopup)), 900);
+  // Start only after the final forced recenter, so the flash is visible at the target stand.
+  setTimeout(() => requestAnimationFrame(() => requestAnimationFrame(startLocator)), 3800);
   return true;
 }
 async function openDeepLinkedScoutEdit(){
@@ -3785,7 +3609,7 @@ function importData(e){
     try{
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
-      stands=(d.stands||[]).map(item=>Object.assign({}, item, {type: normalizeStandType(item.standType || item.typeLabel || item.type || item.scoutType || 'elevatedboxblind')}));routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+      stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
       stands.forEach(addStandToMap);
       [...routes,...boundaries].forEach(r=>createRouteLayer(r));
       windArrows.forEach(addWindArrowToMap);
@@ -3815,9 +3639,9 @@ function buildPrintLegend(){
   const stats=document.getElementById('pl-stats');
   let items='';
   // Stand types present
-  const usedTypes=[...new Set(stands.map(s=>normalizeStandType(s.type)))];
+  const usedTypes=[...new Set(stands.map(s=>s.type))];
   usedTypes.forEach(t=>{
-    const c=TYPE_CFG[t] || TYPE_CFG.elevatedboxblind;
+    const c=TYPE_CFG[t];
     items+=`<div class="pl-item"><div class="pl-dot" style="background:${c.color}"></div>${c.emoji} ${c.label}</div>`;
   });
   // Route types
@@ -3862,7 +3686,7 @@ try{
   const saved=localStorage.getItem('sse-v4');
   if(saved){
     const d=JSON.parse(saved);
-    stands=(d.stands||[]).map(item=>Object.assign({}, item, {type: normalizeStandType(item.standType || item.typeLabel || item.type || item.scoutType || 'elevatedboxblind')}));routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
+    stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     clearStaleDeerDriveBuilderDraftIfNeeded();
     stands.forEach(addStandToMap);
     [...routes,...boundaries].forEach(r=>{
@@ -3882,7 +3706,7 @@ try{
     if(recOpen || recWind) runRecommender();
     const hasScoutDeepLink = (()=>{ try{ const p=new URLSearchParams(window.location.search); return !!(p.get('standId') || p.get('editStand') || p.get('driveId') || p.get('editDrive')); }catch{return false;} })();
     const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
-    if(allPts.length && !hasScoutDeepLink) map.flyToBounds(allPts,{padding:[60,60]});
+    if(allPts.length && !hasScoutDeepLink) map.fitBounds(allPts,{padding:[60,60], animate:false});
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();if(recWind) runRecommender();
