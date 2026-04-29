@@ -2373,6 +2373,41 @@ function deleteRoleMarker(id, role){
   map.closePopup(); saveLocal(); renderPanel();
 }
 function clearAllMarks(){
+  const builderMode = getScoutBuilderMode();
+  if(builderMode === 'stand'){
+    const total = stands.length;
+    if(!total){ document.getElementById('status-bar').innerHTML='No stands on the map to clear.'; return; }
+    (stands || []).forEach(item=>{ if(allLayers[item.id]){ try{ map.removeLayer(allLayers[item.id]); }catch(e){} delete allLayers[item.id]; } });
+    stands = [];
+    map.closePopup();
+    saveLocal();
+    renderScoutLayersForBuilderMode();
+    renderPanel();
+    document.getElementById('status-bar').innerHTML='🧹 Cleared all stand marks on the Stand Builder map.';
+    return;
+  }
+  if(builderMode === 'drive'){
+    const total = routes.length + drivers.length + standers.length;
+    if(!total){ document.getElementById('status-bar').innerHTML='No drive marks on the map to clear.'; return; }
+    getVisibleDriveRoutes().forEach(item=>{ if(allLayers[item.id]){ try{ map.removeLayer(allLayers[item.id]); }catch(e){} delete allLayers[item.id]; } });
+    [...drivers, ...standers].forEach(item=>{ if(allLayers[item.id]){ try{ map.removeLayer(allLayers[item.id]); }catch(e){} delete allLayers[item.id]; } });
+    routes = (routes || []).filter(r => !(r.type === 'route' || r.generated === 'deerdrive'));
+    drivers = [];
+    standers = [];
+    if(curPolyLine){ try{ map.removeLayer(curPolyLine); }catch(e){} curPolyLine = null; }
+    curPts = [];
+    curPolyType = null;
+    deerDriveAnchor = null;
+    deerDrivePlan = blankDeerDrivePlan();
+    clearRouteEndArrow();
+    map.closePopup();
+    updateDeerDriveActionButtons();
+    saveLocal();
+    renderScoutLayersForBuilderMode();
+    renderPanel();
+    document.getElementById('status-bar').innerHTML='🧹 Cleared all deer drive marks on the Drive Builder map.';
+    return;
+  }
   const total = stands.length + routes.length + boundaries.length + windArrows.length + areaPolys.length + drivers.length + standers.length;
   if(!total){
     document.getElementById('status-bar').innerHTML='No marks on the map to clear.';
@@ -3694,6 +3729,71 @@ document.getElementById('search-input').addEventListener('keydown',e=>{if(e.key=
 document.getElementById('modal-save-drive')?.addEventListener('click',e=>{ if(e.target.id==='modal-save-drive') closeSaveDriveModal(); });
 document.getElementById('modal-save-drive-image')?.addEventListener('click',e=>{ if(e.target.id==='modal-save-drive-image') closeSaveDriveImageModal(); });
 
+
+// ═══════════════════════════════════════════════
+// BUILDER-SPECIFIC MAP LAYERS
+// ═══════════════════════════════════════════════
+function getVisibleBuilderDataKinds(){
+  const builderMode = getScoutBuilderMode();
+  if(builderMode === 'stand') return {stands:true, drives:false, all:false};
+  if(builderMode === 'drive') return {stands:false, drives:true, all:false};
+  return {stands:true, drives:true, all:true};
+}
+function removeAllScoutLayers(){
+  Object.values(allLayers || {}).forEach(layer=>{ try{ map.removeLayer(layer); }catch(e){} });
+  allLayers = {};
+}
+function addAreaPolyToMap(a){
+  if(!a || !Array.isArray(a.pts)) return;
+  const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
+    .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
+  allLayers[a.id]=poly;
+}
+function getVisibleDriveRoutes(){
+  return (routes || []).filter(r => r && (r.type === 'route' || r.generated === 'deerdrive'));
+}
+function renderScoutLayersForBuilderMode(){
+  const visible = getVisibleBuilderDataKinds();
+  removeAllScoutLayers();
+  if(visible.stands){
+    (stands || []).forEach(addStandToMap);
+  }
+  if(visible.drives){
+    getVisibleDriveRoutes().forEach(createRouteLayer);
+    (drivers || []).forEach(addRoleMarkerRecord);
+    (standers || []).forEach(addRoleMarkerRecord);
+  }
+  if(visible.all){
+    (routes || []).filter(r => r && r.type !== 'route' && r.generated !== 'deerdrive').forEach(createRouteLayer);
+    (boundaries || []).forEach(createRouteLayer);
+    (windArrows || []).forEach(addWindArrowToMap);
+    (areaPolys || []).forEach(addAreaPolyToMap);
+  }
+  syncHelperToggleSide();
+}
+function getVisibleBuilderPoints(){
+  const visible = getVisibleBuilderDataKinds();
+  const pts=[];
+  if(visible.stands){
+    (stands || []).forEach(s=>pts.push([Number(s.lat), Number(s.lng)]));
+  }
+  if(visible.drives){
+    getVisibleDriveRoutes().forEach(r=>{
+      (Array.isArray(r.pts) ? r.pts : []).forEach(pt=>pts.push([Number(pt[0]), Number(pt[1])]));
+    });
+    [...(drivers || []), ...(standers || [])].forEach(item=>pts.push([Number(item.lat), Number(item.lng)]));
+  }
+  if(visible.all){
+    (windArrows || []).forEach(w=>pts.push([Number(w.lat), Number(w.lng)]));
+  }
+  return pts.filter(pt=>Array.isArray(pt) && Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+}
+function fitVisibleBuilderPoints(){
+  const pts = getVisibleBuilderPoints();
+  if(!pts.length) return false;
+  try{ map.fitBounds(L.latLngBounds(pts), {padding:[60,60], animate:false, maxZoom:17}); return true; }catch(e){ return false; }
+}
+
 // ═══════════════════════════════════════════════
 // PERSIST
 // ═══════════════════════════════════════════════
@@ -3720,22 +3820,12 @@ function importData(e){
       const d=JSON.parse(ev.target.result);
       Object.values(allLayers).forEach(l=>map.removeLayer(l));allLayers={};
       stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
-      stands.forEach(addStandToMap);
-      [...routes,...boundaries].forEach(r=>createRouteLayer(r));
-      windArrows.forEach(addWindArrowToMap);
-      drivers.forEach(addRoleMarkerRecord);
-      standers.forEach(addRoleMarkerRecord);
-      areaPolys.forEach(a=>{
-        const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
-          .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
-        allLayers[a.id]=poly;
-      });
+      renderScoutLayersForBuilderMode();
       if(windArrows.length && !recWind){globalWind=windArrows[windArrows.length-1].dir;updateCompass();}
       syncRecUI();
       saveLocal();renderPanel();
       if(recOpen || recWind) runRecommender();
-      const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
-      if(allPts.length) map.flyToBounds(allPts,{padding:[60,60],duration:1.5});
+      fitVisibleBuilderPoints();
     }catch(err){alert('Invalid file — export from DeerCamp Scout Elite only');}
   };
   r.readAsText(file);e.target.value='';
@@ -3814,7 +3904,7 @@ function applyScoutBuilderMode(){
   }
 }
 function showAllDrives(){
-  const routePts = (routes || []).filter(r => r.type === 'route' || r.generated === 'deerdrive').flatMap(r => Array.isArray(r.pts) ? r.pts : []);
+  const routePts = getVisibleDriveRoutes().flatMap(r => Array.isArray(r.pts) ? r.pts : []);
   const rolePts = [...(drivers || []), ...(standers || [])].map(item => [Number(item.lat), Number(item.lng)]);
   const valid = [...routePts, ...rolePts].filter(pt => Array.isArray(pt) && Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
   if(!valid.length){
@@ -3859,25 +3949,12 @@ try{
     const d=JSON.parse(saved);
     stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
     clearStaleDeerDriveBuilderDraftIfNeeded();
-    stands.forEach(addStandToMap);
-    [...routes,...boundaries].forEach(r=>{
-      const pts=r.type==='bound'?[...r.pts,r.pts[0]]:r.pts;
-      allLayers[r.id]=L.polyline(pts,polyStyle(r.type)).addTo(map).bindPopup(polyPopupHTML(r));
-    });
-    windArrows.forEach(addWindArrowToMap);
-    drivers.forEach(addRoleMarkerRecord);
-    standers.forEach(addRoleMarkerRecord);
-    areaPolys.forEach(a=>{
-      const poly=L.polygon(a.pts,{color:'#3abba0',fillColor:'#3abba0',fillOpacity:.15,weight:0}).addTo(map)
-        .bindPopup(`<div class="pu-name">📐 ${a.name}</div><div class="pu-notes">${a.acres} acres</div><div class="pu-acts"><button class="pu-btn pu-del" onclick="delArea(${a.id})">Delete</button></div>`);
-      allLayers[a.id]=poly;
-    });
+    renderScoutLayersForBuilderMode();
     if(windArrows.length && !recWind){globalWind=windArrows[windArrows.length-1].dir;updateCompass();}
     syncRecUI();
     if(recOpen || recWind) runRecommender();
     const hasScoutDeepLink = (()=>{ try{ const p=new URLSearchParams(window.location.search); return !!(p.get('standId') || p.get('editStand') || p.get('driveId') || p.get('editDrive')); }catch{return false;} })();
-    const allPts=[...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
-    if(allPts.length && !hasScoutDeepLink) map.fitBounds(allPts,{padding:[60,60], animate:false});
+    if(!hasScoutDeepLink) fitVisibleBuilderPoints();
   }
 }catch(e){}
 syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();applyScoutBuilderMode();if(recWind) runRecommender();
