@@ -37,12 +37,6 @@
   .header-actions{display:flex;align-items:center;gap:10px}
   .scout-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(73,102,71,.22);background:rgba(255,255,255,.94);color:#27411e;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
   .scout-btn:hover{background:#fff;transform:translateY(-1px)}
-  .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
-  .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
-  .scout-builder-menu.open{display:grid;gap:6px}
-  .scout-builder-menu a{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:10px;color:#4a321b;text-decoration:none;font-weight:800;white-space:nowrap}
-  .scout-builder-menu a:hover{background:rgba(124,79,35,.08)}
-  .mobile-actions-right .scout-menu-wrap{align-self:flex-end;pointer-events:auto}
   .scout-product-icon{display:inline-block;width:24px;height:24px;border-radius:999px;object-fit:cover;flex:0 0 24px;box-shadow:0 1px 4px rgba(0,0,0,.16)}
   .mobile-scout-pill{justify-content:center}
   .mobile-scout-pill .scout-product-icon{width:22px;height:22px;flex-basis:22px}
@@ -328,7 +322,7 @@
   <div class="mobile-top-bar">
     <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
-      <div class="scout-menu-wrap"><button id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="mobileScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="mobileStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="mobileDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
+      <a id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" href="scout.html" target="_blank" rel="noopener noreferrer"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</a>
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
   </div>
@@ -363,7 +357,7 @@
     </div>
     <div class="header-right">
       <div class="header-actions">
-        <div class="scout-menu-wrap"><button id="headerScoutBtn" class="scout-btn" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="headerScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="headerStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="headerDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
+        <a id="headerScoutBtn" class="scout-btn" href="scout.html" target="_blank" rel="noopener noreferrer"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</a>
         <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
       </div>
     </div>
@@ -404,7 +398,7 @@
             <select id="feedCommentAuthor" class="select"></select>
             <button type="button" id="feedCommentSubmit" class="btn">Add Comment</button>
           </div>
-          <textarea id="feedCommentText" class="textarea feed-comments-text" placeholder="e.g., Great picture from opening weekend."></textarea>
+          <textarea id="feedCommentText" class="textarea feed-comments-text" placeholder="Add a comment about this post."></textarea>
           <div id="feedCommentFeedback" class="feedback">Comments stay with this camp post.</div>
         </div>
       </div>
@@ -895,36 +889,6 @@ function persist(){
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
 function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
-function buildScoutBuilderUrl(builder){
-  const u=new URL("scout.html", window.location.href);
-  if(activeCampId) u.searchParams.set("campId", activeCampId);
-  u.searchParams.set("builder", builder === "drive" ? "drive" : "stand");
-  u.searchParams.set("campName", data.name || data.campName || "DeerCamp");
-  return `${u.pathname}?${u.searchParams.toString()}`;
-}
-function closeScoutBuilderMenus(){
-  document.querySelectorAll('.scout-builder-menu.open').forEach(menu=>menu.classList.remove('open'));
-  document.querySelectorAll('#headerScoutBtn,#mobileScoutBtn').forEach(btn=>btn?.setAttribute('aria-expanded','false'));
-}
-function toggleScoutBuilderMenu(menuId, buttonId){
-  const menuEl=document.getElementById(menuId);
-  const btn=document.getElementById(buttonId);
-  if(!menuEl) return;
-  const shouldOpen=!menuEl.classList.contains('open');
-  closeScoutBuilderMenus();
-  menuEl.classList.toggle('open', shouldOpen);
-  btn?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
-}
-function bindScoutBuilderMenus(){
-  const standUrl=buildScoutBuilderUrl('stand');
-  const driveUrl=buildScoutBuilderUrl('drive');
-  ['headerStandBuilderLink','mobileStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=standUrl;});
-  ['headerDriveBuilderLink','mobileDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=driveUrl;});
-  const headerBtn=document.getElementById('headerScoutBtn');
-  const mobileBtn=document.getElementById('mobileScoutBtn');
-  if(headerBtn && !headerBtn.dataset.scoutMenuBound){headerBtn.dataset.scoutMenuBound='1'; headerBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('headerScoutBuilderMenu','headerScoutBtn');});}
-  if(mobileBtn && !mobileBtn.dataset.scoutMenuBound){mobileBtn.dataset.scoutMenuBound='1'; mobileBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('mobileScoutBuilderMenu','mobileScoutBtn');});}
-}
 function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
 function hasStewardDashboardAccess(){
   try{
@@ -1198,8 +1162,7 @@ function toggleMenuVisibility(nextState){
 menuToggle.addEventListener("click",()=>toggleMenuVisibility());
 mobileMenuToggle?.addEventListener("click",()=>toggleMenuVisibility());
 document.addEventListener("click",e=>{
-  if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false);
-  if(!e.target.closest || !e.target.closest('.scout-menu-wrap')) closeScoutBuilderMenus();
+  if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false)
 });
 function bindMenuLinks(){
   menu.querySelectorAll('a[href^="#"]').forEach(link=>{
@@ -1216,16 +1179,18 @@ function bindMenuLinks(){
   });
 }
 function renderMenu(){
-  const scoutStandUrl = buildScoutBuilderUrl('stand');
-  const scoutDriveUrl = buildScoutBuilderUrl('drive');
+  const scoutUrl = `scout.html?campId=${encodeURIComponent(activeCampId)}&campName=${encodeURIComponent(data.name || data.campName || "DeerCamp")}`;
   const dashboardLink = `<a href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>`;
   const sectionLinks = visibleSections()
     .slice()
     .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
     .map(section => `<a href="#${section.key}">${section.title}</a>`)
     .join('');
-  menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${esc(scoutStandUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Scout Stand Builder</a><a href="${esc(scoutDriveUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Scout Drive Builder</a>`;
-  bindScoutBuilderMenus();
+  menu.innerHTML = `${dashboardLink}${sectionLinks}<a href="${scoutUrl}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">DeerCamp Scout Elite</a>`;
+  const headerScoutBtn = document.getElementById("headerScoutBtn");
+  const mobileScoutBtn = document.getElementById("mobileScoutBtn");
+  if(headerScoutBtn) headerScoutBtn.href = scoutUrl;
+  if(mobileScoutBtn) mobileScoutBtn.href = scoutUrl;
   bindMenuLinks();
 }
 
@@ -1483,25 +1448,25 @@ visibleSections().forEach(section=>{
             </div>
             <div class="form-main">
               <div id="panelPhoto" class="content-panel active">
-                <label class="form-row"><span class="label">Picture Title</span><input id="photoTitle" class="input" type="text" placeholder="e.g., Big buck by the road"></label>
+                <label class="form-row"><span class="label">Picture Title</span><input id="photoTitle" class="input" type="text" placeholder="Big buck by the road"></label>
                 <label class="form-row"><span class="label">Picture</span><input id="photoFile" class="input" type="file" accept="image/*"></label>
-                <label class="form-row"><span class="label">Caption</span><textarea id="photoCaption" class="textarea" placeholder="e.g., Quick note about what happened in this moment."></textarea></label>
+                <label class="form-row"><span class="label">Caption</span><textarea id="photoCaption" class="textarea" placeholder="Quick note about what happened in this moment."></textarea></label>
               </div>
               <div id="panelRecipe" class="content-panel">
-                <label class="form-row"><span class="label">Recipe Title</span><input id="recipeTitle" class="input" type="text" placeholder="e.g., Bruce's Bombastic Backstraps"></label>
+                <label class="form-row"><span class="label">Recipe Title</span><input id="recipeTitle" class="input" type="text" placeholder="Bruce's Bombastic Backstraps"></label>
                 <div class="inline-3">
-                  <label class="form-row"><span class="label">Time</span><input id="recipeTime" class="input" type="text" placeholder="e.g., 30 min"></label>
-                  <label class="form-row"><span class="label">Serves</span><input id="recipeServes" class="input" type="text" placeholder="e.g., 6"></label>
-                  <label class="form-row"><span class="label">Difficulty</span><input id="recipeDifficulty" class="input" type="text" placeholder="e.g., Easy"></label>
+                  <label class="form-row"><span class="label">Time</span><input id="recipeTime" class="input" type="text" placeholder="30 min"></label>
+                  <label class="form-row"><span class="label">Serves</span><input id="recipeServes" class="input" type="text" placeholder="6"></label>
+                  <label class="form-row"><span class="label">Difficulty</span><input id="recipeDifficulty" class="input" type="text" placeholder="Easy"></label>
                 </div>
-                <label class="form-row"><span class="label">Short Description</span><textarea id="recipeDescription" class="textarea" placeholder="e.g., The camp-table version of a favorite deer recipe."></textarea></label>
-                <label class="form-row"><span class="label">Ingredients (one per line)</span><textarea id="recipeIngredients" class="textarea" placeholder="e.g., 2 lbs backstrap&#10;1 cup flour&#10;Salt and pepper"></textarea></label>
-                <label class="form-row"><span class="label">Steps (one per line)</span><textarea id="recipeSteps" class="textarea" placeholder="e.g., Slice the meat&#10;Season well&#10;Cook in cast iron until done"></textarea></label>
+                <label class="form-row"><span class="label">Short Description</span><textarea id="recipeDescription" class="textarea" placeholder="The camp-table version of a favorite deer recipe."></textarea></label>
+                <label class="form-row"><span class="label">Ingredients (one per line)</span><textarea id="recipeIngredients" class="textarea" placeholder="2 lbs backstrap&#10;1 cup flour&#10;Salt and pepper"></textarea></label>
+                <label class="form-row"><span class="label">Steps (one per line)</span><textarea id="recipeSteps" class="textarea" placeholder="Slice the meat&#10;Season well&#10;Cook in cast iron until done"></textarea></label>
               </div>
               <div id="panelTradition" class="content-panel">
-                <label class="form-row"><span class="label">Tradition Title</span><input id="traditionTitle" class="input" type="text" placeholder="e.g., Opening Morning Coffee"></label>
-                <label class="form-row"><span class="label">Description</span><textarea id="traditionDescription" class="textarea" placeholder="e.g., The quiet coffee ritual before first light that starts every season right."></textarea></label>
-                <label class="form-row"><span class="label">Optional Link</span><input id="traditionUrl" class="input" type="url" placeholder="e.g., https://..."></label>
+                <label class="form-row"><span class="label">Tradition Title</span><input id="traditionTitle" class="input" type="text" placeholder="Opening Morning Coffee"></label>
+                <label class="form-row"><span class="label">Description</span><textarea id="traditionDescription" class="textarea" placeholder="The quiet coffee ritual before first light that starts every season right."></textarea></label>
+                <label class="form-row"><span class="label">Optional Link</span><input id="traditionUrl" class="input" type="url" placeholder="https://..."></label>
               </div>
               <div class="form-actions-full"><button type="submit" class="btn">Post to Camp</button><div id="updateFeedback" class="feedback">Pick a post type, fill in the details, and send it into camp.</div></div>
             </div>
@@ -1589,8 +1554,8 @@ visibleSections().forEach(section=>{
                 <label class="form-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
               </div>
               <div class="form-main">
-                <label class="form-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="e.g., Final Setup"></label>
-                <label class="form-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="e.g., Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
+                <label class="form-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Final Setup"></label>
+                <label class="form-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
                 <div class="form-actions-full"><button id="calendarMemberEventSubmit" class="btn" type="submit">Add Event</button><div id="calendarMemberEventFeedback" class="feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div></div>
               </div>
             </form>
@@ -1894,13 +1859,10 @@ function getDeerItemId(item = {}, fallbackPrefix = "item", index = 0){
   return String(item.id || item.standId || item.driveId || item.slug || item.title || item.name || `${fallbackPrefix}-${index}`).trim();
 }
 function getScoutEditUrl(type, item = {}, index = 0){
-  const cleanType = String(type || '').trim().toLowerCase() === 'drive' ? 'drive' : 'stand';
   const url = new URL('scout.html', window.location.href);
   if(activeCampId) url.searchParams.set('campId', activeCampId);
-  url.searchParams.set('builder', cleanType);
-  url.searchParams.set('editType', cleanType);
-  url.searchParams.set(cleanType === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, cleanType, index));
-  url.searchParams.set('campName', data.name || data.campName || 'DeerCamp');
+  url.searchParams.set('editType', type);
+  url.searchParams.set(type === 'stand' ? 'editStand' : 'editDrive', getDeerItemId(item, type, index));
   return url.toString();
 }
 
