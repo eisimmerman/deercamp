@@ -4470,9 +4470,13 @@ function posterWrapWords(ctx,text,maxWidth,maxLines=2){
   const words=String(text||'').trim().split(/\s+/).filter(Boolean);
   const lines=[];
   words.forEach(word=>{
+    if(!lines.length){
+      lines.push(word);
+      return;
+    }
     const current=lines[lines.length-1] || '';
     const test=(current+' '+word).trim();
-    if(!current || ctx.measureText(test).width<=maxWidth){
+    if(ctx.measureText(test).width<=maxWidth){
       lines[lines.length-1]=test;
     }else if(lines.length<maxLines){
       lines.push(word);
@@ -4481,6 +4485,17 @@ function posterWrapWords(ctx,text,maxWidth,maxLines=2){
     }
   });
   return lines.filter(Boolean).slice(0,maxLines);
+}
+function getPosterDriveDisplayName(geom, idx=0){
+  const direct = String(geom?.driveName || geom?.title || geom?.name || geom?.label || '').trim();
+  if(direct && !/^deer drive$/i.test(direct)) return direct;
+  const routeName = String((geom?.routes || []).find(route => route?.driveName || route?.name)?.driveName || '').trim();
+  if(routeName && !/^deer drive$/i.test(routeName)) return routeName;
+  const namedRoute = String((geom?.routes || []).find(route => route?.name && !/^deer drive route/i.test(route.name))?.name || '').trim();
+  if(namedRoute){
+    return namedRoute.replace(/\s+Route\s+\d+.*$/i,'').trim() || namedRoute;
+  }
+  return direct || `Deer Drive ${idx+1}`;
 }
 function posterProjectDriveGeometryLabel(geom,mapProject){
   const ll=getDriveGeometryLabelLatLng(geom);
@@ -4518,7 +4533,7 @@ function posterDrawDriveNameLabel(ctx,p,name,idx){
 function posterDrawDriveNameLabels(ctx,data,mapProject){
   const geometries=(data && Array.isArray(data.savedGeometries) && data.savedGeometries.length) ? data.savedGeometries : [{driveName:getCurrentDriveName(), points:data?.points || []}];
   geometries.forEach((geom,idx)=>{
-    posterDrawDriveNameLabel(ctx,posterProjectDriveGeometryLabel(geom,mapProject),geom.driveName,idx);
+    posterDrawDriveNameLabel(ctx,posterProjectDriveGeometryLabel(geom,mapProject),getPosterDriveDisplayName(geom,idx),idx);
   });
 }
 function posterDrawRoleMarker(ctx,p,rec){
