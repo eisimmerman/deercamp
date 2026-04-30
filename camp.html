@@ -636,7 +636,7 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
     responsibilitiesLabel: String(member.responsibilitiesLabel || roleTemplate.responsibilitiesLabel).trim() || roleTemplate.responsibilitiesLabel,
     responsibilities: Array.isArray(member.responsibilities) && member.responsibilities.length ? member.responsibilities.map(item => String(item).trim()).filter(Boolean) : [...roleTemplate.responsibilities],
     email: String(member.email || "").trim(),
-    yearJoined: String(member.yearJoined || "—").trim() || "—",
+    yearJoined: String(member.yearJoined || member.joined || member.year || member.memberYearJoined || member.stewardYearJoined || "—").trim() || "—",
     favoriteStand: String(member.favoriteStand || "—").trim() || "—",
     favoriteGear: String(member.favoriteGear || "—").trim() || "—",
     nickname: String(member.nickname || "—").trim() || "—",
@@ -1292,8 +1292,8 @@ function loadProfileImageFromFile(file){ return new Promise((resolve,reject)=>{ 
 async function compressMemberProfilePhoto(file){ const img=await loadProfileImageFromFile(file); const canvas=document.createElement("canvas"); const max=360; const ratio=Math.min(1,max/Math.max(img.width||max,img.height||max)); canvas.width=Math.max(1,Math.round((img.width||max)*ratio)); canvas.height=Math.max(1,Math.round((img.height||max)*ratio)); canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height); let q=.82; let out=canvas.toDataURL("image/jpeg",q); while(profileDataUrlBytes(out)>48*1024 && q>.42){ q-=.08; out=canvas.toDataURL("image/jpeg",q); } return out; }
 function setProfilePhotoPreview(dataUrl="", message=""){ const wrap=document.getElementById("profileEditPhotoPreview"), img=document.getElementById("profileEditPhotoPreviewImg"), txt=document.getElementById("profileEditPhotoPreviewText"); if(!wrap||!img||!txt) return; if(dataUrl){ img.src=dataUrl; txt.textContent=message||"Photo ready."; wrap.classList.add("show"); } else { img.removeAttribute("src"); txt.textContent=""; wrap.classList.remove("show"); } }
 function cleanProfileEditValue(value){ const v=String(value||"").trim(); return v==="—"?"":v; }
-function fillStewardProfileEditForm(profile = {}){ setProfileEditValue("profileEditNickname", cleanProfileEditValue(profile.nickname)); setProfileEditValue("profileEditYearJoined", cleanProfileEditValue(profile.yearJoined)); setProfileEditValue("profileEditFavoriteStand", cleanProfileEditValue(profile.favoriteStand)); setProfileEditValue("profileEditFavoriteGear", cleanProfileEditValue(profile.favoriteGear)); setProfileEditValue("profileEditSpecialty", cleanProfileEditValue(profile.specialty)); setProfileEditValue("profileEditHarvestHighlight", cleanProfileEditValue(profile.harvestHighlight)); setProfileEditValue("profileEditBestCampMemory", cleanProfileEditValue(profile.bestCampMemory)); setProfileEditValue("profileEditRoleLine", cleanProfileEditValue(profile.roleLine)); const photo=String(profile.photo||profile.profilePhoto||profile.avatar||"").trim(); setProfileEditValue("profileEditPhoto", photo); const picker=document.getElementById("profileEditPhotoPicker"); if(picker) picker.value=""; setProfilePhotoPreview(photo, photo?"Current profile photo.":""); setProfileEditStatus("",""); }
-function readStewardProfileEditForm(){ const photo=getProfileEditValue("profileEditPhoto"); return {nickname:getProfileEditValue("profileEditNickname"),yearJoined:getProfileEditValue("profileEditYearJoined"),favoriteStand:getProfileEditValue("profileEditFavoriteStand"),favoriteGear:getProfileEditValue("profileEditFavoriteGear"),harvestHighlight:getProfileEditValue("profileEditHarvestHighlight"),bestCampMemory:getProfileEditValue("profileEditBestCampMemory"),specialty:getProfileEditValue("profileEditSpecialty"),roleLine:getProfileEditValue("profileEditRoleLine"),photo,profilePhoto:photo,avatar:photo,stewardPhoto:photo,stewardProfilePhoto:photo,stewardAvatar:photo,profileUpdatedAt:new Date().toISOString()}; }
+function fillStewardProfileEditForm(profile = {}){ setProfileEditValue("profileEditNickname", cleanProfileEditValue(profile.nickname)); setProfileEditValue("profileEditYearJoined", cleanProfileEditValue(profile.yearJoined || profile.joined || profile.year || profile.memberYearJoined || profile.stewardYearJoined)); setProfileEditValue("profileEditFavoriteStand", cleanProfileEditValue(profile.favoriteStand)); setProfileEditValue("profileEditFavoriteGear", cleanProfileEditValue(profile.favoriteGear)); setProfileEditValue("profileEditSpecialty", cleanProfileEditValue(profile.specialty)); setProfileEditValue("profileEditHarvestHighlight", cleanProfileEditValue(profile.harvestHighlight)); setProfileEditValue("profileEditBestCampMemory", cleanProfileEditValue(profile.bestCampMemory)); setProfileEditValue("profileEditRoleLine", cleanProfileEditValue(profile.roleLine)); const photo=String(profile.photo||profile.profilePhoto||profile.avatar||"").trim(); setProfileEditValue("profileEditPhoto", photo); const picker=document.getElementById("profileEditPhotoPicker"); if(picker) picker.value=""; setProfilePhotoPreview(photo, photo?"Current profile photo.":""); setProfileEditStatus("",""); }
+function readStewardProfileEditForm(){ const photo=getProfileEditValue("profileEditPhoto"); const yearJoined=getProfileEditValue("profileEditYearJoined"); return {nickname:getProfileEditValue("profileEditNickname"),yearJoined,joined:yearJoined,year:yearJoined,memberYearJoined:yearJoined,stewardYearJoined:yearJoined,favoriteStand:getProfileEditValue("profileEditFavoriteStand"),favoriteGear:getProfileEditValue("profileEditFavoriteGear"),harvestHighlight:getProfileEditValue("profileEditHarvestHighlight"),bestCampMemory:getProfileEditValue("profileEditBestCampMemory"),specialty:getProfileEditValue("profileEditSpecialty"),roleLine:getProfileEditValue("profileEditRoleLine"),photo,profilePhoto:photo,avatar:photo,stewardPhoto:photo,stewardProfilePhoto:photo,stewardAvatar:photo,profileUpdatedAt:new Date().toISOString()}; }
 function getCurrentStewardProfileBase(){
   const stewardFromRoster = (Array.isArray(roster) ? roster : []).find(item => String(item?.role || "").trim().toLowerCase() === "camp steward") || {};
   return Object.assign({}, data.stewardProfile || {}, data.campStewardProfile || {}, stewardFromRoster || {}, activeMemberProfileContext || {});
@@ -1323,7 +1323,10 @@ function writeStewardProfileCaches(stewardProfile = {}){
       stewardFavoriteStand:String(profilePayload.favoriteStand || "").trim(),
       stewardFavoriteGear:String(profilePayload.favoriteGear || "").trim(),
       stewardNickname:String(profilePayload.nickname || "").trim(),
-      stewardYearJoined:String(profilePayload.yearJoined || "").trim(),
+      stewardYearJoined:String(profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "").trim(),
+      yearJoined:String(profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "").trim(),
+      joined:String(profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "").trim(),
+      memberYearJoined:String(profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "").trim(),
       stewardSpecialty:String(profilePayload.specialty || "").trim(),
       stewardHarvestHighlight:String(profilePayload.harvestHighlight || "").trim(),
       stewardBestCampMemory:String(profilePayload.bestCampMemory || "").trim(),
@@ -1346,7 +1349,10 @@ function writeStewardProfileCaches(stewardProfile = {}){
       dash.stewardFavoriteStand = profilePayload.favoriteStand || "";
       dash.stewardFavoriteGear = profilePayload.favoriteGear || "";
       dash.stewardNickname = profilePayload.nickname || "";
-      dash.stewardYearJoined = profilePayload.yearJoined || "";
+      dash.stewardYearJoined = profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "";
+      dash.yearJoined = profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "";
+      dash.joined = profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "";
+      dash.memberYearJoined = profilePayload.yearJoined || profilePayload.joined || profilePayload.year || "";
       dash.stewardSpecialty = profilePayload.specialty || "";
       dash.stewardHarvestHighlight = profilePayload.harvestHighlight || "";
       dash.stewardBestCampMemory = profilePayload.bestCampMemory || "";
@@ -1371,11 +1377,17 @@ function mergeStewardProfileIntoCamp(profileFields){
   const now = new Date().toISOString();
   const photo=String(profileFields?.photo||profileFields?.profilePhoto||profileFields?.avatar||baseProfile?.photo||baseProfile?.profilePhoto||baseProfile?.avatar||"").trim();
   const nextRoleLine=String(profileFields?.roleLine||profileFields?.note||baseProfile?.roleLine||baseProfile?.note||"").trim();
+  const nextYearJoined=String(profileFields?.yearJoined||profileFields?.joined||profileFields?.year||profileFields?.memberYearJoined||profileFields?.stewardYearJoined||baseProfile?.yearJoined||baseProfile?.joined||baseProfile?.year||baseProfile?.memberYearJoined||baseProfile?.stewardYearJoined||"").trim();
   const stewardProfile=Object.assign({}, baseProfile||{}, profileFields||{}, {
     name:baseName,
     email:baseEmail,
     role:"Camp Steward",
     status:"Active",
+    yearJoined:nextYearJoined,
+    joined:nextYearJoined,
+    year:nextYearJoined,
+    memberYearJoined:nextYearJoined,
+    stewardYearJoined:nextYearJoined,
     note:nextRoleLine || String(baseProfile?.note||"").trim() || "Keeps camp information current and helps guide the full DeerCamp experience.",
     roleLine:nextRoleLine || String(baseProfile?.roleLine||baseProfile?.note||"").trim(),
     photo,
@@ -1404,7 +1416,10 @@ function mergeStewardProfileIntoCamp(profileFields){
     stewardProfilePhoto:photo,
     stewardAvatar:photo,
     stewardNickname:stewardProfile.nickname||"",
-    stewardYearJoined:stewardProfile.yearJoined||"",
+    stewardYearJoined:stewardProfile.yearJoined||stewardProfile.joined||stewardProfile.year||"",
+    yearJoined:stewardProfile.yearJoined||stewardProfile.joined||stewardProfile.year||"",
+    joined:stewardProfile.yearJoined||stewardProfile.joined||stewardProfile.year||"",
+    memberYearJoined:stewardProfile.yearJoined||stewardProfile.joined||stewardProfile.year||"",
     stewardFavoriteStand:stewardProfile.favoriteStand||"",
     stewardFavoriteGear:stewardProfile.favoriteGear||"",
     stewardHarvestHighlight:stewardProfile.harvestHighlight||"",
