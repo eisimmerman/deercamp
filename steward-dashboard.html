@@ -1,10 +1,11 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeerCamp Steward Dashboard</title>
-  <style>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DeerCamp Steward Dashboard</title>
+<style>
     :root{
       --bg:#d7ccb9;
       --panel:#f7f1e7;
@@ -96,6 +97,7 @@
     .member-form-note.is-success{padding:10px 12px;border-radius:14px;background:rgba(73,102,71,.12);color:#27411e;border:1px solid rgba(73,102,71,.18)}
     .member-form-note.is-error{padding:10px 12px;border-radius:14px;background:rgba(139,45,29,.08);color:#8b2d1d;border:1px solid rgba(139,45,29,.18)}
     .profile-editor-block{grid-column:1 / -1;display:grid;gap:14px;padding:14px;border-radius:18px;background:rgba(255,255,255,.36);border:1px solid rgba(69,42,22,.08)}
+    .profile-editor-block[data-profile-editor-moved="camp-modal"]{color:var(--muted);line-height:1.5;font-size:.92rem}
     .profile-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .profile-editor-head strong{color:var(--brown-deep)}
     .profile-editor-head span{display:block;margin-top:4px;color:var(--muted);font-size:.88rem;line-height:1.45}
@@ -135,226 +137,156 @@
       .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
     }
   </style>
-
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
 <script src="firebase-web.js"></script>
 </head>
 <body>
-  <div class="page-shell">
-
-
-    <section class="hero-panel">
-      <div class="hero-copy">
-        <span class="eyebrow">Steward Dashboard</span>
-        <h2 id="welcomeHeadline">Welcome back</h2>
-        <p id="welcomeCopy">Confirm the camp identity (#1), Members (#2) and Camp Sections (#3).</p>
-        <div class="hero-actions">
-          <a id="shareCampBtn" class="btn btn-soft" href="#">Copy Share Link</a>
-        </div>
-        <div class="hero-subnote" id="heroSubnote">Use this as the first real work surface after camp creation.</div>
-      </div>
-
-      <div class="hero-preview">
-        <div id="heroPreview" class="preview-frame">
-          <span class="preview-badge">Camp sign</span>
-          <div class="preview-empty" id="heroPreviewEmpty">Your camp sign or uploaded picture appears here when available.</div>
-        </div>
-        <div class="preview-meta">
-          <strong id="previewCampName">Your DeerCamp</strong>
-          <span id="previewCampMeta">Camp details appear here.</span>
-        </div>
-      </div>
-    </section>
-
-    <div class="grid-2">
-      <section class="section-card">
-        <div>
-          <h3>1. Camp essentials</h3>
-          <p class="helper">Confirm the camp identity, summary, and privacy state.</p>
-        </div>
-
-        <div class="mini-stats">
-          <div class="mini-stat"><strong id="statMembers">0</strong><span>active members</span></div>
-          <div class="mini-stat"><strong id="statSections">0</strong><span>sections on</span></div>
-          <div class="mini-stat"><strong id="statStatus">Private</strong><span>camp state</span></div>
-        </div>
-
-        <form id="campForm" class="form-grid">
-          <div class="field">
-            <label for="campName">Camp Name</label>
-            <input id="campName" type="text" placeholder="Big Buck Camp" />
-          </div>
-          <div class="field">
-            <label for="campEstablished">Established</label>
-            <input id="campEstablished" type="text" placeholder="1999" />
-          </div>
-          <div class="field">
-            <label for="campCity">City</label>
-            <input id="campCity" type="text" placeholder="Eau Claire" />
-          </div>
-          <div class="field">
-            <label for="campState">State</label>
-            <input id="campState" type="text" placeholder="WI" />
-          </div>
-          <div class="field">
-            <label for="campZip">Zip</label>
-            <input id="campZip" type="text" placeholder="54701" />
-          </div>
-          <div class="field">
-            <label for="campHero">Camp Sign / Image Path</label>
-            <input id="campHero" type="text" placeholder="assets/heroes/midwest-deer-camp-sign.png" />
-          </div>
-          <div class="field span-2">
-            <label for="campSummary">Camp Summary</label>
-            <textarea id="campSummary" placeholder="Type here what makes this camp unique, who it is for, and what the season means here."></textarea>
-          </div>
-          <div class="field span-2">
-            <label id="campPrivacyLabel">Camp Privacy - On</label>
-            <div class="switch-row">
-              <label class="switch">
-                <input id="campPublicToggle" type="checkbox" />
-                <span class="switch-thumb"></span>
-              </label>
-              <div class="field-note" id="privacyNote">Private camps share only the DeerCamp home until the Steward is ready to make this camp public.</div>
-            </div>
-          </div>
-        </form>
-      </section>
-
-      <section class="section-card">
-        <div>
-          <h3>2. Members and invites</h3>
-          <p class="helper">See who is Active and who needs an email for the camp invitation.</p>
-        </div>
-
-        <div class="member-list" id="memberList"></div>
-
-        <form id="memberForm" class="form-grid">
-          <input id="memberEditIndex" type="hidden" value="" />
-          <div id="memberNameField" class="field">
-            <label for="memberName">Member Name</label>
-            <input id="memberName" type="text" placeholder="Ben Larson" />
-          </div>
-          <div id="memberEmailField" class="field">
-            <label for="memberEmail">Email</label>
-            <input id="memberEmail" type="email" placeholder="ben@example.com" />
-          </div>
-          <div class="field span-2">
-            <label for="memberNote">Quick Note</label>
-            <input id="memberNote" type="text" placeholder="West Ridge crew" />
-          </div>
-          <div class="profile-editor-block">
-            <div class="profile-editor-head">
-              <div>
-                <strong>Full DeerCamp Profile</strong>
-                <span>These fields appear on the live camp member/steward profile when someone taps the name badge.</span>
-              </div>
-              <span class="member-pill gold">Profile details</span>
-            </div>
-            <div class="profile-editor-grid">
-              <div class="field">
-                <label for="memberNickname">Nickname</label>
-                <input id="memberNickname" type="text" placeholder="e.g. Big E" />
-              </div>
-              <div class="field">
-                <label for="memberYearJoined">Year Joined</label>
-                <input id="memberYearJoined" type="text" placeholder="e.g. 1999" />
-              </div>
-              <div class="field">
-                <label for="memberFavoriteStand">Favorite Stand</label>
-                <input id="memberFavoriteStand" type="text" placeholder="e.g. North Trail" />
-              </div>
-              <div class="field">
-                <label for="memberFavoriteGear">Favorite Gear</label>
-                <input id="memberFavoriteGear" type="text" placeholder="e.g. .30-30, wool jacket" />
-              </div>
-              <div class="field">
-                <label for="memberSpecialty">Specialty</label>
-                <input id="memberSpecialty" type="text" placeholder="e.g. Camp cook, map reader, tracker" />
-              </div>
-              <div class="field profile-photo-field">
-                <label for="memberPhotoPicker">Profile Photo</label>
-                <div class="profile-photo-upload">
-                  <input id="memberPhotoPicker" type="file" accept="image/*" />
-                  <button id="memberPhotoClear" class="member-delete" type="button">Remove</button>
-                </div>
-                <input id="memberPhoto" type="hidden" />
-                <div id="memberPhotoPreview" class="profile-photo-preview">
-                  <img id="memberPhotoPreviewImg" alt="Profile photo preview">
-                  <span id="memberPhotoPreviewText">Photo ready.</span>
-                </div>
-              </div>
-              <div class="field span-2">
-                <label for="memberHarvestHighlight">Harvest Highlight</label>
-                <input id="memberHarvestHighlight" type="text" placeholder="e.g. First buck with Dad" />
-              </div>
-              <div class="field span-2">
-                <label for="memberBestCampMemory">Best Camp Memory</label>
-                <textarea id="memberBestCampMemory" placeholder="A memory that should show on this member profile."></textarea>
-              </div>
-              <div class="field span-2">
-                <label for="memberRoleLine">Role / Responsibilities Summary</label>
-                <textarea id="memberRoleLine" placeholder="What this person brings to camp."></textarea>
-              </div>
-            </div>
-          </div>
-          <div class="field span-2 member-form-actions">
-            <button id="memberSubmitBtn" class="btn btn-primary" type="submit">Add Member</button>
-            <button id="memberInviteBtn" class="btn btn-secondary" type="button" hidden>Send Member Invite</button>
-            <button id="memberDeleteBtn" class="btn member-delete" type="button" hidden>Delete Member</button>
-            <button id="memberResetBtn" class="btn btn-soft" type="button">Clear</button>
-          </div>
-          <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
-        </form>
-      </section>
-    </div>
-
-    <div class="grid-2">
-      <section class="section-card">
-        <div>
-          <h3>3. Turn on Camp Sections</h3>
-          <p class="helper">Toggle Sections On (button to right) or Off (button to left) to choose what content shows in your camp.</p>
-        </div>
-        <div class="section-list" id="sectionList"></div>
-        <div id="recipeSelector" class="recipe-selector" hidden>
-          <strong>CampRecipes starter titles</strong>
-          <p>When CampRecipes is on, check the starter recipe titles you want visible on the camp page. All 8 are unchecked by default. Add more with the CampUpdate form.</p>
-          <div id="recipeGrid" class="recipe-grid"></div>
-        </div>
-      </section>
-
-      <section class="section-card">
-        <div>
-          <h3>4. Future Content Opportunities</h3>
-          <p class="helper">Optional DeerCamp tools for field updates, stand planning, deer drives, and map detail.</p>
-        </div>
-        <div class="later-list">
-          <div class="later-row"><strong>CampMaps</strong><p>Camp land maps with landmarks, routes, and visual reference points.</p></div>
-          <div class="later-row"><strong>CampUpdate - Field Event Capture</strong><p>Future enhancement to add pictures and/or voice clips via mobile phone.</p></div>
-        </div>
-      </section>
-    </div>
-
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark"><img src="assets/images/deer-track.png" alt="DeerCamp mark" /></div>
-        <div class="brand-copy"><h1>DeerCamp</h1></div>
-      </div>
-      <div class="top-actions">
-        <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
-        <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
-        <span class="pill" id="dashboardStatePill">Private camp</span>
-        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
-      </div>
-    </header>
-
-  </div>
-
-  <div id="toast" class="toast"></div>
-
-  <script>
+<div class="page-shell">
+<section class="hero-panel">
+<div class="hero-copy">
+<span class="eyebrow">Steward Dashboard</span>
+<h2 id="welcomeHeadline">Welcome back</h2>
+<p id="welcomeCopy">Confirm the camp identity (#1), Members (#2) and Camp Sections (#3).</p>
+<div class="hero-actions">
+<a class="btn btn-soft" href="#" id="shareCampBtn">Copy Share Link</a>
+</div>
+<div class="hero-subnote" id="heroSubnote">Use this as the first real work surface after camp creation.</div>
+</div>
+<div class="hero-preview">
+<div class="preview-frame" id="heroPreview">
+<span class="preview-badge">Camp sign</span>
+<div class="preview-empty" id="heroPreviewEmpty">Your camp sign or uploaded picture appears here when available.</div>
+</div>
+<div class="preview-meta">
+<strong id="previewCampName">Your DeerCamp</strong>
+<span id="previewCampMeta">Camp details appear here.</span>
+</div>
+</div>
+</section>
+<div class="grid-2">
+<section class="section-card">
+<div>
+<h3>1. Camp essentials</h3>
+<p class="helper">Confirm the camp identity, summary, and privacy state.</p>
+</div>
+<div class="mini-stats">
+<div class="mini-stat"><strong id="statMembers">0</strong><span>active members</span></div>
+<div class="mini-stat"><strong id="statSections">0</strong><span>sections on</span></div>
+<div class="mini-stat"><strong id="statStatus">Private</strong><span>camp state</span></div>
+</div>
+<form class="form-grid" id="campForm">
+<div class="field">
+<label for="campName">Camp Name</label>
+<input id="campName" placeholder="Big Buck Camp" type="text"/>
+</div>
+<div class="field">
+<label for="campEstablished">Established</label>
+<input id="campEstablished" placeholder="1999" type="text"/>
+</div>
+<div class="field">
+<label for="campCity">City</label>
+<input id="campCity" placeholder="Eau Claire" type="text"/>
+</div>
+<div class="field">
+<label for="campState">State</label>
+<input id="campState" placeholder="WI" type="text"/>
+</div>
+<div class="field">
+<label for="campZip">Zip</label>
+<input id="campZip" placeholder="54701" type="text"/>
+</div>
+<div class="field">
+<label for="campHero">Camp Sign / Image Path</label>
+<input id="campHero" placeholder="assets/heroes/midwest-deer-camp-sign.png" type="text"/>
+</div>
+<div class="field span-2">
+<label for="campSummary">Camp Summary</label>
+<textarea id="campSummary" placeholder="Type here what makes this camp unique, who it is for, and what the season means here."></textarea>
+</div>
+<div class="field span-2">
+<label id="campPrivacyLabel">Camp Privacy - On</label>
+<div class="switch-row">
+<label class="switch">
+<input id="campPublicToggle" type="checkbox"/>
+<span class="switch-thumb"></span>
+</label>
+<div class="field-note" id="privacyNote">Private camps share only the DeerCamp home until the Steward is ready to make this camp public.</div>
+</div>
+</div>
+</form>
+</section>
+<section class="section-card">
+<div>
+<h3>2. Members and invites</h3>
+<p class="helper">See who is Active and who needs an email for the camp invitation.</p>
+</div>
+<div class="member-list" id="memberList"></div>
+<form class="form-grid" id="memberForm">
+<input id="memberEditIndex" type="hidden" value=""/>
+<div class="field" id="memberNameField">
+<label for="memberName">Member Name</label>
+<input id="memberName" placeholder="Ben Larson" type="text"/>
+</div>
+<div class="field" id="memberEmailField">
+<label for="memberEmail">Email</label>
+<input id="memberEmail" placeholder="ben@example.com" type="email"/>
+</div>
+<div class="field span-2">
+<label for="memberNote">Quick Note</label>
+<input id="memberNote" placeholder="West Ridge crew" type="text"/>
+</div>
+<div class="profile-editor-block" data-profile-editor-moved="camp-modal">Full DeerCamp Profile details are edited from the Steward profile popup on the live camp page.</div>
+<div class="field span-2 member-form-actions">
+<button class="btn btn-primary" id="memberSubmitBtn" type="submit">Add Member</button>
+<button class="btn btn-secondary" hidden="" id="memberInviteBtn" type="button">Send Member Invite</button>
+<button class="btn member-delete" hidden="" id="memberDeleteBtn" type="button">Delete Member</button>
+<button class="btn btn-soft" id="memberResetBtn" type="button">Clear</button>
+</div>
+<div aria-live="polite" class="field span-2 member-form-note" id="memberFormNote"></div>
+</form>
+</section>
+</div>
+<div class="grid-2">
+<section class="section-card">
+<div>
+<h3>3. Turn on Camp Sections</h3>
+<p class="helper">Toggle Sections On (button to right) or Off (button to left) to choose what content shows in your camp.</p>
+</div>
+<div class="section-list" id="sectionList"></div>
+<div class="recipe-selector" hidden="" id="recipeSelector">
+<strong>CampRecipes starter titles</strong>
+<p>When CampRecipes is on, check the starter recipe titles you want visible on the camp page. All 8 are unchecked by default. Add more with the CampUpdate form.</p>
+<div class="recipe-grid" id="recipeGrid"></div>
+</div>
+</section>
+<section class="section-card">
+<div>
+<h3>4. Future Content Opportunities</h3>
+<p class="helper">Optional DeerCamp tools for field updates, stand planning, deer drives, and map detail.</p>
+</div>
+<div class="later-list">
+<div class="later-row"><strong>CampMaps</strong><p>Camp land maps with landmarks, routes, and visual reference points.</p></div>
+<div class="later-row"><strong>CampUpdate - Field Event Capture</strong><p>Future enhancement to add pictures and/or voice clips via mobile phone.</p></div>
+</div>
+</section>
+</div>
+<header class="topbar">
+<div class="brand">
+<div class="brand-mark"><img alt="DeerCamp mark" src="assets/images/deer-track.png"/></div>
+<div class="brand-copy"><h1>DeerCamp</h1></div>
+</div>
+<div class="top-actions">
+<button class="btn btn-primary" id="saveAllBtn" type="button">Save Dashboard Changes</button>
+<a class="btn btn-soft" href="buildyourcamp.html" id="backToBuildYourCamp">Back to Steward continuation</a>
+<span class="pill" id="dashboardStatePill">Private camp</span>
+<a class="btn btn-secondary" href="camp.html" id="viewLiveCampBtn">View Live Camp</a>
+</div>
+</header>
+</div>
+<div class="toast" id="toast"></div>
+<script>
     const CAMP_DATA_KEY = "campData";
     const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
     const CAMP_SCOPE_PREFIX = "deercamp.camps.";
