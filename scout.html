@@ -342,25 +342,27 @@ textarea{resize:vertical;min-height:55px;}
 @media print{
   html,body{overflow:visible!important;height:auto!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,.modal-overlay,.print-legend-screen{display:none!important;}
-  #map{display:block!important;height:7.6in;min-height:7.6in;margin:10px 0 12px;border:1.5px solid #444;page-break-after:avoid;break-inside:avoid;}
+  #map{display:block!important;width:100%!important;height:6.25in!important;min-height:6.25in!important;margin:8px 0 8px;border:1.5px solid #444;page-break-after:avoid;break-inside:avoid;}
   .leaflet-control-container,.leaflet-control-zoom,.leaflet-control-attribution{display:none!important;}
   .leaflet-pane,.leaflet-top,.leaflet-bottom,.leaflet-control-container,.leaflet-tooltip,.leaflet-marker-icon,.leaflet-overlay-pane svg{visibility:visible!important;opacity:1!important;}
   #print-header,#print-legend{display:block!important;}
+  #scout-toast{display:none!important;}
   #print-legend{page-break-before:avoid;}
   .map-title-badge{display:flex!important;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.94);border:1.5px solid #444;box-shadow:none;backdrop-filter:none;}
+  .map-title-badge.is-empty{display:none!important;}
   .map-title-main{color:#111;font-size:16px;}
   .map-title-sub{color:#444;font-size:8px;letter-spacing:1px;}
   .leaflet-tooltip.stand-name-label{font-size:8px!important;max-width:110px!important;padding:2px 5px!important;border-radius:6px!important;line-height:1.15!important;background:rgba(24,18,12,.96)!important;color:#fff8ef!important;box-shadow:none!important;}
 }
 #print-header{display:none;padding:10px 16px 6px;font-family:'Playfair Display',serif;font-size:14px;color:#000;border-bottom:1.5px solid #333;background:#fff;}
 #print-header .ph-sub{font-family:'IBM Plex Mono',monospace;font-size:9px;color:#555;margin-top:2px;}
-#print-legend{display:none;padding:10px 16px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:9px;color:#333;}
-#print-legend .pl-title{font-family:'Playfair Display',serif;font-size:11px;font-weight:700;margin-bottom:8px;color:#000;border-bottom:1px solid #ccc;padding-bottom:4px;}
-#print-legend .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px 16px;}
+#print-legend{display:none;padding:6px 12px;background:#fff;font-family:'IBM Plex Mono',monospace;font-size:8px;color:#333;}
+#print-legend .pl-title{font-family:'Playfair Display',serif;font-size:10px;font-weight:700;margin-bottom:5px;color:#000;border-bottom:1px solid #ccc;padding-bottom:3px;}
+#print-legend .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:3px 12px;}
 #print-legend .pl-item{display:flex;align-items:center;gap:5px;margin-bottom:3px;font-size:8.5px;}
 #print-legend .pl-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
 #print-legend .pl-line{width:20px;height:3px;flex-shrink:0;border-radius:2px;}
-#print-legend .pl-stats{margin-top:8px;padding-top:6px;border-top:1px solid #eee;font-size:8px;color:#555;display:flex;gap:20px;}
+#print-legend .pl-stats{margin-top:5px;padding-top:4px;border-top:1px solid #eee;font-size:7.5px;color:#555;display:flex;gap:16px;}
 </style>
 </head>
 <body>
@@ -843,17 +845,44 @@ function getBuilderVisibleDriveRoutes(){
   return generated.length ? generated : routes.filter(route => route && route.type === 'route');
 }
 
-function showAllDrives(){
-  const pts = [
+function getDriveMapPoints(){
+  return [
     ...drivers.map(item => [Number(item.lat), Number(item.lng)]),
     ...standers.map(item => [Number(item.lat), Number(item.lng)]),
     ...getBuilderVisibleDriveRoutes().flatMap(route => (route.pts || []).map(pt => Array.isArray(pt) ? [Number(pt[0]), Number(pt[1])] : [Number(pt.lat), Number(pt.lng)]))
   ].filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+}
+function getStandMapPoints(){
+  return stands.map(item=>[Number(item.lat), Number(item.lng)]).filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+}
+function fitMapToPointsForOutput(points, options={}){
+  const valid = (points || []).filter(pt => Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
+  if(!valid.length) return false;
+  try{
+    const bounds = L.latLngBounds(valid.map(pt=>[Number(pt[0]), Number(pt[1])]));
+    map.stop?.();
+    map.invalidateSize(true);
+    map.fitBounds(bounds.pad(Number(options.pad ?? .16)), {
+      maxZoom: Number(options.maxZoom ?? 17),
+      animate:false,
+      paddingTopLeft: options.paddingTopLeft || [22, 86],
+      paddingBottomRight: options.paddingBottomRight || [22, 36]
+    });
+    return true;
+  }catch(error){
+    console.warn('Scout fit bounds skipped.', error);
+    return false;
+  }
+}
+function showAllDrives(){
+  const pts = getDriveMapPoints();
+  updatePrintableCampBranding();
   if(!pts.length){
     document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
     return;
   }
-  try{ map.fitBounds(L.latLngBounds(pts).pad(.18), {maxZoom:17, animate:false}); }catch(error){}
+  fitMapToPointsForOutput(pts, {pad:.18, maxZoom:17});
+  updatePrintableCampBranding();
   document.getElementById('status-bar').innerHTML=`Showing all drive points/routes (${pts.length}).`;
   showScoutToast('Showing all drives.', 2800);
 }
@@ -922,6 +951,19 @@ function getActiveCampDisplayName(){
   }catch(e){}
   return 'DeerCamp';
 }
+function hasVisibleDriveMapContent(){
+  try{
+    return Boolean(
+      (Array.isArray(drivers) && drivers.some(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)))) ||
+      (Array.isArray(standers) && standers.some(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)))) ||
+      (Array.isArray(getBuilderVisibleDriveRoutes()) && getBuilderVisibleDriveRoutes().some(route => Array.isArray(route.pts) && route.pts.length))
+    );
+  }catch(e){return false;}
+}
+function shouldShowMapTitleBadge(){
+  if(isScoutDriveBuilder()) return hasVisibleDriveMapContent();
+  return true;
+}
 function updatePrintableCampBranding(){
   const campName = getActiveCampDisplayName();
   const badge = document.getElementById('map-title-badge');
@@ -931,7 +973,7 @@ function updatePrintableCampBranding(){
   const printCampName = document.getElementById('print-camp-name');
   if(titleMain) titleMain.textContent = campName;
   if(printCampName) printCampName.textContent = campName;
-  if(badge) badge.classList.toggle('is-empty', !campName);
+  if(badge) badge.classList.toggle('is-empty', !campName || !shouldShowMapTitleBadge());
 }
 
 function showScoutToast(message, durationMs=3200){
@@ -2790,9 +2832,9 @@ function showAllStands(){
   }
   const valid=stands.filter(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
   if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
-  const bounds=L.latLngBounds(valid.map(item=>[Number(item.lat), Number(item.lng)]));
-  try{map.fitBounds(bounds.pad(.24), {maxZoom:17, animate:false});}catch(e){}
+  fitMapToPointsForOutput(getStandMapPoints(), {pad:.12, maxZoom:17, paddingTopLeft:[24,92], paddingBottomRight:[24,42]});
   setTimeout(()=>{ valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}}); }, 180);
+  updatePrintableCampBranding();
   document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
   showScoutToast(`Showing all stands (${valid.length}).`, 2800);
 }
@@ -3898,6 +3940,24 @@ function buildPrintLegend(){
 function waitForScoutPrint(ms=900){
   return new Promise(resolve=>setTimeout(resolve, ms));
 }
+function getVisibleOutputPoints(){
+  return isScoutDriveBuilder() ? getDriveMapPoints() : getStandMapPoints();
+}
+function prepareScoutPrintLayout(){
+  updatePrintableCampBranding();
+  const points = getVisibleOutputPoints();
+  if(points.length){
+    fitMapToPointsForOutput(points, {
+      pad: isScoutDriveBuilder() ? .18 : .10,
+      maxZoom:17,
+      paddingTopLeft:[24,88],
+      paddingBottomRight:[24,36]
+    });
+  }
+  if(isScoutStandBuilder()){
+    stands.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}});
+  }
+}
 async function printMap(){
   updatePrintableCampBranding();
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
@@ -3913,12 +3973,13 @@ async function printMap(){
   if(totalAcres>0) sub.push(`${totalAcres.toFixed(1)} acres measured`);
   document.getElementById('print-sub').textContent=sub.join(' · ');
   buildPrintLegend();
-  try{ map.invalidateSize(true); }catch(e){}
-  await waitForScoutPrint(650);
-  try{ map.invalidateSize(true); }catch(e){}
-  await waitForScoutPrint(550);
+  prepareScoutPrintLayout();
+  await waitForScoutPrint(350);
+  prepareScoutPrintLayout();
+  await waitForScoutPrint(350);
   window.print();
 }
+window.addEventListener('beforeprint', prepareScoutPrintLayout);
 
 // ═══════════════════════════════════════════════
 // KEYBOARD
