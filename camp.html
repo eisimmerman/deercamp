@@ -328,7 +328,6 @@
   <div class="mobile-top-bar">
     <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
-      <div class="scout-menu-wrap"><button id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="mobileScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="mobileStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="mobileDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
   </div>
@@ -924,7 +923,7 @@ function buildScoutBuilderUrl(builder){
 }
 function closeScoutBuilderMenus(){
   document.querySelectorAll('.scout-builder-menu.open').forEach(menu=>menu.classList.remove('open'));
-  document.querySelectorAll('#headerScoutBtn,#mobileScoutBtn').forEach(btn=>btn?.setAttribute('aria-expanded','false'));
+  document.querySelectorAll('#headerScoutBtn').forEach(btn=>btn?.setAttribute('aria-expanded','false'));
 }
 function toggleScoutBuilderMenu(menuId, buttonId){
   const menuEl=document.getElementById(menuId);
@@ -938,12 +937,13 @@ function toggleScoutBuilderMenu(menuId, buttonId){
 function bindScoutBuilderMenus(){
   const standUrl=buildScoutBuilderUrl('stand');
   const driveUrl=buildScoutBuilderUrl('drive');
-  ['headerStandBuilderLink','mobileStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=standUrl;});
-  ['headerDriveBuilderLink','mobileDriveBuilderLink','menuDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=driveUrl;});
+  ['headerStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=standUrl;});
+  ['headerDriveBuilderLink','menuDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=driveUrl;});
   const headerBtn=document.getElementById('headerScoutBtn');
-  const mobileBtn=document.getElementById('mobileScoutBtn');
   if(headerBtn && !headerBtn.dataset.scoutMenuBound){headerBtn.dataset.scoutMenuBound='1'; headerBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('headerScoutBuilderMenu','headerScoutBtn');});}
-  if(mobileBtn && !mobileBtn.dataset.scoutMenuBound){mobileBtn.dataset.scoutMenuBound='1'; mobileBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('mobileScoutBuilderMenu','mobileScoutBtn');});}
+}
+function shouldShowDesktopScoutBuilderLinks(){
+  try{ return window.matchMedia('(min-width: 721px)').matches; }catch(error){ return window.innerWidth > 720; }
 }
 function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
 function hasStewardDashboardAccess(){
@@ -1208,6 +1208,14 @@ function syncMobileStickyMenu(){
 }
 window.addEventListener("scroll", syncMobileStickyMenu, { passive:true });
 window.addEventListener("resize", syncMobileStickyMenu);
+let lastScoutBuilderMenuMode = null;
+function syncScoutBuilderMenuMode(){
+  const nextMode = shouldShowDesktopScoutBuilderLinks() ? 'desktop' : 'mobile';
+  if(nextMode === lastScoutBuilderMenuMode) return;
+  lastScoutBuilderMenuMode = nextMode;
+  try{ renderMenu(); }catch(error){}
+}
+window.addEventListener("resize", syncScoutBuilderMenuMode);
 syncMobileStickyMenu();
 function toggleMenuVisibility(nextState){
   const shouldOpen = typeof nextState === "boolean" ? nextState : !menu.classList.contains("open");
@@ -1245,7 +1253,7 @@ function renderMenu(){
     .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
     .map(section => `<a href="#${section.key}">${section.title}</a>`)
     .join('');
-  const scoutLinks = `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>`;
+  const scoutLinks = shouldShowDesktopScoutBuilderLinks() ? `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>` : '';
   menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
   bindScoutBuilderMenus();
   bindMenuLinks();
