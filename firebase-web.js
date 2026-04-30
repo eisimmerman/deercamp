@@ -244,7 +244,77 @@
     }
   };
 
+
+
+  const DeerCampBilling = window.DeerCampBilling || {
+    prices: {
+      dcPlusMonthly: "price_1TRsjcDOIUbMFzLxNCO58x3n",
+      dcPlusAnnual: "price_1TRsjcDOIUbMFzLxmw4bEOuM"
+    },
+    normalizeTier(value) {
+      const clean = String(value || "").trim().toLowerCase();
+      if (["dc_plus", "dc+", "plus", "deercamp_plus"].includes(clean)) return "dc_plus";
+      if (["dcp", "premium", "deercamp_premium"].includes(clean)) return "dcp";
+      return "dcf";
+    },
+    getBilling(data = {}) {
+      const billing = data && typeof data.billing === "object" ? data.billing : {};
+      return {
+        tier: this.normalizeTier(billing.tier || data.tier || "dcf"),
+        status: String(billing.status || data.billingStatus || "free").toLowerCase(),
+        stripeCustomerId: String(billing.stripeCustomerId || ""),
+        stripeSubscriptionId: String(billing.stripeSubscriptionId || ""),
+        priceId: String(billing.priceId || ""),
+        currentPeriodEnd: billing.currentPeriodEnd || null
+      };
+    },
+    hasDcPlus(data = {}) {
+      const billing = this.getBilling(data);
+      return billing.tier === "dc_plus" && ["active", "trialing"].includes(billing.status);
+    },
+    async postJson(url, payload) {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {})
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || "Billing request failed.");
+      return json;
+    },
+    async startCheckout(options = {}) {
+      const campId = String(options.campId || "").trim();
+      const priceId = String(options.priceId || this.prices.dcPlusMonthly).trim();
+      if (!campId) throw new Error("Missing campId for checkout.");
+      if (!priceId) throw new Error("Missing Stripe priceId for checkout.");
+      const origin = window.location.origin;
+      const successUrl = options.successUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+      const cancelUrl = options.cancelUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=cancelled`;
+      const session = await this.postJson("/api/create-checkout-session", {
+        campId,
+        priceId,
+        email: options.email || "",
+        successUrl,
+        cancelUrl
+      });
+      if (!session.url) throw new Error("Stripe checkout URL was not returned.");
+      window.location.href = session.url;
+      return session;
+    },
+    async manageBilling(options = {}) {
+      const campId = String(options.campId || "").trim();
+      if (!campId) throw new Error("Missing campId for billing portal.");
+      const origin = window.location.origin;
+      const returnUrl = options.returnUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&billing=returned`;
+      const session = await this.postJson("/api/create-billing-portal-session", { campId, returnUrl });
+      if (!session.url) throw new Error("Stripe billing portal URL was not returned.");
+      window.location.href = session.url;
+      return session;
+    }
+  };
+
   window.DeerCampCloud = DeerCampCloud;
   window.DeerCampStorage = DeerCampStorage;
+  window.DeerCampBilling = DeerCampBilling;
   window.DEERCAMP_FIREBASE_READY = Boolean(DeerCampCloud.ensureReady());
 })();
