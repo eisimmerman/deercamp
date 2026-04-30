@@ -159,6 +159,9 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .stand-card:hover{border-color:var(--sage);background:#2c1c0c;}
 .leaflet-tooltip.stand-name-label{background:rgba(18,10,2,.92);border:1px solid rgba(240,232,216,.42);border-radius:8px;color:#f0e8d8;box-shadow:0 4px 12px rgba(0,0,0,.38);font:700 10px 'IBM Plex Mono',monospace;letter-spacing:.15px;padding:4px 7px;white-space:normal;max-width:140px;line-height:1.2;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.45);}
 .leaflet-tooltip.stand-name-label::before{display:none;}
+.drive-name-anchor{background:transparent;border:0;}
+.leaflet-tooltip.drive-name-label{background:rgba(18,10,2,.90);border:1px solid rgba(240,232,216,.55);border-radius:10px;color:#fff8ef;box-shadow:0 5px 14px rgba(0,0,0,.38);font:900 12px 'Playfair Display',serif;letter-spacing:.15px;padding:5px 10px;white-space:normal;max-width:170px;line-height:1.08;text-align:center;text-shadow:0 1px 2px rgba(0,0,0,.55);}
+.leaflet-tooltip.drive-name-label::before{display:none;}
 /* Compact deep-link focus: keep the selected stand obvious without covering the map. */
 .leaflet-tooltip.stand-name-label.stand-label-pulse{background:rgba(212,130,10,.96)!important;color:#fff8ef!important;border:1px solid #fff8ef!important;box-shadow:0 0 0 2px rgba(212,130,10,.35),0 0 14px rgba(212,130,10,.55)!important;animation:standLabelSoftPulse .9s ease-in-out infinite!important;}
 .stand-screen-focus{display:none!important;}
@@ -1031,6 +1034,46 @@ function clearDriveOutputPreviewLayers(){
   }catch(e){}
   driveOutputPreviewLayer = null;
 }
+function getDriveGeometryLabelLatLng(geom){
+  if(!geom) return null;
+  const pts = [];
+  (geom.points || []).forEach(pt=>{
+    const lat = Array.isArray(pt) ? Number(pt[0]) : Number(pt.lat);
+    const lng = Array.isArray(pt) ? Number(pt[1]) : Number(pt.lng);
+    if(Number.isFinite(lat) && Number.isFinite(lng)) pts.push([lat,lng]);
+  });
+  if(!pts.length){
+    [...(geom.drivers || []), ...(geom.standers || [])].forEach(item=>{
+      const lat=Number(item.lat), lng=Number(item.lng);
+      if(Number.isFinite(lat) && Number.isFinite(lng)) pts.push([lat,lng]);
+    });
+    (geom.routes || []).forEach(route=>{
+      (route.pts || []).forEach(pt=>{
+        const lat = Array.isArray(pt) ? Number(pt[0]) : Number(pt.lat);
+        const lng = Array.isArray(pt) ? Number(pt[1]) : Number(pt.lng);
+        if(Number.isFinite(lat) && Number.isFinite(lng)) pts.push([lat,lng]);
+      });
+    });
+  }
+  if(!pts.length) return null;
+  const lat = pts.reduce((sum,pt)=>sum+pt[0],0)/pts.length;
+  const lng = pts.reduce((sum,pt)=>sum+pt[1],0)/pts.length;
+  return [lat,lng];
+}
+function renderDriveNameLabel(geom){
+  const ll = getDriveGeometryLabelLatLng(geom);
+  if(!ll || !driveOutputPreviewLayer) return;
+  const name = String(geom.driveName || geom.name || 'Deer Drive').trim() || 'Deer Drive';
+  L.marker(ll,{
+    interactive:false,
+    icon:L.divIcon({className:'drive-name-anchor',html:'',iconSize:[1,1],iconAnchor:[0,0]})
+  }).bindTooltip(escHtml(name),{
+    permanent:true,
+    direction:'center',
+    opacity:1,
+    className:'drive-name-label'
+  }).addTo(driveOutputPreviewLayer);
+}
 function renderDriveOutputPreviewLayers(output){
   clearDriveOutputPreviewLayers();
   if(!isScoutDriveBuilder() || !output || !Array.isArray(output.savedGeometries) || !output.savedGeometries.length) return;
@@ -1048,6 +1091,7 @@ function renderDriveOutputPreviewLayers(output){
     if(!Number.isFinite(Number(rec.lat))||!Number.isFinite(Number(rec.lng))) return;
     L.marker([Number(rec.lat),Number(rec.lng)],{icon:roleIcon('stander',rec.mapLabel||rec.slot||rec.initial)}).bindPopup(`<div class="pu-name">Stander/Blocker ${escHtml(rec.mapLabel||rec.slot||'')}</div><div class="pu-type">${escHtml(rec.driveName||'Deer Drive')}</div>`).addTo(driveOutputPreviewLayer);
   });
+  (output.savedGeometries || []).forEach(renderDriveNameLabel);
 }
 function showAllDrives(){
   const output = getAllDriveOutputRecords();
@@ -4422,6 +4466,61 @@ function posterDrawStand(ctx,p,label,cfg,idx){
   lines.forEach((line,i)=>ctx.fillText(line,x+w/2,y+31+i*32));
   ctx.restore();
 }
+function posterWrapWords(ctx,text,maxWidth,maxLines=2){
+  const words=String(text||'').trim().split(/\s+/).filter(Boolean);
+  const lines=[];
+  words.forEach(word=>{
+    const current=lines[lines.length-1] || '';
+    const test=(current+' '+word).trim();
+    if(!current || ctx.measureText(test).width<=maxWidth){
+      lines[lines.length-1]=test;
+    }else if(lines.length<maxLines){
+      lines.push(word);
+    }else{
+      lines[lines.length-1]=(lines[lines.length-1]+'…').replace(/……$/,'…');
+    }
+  });
+  return lines.filter(Boolean).slice(0,maxLines);
+}
+function posterProjectDriveGeometryLabel(geom,mapProject){
+  const ll=getDriveGeometryLabelLatLng(geom);
+  if(!ll) return null;
+  return mapProject(ll[0],ll[1]);
+}
+function posterDrawDriveNameLabel(ctx,p,name,idx){
+  if(!p) return;
+  ctx.save();
+  const label=String(name||'Deer Drive').trim() || 'Deer Drive';
+  ctx.font='900 46px Georgia, serif';
+  const maxText=430;
+  const lines=posterWrapWords(ctx,label,maxText,2);
+  const sub='DEER DRIVE';
+  const textW=Math.max(...lines.map(line=>ctx.measureText(line).width), ctx.measureText(sub).width);
+  const w=Math.min(520, Math.max(260, textW+72));
+  const h=lines.length*52+58;
+  const offsets=[[0,-115],[0,118],[-160,-50],[160,-50],[-160,70],[160,70]];
+  const [ox,oy]=offsets[idx%offsets.length];
+  const x=p.x+ox-w/2, y=p.y+oy-h/2;
+  ctx.fillStyle='rgba(22,12,5,.92)';
+  ctx.strokeStyle='rgba(240,232,216,.62)';
+  ctx.lineWidth=4;
+  posterRoundRect(ctx,x,y,w,h,22,true,true);
+  ctx.fillStyle='#fff8ef';
+  ctx.textAlign='center';
+  ctx.textBaseline='middle';
+  ctx.font='900 46px Georgia, serif';
+  lines.forEach((line,i)=>ctx.fillText(line,x+w/2,y+38+i*48));
+  ctx.fillStyle='#c4a97a';
+  ctx.font='800 21px IBM Plex Mono, monospace';
+  ctx.fillText(sub,x+w/2,y+h-24);
+  ctx.restore();
+}
+function posterDrawDriveNameLabels(ctx,data,mapProject){
+  const geometries=(data && Array.isArray(data.savedGeometries) && data.savedGeometries.length) ? data.savedGeometries : [{driveName:getCurrentDriveName(), points:data?.points || []}];
+  geometries.forEach((geom,idx)=>{
+    posterDrawDriveNameLabel(ctx,posterProjectDriveGeometryLabel(geom,mapProject),geom.driveName,idx);
+  });
+}
 function posterDrawRoleMarker(ctx,p,rec){
   if(!p) return;
   const isDriver=rec.role==='driver';
@@ -4496,6 +4595,7 @@ async function posterRenderCanvas(data){
     posterDrawRoutes(ctx,data.routes,mapProject);
     data.drivers.forEach(rec=>posterDrawRoleMarker(ctx,posterMarkerPoint(mapProject,rec.lat,rec.lng),rec));
     data.standers.forEach(rec=>posterDrawRoleMarker(ctx,posterMarkerPoint(mapProject,rec.lat,rec.lng),rec));
+    posterDrawDriveNameLabels(ctx,data,mapProject);
   }else{
     data.stands.forEach((s,idx)=>posterDrawStand(ctx,posterMarkerPoint(mapProject,s.lat,s.lng),getStandLabelText(s),TYPE_CFG[s.type]||TYPE_CFG.treestand,idx));
   }
