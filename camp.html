@@ -668,6 +668,25 @@ function collectCampItemsFromSources(keys = [], sources = []) {
   });
   return mergeUniqueCampItems(...arrays);
 }
+function readDirectDeerDriveStorageSources(campId = activeCampId) {
+  const keys = [
+    'deercamp.deerDrivePosts',
+    'deercamp.scoutDeerDrives',
+    `deercamp.deerDrivePosts.${campId}`,
+    `deercamp.scoutDeerDrives.${campId}`,
+    campScopeKey(campId, 'deerDrivePosts'),
+    campScopeKey(campId, 'scoutDeerDrives'),
+    `deercamp.latestDeerDrive.${campId}`,
+    'deercamp.latestDeerDrive'
+  ].filter(Boolean);
+  const out = [];
+  keys.forEach(key => {
+    const parsed = safeParseJson(localStorage.getItem(key), null);
+    if(Array.isArray(parsed)) out.push({deerDrivePosts: parsed});
+    else if(parsed && typeof parsed === 'object') out.push({deerDrivePosts: [parsed]});
+  });
+  return out;
+}
 let data = {};
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
@@ -701,7 +720,8 @@ const campLoadSources = [
   postHydrateProfileData,
   postHydrateDashboard,
   postHydrateGenericDashboard,
-  data
+  data,
+  ...readDirectDeerDriveStorageSources(activeCampId)
 ];
 const preservedLoadDeerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], campLoadSources);
 const preservedLoadDeerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], campLoadSources);
@@ -759,7 +779,7 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
-let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data]).filter(Boolean);
+let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data, ...readDirectDeerDriveStorageSources(activeCampId)]).filter(Boolean);
 let deerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], [data]).filter(Boolean);
 
 const LEGACY_FEED_CUTOFF_MS = Date.parse("2000-01-01T00:00:00Z");
@@ -2340,7 +2360,7 @@ function buildCampRefreshSnapshot(payload = {}){
     deerStandPosts: Array.isArray(payload.deerStandPosts) ? payload.deerStandPosts : [],
     deerStands: Array.isArray(payload.deerStands) ? payload.deerStands : [],
     stands: Array.isArray(payload.stands) ? payload.stands : [],
-    deerDrivePosts: Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : [],
+    deerDrivePosts: collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [payload, ...readDirectDeerDriveStorageSources(activeCampId)]),
     deerDrives: Array.isArray(payload.deerDrives) ? payload.deerDrives : [],
     memberProfiles: Array.isArray(payload.memberProfiles) ? payload.memberProfiles : [],
     members: Array.isArray(payload.members) ? payload.members : [],
@@ -2368,6 +2388,15 @@ async function pullLatestCampDataSilently(){
     const nextData = Object.keys(nextScoped).length ? nextScoped : nextLegacy;
     if(!nextData || typeof nextData !== "object") return;
 
+    const directDriveSources = readDirectDeerDriveStorageSources(activeCampId);
+    const directDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [nextData, ...directDriveSources]);
+    if(directDrivePosts.length){
+      nextData.deerDrivePosts = directDrivePosts;
+      nextData.deerDrives = directDrivePosts.slice();
+      nextData.savedDeerDrives = directDrivePosts.slice();
+      nextData.scoutDeerDrives = directDrivePosts.slice();
+      nextData.enabledSections = Object.assign({}, nextData.enabledSections || {}, {campdeerdrives:true, deerdrives:true, campfeed:true, campupdate:true});
+    }
     const nextSnapshot = buildCampRefreshSnapshot(nextData);
     if(nextSnapshot === lastCampRefreshSnapshot) return;
 
@@ -2395,7 +2424,7 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
-    deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
+    deerDrivePosts = normalizeDeerDrivePosts(collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data, ...readDirectDeerDriveStorageSources(activeCampId)]));
     deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
 
     document.getElementById("campName").textContent = data.name || data.campName || "DeerCamp";
@@ -2441,6 +2470,13 @@ function isCampRefreshStorageKey(key = "") {
   return key === CAMP_DATA_KEY
     || key === DASHBOARD_KEY
     || key === "deercamp.stewardDashboardSlim"
+    || key === "deercamp.deerDrivePosts"
+    || key === "deercamp.scoutDeerDrives"
+    || key === "deercamp.latestDeerDrive"
+    || key === "deercamp.lastSavedDeerDrivePing"
+    || key === `deercamp.deerDrivePosts.${activeCampId}`
+    || key === `deercamp.scoutDeerDrives.${activeCampId}`
+    || key === `deercamp.latestDeerDrive.${activeCampId}`
     || key === campScopeKey(activeCampId, "campData")
     || key === campScopeKey(activeCampId, "dashboardSlim")
     || key === campScopeKey(activeCampId, "profileData")
