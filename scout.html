@@ -876,11 +876,12 @@ function fitMapToPointsForOutput(points, options={}){
 }
 function showAllDrives(){
   const pts = getDriveMapPoints();
-  updatePrintableCampBranding();
   if(!pts.length){
+    setScoutMapTitleEnabled(false);
     document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
     return;
   }
+  setScoutMapTitleEnabled(true);
   fitMapToPointsForOutput(pts, {pad:.18, maxZoom:17});
   updatePrintableCampBranding();
   document.getElementById('status-bar').innerHTML=`Showing all drive points/routes (${pts.length}).`;
@@ -916,6 +917,7 @@ let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+let scoutMapTitleEnabled=false;
 const CAMP_DATA_KEY='campData';
 const ACTIVE_CAMP_KEY='deercamp.activeCampId';
 const CAMP_SCOPE_PREFIX='deercamp.camps.';
@@ -960,9 +962,19 @@ function hasVisibleDriveMapContent(){
     );
   }catch(e){return false;}
 }
+function hasVisibleStandMapContent(){
+  try{
+    return Array.isArray(stands) && stands.some(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
+  }catch(e){return false;}
+}
+function setScoutMapTitleEnabled(enabled){
+  scoutMapTitleEnabled = !!enabled;
+  try{ updatePrintableCampBranding(); }catch(e){}
+}
 function shouldShowMapTitleBadge(){
+  if(!scoutMapTitleEnabled) return false;
   if(isScoutDriveBuilder()) return hasVisibleDriveMapContent();
-  return true;
+  return hasVisibleStandMapContent();
 }
 function updatePrintableCampBranding(){
   const campName = getActiveCampDisplayName();
@@ -2831,7 +2843,12 @@ function showAllStands(){
     return;
   }
   const valid=stands.filter(item=>Number.isFinite(Number(item.lat))&&Number.isFinite(Number(item.lng)));
-  if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
+  if(!valid.length){
+    setScoutMapTitleEnabled(false);
+    document.getElementById('status-bar').innerHTML='No saved stands to show.';
+    return;
+  }
+  setScoutMapTitleEnabled(true);
   fitMapToPointsForOutput(getStandMapPoints(), {pad:.12, maxZoom:17, paddingTopLeft:[24,92], paddingBottomRight:[24,42]});
   setTimeout(()=>{ valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}}); }, 180);
   updatePrintableCampBranding();
@@ -3944,8 +3961,8 @@ function getVisibleOutputPoints(){
   return isScoutDriveBuilder() ? getDriveMapPoints() : getStandMapPoints();
 }
 function prepareScoutPrintLayout(){
-  updatePrintableCampBranding();
   const points = getVisibleOutputPoints();
+  setScoutMapTitleEnabled(points.length > 0);
   if(points.length){
     fitMapToPointsForOutput(points, {
       pad: isScoutDriveBuilder() ? .18 : .10,
@@ -3957,6 +3974,7 @@ function prepareScoutPrintLayout(){
   if(isScoutStandBuilder()){
     stands.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}});
   }
+  updatePrintableCampBranding();
 }
 async function printMap(){
   updatePrintableCampBranding();
