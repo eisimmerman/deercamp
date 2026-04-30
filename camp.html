@@ -1020,7 +1020,8 @@ function getDashboardProfileSources() {
     if(source.stewardProfile && typeof source.stewardProfile === "object") sources.push(source.stewardProfile);
     if(source.campStewardProfile && typeof source.campStewardProfile === "object") sources.push(source.campStewardProfile);
     const sourceStewardPhoto = String(source.stewardPhoto || source.stewardProfilePhoto || source.stewardAvatar || source.profilePhoto || "").trim();
-    if(sourceStewardPhoto || source.stewardFavoriteStand || source.stewardBestCampMemory || source.stewardRoleLine){
+    const sourceStewardYearJoined = String(source.stewardYearJoined || source.yearJoined || source.joined || source.memberYearJoined || source.stewardProfileYearJoined || "").trim();
+    if(sourceStewardPhoto || sourceStewardYearJoined || source.stewardFavoriteStand || source.stewardBestCampMemory || source.stewardRoleLine){
       sources.push({
         name:String(source.stewardName||source.steward||"").trim(),
         role:"Camp Steward",
@@ -1031,7 +1032,11 @@ function getDashboardProfileSources() {
         favoriteStand:String(source.stewardFavoriteStand||"").trim(),
         favoriteGear:String(source.stewardFavoriteGear||"").trim(),
         nickname:String(source.stewardNickname||"").trim(),
-        yearJoined:String(source.stewardYearJoined||"").trim(),
+        yearJoined:sourceStewardYearJoined,
+        joined:sourceStewardYearJoined,
+        year:sourceStewardYearJoined,
+        memberYearJoined:sourceStewardYearJoined,
+        stewardYearJoined:sourceStewardYearJoined,
         specialty:String(source.stewardSpecialty||"").trim(),
         harvestHighlight:String(source.stewardHarvestHighlight||"").trim(),
         bestCampMemory:String(source.stewardBestCampMemory||"").trim(),
@@ -1041,7 +1046,8 @@ function getDashboardProfileSources() {
     }
   });
   const directStewardPhoto = String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim();
-  if(directStewardPhoto || data.stewardFavoriteStand || data.stewardBestCampMemory || data.stewardRoleLine){
+  const directStewardYearJoined = String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || data.stewardProfileYearJoined || "").trim();
+  if(directStewardPhoto || directStewardYearJoined || data.stewardFavoriteStand || data.stewardBestCampMemory || data.stewardRoleLine){
     sources.push({
       name:String(data.stewardName||data.steward||"").trim(),
       role:"Camp Steward",
@@ -1052,7 +1058,11 @@ function getDashboardProfileSources() {
       favoriteStand:String(data.stewardFavoriteStand||"").trim(),
       favoriteGear:String(data.stewardFavoriteGear||"").trim(),
       nickname:String(data.stewardNickname||"").trim(),
-      yearJoined:String(data.stewardYearJoined||"").trim(),
+      yearJoined:directStewardYearJoined,
+      joined:directStewardYearJoined,
+      year:directStewardYearJoined,
+      memberYearJoined:directStewardYearJoined,
+      stewardYearJoined:directStewardYearJoined,
       specialty:String(data.stewardSpecialty||"").trim(),
       harvestHighlight:String(data.stewardHarvestHighlight||"").trim(),
       bestCampMemory:String(data.stewardBestCampMemory||"").trim(),
@@ -1133,6 +1143,11 @@ const stewardFallbackProfile = {
   role:"Camp Steward",
   email:String(data.stewardEmail||"").trim(),
   note:"Keeps camp information current and helps guide the full DeerCamp experience.",
+  yearJoined:String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || "").trim(),
+  joined:String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || "").trim(),
+  year:String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || "").trim(),
+  memberYearJoined:String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || "").trim(),
+  stewardYearJoined:String(data.stewardYearJoined || data.yearJoined || data.joined || data.memberYearJoined || "").trim(),
   photo:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
   profilePhoto:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
   avatar:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim()
@@ -1638,7 +1653,7 @@ function openMemberModal(member){
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
   document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
-  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
+  document.getElementById("memberModalYearJoined").textContent=String(profile.yearJoined||"").trim() && String(profile.yearJoined).trim() !== "—" ? String(profile.yearJoined).trim() : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
   document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
