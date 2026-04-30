@@ -1918,6 +1918,56 @@ function withTimeout(promise, timeoutMs = 1200) {
   ]);
 }
 
+
+function isQuotaExceededError(error) {
+  return Boolean(error) && (
+    error.name === "QuotaExceededError" ||
+    error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+    error.code === 22 ||
+    error.code === 1014
+  );
+}
+
+function pruneOldCampLocalCache(keepCampId = "") {
+  try {
+    const keepPrefix = keepCampId ? `${CAMP_SCOPE_PREFIX}${keepCampId}.` : "";
+    const removable = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i) || "";
+      if (!key.startsWith(CAMP_SCOPE_PREFIX)) continue;
+      if (keepPrefix && key.startsWith(keepPrefix)) continue;
+      if (key.endsWith(".campData") || key.endsWith(".dashboardSlim")) removable.push(key);
+    }
+    removable.slice(0, Math.max(0, removable.length - 3)).forEach((key) => localStorage.removeItem(key));
+    return removable.length;
+  } catch (error) {
+    console.warn("Could not prune old DeerCamp local cache.", error);
+    return 0;
+  }
+}
+
+function safeLocalStorageSet(key, value, options = {}) {
+  if (!key) return false;
+  const cleanValue = typeof value === "string" ? value : JSON.stringify(value);
+  try {
+    localStorage.setItem(key, cleanValue);
+    return true;
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      pruneOldCampLocalCache(options.keepCampId || "");
+      try {
+        localStorage.setItem(key, cleanValue);
+        return true;
+      } catch (retryError) {
+        console.warn("Local DeerCamp cache is full; continuing with cloud save.", retryError);
+        return false;
+      }
+    }
+    console.warn("Could not write DeerCamp local cache; continuing with cloud save.", error);
+    return false;
+  }
+}
+
 function saveLastWelcomeEmailStatus(payload = {}) {
   try {
     localStorage.setItem("deercamp.lastWelcomeEmail", JSON.stringify(payload));
@@ -2089,11 +2139,11 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     siteSeasonLookupMonthLabel: getCurrentSeasonLookupLabel()
   };
 
-  localStorage.setItem("campData", JSON.stringify(campData));
-  localStorage.setItem(ACTIVE_CAMP_KEY, campId);
+  safeLocalStorageSet("campData", campData, { keepCampId: campId });
+  safeLocalStorageSet(ACTIVE_CAMP_KEY, campId, { keepCampId: campId });
   const scopedCampDataKey = campScopeKey(campId, "campData");
   if (scopedCampDataKey) {
-    localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
+    safeLocalStorageSet(scopedCampDataKey, campData, { keepCampId: campId });
   }
 
   const initialDashboardSlim = {
@@ -2143,13 +2193,20 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     })),
     pendingInvites: []
   };
-  localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(initialDashboardSlim));
+  safeLocalStorageSet("deercamp.stewardDashboardSlim", initialDashboardSlim, { keepCampId: campId });
   const scopedDashboardSlimKey = campScopeKey(campId, "dashboardSlim");
   if (scopedDashboardSlimKey) {
-    localStorage.setItem(scopedDashboardSlimKey, JSON.stringify(initialDashboardSlim));
+    safeLocalStorageSet(scopedDashboardSlimKey, initialDashboardSlim, { keepCampId: campId });
   }
 
-  Promise.resolve().then(() => window.DeerCampCloud && DeerCampCloud.saveCamp(campId, campData)).catch(() => {});
+  let cloudSaved = false;
+  try {
+    if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+      cloudSaved = Boolean(await withTimeout(DeerCampCloud.saveCamp(campId, campData), 3500));
+    }
+  } catch (cloudError) {
+    console.warn("Cloud camp save did not finish before redirect.", cloudError);
+  }
 
   incrementCreatedCampCounter(campId);
 
@@ -2184,7 +2241,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   } catch (error) {
     console.error("Build camp submit failed:", error);
     setBuildButtonBusy(false);
-    setBuildFormStatus("Camp could not be created. Please check the fields and try again.", true);
+    setBuildFormStatus(error && error.message ? `Camp could not be created: ${error.message}` : "Camp could not be created. Please check the fields and try again.", true);
   }
 });
 </script>
