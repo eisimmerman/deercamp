@@ -1370,6 +1370,88 @@ function updateOpenStewardProfileUI(stewardProfile = {}){
   activeMemberProfileContext = Object.assign({}, stewardProfile, displayProfile);
   return displayProfile;
 }
+
+function compactStewardProfileForCache(stewardProfile = {}){
+  const yearJoined = String(stewardProfile.yearJoined || stewardProfile.joined || stewardProfile.year || stewardProfile.memberYearJoined || stewardProfile.stewardYearJoined || "").trim();
+  const photo = String(stewardProfile.photo || stewardProfile.profilePhoto || stewardProfile.avatar || stewardProfile.stewardPhoto || stewardProfile.stewardProfilePhoto || stewardProfile.stewardAvatar || "").trim();
+  return {
+    name:String(stewardProfile.name || data.stewardName || data.steward || "Camp Steward").trim() || "Camp Steward",
+    email:String(stewardProfile.email || data.stewardEmail || "").trim(),
+    role:"Camp Steward",
+    status:"Active",
+    nickname:String(stewardProfile.nickname || "").trim(),
+    yearJoined,
+    joined:yearJoined,
+    year:yearJoined,
+    memberYearJoined:yearJoined,
+    stewardYearJoined:yearJoined,
+    favoriteStand:String(stewardProfile.favoriteStand || "").trim(),
+    favoriteGear:String(stewardProfile.favoriteGear || "").trim(),
+    harvestHighlight:String(stewardProfile.harvestHighlight || "").trim(),
+    bestCampMemory:String(stewardProfile.bestCampMemory || "").trim(),
+    specialty:String(stewardProfile.specialty || "").trim(),
+    roleLine:String(stewardProfile.roleLine || stewardProfile.note || "").trim(),
+    note:String(stewardProfile.note || stewardProfile.roleLine || "").trim(),
+    photo,
+    profileUpdatedAt:String(stewardProfile.profileUpdatedAt || stewardProfile.updatedAt || new Date().toISOString()).trim(),
+    updatedAt:String(stewardProfile.updatedAt || stewardProfile.profileUpdatedAt || new Date().toISOString()).trim()
+  };
+}
+
+function writeCompactStewardProfileCache(stewardProfile = {}){
+  const profilePayload = compactStewardProfileForCache(stewardProfile);
+  const now = new Date().toISOString();
+  try{
+    const key = campScopeKey(activeCampId,"profileData");
+    const current = safeParseJson(localStorage.getItem(key), {});
+    const next = Object.assign({}, current, {
+      stewardProfile:profilePayload,
+      campStewardProfile:profilePayload,
+      stewardName:profilePayload.name,
+      stewardEmail:profilePayload.email,
+      stewardPhoto:profilePayload.photo,
+      stewardNickname:profilePayload.nickname,
+      stewardYearJoined:profilePayload.yearJoined,
+      yearJoined:profilePayload.yearJoined,
+      joined:profilePayload.yearJoined,
+      memberYearJoined:profilePayload.yearJoined,
+      stewardFavoriteStand:profilePayload.favoriteStand,
+      stewardFavoriteGear:profilePayload.favoriteGear,
+      stewardSpecialty:profilePayload.specialty,
+      stewardHarvestHighlight:profilePayload.harvestHighlight,
+      stewardBestCampMemory:profilePayload.bestCampMemory,
+      stewardRoleLine:profilePayload.roleLine || profilePayload.note,
+      updatedAt:now
+    });
+    localStorage.setItem(key, JSON.stringify(next));
+    localStorage.setItem(campScopeKey(activeCampId,"profileRefreshTick"), String(Date.now()));
+    return true;
+  }catch(error){
+    console.warn("Compact Steward profile cache save skipped.", error);
+    return false;
+  }
+}
+
+function compactProfileImagesForCampStorage(stewardProfile = {}){
+  const photo = String(stewardProfile.photo || stewardProfile.profilePhoto || stewardProfile.avatar || stewardProfile.stewardPhoto || stewardProfile.stewardProfilePhoto || stewardProfile.stewardAvatar || "").trim();
+  const photoKeys = ["profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar"];
+  const compactOne = item => {
+    if(!item || typeof item !== "object") return item;
+    photoKeys.forEach(key => { if(key in item) delete item[key]; });
+    if(photo) item.photo = photo;
+    return item;
+  };
+  compactOne(data.stewardProfile);
+  compactOne(data.campStewardProfile);
+  ["members","campMembers","memberProfiles"].forEach(key => {
+    if(!Array.isArray(data[key])) return;
+    data[key] = data[key].map(item => String(item?.role || "").trim().toLowerCase() === "camp steward" ? compactOne(Object.assign({}, item)) : item);
+  });
+  data.stewardPhoto = photo;
+  delete data.stewardProfilePhoto;
+  delete data.stewardAvatar;
+}
+
 function mergeStewardProfileIntoCamp(profileFields){
   const baseProfile = getCurrentStewardProfileBase();
   const baseName=String(baseProfile?.name||data.stewardName||data.steward||"Camp Steward").trim()||"Camp Steward";
@@ -1487,8 +1569,22 @@ async function saveStewardProfileFromCamp(event){
     if(btn){btn.disabled=true;btn.textContent="Saving...";}
     const formFields = readStewardProfileEditForm();
     const savedProfile=mergeStewardProfileIntoCamp(formFields);
-    persist();
-    writeStewardProfileCaches(savedProfile);
+    writeCompactStewardProfileCache(savedProfile);
+    try{ writeStewardProfileCaches(savedProfile); }catch(cacheError){ console.warn("Expanded Steward profile cache save skipped.", cacheError); }
+    let localPersisted = false;
+    try{
+      persist();
+      localPersisted = true;
+    }catch(persistError){
+      console.warn("Full camp save failed after Steward profile update; retrying with compact profile photo storage.", persistError);
+      try{
+        compactProfileImagesForCampStorage(savedProfile);
+        persist();
+        localPersisted = true;
+      }catch(compactPersistError){
+        console.warn("Compact camp save also failed; Steward profile cache was already written for recovery.", compactPersistError);
+      }
+    }
     try{
       if(window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") await DeerCampCloud.saveCamp(activeCampId, data);
     }catch(cloudError){
@@ -1506,7 +1602,7 @@ async function saveStewardProfileFromCamp(event){
       window.dispatchEvent(new CustomEvent("deercamp:profile-updated", {detail:{campId:activeCampId, profile:displayProfile}}));
       localStorage.setItem(campScopeKey(activeCampId,"profileRefreshTick"), String(Date.now()));
     }catch(error){}
-    setProfileEditStatus("Steward profile saved.","success");
+    setProfileEditStatus(localPersisted ? "Steward profile saved." : "Profile saved to recovery cache. Hard refresh should still keep it.","success");
     if(typeof showCampToast==="function") showCampToast("Steward profile saved.",2600);
     return false;
   }catch(error){
