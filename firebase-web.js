@@ -282,6 +282,19 @@
       if (!response.ok) throw new Error(json.error || "Billing request failed.");
       return json;
     },
+    async postJsonWithFallback(urls, payload) {
+      const endpointList = Array.isArray(urls) ? urls : [urls];
+      let lastError = null;
+      for (const url of endpointList) {
+        try {
+          return await this.postJson(url, payload);
+        } catch (error) {
+          lastError = error;
+          console.warn("DeerCamp billing endpoint failed; trying next endpoint.", { url, error: error && error.message ? error.message : String(error) });
+        }
+      }
+      throw lastError || new Error("Billing request failed.");
+    },
     async startCheckout(options = {}) {
       const campId = String(options.campId || "").trim();
       const priceId = String(options.priceId || this.prices.dcPlusMonthly).trim();
@@ -290,13 +303,17 @@
       const origin = window.location.origin;
       const successUrl = options.successUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = options.cancelUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=cancelled`;
-      const session = await this.postJson("/api/create-checkout-session", {
+      const payload = {
         campId,
         priceId,
         email: options.email || "",
         successUrl,
         cancelUrl
-      });
+      };
+      const session = await this.postJsonWithFallback([
+        "https://us-central1-deercamp-47c12.cloudfunctions.net/createCheckoutSession",
+        "/api/create-checkout-session"
+      ], payload);
       if (!session.url) throw new Error("Stripe checkout URL was not returned.");
       window.location.href = session.url;
       return session;
@@ -306,7 +323,10 @@
       if (!campId) throw new Error("Missing campId for billing portal.");
       const origin = window.location.origin;
       const returnUrl = options.returnUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&billing=returned`;
-      const session = await this.postJson("/api/create-billing-portal-session", { campId, returnUrl });
+      const session = await this.postJsonWithFallback([
+        "https://us-central1-deercamp-47c12.cloudfunctions.net/createBillingPortalSession",
+        "/api/create-billing-portal-session"
+      ], { campId, returnUrl });
       if (!session.url) throw new Error("Stripe billing portal URL was not returned.");
       window.location.href = session.url;
       return session;
