@@ -17,6 +17,15 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'IBM Plex Mono',monospace;background:var(--bark);color:var(--cream);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+body.scout-booting #map{opacity:0;}
+#scout-boot-shield{position:fixed;top:50px;left:0;right:0;bottom:0;z-index:998;display:none;align-items:center;justify-content:center;background:linear-gradient(180deg,#100804,#1c1208);color:var(--cream);pointer-events:none;}
+body.scout-booting #scout-boot-shield{display:flex;}
+.scout-boot-card{display:grid;gap:8px;justify-items:center;min-width:220px;padding:18px 22px;border-radius:18px;background:rgba(18,10,2,.92);border:1px solid rgba(107,124,77,.55);box-shadow:0 18px 48px rgba(0,0,0,.45);}
+.scout-boot-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--tan);}
+.scout-boot-sub{font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;color:var(--sage);}
+.scout-boot-dot{width:24px;height:24px;border-radius:999px;border:3px solid rgba(196,169,122,.25);border-top-color:var(--amber);animation:scoutBootSpin .8s linear infinite;}
+@keyframes scoutBootSpin{to{transform:rotate(360deg);}}
+
 
 /* HEADER */
 header{background:linear-gradient(to right,#060302,var(--wood),#060302);border-bottom:2px solid var(--moss);padding:0 12px;height:50px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:1001;overflow-x:auto;}
@@ -337,12 +346,29 @@ textarea{resize:vertical;min-height:55px;}
 .acreage-result{background:#1a2810;border:1px solid var(--moss);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:.68rem;color:#3abba0;display:none;}
 .acreage-result.show{display:block;}
 
+
+body.scout-printing{background:#fff!important;}
+body.scout-printing header,
+body.scout-printing .panel-toggle,
+body.scout-printing .side-panel,
+body.scout-printing .rec-panel,
+body.scout-printing #status-bar,
+body.scout-printing .fab,
+body.scout-printing .modal-overlay{display:none!important;}
+body.scout-printing #print-header,
+body.scout-printing #print-legend{display:block!important;}
+body.scout-printing #map{height:min(78vh,840px);margin:8px 48px 8px;border:1.5px solid #444;}
+body.scout-printing .map-title-badge{display:flex!important;background:rgba(255,255,255,.94);border:1.5px solid #444;box-shadow:none;backdrop-filter:none;}
+body.scout-printing .map-title-badge.is-empty{display:none!important;}
+body.scout-printing .map-title-main{color:#111;}
+body.scout-printing .map-title-sub{color:#444;}
+
 /* PRINT */
-@page{size:landscape;margin:.35in;}
+@page{size:letter portrait;margin:.35in;}
 @media print{
   html,body{overflow:visible!important;height:auto!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   header,.panel-toggle,.side-panel,.rec-panel,#status-bar,.fab,.modal-overlay,.print-legend-screen{display:none!important;}
-  #map{display:block!important;width:100%!important;height:6.25in!important;min-height:6.25in!important;margin:8px 0 8px;border:1.5px solid #444;page-break-after:avoid;break-inside:avoid;}
+  #map{display:block!important;width:100%!important;height:calc(100vh - 1.72in)!important;min-height:0!important;margin:8px 0 8px;border:1.5px solid #444;page-break-after:avoid;break-inside:avoid;}
   .leaflet-control-container,.leaflet-control-zoom,.leaflet-control-attribution{display:none!important;}
   .leaflet-pane,.leaflet-top,.leaflet-bottom,.leaflet-control-container,.leaflet-tooltip,.leaflet-marker-icon,.leaflet-overlay-pane svg{visibility:visible!important;opacity:1!important;}
   #print-header,#print-legend{display:block!important;}
@@ -365,7 +391,7 @@ textarea{resize:vertical;min-height:55px;}
 #print-legend .pl-stats{margin-top:5px;padding-top:4px;border-top:1px solid #eee;font-size:7.5px;color:#555;display:flex;gap:16px;}
 </style>
 </head>
-<body>
+<body class="scout-booting">
 
 <!-- Print header (hidden screen, shown on print) -->
 <div id="print-header">
@@ -407,6 +433,13 @@ textarea{resize:vertical;min-height:55px;}
 <div id="map-title-badge" class="map-title-badge is-empty" aria-hidden="true">
   <div id="map-title-main" class="map-title-main"></div>
   <div id="map-title-sub" class="map-title-sub">Hunt Property Map</div>
+</div>
+<div id="scout-boot-shield" aria-hidden="true">
+  <div class="scout-boot-card">
+    <div class="scout-boot-dot"></div>
+    <div class="scout-boot-title">DeerCamp Scout Elite</div>
+    <div class="scout-boot-sub">Loading map layers</div>
+  </div>
 </div>
 
 <div id="status-bar">👁 View mode — use the toolbar to build your hunt map</div>
@@ -931,6 +964,43 @@ function campScopeKey(campId,suffix){
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
 }
+
+function finishScoutBoot(reason='ready'){
+  try{
+    clearTimeout(finishScoutBoot._timer);
+    requestAnimationFrame(()=>setTimeout(()=>{
+      document.body.classList.remove('scout-booting');
+      document.body.dataset.scoutBootReason = reason;
+    }, 120));
+  }catch(e){
+    try{document.body.classList.remove('scout-booting');}catch(_e){}
+  }
+}
+finishScoutBoot._timer = setTimeout(()=>finishScoutBoot('failsafe'), 3800);
+function runScoutGuardrailChecks(){
+  const failures=[];
+  try{
+    if(isScoutDriveBuilder() && !document.body.classList.contains('builder-drive')) failures.push('Drive Builder body class missing.');
+    if(isScoutStandBuilder() && !document.body.classList.contains('builder-stand')) failures.push('Stand Builder body class missing.');
+    if(!(/^data:image\//i).test('data:image/png;base64,abc')) failures.push('Data-image regex guard failed.');
+    if(isScoutDriveBuilder() && hasVisibleStandMapContent() && Object.values(allLayers || {}).some(layer => layer && typeof layer.getTooltip === 'function')) failures.push('Stand labels detected in Drive Builder.');
+  }catch(error){
+    failures.push(`Guardrail check error: ${error?.message || error}`);
+  }
+  if(failures.length){
+    console.warn('Scout guardrail warning:', failures);
+    try{document.body.dataset.scoutGuardrailWarning=failures.join(' | ');}catch(e){}
+  }
+  return failures;
+}
+window.addEventListener('error', event=>{
+  console.error('Scout runtime error:', event?.error || event?.message || event);
+  try{showScoutToast(`Scout error: ${event?.message || 'check console'}`, 5200);}catch(e){}
+});
+window.addEventListener('unhandledrejection', event=>{
+  console.error('Scout promise rejection:', event?.reason || event);
+  try{showScoutToast(`Scout save/load error: ${event?.reason?.message || 'check console'}`, 5200);}catch(e){}
+});
 function getActiveCampDisplayName(){
   try{
     const params = new URLSearchParams(window.location.search);
@@ -2849,7 +2919,7 @@ function showAllStands(){
     return;
   }
   setScoutMapTitleEnabled(true);
-  fitMapToPointsForOutput(getStandMapPoints(), {pad:.12, maxZoom:17, paddingTopLeft:[24,92], paddingBottomRight:[24,42]});
+  fitMapToPointsForOutput(getStandMapPoints(), {pad:.18, maxZoom:17, paddingTopLeft:[36,96], paddingBottomRight:[36,56]});
   setTimeout(()=>{ valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}}); }, 180);
   updatePrintableCampBranding();
   document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
@@ -3965,10 +4035,10 @@ function prepareScoutPrintLayout(){
   setScoutMapTitleEnabled(points.length > 0);
   if(points.length){
     fitMapToPointsForOutput(points, {
-      pad: isScoutDriveBuilder() ? .18 : .10,
+      pad: isScoutDriveBuilder() ? .18 : .22,
       maxZoom:17,
-      paddingTopLeft:[24,88],
-      paddingBottomRight:[24,36]
+      paddingTopLeft:[44,104],
+      paddingBottomRight:[44,64]
     });
   }
   if(isScoutStandBuilder()){
@@ -3977,6 +4047,7 @@ function prepareScoutPrintLayout(){
   updatePrintableCampBranding();
 }
 async function printMap(){
+  document.body.classList.add('scout-printing');
   updatePrintableCampBranding();
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('print-date').textContent=d;
@@ -3994,10 +4065,14 @@ async function printMap(){
   prepareScoutPrintLayout();
   await waitForScoutPrint(350);
   prepareScoutPrintLayout();
-  await waitForScoutPrint(350);
+  await waitForScoutPrint(450);
   window.print();
 }
 window.addEventListener('beforeprint', prepareScoutPrintLayout);
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('scout-printing');
+  try{ map.invalidateSize(true); }catch(e){}
+});
 
 // ═══════════════════════════════════════════════
 // KEYBOARD
@@ -4048,12 +4123,23 @@ try{
         ]
       : [...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
     const validPts = allPts.filter(pt => Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
-    if(validPts.length && !hasScoutDeepLink) map.flyToBounds(validPts,{padding:[60,60]});
+    if(validPts.length && !hasScoutDeepLink){
+      fitMapToPointsForOutput(validPts, {
+        pad: isScoutDriveBuilder() ? .18 : .16,
+        maxZoom: 17,
+        paddingTopLeft:[60,60],
+        paddingBottomRight:[60,60]
+      });
+    }
   }
 }catch(e){}
-applyScoutBuilderMode();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();
+applyScoutBuilderMode();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();runScoutGuardrailChecks();if(isScoutStandBuilder() && recWind) runRecommender();
 runDeepLinkedScoutEditRetries();
-window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
+window.addEventListener('load', () => {
+  setTimeout(runDeepLinkedScoutEditRetries, 300);
+  setTimeout(()=>{runScoutGuardrailChecks();finishScoutBoot('load-complete');}, 700);
+});
+setTimeout(()=>{runScoutGuardrailChecks();finishScoutBoot('init-complete');}, 1200);
 </script>
 </body>
 </html>
