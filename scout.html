@@ -854,13 +854,14 @@ function showAllDrives(){
     return;
   }
   try{ map.fitBounds(L.latLngBounds(pts).pad(.18), {maxZoom:17, animate:false}); }catch(error){}
+  revealMapTitleBadge('show-all-drives');
   document.getElementById('status-bar').innerHTML=`Showing all drive points/routes (${pts.length}).`;
   showScoutToast('Showing all drives.', 2800);
 }
 
 function openBuilderPosterPreview(){
   if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
-  updatePrintableCampBranding();
+  updatePrintableCampBranding({forceVisible:true});
   document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for high-resolution output.`;
 }
 
@@ -887,6 +888,7 @@ let awaitingRouteEndPlacement=false;
 let panelOpen=false, recOpen=false;
 let globalWind='', recWind='', recTime='morning', recSeason='any';
 let deerDrivePlan={driveName:'', windFrom:'', windTo:'', windLabel:'', driverCount:0, standerCount:0, isLocked:false, autoRouteIds:[]};
+let mapHasCampContext = false;
 const CAMP_DATA_KEY='campData';
 const ACTIVE_CAMP_KEY='deercamp.activeCampId';
 const CAMP_SCOPE_PREFIX='deercamp.camps.';
@@ -942,7 +944,31 @@ function getActiveCampDisplayName(){
   }catch(e){}
   return humanizeCampNameFromId(activeCampId) || 'DeerCamp';
 }
-function updatePrintableCampBranding(){
+function getScoutValidMapPoints(){
+  try{
+    const visibleRoutes = isScoutDriveBuilder() ? getBuilderVisibleDriveRoutes() : routes;
+    const rawPts = isScoutDriveBuilder()
+      ? [
+          ...drivers.map(item => [item.lat, item.lng]),
+          ...standers.map(item => [item.lat, item.lng]),
+          ...visibleRoutes.flatMap(route => (route.pts || []).map(pt => Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng]))
+        ]
+      : [
+          ...stands.map(item => [item.lat, item.lng]),
+          ...windArrows.map(item => [item.lat, item.lng]),
+          ...boundaries.flatMap(route => (route.pts || []).map(pt => Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng])),
+          ...areaPolys.flatMap(poly => (poly.pts || []).map(pt => Array.isArray(pt) ? [pt[0], pt[1]] : [pt.lat, pt.lng]))
+        ];
+    return rawPts.filter(pt => Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
+  }catch(error){ return []; }
+}
+
+function revealMapTitleBadge(reason=''){
+  mapHasCampContext = true;
+  updatePrintableCampBranding({forceVisible:true});
+}
+
+function updatePrintableCampBranding(options = {}){
   const campName = getActiveCampDisplayName();
   const badge = document.getElementById('map-title-badge');
   const mapEl = document.getElementById('map');
@@ -951,7 +977,12 @@ function updatePrintableCampBranding(){
   const printCampName = document.getElementById('print-camp-name');
   if(titleMain) titleMain.textContent = campName;
   if(printCampName) printCampName.textContent = campName;
-  if(badge) badge.classList.toggle('is-empty', !campName);
+  const hasContent = getScoutValidMapPoints().length > 0;
+  const shouldShow = Boolean(campName) && (Boolean(options.forceVisible) || mapHasCampContext || hasContent);
+  if(badge){
+    badge.classList.toggle('is-empty', !shouldShow);
+    badge.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+  }
 }
 
 function showScoutToast(message, durationMs=3200){
@@ -2805,6 +2836,7 @@ function showAllStands(){
   if(!valid.length){document.getElementById('status-bar').innerHTML='No saved stands to show.';return;}
   const bounds=L.latLngBounds(valid.map(item=>[Number(item.lat), Number(item.lng)]));
   try{map.fitBounds(bounds.pad(.24), {maxZoom:17, animate:false});}catch(e){}
+  revealMapTitleBadge('show-all-stands');
   setTimeout(()=>{ valid.forEach(item=>{try{allLayers[item.id]?.openTooltip();}catch(e){}}); }, 180);
   document.getElementById('status-bar').innerHTML=`Showing all stands (${valid.length}).`;
   showScoutToast(`Showing all stands (${valid.length}).`, 2800);
@@ -3818,10 +3850,10 @@ function doSearch(){
   const val=document.getElementById('search-input').value.trim();
   if(!val) return;
   const m=val.match(/^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/);
-  if(m){map.flyTo([parseFloat(m[1]),parseFloat(m[2])],16,{duration:1.5});return;}
+  if(m){map.flyTo([parseFloat(m[1]),parseFloat(m[2])],16,{duration:1.5});revealMapTitleBadge('search-latlng');return;}
   fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(val)}&limit=1`)
     .then(r=>r.json()).then(data=>{
-      if(data?.length) map.flyTo([parseFloat(data[0].lat),parseFloat(data[0].lon)],15,{duration:1.5});
+      if(data?.length){ map.flyTo([parseFloat(data[0].lat),parseFloat(data[0].lon)],15,{duration:1.5}); revealMapTitleBadge('search-address'); }
       else{document.getElementById('status-bar').innerHTML='⚠️ Not found — try lat,lng like 43.12,-89.45';setTimeout(()=>setMode(mode),3000);}
     }).catch(()=>{document.getElementById('status-bar').innerHTML='⚠️ Search error — try lat,lng';setTimeout(()=>setMode(mode),3000);});
 }
@@ -3921,7 +3953,7 @@ function waitForScoutPrint(ms=900){
   return new Promise(resolve=>setTimeout(resolve, ms));
 }
 async function printMap(){
-  updatePrintableCampBranding();
+  updatePrintableCampBranding({forceVisible:true});
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('print-date').textContent=d;
   const sub=[];
@@ -4066,7 +4098,10 @@ try{
         ]
       : [...stands.map(s=>[s.lat,s.lng]),...windArrows.map(w=>[w.lat,w.lng])];
     const validPts = allPts.filter(pt => Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
-    if(validPts.length && !hasScoutDeepLink) map.flyToBounds(validPts,{padding:[60,60]});
+    if(validPts.length){
+      revealMapTitleBadge('saved-map-content');
+      if(!hasScoutDeepLink) map.flyToBounds(validPts,{padding:[60,60]});
+    }
   }
 }catch(e){}
 applyScoutBuilderMode();enforceScoutDcPlusGate();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();

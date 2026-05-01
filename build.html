@@ -2067,10 +2067,18 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const memberProfiles = [];
   if (stewardName) {
-    memberProfiles.push(buildDefaultMemberProfile(stewardName, "Camp Steward"));
+    const stewardProfile = buildDefaultMemberProfile(stewardName, "Camp Steward");
+    stewardProfile.email = stewardEmail;
+    stewardProfile.status = "Active";
+    stewardProfile.pendingInvite = false;
+    memberProfiles.push(stewardProfile);
   }
   campMembers.forEach((memberName) => {
-    memberProfiles.push(buildDefaultMemberProfile(memberName, "Camp Member"));
+    const memberProfile = buildDefaultMemberProfile(memberName, "Camp Member");
+    memberProfile.email = "";
+    memberProfile.status = "Draft";
+    memberProfile.pendingInvite = false;
+    memberProfiles.push(memberProfile);
   });
 
   const traditions = collectSelectedTraditions();
@@ -2126,6 +2134,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     campMembers: campMembers.slice(),
     members: campMembers.slice(),
     memberProfiles,
+    stewardProfile: memberProfiles.find((member) => String(member.role || "").toLowerCase() === "camp steward") || null,
+    campStewardProfile: memberProfiles.find((member) => String(member.role || "").toLowerCase() === "camp steward") || null,
     traditions,
     deerDrives,
     feedEntries: STARTER_FEED_ENTRIES,

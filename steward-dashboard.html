@@ -324,6 +324,17 @@
       catch { return ""; }
     }
 
+    function getSetupParam(...keys) {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        for (const key of keys) {
+          const value = String(params.get(key) || "").trim();
+          if (value) return value;
+        }
+      } catch (error) {}
+      return "";
+    }
+
     function campScopeKey(campId, suffix) {
       const cleanCampId = String(campId || "").trim();
       return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
@@ -708,6 +719,34 @@
       return true;
     }
 
+    function ensureStewardMember() {
+      if (!Array.isArray(state.members)) state.members = [];
+      const cleanName = String(state.stewardName || "").trim();
+      const cleanEmail = String(state.stewardEmail || "").trim();
+      let stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
+      if (!stewardMember && (cleanName || cleanEmail)) {
+        stewardMember = {
+          name: cleanName || "Steward",
+          email: cleanEmail,
+          note: "Keeps camp information current and helps guide the full DeerCamp experience.",
+          role: "Camp Steward",
+          status: "Active",
+          pendingInvite: false
+        };
+        state.members.unshift(stewardMember);
+      }
+      if (stewardMember) {
+        if (cleanName && (!stewardMember.name || String(stewardMember.name).trim().toLowerCase() === "steward")) stewardMember.name = cleanName;
+        if (cleanEmail && !String(stewardMember.email || "").trim()) stewardMember.email = cleanEmail;
+        stewardMember.role = "Camp Steward";
+        stewardMember.status = "Active";
+        stewardMember.pendingInvite = false;
+        state.stewardName = String(stewardMember.name || cleanName || "Steward").trim();
+        state.stewardEmail = String(stewardMember.email || cleanEmail || "").trim();
+      }
+      state.members = dedupeMembers(state.members);
+    }
+
     const urlCampId = getCampIdFromUrl();
     const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
     const inferredCampId = String(urlCampId || localStorage.getItem(ACTIVE_CAMP_KEY) || genericCampData.campId || "").trim();
@@ -784,8 +823,8 @@
         hero: String(campData.hero || campData.brandImage || campData.brandingImage || savedDashboard.camp?.hero || fallbackHero || "").trim(),
         publishState: normalizePublishState(campData.publishState || campData.visibility || savedDashboard.camp?.publishState || "private")
       },
-      stewardName: String(campData.stewardName || campData.steward || savedDashboard.stewardName || "").trim() || "Steward",
-      stewardEmail: String(campData.stewardEmail || savedDashboard.stewardEmail || "").trim(),
+      stewardName: String(getSetupParam("campSteward", "stewardName") || campData.stewardName || campData.steward || savedDashboard.stewardName || "").trim() || "Steward",
+      stewardEmail: String(getSetupParam("campStewardEmail", "stewardEmail") || campData.stewardEmail || savedDashboard.stewardEmail || "").trim(),
       sections: Object.assign({}, defaultSections, savedDashboard.sections || campData.enabledSections || {}),
       selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
         ? savedDashboard.selectedRecipeIds.map(String)
@@ -826,24 +865,7 @@
 
     if (!Array.isArray(state.members)) state.members = [];
     state.members = dedupeMembers(state.members);
-    const stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
-    if (stewardMember) {
-      if (!stewardMember.email && state.stewardEmail) stewardMember.email = state.stewardEmail;
-      if (!stewardMember.name && state.stewardName) stewardMember.name = state.stewardName;
-      state.stewardName = stewardMember.name || state.stewardName;
-      state.stewardEmail = stewardMember.email || state.stewardEmail;
-      stewardMember.pendingInvite = false;
-      stewardMember.status = "Active";
-    } else if (state.stewardName) {
-      state.members.unshift({
-        name: state.stewardName,
-        email: state.stewardEmail,
-        note: "Keeps camp information current and helps guide the full DeerCamp experience.",
-        role: "Camp Steward",
-        status: "Active",
-        pendingInvite: false
-      });
-    }
+    ensureStewardMember();
 
     const sectionConfig = [
       { key: "campfeed", label: "CampFeed", note: "The running stream of recent camp posts and member interaction." },
@@ -1062,6 +1084,7 @@
     }
 
     function syncCampData() {
+      ensureStewardMember();
       const keptMembers = dedupeMembers(state.members)
         .filter(member => String(member.status || "Active").toLowerCase() !== "removed")
         .map(member => {
@@ -1874,6 +1897,7 @@
           return member;
         });
       }
+      ensureStewardMember();
       try {
         const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
         localStorage.setItem(scopedCampDataKey, JSON.stringify(cloudCampCache));
