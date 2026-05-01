@@ -37,6 +37,10 @@
   .header-actions{display:flex;align-items:center;gap:10px}
   .scout-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(73,102,71,.22);background:rgba(255,255,255,.94);color:#27411e;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap}
   .scout-btn:hover{background:#fff;transform:translateY(-1px)}
+  .billing-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid rgba(106,68,39,.22);background:rgba(255,255,255,.94);color:#4b3116;font-weight:800;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,.12);white-space:nowrap;cursor:pointer}
+  .billing-btn:hover{background:#fff;transform:translateY(-1px)}
+  .billing-btn.is-plus{border-color:rgba(73,102,71,.28);color:#27411e}
+  .billing-btn[hidden]{display:none!important}
   .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
   .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
   .scout-builder-menu.open{display:grid;gap:6px}
@@ -364,6 +368,7 @@
     <div class="header-right">
       <div class="header-actions">
         <div class="scout-menu-wrap"><button id="headerScoutBtn" class="scout-btn" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="headerScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="headerStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="headerDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
+        <button id="campBillingBtn" class="billing-btn" type="button" hidden>Upgrade to DC+</button>
         <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
       </div>
     </div>
@@ -925,6 +930,48 @@ function bindScoutBuilderMenus(){
   if(headerBtn && !headerBtn.dataset.scoutMenuBound){headerBtn.dataset.scoutMenuBound='1'; headerBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('headerScoutBuilderMenu','headerScoutBtn');});}
   if(mobileBtn && !mobileBtn.dataset.scoutMenuBound){mobileBtn.dataset.scoutMenuBound='1'; mobileBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('mobileScoutBuilderMenu','mobileScoutBtn');});}
 }
+
+function isCampDcPlusActive(){
+  try{
+    if(window.DeerCampBilling && typeof window.DeerCampBilling.hasDcPlus === "function" && window.DeerCampBilling.hasDcPlus(data)) return true;
+  }catch(error){}
+  try{
+    const billing = data && typeof data.billing === "object" ? data.billing : {};
+    const tier = String(billing.tier || data.tier || "").toLowerCase();
+    const status = String(billing.status || data.billingStatus || "").toLowerCase();
+    return ["dc_plus","dc+","plus"].includes(tier) && ["active","trialing"].includes(status);
+  }catch(error){ return false; }
+}
+function renderCampBillingButton(){
+  const btn=document.getElementById('campBillingBtn');
+  if(!btn) return;
+  const isPlus=isCampDcPlusActive();
+  btn.hidden=false;
+  btn.classList.toggle('is-plus', isPlus);
+  btn.textContent=isPlus ? 'Manage Billing' : 'Upgrade to DC+';
+  btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
+}
+async function handleCampBillingClick(){
+  const btn=document.getElementById('campBillingBtn');
+  if(!btn || !window.DeerCampBilling) return;
+  const original=btn.textContent;
+  btn.disabled=true;
+  try{
+    if(isCampDcPlusActive()){
+      btn.textContent='Opening billing...';
+      await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
+    }else{
+      btn.textContent='Opening checkout...';
+      await window.DeerCampBilling.startCheckout({campId:activeCampId, priceId:window.DeerCampBilling.prices.dcPlusMonthly, successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success`, cancelUrl:window.location.href});
+    }
+  }catch(error){
+    console.warn('Camp billing action failed.', error);
+    btn.textContent=error?.message || 'Billing unavailable';
+    setTimeout(()=>{btn.textContent=original; btn.disabled=false;}, 2400);
+    return;
+  }
+  btn.disabled=false;
+}
 function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
 function hasStewardDashboardAccess(){
   try{
@@ -1228,6 +1275,7 @@ function renderMenu(){
   const scoutLinks = `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>`;
   menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
   bindScoutBuilderMenus();
+renderCampBillingButton();
   bindMenuLinks();
 }
 
@@ -2493,6 +2541,7 @@ window.addEventListener("resize", () => {
 });
 ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
+document.getElementById('campBillingBtn')?.addEventListener('click', handleCampBillingClick);
 </script>
 </body>
 </html>

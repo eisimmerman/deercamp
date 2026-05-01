@@ -900,27 +900,47 @@ function campScopeKey(campId,suffix){
 function safeParse(raw,fallback={}){
   try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}
 }
+function humanizeCampNameFromId(campId){
+  const raw=String(campId||'').trim().toLowerCase();
+  if(!raw) return '';
+  const parts=raw.replace(/^camp-/, '').split('-').filter(Boolean);
+  const stop=new Set(['wi','mn','mi','ia','il','in','oh','pa','ny','tx','zip']);
+  const words=[];
+  for(const part of parts){
+    if(/^\d{5}$/.test(part) || stop.has(part)) break;
+    words.push(part);
+  }
+  if(!words.length) return '';
+  return words.map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ');
+}
+function isGenericCampName(value){
+  const clean=String(value||'').trim().toLowerCase();
+  return !clean || clean==='deercamp' || clean==='your deercamp' || clean==='your camp';
+}
+function getScopedCampSnapshotForScout(){
+  const scopedFromUrl = getCampIdFromUrl();
+  const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+  const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+  const genericCampId = String(genericCampData.campId || genericCampData.id || '').trim();
+  const activeCampId = String(scopedFromUrl || activeFromStorage || genericCampId || '').trim();
+  const scopedKey = campScopeKey(activeCampId, 'campData');
+  const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
+  const genericMatches = !activeCampId || !genericCampId || genericCampId === activeCampId;
+  return {activeCampId, scoped, generic: genericMatches ? genericCampData : {}};
+}
 function getActiveCampDisplayName(){
+  const {activeCampId, scoped, generic} = getScopedCampSnapshotForScout();
+  const sources = [scoped, generic];
+  for(const src of sources){
+    const candidate = String(src?.campName || src?.name || src?.title || src?.campTitle || src?.camp || '').trim();
+    if(!isGenericCampName(candidate)) return candidate;
+  }
   try{
     const params = new URLSearchParams(window.location.search);
     const fromUrl = String(params.get('campName') || params.get('name') || '').trim();
-    if(fromUrl) return fromUrl;
+    if(!isGenericCampName(fromUrl)) return fromUrl;
   }catch(e){}
-  try{
-    const scopedFromUrl = getCampIdFromUrl();
-    const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
-    const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
-    const genericCampId = String(genericCampData.campId || genericCampData.id || '').trim();
-    const activeCampId = String(scopedFromUrl || activeFromStorage || genericCampId || '').trim();
-    const scopedKey = campScopeKey(activeCampId, 'campData');
-    const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
-    const sources = [scoped, genericCampData];
-    for(const src of sources){
-      const candidate = String(src?.campName || src?.name || src?.title || src?.campTitle || src?.camp || '').trim();
-      if(candidate) return candidate;
-    }
-  }catch(e){}
-  return 'DeerCamp';
+  return humanizeCampNameFromId(activeCampId) || 'DeerCamp';
 }
 function updatePrintableCampBranding(){
   const campName = getActiveCampDisplayName();
@@ -1007,14 +1027,7 @@ function clearDeerDriveBuilderDraft(options={}){
   }
 }
 function getActiveScoutCampDataSnapshot(){
-  const scopedFromUrl = getCampIdFromUrl();
-  const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
-  const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
-  const genericCampId = String(genericCampData.campId || genericCampData.id || '').trim();
-  const activeCampId = String(scopedFromUrl || activeFromStorage || genericCampId || '').trim();
-  const scopedKey = campScopeKey(activeCampId, 'campData');
-  const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
-  return {activeCampId, scoped, generic: genericCampData};
+  return getScopedCampSnapshotForScout();
 }
 function campHasSavedDeerDrives(){
   const {scoped, generic} = getActiveScoutCampDataSnapshot();
@@ -3193,10 +3206,8 @@ async function hydrateScoutStandsFromCampForDeepLink(){
   const campId = getCampIdFromUrl();
   const sources = [];
   try{
-    const scopedKey = campScopeKey(campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
-    const scoped = scopedKey ? safeParse(localStorage.getItem(scopedKey), {}) : {};
-    const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
-    sources.push(scoped, generic);
+    const snapshot = getScopedCampSnapshotForScout();
+    sources.push(snapshot.scoped, snapshot.generic);
   }catch(e){}
 
   if(campId && window.DeerCampCloud && typeof window.DeerCampCloud.getCamp === 'function'){
@@ -3821,8 +3832,19 @@ document.getElementById('modal-save-drive-image')?.addEventListener('click',e=>{
 // ═══════════════════════════════════════════════
 // PERSIST
 // ═══════════════════════════════════════════════
+function getScoutStateStorageKey(){
+  const campId=getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+  return campId ? campScopeKey(campId,'scoutState') : 'sse-v4';
+}
+function getLegacyScoutStateForUnscopedUse(){
+  const campId=getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '';
+  return campId ? null : localStorage.getItem('sse-v4');
+}
 function saveLocal(){
-  try{localStorage.setItem('sse-v4',JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,recContext:{recWind,recTime,recSeason}}));}catch(e){}
+  try{
+    const payload=JSON.stringify({campId:getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '',stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,recContext:{recWind,recTime,recSeason}});
+    localStorage.setItem(getScoutStateStorageKey(),payload);
+  }catch(e){}
 }
 function exportData(){
   const blob=new Blob([JSON.stringify({stands,routes,boundaries,windArrows,areaPolys,drivers,standers,deerDrivePlan,recContext:{recWind,recTime,recSeason}},null,2)],{type:'application/json'});
@@ -3942,11 +3964,9 @@ function getScoutBillingCampId(){
   }catch(error){ return String(localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim(); }
 }
 function getScoutBillingCampData(){
-  const campId=getScoutBillingCampId();
   try{
-    const scoped=campId ? safeParse(localStorage.getItem(campScopeKey(campId,'campData')), {}) : {};
-    const generic=safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
-    return Object.keys(scoped||{}).length ? scoped : generic;
+    const snapshot=getScopedCampSnapshotForScout();
+    return Object.keys(snapshot.scoped||{}).length ? snapshot.scoped : snapshot.generic;
   }catch(error){ return {}; }
 }
 function scoutHasDcPlus(){
@@ -4011,7 +4031,7 @@ document.addEventListener('click', event=>{
 // INIT
 // ═══════════════════════════════════════════════
 try{
-  const saved=localStorage.getItem('sse-v4');
+  const saved=localStorage.getItem(getScoutStateStorageKey()) || getLegacyScoutStateForUnscopedUse();
   if(saved){
     const d=JSON.parse(saved);
     stands=d.stands||[];routes=d.routes||[];boundaries=d.boundaries||[];windArrows=d.windArrows||[];areaPolys=d.areaPolys||[];drivers=d.drivers||[];standers=d.standers||[];deerDrivePlan=Object.assign(blankDeerDrivePlan(), d.deerDrivePlan||{});recWind=d.recContext?.recWind||recWind;recTime=d.recContext?.recTime||recTime;recSeason=d.recContext?.recSeason||recSeason;
