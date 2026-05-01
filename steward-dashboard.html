@@ -1959,9 +1959,21 @@
       document.body.appendChild(backdrop); document.body.appendChild(modal);
       const close=()=>{backdrop.classList.remove('open'); modal.classList.remove('open');};
       backdrop.addEventListener('click', close); document.getElementById('dashboardBillingClose')?.addEventListener('click', close);
-      const start=async(priceId)=>{ const status=document.getElementById('dashboardBillingStatus'); try{ status.textContent='Opening secure Stripe checkout...'; status.classList.remove('error'); await window.DeerCampBilling.startCheckout({campId:state.campId, priceId, email:state.stewardEmail||''}); }catch(error){ status.textContent=error?.message || 'Could not start checkout.'; status.classList.add('error'); } };
-      document.getElementById('dashboardBillingMonthly')?.addEventListener('click',()=>start(window.DeerCampBilling?.prices?.dcPlusMonthly));
-      document.getElementById('dashboardBillingAnnual')?.addEventListener('click',()=>start(window.DeerCampBilling?.prices?.dcPlusAnnual));
+      const start=async(planKey)=>{
+        const status=document.getElementById('dashboardBillingStatus');
+        try{
+          if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
+          status.textContent='Opening secure Stripe checkout...';
+          status.classList.remove('error');
+          await window.DeerCampBilling.startCheckout({campId:state.campId, planKey, email:state.stewardEmail||''});
+        }catch(error){
+          console.error('Dashboard billing checkout failed', error);
+          status.textContent=error?.message || 'Could not start checkout.';
+          status.classList.add('error');
+        }
+      };
+      document.getElementById('dashboardBillingMonthly')?.addEventListener('click',()=>start('dcPlusMonthly'));
+      document.getElementById('dashboardBillingAnnual')?.addEventListener('click',()=>start('dcPlusAnnual'));
     }
     function openDashboardBillingModal(){ ensureDashboardBillingModal(); document.getElementById('dashboardBillingBackdrop')?.classList.add('open'); document.getElementById('dashboardBillingModal')?.classList.add('open'); }
     async function openDashboardBillingPortal(){

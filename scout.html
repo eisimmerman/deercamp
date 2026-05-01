@@ -4021,9 +4021,24 @@ function ensureScoutBillingLock(){
   const lock=document.createElement('div'); lock.id='scoutBillingLock'; lock.className='scout-billing-lock';
   lock.innerHTML=`<div class="scout-billing-card"><h2>Unlock DeerCamp Scout Elite</h2><p>Stand Builder, Drive Builder, show-all maps, and 24×36 poster PDF exports are included with DC+.</p><div class="scout-billing-actions"><button class="hdr-btn hp" id="scoutBillingMonthly" type="button">Start DC+ Monthly</button><button class="hdr-btn hp" id="scoutBillingAnnual" type="button">Start DC+ Annual</button><button class="hdr-btn hg" id="scoutBillingBack" type="button">Back to Camp</button></div><div id="scoutBillingStatus" class="scout-billing-status"></div></div>`;
   document.body.appendChild(lock);
-  const start=async(priceId)=>{ const status=document.getElementById('scoutBillingStatus'); try{ status.textContent='Opening secure Stripe checkout...'; status.classList.remove('error'); const campId=getScoutBillingCampId(); await window.DeerCampBilling.startCheckout({campId, priceId, successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success`, cancelUrl:window.location.href}); }catch(error){ status.textContent=error?.message || 'Could not start checkout.'; status.classList.add('error'); } };
-  document.getElementById('scoutBillingMonthly')?.addEventListener('click',()=>start(window.DeerCampBilling?.prices?.dcPlusMonthly));
-  document.getElementById('scoutBillingAnnual')?.addEventListener('click',()=>start(window.DeerCampBilling?.prices?.dcPlusAnnual));
+  const start=async(planKey)=>{
+    const status=document.getElementById('scoutBillingStatus');
+    try{
+      if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
+      status.textContent='Opening secure Stripe checkout...';
+      status.classList.remove('error');
+      const campId=getScoutBillingCampId();
+      const campData=getScoutBillingCampData();
+      const email=campData.stewardEmail||campData.campStewardEmail||campData.email||'';
+      await window.DeerCampBilling.startCheckout({campId, planKey, email, successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success`, cancelUrl:window.location.href});
+    }catch(error){
+      console.error('Scout billing checkout failed', error);
+      status.textContent=error?.message || 'Could not start checkout.';
+      status.classList.add('error');
+    }
+  };
+  document.getElementById('scoutBillingMonthly')?.addEventListener('click',()=>start('dcPlusMonthly'));
+  document.getElementById('scoutBillingAnnual')?.addEventListener('click',()=>start('dcPlusAnnual'));
   document.getElementById('scoutBillingBack')?.addEventListener('click',()=>{ const campId=getScoutBillingCampId(); window.location.href=`camp.html${campId?`?campId=${encodeURIComponent(campId)}`:''}`; });
 }
 function enforceScoutDcPlusGate(){

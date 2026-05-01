@@ -251,6 +251,27 @@
       dcPlusMonthly: "price_1TRsjcDOIUbMFzLxNCO58x3n",
       dcPlusAnnual: "price_1TRsjcDOIUbMFzLxmw4bEOuM"
     },
+    getConfiguredPrices() {
+      const defaults = { ...this.prices };
+      try {
+        const runtimePrices = window.DEERCAMP_STRIPE_PRICES && typeof window.DEERCAMP_STRIPE_PRICES === "object" ? window.DEERCAMP_STRIPE_PRICES : {};
+        const storedPrices = JSON.parse(localStorage.getItem("deercamp.stripePrices") || "{}");
+        const monthlyOverride = localStorage.getItem("deercamp.stripe.price.dcPlusMonthly") || "";
+        const annualOverride = localStorage.getItem("deercamp.stripe.price.dcPlusAnnual") || "";
+        return {
+          dcPlusMonthly: String(monthlyOverride || storedPrices.dcPlusMonthly || runtimePrices.dcPlusMonthly || defaults.dcPlusMonthly || "").trim(),
+          dcPlusAnnual: String(annualOverride || storedPrices.dcPlusAnnual || runtimePrices.dcPlusAnnual || defaults.dcPlusAnnual || "").trim()
+        };
+      } catch (error) {
+        return defaults;
+      }
+    },
+    resolvePriceId(planKey, explicitPriceId) {
+      const cleanExplicit = String(explicitPriceId || "").trim();
+      if (cleanExplicit) return cleanExplicit;
+      const configured = this.getConfiguredPrices();
+      return String(configured[planKey] || configured.dcPlusMonthly || "").trim();
+    },
     normalizeTier(value) {
       const clean = String(value || "").trim().toLowerCase();
       if (["dc_plus", "dc+", "plus", "deercamp_plus"].includes(clean)) return "dc_plus";
@@ -273,39 +294,57 @@
       return billing.tier === "dc_plus" && ["active", "trialing"].includes(billing.status);
     },
     async postJson(url, payload) {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload || {})
-      });
-      const json = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(json.error || "Billing request failed.");
+      let response;
+      try {
+        response = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload || {})
+        });
+      } catch (networkError) {
+        const message = networkError && networkError.message ? networkError.message : String(networkError || "Network request failed.");
+        throw new Error(`Billing endpoint could not be reached: ${url} (${message})`);
+      }
+
+      const raw = await response.text().catch(() => "");
+      let json = {};
+      try { json = raw ? JSON.parse(raw) : {}; } catch (error) { json = {}; }
+
+      if (!response.ok) {
+        const serverMessage = String(json.error || json.message || raw || response.statusText || "Billing request failed.").trim();
+        const shortMessage = serverMessage.length > 220 ? `${serverMessage.slice(0, 220)}...` : serverMessage;
+        throw new Error(`Billing endpoint ${response.status} failed at ${url}: ${shortMessage}`);
+      }
+
       return json;
     },
     async postJsonWithFallback(urls, payload) {
       const endpointList = Array.isArray(urls) ? urls : [urls];
-      let lastError = null;
+      const errors = [];
       for (const url of endpointList) {
         try {
           return await this.postJson(url, payload);
         } catch (error) {
-          lastError = error;
-          console.warn("DeerCamp billing endpoint failed; trying next endpoint.", { url, error: error && error.message ? error.message : String(error) });
+          const message = error && error.message ? error.message : String(error || "Billing request failed.");
+          errors.push(message);
+          console.warn("DeerCamp billing endpoint failed; trying next endpoint.", { url, error: message });
         }
       }
-      throw lastError || new Error("Billing request failed.");
+      throw new Error(errors.length ? `Billing request failed. ${errors.join(" | ")}` : "Billing request failed.");
     },
     async startCheckout(options = {}) {
       const campId = String(options.campId || "").trim();
-      const priceId = String(options.priceId || this.prices.dcPlusMonthly).trim();
+      const planKey = String(options.planKey || "dcPlusMonthly").trim();
+      const priceId = this.resolvePriceId(planKey, options.priceId);
       if (!campId) throw new Error("Missing campId for checkout.");
-      if (!priceId) throw new Error("Missing Stripe priceId for checkout.");
+      if (!priceId) throw new Error(`Missing Stripe priceId for ${planKey}. Add the real Stripe price ID before checkout can open.`);
       const origin = window.location.origin;
       const successUrl = options.successUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = options.cancelUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=cancelled`;
       const payload = {
         campId,
         priceId,
+        planKey,
         email: options.email || "",
         successUrl,
         cancelUrl
