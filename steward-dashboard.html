@@ -428,6 +428,64 @@
       return !clean || clean === "your deercamp" || clean === "deercamp" || clean === "camp";
     }
 
+    function isPlaceholderStewardName(value = "") {
+      const clean = String(value || "").trim().toLowerCase();
+      return !clean || clean === "steward" || clean === "camp steward" || clean === "your steward";
+    }
+
+    function firstNonPlaceholderStewardName(...values) {
+      for (const value of values) {
+        const clean = String(value || "").trim();
+        if (clean && !isPlaceholderStewardName(clean)) return clean;
+      }
+      return "";
+    }
+
+    function firstNonEmpty(...values) {
+      for (const value of values) {
+        const clean = String(value || "").trim();
+        if (clean) return clean;
+      }
+      return "";
+    }
+
+    function readSetupSeedForCamp(campId = "") {
+      const cleanCampId = String(campId || "").trim();
+      const keys = [
+        campScopeKey(cleanCampId, "setupSeed"),
+        `deercamp.setupSeed.${cleanCampId}`,
+        "deercamp.lastCampSetupSeed",
+        "deercamp.lastWelcomeEmail"
+      ].filter(Boolean);
+      for (const key of keys) {
+        try {
+          const parsed = safeParse(localStorage.getItem(key), {});
+          if (!parsed || typeof parsed !== "object") continue;
+          const seedCampId = String(parsed.campId || "").trim();
+          if (seedCampId && cleanCampId && seedCampId !== cleanCampId) continue;
+          const seedName = firstNonPlaceholderStewardName(parsed.stewardName, parsed.campSteward, parsed.stewardFirstName);
+          const seedEmail = firstNonEmpty(parsed.stewardEmail, parsed.campStewardEmail, parsed.email, parsed.to);
+          if (seedName || seedEmail) return parsed;
+        } catch (error) {}
+      }
+      return {};
+    }
+
+    function findStewardCandidate(...collections) {
+      for (const collection of collections) {
+        if (!Array.isArray(collection)) continue;
+        for (const item of collection) {
+          if (!item || typeof item !== "object") continue;
+          const role = String(item.role || item.roleTitle || "").trim().toLowerCase();
+          const hasStewardRole = role === "camp steward" || role === "steward" || role.includes("steward");
+          const name = firstNonPlaceholderStewardName(item.name, item.displayName, item.fullName);
+          const email = firstNonEmpty(item.email, item.stewardEmail);
+          if ((hasStewardRole && (name || email)) || email) return item;
+        }
+      }
+      return null;
+    }
+
     function defaultHeroForState(stateCode = "") {
       const code = String(stateCode || "").trim().toUpperCase();
       const midwest = ["IA","IL","IN","KS","MI","MN","MO","ND","NE","OH","SD","WI"];
@@ -721,13 +779,23 @@
 
     function ensureStewardMember() {
       if (!Array.isArray(state.members)) state.members = [];
-      const cleanName = String(state.stewardName || "").trim();
-      const cleanEmail = String(state.stewardEmail || "").trim();
+
+      const seededName = firstNonPlaceholderStewardName(
+        state.stewardName,
+        getSetupParam("campSteward", "stewardName"),
+        setupSeedStewardName
+      );
+      const seededEmail = firstNonEmpty(
+        state.stewardEmail,
+        getSetupParam("campStewardEmail", "stewardEmail"),
+        setupSeedStewardEmail
+      );
+
       let stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
-      if (!stewardMember && (cleanName || cleanEmail)) {
+      if (!stewardMember && (seededName || seededEmail)) {
         stewardMember = {
-          name: cleanName || "Steward",
-          email: cleanEmail,
+          name: seededName || "Steward",
+          email: seededEmail,
           note: "Keeps camp information current and helps guide the full DeerCamp experience.",
           role: "Camp Steward",
           status: "Active",
@@ -735,15 +803,21 @@
         };
         state.members.unshift(stewardMember);
       }
+
       if (stewardMember) {
-        if (cleanName && (!stewardMember.name || String(stewardMember.name).trim().toLowerCase() === "steward")) stewardMember.name = cleanName;
-        if (cleanEmail && !String(stewardMember.email || "").trim()) stewardMember.email = cleanEmail;
+        const currentMemberName = String(stewardMember.name || "").trim();
+        const betterName = firstNonPlaceholderStewardName(seededName, currentMemberName, state.stewardName);
+        const betterEmail = firstNonEmpty(seededEmail, stewardMember.email, state.stewardEmail);
+        stewardMember.name = betterName || "Steward";
+        stewardMember.email = betterEmail;
         stewardMember.role = "Camp Steward";
         stewardMember.status = "Active";
         stewardMember.pendingInvite = false;
-        state.stewardName = String(stewardMember.name || cleanName || "Steward").trim();
-        state.stewardEmail = String(stewardMember.email || cleanEmail || "").trim();
+        stewardMember.note = String(stewardMember.note || "").trim() || "Keeps camp information current and helps guide the full DeerCamp experience.";
+        state.stewardName = firstNonPlaceholderStewardName(betterName, state.stewardName) || "Steward";
+        state.stewardEmail = betterEmail;
       }
+
       state.members = dedupeMembers(state.members);
     }
 
@@ -781,8 +855,19 @@
 
     const derivedCampFromId = deriveCampDisplayFromId(activeCampId);
     const fallbackHero = defaultHeroForState(derivedCampFromId.state);
+    const setupSeed = readSetupSeedForCamp(activeCampId);
+    const setupSeedStewardName = firstNonPlaceholderStewardName(setupSeed.stewardName, setupSeed.campSteward, setupSeed.stewardFirstName);
+    const setupSeedStewardEmail = firstNonEmpty(setupSeed.stewardEmail, setupSeed.campStewardEmail, setupSeed.email, setupSeed.to);
 
     const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+    const stewardProfileCandidate = findStewardCandidate(
+      [campData.campStewardProfile, campData.stewardProfile].filter(Boolean),
+      memberProfiles,
+      Array.isArray(campData.dashboardMembers) ? campData.dashboardMembers : [],
+      Array.isArray(campData.dashboardPeople) ? campData.dashboardPeople : [],
+      Array.isArray(savedDashboard.members) ? savedDashboard.members : [],
+      Array.isArray(savedDashboard.people) ? savedDashboard.people : []
+    );
     const fallbackMembers = [];
     if (String(campData.stewardName || campData.steward || "").trim()) {
       fallbackMembers.push({
@@ -823,8 +908,21 @@
         hero: String(campData.hero || campData.brandImage || campData.brandingImage || savedDashboard.camp?.hero || fallbackHero || "").trim(),
         publishState: normalizePublishState(campData.publishState || campData.visibility || savedDashboard.camp?.publishState || "private")
       },
-      stewardName: String(getSetupParam("campSteward", "stewardName") || campData.stewardName || campData.steward || savedDashboard.stewardName || "").trim() || "Steward",
-      stewardEmail: String(getSetupParam("campStewardEmail", "stewardEmail") || campData.stewardEmail || savedDashboard.stewardEmail || "").trim(),
+      stewardName: firstNonPlaceholderStewardName(
+        getSetupParam("campSteward", "stewardName"),
+        setupSeedStewardName,
+        campData.stewardName,
+        campData.steward,
+        stewardProfileCandidate?.name,
+        savedDashboard.stewardName
+      ) || "Steward",
+      stewardEmail: firstNonEmpty(
+        getSetupParam("campStewardEmail", "stewardEmail"),
+        setupSeedStewardEmail,
+        campData.stewardEmail,
+        stewardProfileCandidate?.email,
+        savedDashboard.stewardEmail
+      ),
       sections: Object.assign({}, defaultSections, savedDashboard.sections || campData.enabledSections || {}),
       selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
         ? savedDashboard.selectedRecipeIds.map(String)
@@ -1882,8 +1980,29 @@
       state.camp.hero = String(cloud.hero || cloud.campHero || cloud.campBrand || cloud.brandImage || cloud.brandingImage || cloud.heroTemplate || slimCamp.hero || state.camp.hero || defaultHeroForState(state.camp.state) || "").trim();
       state.camp.summary = sanitizeSummary(cloud.summary || cloud.about || slimCamp.summary || state.camp.summary || "");
       state.camp.publishState = normalizePublishState(cloud.publishState || cloud.visibility || slimCamp.publishState || state.camp.publishState);
-      state.stewardName = String(cloud.stewardName || cloud.steward || slim.stewardName || state.stewardName || "").trim() || "Steward";
-      state.stewardEmail = String(cloud.stewardEmail || slim.stewardEmail || state.stewardEmail || "").trim();
+      const cloudStewardCandidate = findStewardCandidate(
+        [cloud.campStewardProfile, cloud.stewardProfile].filter(Boolean),
+        Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : [],
+        Array.isArray(cloud.dashboardMembers) ? cloud.dashboardMembers : [],
+        Array.isArray(cloud.dashboardPeople) ? cloud.dashboardPeople : [],
+        Array.isArray(slim.members) ? slim.members : [],
+        Array.isArray(slim.people) ? slim.people : []
+      );
+      state.stewardName = firstNonPlaceholderStewardName(
+        setupSeedStewardName,
+        state.stewardName,
+        cloud.stewardName,
+        cloud.steward,
+        slim.stewardName,
+        cloudStewardCandidate?.name
+      ) || "Steward";
+      state.stewardEmail = firstNonEmpty(
+        setupSeedStewardEmail,
+        state.stewardEmail,
+        cloud.stewardEmail,
+        slim.stewardEmail,
+        cloudStewardCandidate?.email
+      );
       const cloudSections = slim.sections || cloud.enabledSections || null;
       if (cloudSections && typeof cloudSections === "object") state.sections = Object.assign({}, state.sections, cloudSections);
       if (Array.isArray(slim.selectedRecipeIds)) state.selectedRecipeIds = slim.selectedRecipeIds.map(String);

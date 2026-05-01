@@ -2212,6 +2212,30 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     safeLocalStorageSet(scopedDashboardSlimKey, initialDashboardSlim, { keepCampId: campId });
   }
 
+  const stewardSetupSeed = {
+    campId,
+    campName: name,
+    city,
+    state,
+    zip,
+    campYear: year,
+    stewardName,
+    campSteward: stewardName,
+    stewardEmail,
+    campStewardEmail: stewardEmail,
+    campMembers: campMembers.join(", "),
+    heroTemplate: selectedSign.file,
+    campHero: selectedSignAssetPath,
+    campBrand: selectedSignAssetPath,
+    createdAt: new Date().toISOString()
+  };
+  safeLocalStorageSet("deercamp.lastCampSetupSeed", stewardSetupSeed, { keepCampId: campId });
+  safeLocalStorageSet(`deercamp.setupSeed.${campId}`, stewardSetupSeed, { keepCampId: campId });
+  const scopedSetupSeedKey = campScopeKey(campId, "setupSeed");
+  if (scopedSetupSeedKey) {
+    safeLocalStorageSet(scopedSetupSeedKey, stewardSetupSeed, { keepCampId: campId });
+  }
+
   let cloudSaved = false;
   try {
     if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
