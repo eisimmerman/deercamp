@@ -1804,12 +1804,67 @@
       if(pill){ pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${plus ? 'DC+' : 'DCF'}`; }
     }
 
+    function applyCloudCampToDashboard(cloud = {}) {
+      if (!cloud || typeof cloud !== "object") return false;
+      const slim = cloud.dashboardSlim && typeof cloud.dashboardSlim === "object" ? cloud.dashboardSlim : {};
+      const slimCamp = slim.camp && typeof slim.camp === "object" ? slim.camp : {};
+      const cloudName = String(cloud.name || cloud.campName || slimCamp.name || "").trim();
+      if (cloudName) state.camp.name = cloudName;
+      state.camp.city = String(cloud.city || slimCamp.city || state.camp.city || "").trim();
+      state.camp.state = String(cloud.state || slimCamp.state || state.camp.state || "").trim();
+      state.camp.zip = String(cloud.zip || slimCamp.zip || state.camp.zip || "").trim();
+      state.camp.established = String(cloud.established || slimCamp.established || state.camp.established || "").trim();
+      state.camp.hero = String(cloud.hero || cloud.brandImage || cloud.brandingImage || slimCamp.hero || state.camp.hero || "").trim();
+      state.camp.summary = sanitizeSummary(cloud.summary || cloud.about || slimCamp.summary || state.camp.summary || "");
+      state.camp.publishState = normalizePublishState(cloud.publishState || cloud.visibility || slimCamp.publishState || state.camp.publishState);
+      state.stewardName = String(cloud.stewardName || cloud.steward || slim.stewardName || state.stewardName || "").trim() || "Steward";
+      state.stewardEmail = String(cloud.stewardEmail || slim.stewardEmail || state.stewardEmail || "").trim();
+      const cloudSections = slim.sections || cloud.enabledSections || null;
+      if (cloudSections && typeof cloudSections === "object") state.sections = Object.assign({}, state.sections, cloudSections);
+      if (Array.isArray(slim.selectedRecipeIds)) state.selectedRecipeIds = slim.selectedRecipeIds.map(String);
+      else if (Array.isArray(cloud.selectedRecipeIds)) state.selectedRecipeIds = cloud.selectedRecipeIds.map(String);
+      const cloudMembers = Array.isArray(slim.members) && slim.members.length ? slim.members : (Array.isArray(cloud.dashboardMembers) && cloud.dashboardMembers.length ? cloud.dashboardMembers : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : []));
+      if (cloudMembers.length) {
+        state.members = cloudMembers.filter(item => String(item.status || "Active").toLowerCase() !== "removed").map(item => {
+          const normalizedStatus = normalizeMemberStatus(item);
+          const member = { name: String(item.name || "").trim(), email: String(item.email || "").trim(), note: String(item.note || "").trim(), role: String(item.role || "Camp Member").trim() || "Camp Member", status: normalizedStatus, pendingInvite: normalizedStatus === "Ready", inviteToken: String(item.inviteToken || "").trim(), inviteSentAt: String(item.inviteSentAt || "").trim(), inviteError: String(item.inviteError || "").trim() };
+          copyMemberProfileFields(member, item);
+          return member;
+        });
+      }
+      try {
+        const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
+        localStorage.setItem(scopedCampDataKey, JSON.stringify(cloudCampCache));
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(cloudCampCache));
+      } catch (error) { console.warn("Could not cache cloud camp data locally.", error); }
+      return true;
+    }
+
+    async function hydrateDashboardFromCloud() {
+      if (!window.DeerCampCloud || typeof DeerCampCloud.getCamp !== "function") return false;
+      try {
+        const cloud = await DeerCampCloud.getCamp(state.campId);
+        if (!cloud || typeof cloud !== "object") return false;
+        if (applyCloudCampToDashboard(cloud)) {
+          syncCampData();
+          renderPreview();
+          renderDashboardBillingControls();
+          renderMembers();
+          renderSections();
+          updateInviteButton();
+          return true;
+        }
+      } catch (error) { console.warn("Could not hydrate Steward Dashboard from Firestore.", error); }
+      return false;
+    }
+
     syncCampData();
     renderPreview();
     renderDashboardBillingControls();
     renderMembers();
     renderSections();
     updateInviteButton();
+    hydrateDashboardFromCloud();
   </script>
 </body>
 </html>

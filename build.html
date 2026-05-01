@@ -2202,7 +2202,18 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   let cloudSaved = false;
   try {
     if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
-      cloudSaved = Boolean(await withTimeout(DeerCampCloud.saveCamp(campId, campData), 3500));
+      const cloudCampPayload = {
+        ...campData,
+        campName: name,
+        dashboardSlim: initialDashboardSlim,
+        enabledSections: { ...initialDashboardSlim.sections },
+        dashboardMembers: initialDashboardSlim.members.map((member) => ({ ...member })),
+        dashboardPeople: initialDashboardSlim.people.map((member) => ({ ...member })),
+        pendingInvites: [],
+        publishState: "private",
+        isPublic: false
+      };
+      cloudSaved = Boolean(await withTimeout(DeerCampCloud.saveCamp(campId, cloudCampPayload), 6000));
     }
   } catch (cloudError) {
     console.warn("Cloud camp save did not finish before redirect.", cloudError);
