@@ -1980,8 +1980,19 @@ function saveLastWelcomeEmailStatus(payload = {}) {
 }
 
 function sendStewardWelcomeEmailInBackground(welcomePayload = {}, stewardEmail = "") {
+  const setupSnapshot = {
+    campId: welcomePayload.campId || "",
+    campName: welcomePayload.campName || "",
+    stewardName: welcomePayload.stewardName || "",
+    stewardFirstName: welcomePayload.stewardFirstName || "",
+    stewardLastName: welcomePayload.stewardLastName || "",
+    campSteward: welcomePayload.stewardName || "",
+    stewardEmail: welcomePayload.stewardEmail || stewardEmail || "",
+    campStewardEmail: welcomePayload.stewardEmail || stewardEmail || ""
+  };
   if (!stewardEmail) {
     saveLastWelcomeEmailStatus({
+      ...setupSnapshot,
       ok: false,
       sentAt: new Date().toISOString(),
       error: "No steward email provided."
@@ -1993,6 +2004,7 @@ function sendStewardWelcomeEmailInBackground(welcomePayload = {}, stewardEmail =
     .then(() => triggerStewardWelcomeEmail(welcomePayload))
     .then((welcomeResult) => {
       saveLastWelcomeEmailStatus({
+        ...setupSnapshot,
         ok: true,
         sentAt: new Date().toISOString(),
         to: stewardEmail,
@@ -2003,6 +2015,7 @@ function sendStewardWelcomeEmailInBackground(welcomePayload = {}, stewardEmail =
     .catch((error) => {
       console.error("Steward welcome email failed:", error);
       saveLastWelcomeEmailStatus({
+        ...setupSnapshot,
         ok: false,
         sentAt: new Date().toISOString(),
         to: stewardEmail,

@@ -950,11 +950,20 @@ function renderCampBillingButton(){
   btn.classList.toggle('is-plus', isPlus);
   btn.textContent=isPlus ? 'Manage Billing' : 'Upgrade to DC+';
   btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
+  if(!btn.dataset.billingBound){
+    btn.dataset.billingBound='1';
+    btn.addEventListener('click', handleCampBillingClick);
+  }
 }
 async function handleCampBillingClick(){
   const btn=document.getElementById('campBillingBtn');
-  if(!btn || !window.DeerCampBilling) return;
+  if(!btn) return;
   const original=btn.textContent;
+  if(!window.DeerCampBilling){
+    btn.textContent='Billing unavailable';
+    setTimeout(()=>{btn.textContent=original;}, 2400);
+    return;
+  }
   btn.disabled=true;
   try{
     if(isCampDcPlusActive()){
@@ -2541,7 +2550,6 @@ window.addEventListener("resize", () => {
 });
 ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
-document.getElementById('campBillingBtn')?.addEventListener('click', handleCampBillingClick);
 </script>
 </body>
 </html>

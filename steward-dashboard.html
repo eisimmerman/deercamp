@@ -335,6 +335,16 @@
       return "";
     }
 
+    function getSetupStewardNameFromUrl() {
+      const direct = firstNonPlaceholderStewardName(
+        getSetupParam("campSteward", "stewardName", "campStewardName", "steward", "name")
+      );
+      if (direct) return direct;
+      const first = getSetupParam("stewardFirstName", "campStewardFirstName", "firstName");
+      const last = getSetupParam("stewardLastName", "campStewardLastName", "lastName");
+      return firstNonPlaceholderStewardName([first, last].filter(Boolean).join(" "));
+    }
+
     function campScopeKey(campId, suffix) {
       const cleanCampId = String(campId || "").trim();
       return cleanCampId ? `${CAMP_SCOPE_PREFIX}${cleanCampId}.${suffix}` : "";
@@ -781,14 +791,13 @@
       if (!Array.isArray(state.members)) state.members = [];
 
       const seededName = firstNonPlaceholderStewardName(
-        state.stewardName,
-        getSetupParam("campSteward", "stewardName"),
-        setupSeedStewardName
+        setupParamStewardName,
+        setupSeedStewardName,
+        state.stewardName
       );
       const seededEmail = firstNonEmpty(
-        state.stewardEmail,
-        getSetupParam("campStewardEmail", "stewardEmail"),
-        setupSeedStewardEmail
+        setupSeedStewardEmail,
+        state.stewardEmail
       );
 
       let stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
@@ -856,8 +865,9 @@
     const derivedCampFromId = deriveCampDisplayFromId(activeCampId);
     const fallbackHero = defaultHeroForState(derivedCampFromId.state);
     const setupSeed = readSetupSeedForCamp(activeCampId);
-    const setupSeedStewardName = firstNonPlaceholderStewardName(setupSeed.stewardName, setupSeed.campSteward, setupSeed.stewardFirstName);
-    const setupSeedStewardEmail = firstNonEmpty(setupSeed.stewardEmail, setupSeed.campStewardEmail, setupSeed.email, setupSeed.to);
+    const setupParamStewardName = getSetupStewardNameFromUrl();
+    const setupSeedStewardName = firstNonPlaceholderStewardName(setupParamStewardName, setupSeed.stewardName, setupSeed.campSteward, setupSeed.campStewardName, setupSeed.steward, [setupSeed.stewardFirstName, setupSeed.stewardLastName].filter(Boolean).join(" "));
+    const setupSeedStewardEmail = firstNonEmpty(getSetupParam("campStewardEmail", "stewardEmail", "email"), setupSeed.stewardEmail, setupSeed.campStewardEmail, setupSeed.email, setupSeed.to);
 
     const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
     const stewardProfileCandidate = findStewardCandidate(
@@ -909,19 +919,24 @@
         publishState: normalizePublishState(campData.publishState || campData.visibility || savedDashboard.camp?.publishState || "private")
       },
       stewardName: firstNonPlaceholderStewardName(
-        getSetupParam("campSteward", "stewardName"),
+        setupParamStewardName,
         setupSeedStewardName,
         campData.stewardName,
+        campData.campSteward,
+        campData.campStewardName,
         campData.steward,
-        stewardProfileCandidate?.name,
-        savedDashboard.stewardName
+        savedDashboard.stewardName,
+        savedDashboard.campSteward,
+        savedDashboard.steward,
+        stewardProfileCandidate?.name
       ) || "Steward",
       stewardEmail: firstNonEmpty(
-        getSetupParam("campStewardEmail", "stewardEmail"),
         setupSeedStewardEmail,
         campData.stewardEmail,
+        campData.campStewardEmail,
         stewardProfileCandidate?.email,
-        savedDashboard.stewardEmail
+        savedDashboard.stewardEmail,
+        savedDashboard.campStewardEmail
       ),
       sections: Object.assign({}, defaultSections, savedDashboard.sections || campData.enabledSections || {}),
       selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
@@ -1989,19 +2004,25 @@
         Array.isArray(slim.people) ? slim.people : []
       );
       state.stewardName = firstNonPlaceholderStewardName(
+        setupParamStewardName,
         setupSeedStewardName,
-        state.stewardName,
         cloud.stewardName,
+        cloud.campSteward,
+        cloud.campStewardName,
         cloud.steward,
         slim.stewardName,
-        cloudStewardCandidate?.name
+        slim.campSteward,
+        cloudStewardCandidate?.name,
+        state.stewardName
       ) || "Steward";
       state.stewardEmail = firstNonEmpty(
         setupSeedStewardEmail,
-        state.stewardEmail,
         cloud.stewardEmail,
+        cloud.campStewardEmail,
         slim.stewardEmail,
-        cloudStewardCandidate?.email
+        slim.campStewardEmail,
+        cloudStewardCandidate?.email,
+        state.stewardEmail
       );
       const cloudSections = slim.sections || cloud.enabledSections || null;
       if (cloudSections && typeof cloudSections === "object") state.sections = Object.assign({}, state.sections, cloudSections);
