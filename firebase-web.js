@@ -251,100 +251,95 @@
       dcPlusMonthly: "price_1TRsjcDOIUbMFzLxNCO58x3n",
       dcPlusAnnual: "price_1TRsjcDOIUbMFzLxmw4bEOuM"
     },
-    getConfiguredPrices() {
-      const defaults = { ...this.prices };
-      try {
-        const runtimePrices = window.DEERCAMP_STRIPE_PRICES && typeof window.DEERCAMP_STRIPE_PRICES === "object" ? window.DEERCAMP_STRIPE_PRICES : {};
-        const storedPrices = JSON.parse(localStorage.getItem("deercamp.stripePrices") || "{}");
-        const monthlyOverride = localStorage.getItem("deercamp.stripe.price.dcPlusMonthly") || "";
-        const annualOverride = localStorage.getItem("deercamp.stripe.price.dcPlusAnnual") || "";
-        return {
-          dcPlusMonthly: String(monthlyOverride || storedPrices.dcPlusMonthly || runtimePrices.dcPlusMonthly || defaults.dcPlusMonthly || "").trim(),
-          dcPlusAnnual: String(annualOverride || storedPrices.dcPlusAnnual || runtimePrices.dcPlusAnnual || defaults.dcPlusAnnual || "").trim()
-        };
-      } catch (error) {
-        return defaults;
-      }
-    },
-    resolvePriceId(planKey, explicitPriceId) {
-      const cleanExplicit = String(explicitPriceId || "").trim();
-      if (cleanExplicit) return cleanExplicit;
-      const configured = this.getConfiguredPrices();
-      return String(configured[planKey] || configured.dcPlusMonthly || "").trim();
-    },
     normalizeTier(value) {
       const clean = String(value || "").trim().toLowerCase();
       if (["dc_plus", "dc+", "plus", "deercamp_plus"].includes(clean)) return "dc_plus";
       if (["dcp", "premium", "deercamp_premium"].includes(clean)) return "dcp";
       return "dcf";
     },
+    parseBoolean(value) {
+      if (value === true) return true;
+      if (value === false || value == null) return false;
+      const clean = String(value || "").trim().toLowerCase();
+      return ["true", "1", "yes", "y", "scheduled", "at_period_end"].includes(clean);
+    },
+    parseDate(value) {
+      if (!value) return null;
+      try {
+        if (typeof value === "object") {
+          if (typeof value.toDate === "function") return value.toDate();
+          if (Number.isFinite(value.seconds)) return new Date(Number(value.seconds) * 1000);
+          if (Number.isFinite(value._seconds)) return new Date(Number(value._seconds) * 1000);
+        }
+        if (typeof value === "number") return new Date(value < 10000000000 ? value * 1000 : value);
+        const clean = String(value || "").trim();
+        if (!clean) return null;
+        if (/^\d+$/.test(clean)) {
+          const numeric = Number(clean);
+          return new Date(numeric < 10000000000 ? numeric * 1000 : numeric);
+        }
+        const parsed = new Date(clean);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+      } catch (error) {
+        return null;
+      }
+    },
     getBilling(data = {}) {
       const billing = data && typeof data.billing === "object" ? data.billing : {};
+      const currentPeriodEnd = billing.currentPeriodEnd || billing.current_period_end || billing.currentPeriodEndsAt || billing.periodEnd || billing.activeUntil || billing.dcPlusActiveUntil || data.currentPeriodEnd || data.current_period_end || data.dcPlusActiveUntil || null;
+      const cancelAt = billing.cancelAt || billing.cancel_at || billing.canceledAtPeriodEnd || data.cancelAt || data.cancel_at || null;
       return {
         tier: this.normalizeTier(billing.tier || data.tier || "dcf"),
         status: String(billing.status || data.billingStatus || "free").toLowerCase(),
         stripeCustomerId: String(billing.stripeCustomerId || ""),
-        stripeSubscriptionId: String(billing.stripeSubscriptionId || ""),
+        stripeSubscriptionId: String(billing.stripeSubscriptionId || billing.subscriptionId || ""),
         priceId: String(billing.priceId || ""),
-        currentPeriodEnd: billing.currentPeriodEnd || null
+        currentPeriodEnd,
+        cancelAt,
+        cancelAtPeriodEnd: this.parseBoolean(billing.cancelAtPeriodEnd || billing.cancel_at_period_end || billing.cancelScheduled || billing.scheduledCancellation || data.cancelAtPeriodEnd || data.cancel_at_period_end) || Boolean(cancelAt && this.parseDate(cancelAt))
       };
     },
     hasDcPlus(data = {}) {
       const billing = this.getBilling(data);
-      return billing.tier === "dc_plus" && ["active", "trialing"].includes(billing.status);
+      const periodEnd = this.parseDate(billing.currentPeriodEnd || billing.cancelAt);
+      const periodStillOpen = periodEnd ? periodEnd.getTime() > Date.now() : false;
+      return billing.tier === "dc_plus" && (["active", "trialing"].includes(billing.status) || (["canceled", "cancelled", "ended", "expired"].includes(billing.status) && periodStillOpen));
     },
     async postJson(url, payload) {
-      let response;
-      try {
-        response = await fetch(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload || {})
-        });
-      } catch (networkError) {
-        const message = networkError && networkError.message ? networkError.message : String(networkError || "Network request failed.");
-        throw new Error(`Billing endpoint could not be reached: ${url} (${message})`);
-      }
-
-      const raw = await response.text().catch(() => "");
-      let json = {};
-      try { json = raw ? JSON.parse(raw) : {}; } catch (error) { json = {}; }
-
-      if (!response.ok) {
-        const serverMessage = String(json.error || json.message || raw || response.statusText || "Billing request failed.").trim();
-        const shortMessage = serverMessage.length > 220 ? `${serverMessage.slice(0, 220)}...` : serverMessage;
-        throw new Error(`Billing endpoint ${response.status} failed at ${url}: ${shortMessage}`);
-      }
-
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload || {})
+      });
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json.error || "Billing request failed.");
       return json;
     },
     async postJsonWithFallback(urls, payload) {
       const endpointList = Array.isArray(urls) ? urls : [urls];
-      const errors = [];
+      let lastError = null;
       for (const url of endpointList) {
         try {
           return await this.postJson(url, payload);
         } catch (error) {
-          const message = error && error.message ? error.message : String(error || "Billing request failed.");
-          errors.push(message);
-          console.warn("DeerCamp billing endpoint failed; trying next endpoint.", { url, error: message });
+          lastError = error;
+          console.warn("DeerCamp billing endpoint failed; trying next endpoint.", { url, error: error && error.message ? error.message : String(error) });
         }
       }
-      throw new Error(errors.length ? `Billing request failed. ${errors.join(" | ")}` : "Billing request failed.");
+      throw lastError || new Error("Billing request failed.");
     },
     async startCheckout(options = {}) {
       const campId = String(options.campId || "").trim();
-      const planKey = String(options.planKey || "dcPlusMonthly").trim();
-      const priceId = this.resolvePriceId(planKey, options.priceId);
+      const planKey = String(options.planKey || "").trim();
+      const priceId = String(options.priceId || (planKey ? this.prices[planKey] : "") || this.prices.dcPlusMonthly).trim();
       if (!campId) throw new Error("Missing campId for checkout.");
-      if (!priceId) throw new Error(`Missing Stripe priceId for ${planKey}. Add the real Stripe price ID before checkout can open.`);
+      if (!priceId) throw new Error("Missing Stripe priceId for checkout.");
       const origin = window.location.origin;
       const successUrl = options.successUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
       const cancelUrl = options.cancelUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=cancelled`;
       const payload = {
         campId,
         priceId,
-        planKey,
         email: options.email || "",
         successUrl,
         cancelUrl

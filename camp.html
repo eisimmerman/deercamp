@@ -41,6 +41,10 @@
   .billing-btn:hover{background:#fff;transform:translateY(-1px)}
   .billing-btn.is-plus{border-color:rgba(73,102,71,.28);color:#27411e}
   .billing-btn[hidden]{display:none!important}
+  .billing-notice{display:block;max-width:1180px;margin:14px auto 0;padding:12px 18px;border-radius:18px;background:rgba(73,102,71,.12);border:1px solid rgba(73,102,71,.20);color:#27411e;font-size:.95rem;font-weight:700;line-height:1.45;box-shadow:0 8px 18px rgba(0,0,0,.08)}
+  .billing-notice.is-warning{background:rgba(177,121,45,.15);border-color:rgba(177,121,45,.24);color:#7c561f}
+  .billing-notice.is-error{background:rgba(139,45,29,.10);border-color:rgba(139,45,29,.18);color:#8b2d1d}
+  .billing-notice[hidden]{display:none!important}
   .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
   .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
   .scout-builder-menu.open{display:grid;gap:6px}
@@ -390,6 +394,8 @@
     <img id="heroMainImage" class="hero-main-image" alt="Camp hero sign or image">
   </div>
 </section>
+
+<div id="billingNotice" class="billing-notice" hidden></div>
 
 <div class="page" id="content"></div>
 
@@ -939,25 +945,127 @@ function bindScoutBuilderMenus(){
   if(mobileBtn && !mobileBtn.dataset.scoutMenuBound){mobileBtn.dataset.scoutMenuBound='1'; mobileBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('mobileScoutBuilderMenu','mobileScoutBtn');});}
 }
 
+function parseBillingBoolean(value){
+  if(value === true) return true;
+  if(value === false || value == null) return false;
+  const clean=String(value).trim().toLowerCase();
+  return ["true","1","yes","y","scheduled","at_period_end"].includes(clean);
+}
+function parseBillingDate(value){
+  if(!value) return null;
+  try{
+    if(typeof value === "object"){
+      if(typeof value.toDate === "function") return value.toDate();
+      if(Number.isFinite(value.seconds)) return new Date(Number(value.seconds) * 1000);
+      if(Number.isFinite(value._seconds)) return new Date(Number(value._seconds) * 1000);
+    }
+    if(typeof value === "number"){
+      return new Date(value < 10000000000 ? value * 1000 : value);
+    }
+    const clean=String(value).trim();
+    if(!clean) return null;
+    if(/^\d+$/.test(clean)){
+      const numeric=Number(clean);
+      return new Date(numeric < 10000000000 ? numeric * 1000 : numeric);
+    }
+    const parsed=new Date(clean);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }catch(error){
+    return null;
+  }
+}
+function formatBillingDate(value){
+  const date=parseBillingDate(value);
+  if(!date) return "";
+  try{
+    return date.toLocaleDateString(undefined,{month:"numeric",day:"numeric"});
+  }catch(error){
+    return `${date.getMonth()+1}/${date.getDate()}`;
+  }
+}
+function getCampBillingInfo(){
+  const billing = data && typeof data.billing === "object" ? data.billing : {};
+  const rawTier = billing.tier || data.tier || "";
+  let tier = String(rawTier || "").trim().toLowerCase();
+  if(window.DeerCampBilling && typeof window.DeerCampBilling.normalizeTier === "function"){
+    try{ tier = window.DeerCampBilling.normalizeTier(rawTier); }catch(error){}
+  }
+  const status = String(billing.status || data.billingStatus || "").trim().toLowerCase();
+  const currentPeriodEnd = billing.currentPeriodEnd || billing.current_period_end || billing.currentPeriodEndsAt || billing.periodEnd || billing.activeUntil || billing.dcPlusActiveUntil || data.currentPeriodEnd || data.current_period_end || data.dcPlusActiveUntil || null;
+  const cancelAt = billing.cancelAt || billing.cancel_at || billing.canceledAtPeriodEnd || data.cancelAt || data.cancel_at || null;
+  const cancelAtPeriodEnd = parseBillingBoolean(billing.cancelAtPeriodEnd || billing.cancel_at_period_end || billing.cancelScheduled || billing.scheduledCancellation || data.cancelAtPeriodEnd || data.cancel_at_period_end) || Boolean(cancelAt && parseBillingDate(cancelAt));
+  const periodEndDate = parseBillingDate(currentPeriodEnd || cancelAt);
+  const periodStillOpen = periodEndDate ? periodEndDate.getTime() > Date.now() : false;
+  const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus"].includes(tier);
+  const activeStatus = ["active","trialing"].includes(status);
+  const pastDueStatus = ["past_due","unpaid","incomplete","incomplete_expired"].includes(status);
+  const endedStatus = ["canceled","cancelled","deleted","ended","expired"].includes(status);
+  const active = dcPlusTier && (activeStatus || (endedStatus && periodStillOpen));
+  const scheduledCancel = active && (cancelAtPeriodEnd || Boolean(cancelAt));
+  return {
+    tier,
+    status,
+    dcPlusTier,
+    active,
+    scheduledCancel,
+    pastDue: dcPlusTier && pastDueStatus,
+    ended: dcPlusTier && endedStatus && !periodStillOpen,
+    currentPeriodEnd,
+    cancelAt,
+    activeUntilDate: periodEndDate,
+    activeUntilLabel: formatBillingDate(currentPeriodEnd || cancelAt),
+    stripeSubscriptionId:String(billing.stripeSubscriptionId || billing.subscriptionId || "").trim()
+  };
+}
 function isCampDcPlusActive(){
   try{
     if(window.DeerCampBilling && typeof window.DeerCampBilling.hasDcPlus === "function" && window.DeerCampBilling.hasDcPlus(data)) return true;
   }catch(error){}
-  try{
-    const billing = data && typeof data.billing === "object" ? data.billing : {};
-    const tier = String(billing.tier || data.tier || "").toLowerCase();
-    const status = String(billing.status || data.billingStatus || "").toLowerCase();
-    return ["dc_plus","dc+","plus"].includes(tier) && ["active","trialing"].includes(status);
-  }catch(error){ return false; }
+  return getCampBillingInfo().active;
+}
+function renderBillingNotice(info = getCampBillingInfo()){
+  const notice=document.getElementById('billingNotice');
+  if(!notice) return;
+  notice.classList.remove('is-warning','is-error');
+  if(info.scheduledCancel){
+    notice.hidden=false;
+    notice.classList.add('is-warning');
+    const until = info.activeUntilLabel ? ` through ${info.activeUntilLabel}` : " through the paid-through date";
+    notice.textContent = `DC+ cancellation is scheduled. Scout Elite, Stand Builder, and Drive Builder stay unlocked${until}.`;
+    return;
+  }
+  if(info.pastDue){
+    notice.hidden=false;
+    notice.classList.add('is-error');
+    notice.textContent = 'DC+ billing needs attention. Paid tools may lock if payment is not fixed.';
+    return;
+  }
+  notice.hidden=true;
+  notice.textContent='';
+}
+function getCampBillingButtonLabel(info = getCampBillingInfo()){
+  if(info.scheduledCancel) return info.activeUntilLabel ? `DC+ Active Until ${info.activeUntilLabel}` : 'DC+ Ending Soon';
+  if(info.pastDue) return 'Fix Billing';
+  if(info.active) return 'Manage Billing';
+  return 'Upgrade to DC+';
 }
 function renderCampBillingButton(){
   const btn=document.getElementById('campBillingBtn');
   if(!btn) return;
-  const isPlus=isCampDcPlusActive();
+  const billingInfo=getCampBillingInfo();
+  const isPlus=billingInfo.active;
   btn.hidden=false;
   btn.classList.toggle('is-plus', isPlus);
-  btn.textContent=isPlus ? 'Manage Billing' : 'Upgrade to DC+';
-  btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
+  btn.textContent=getCampBillingButtonLabel(billingInfo);
+  if(billingInfo.scheduledCancel){
+    const until = billingInfo.activeUntilLabel ? ` through ${billingInfo.activeUntilLabel}` : " through the paid-through date";
+    btn.title = `DC+ remains active${until}. Open Stripe billing to manage it.`;
+  }else if(billingInfo.pastDue){
+    btn.title = 'Open Stripe billing to fix this DC+ payment.';
+  }else{
+    btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
+  }
+  renderBillingNotice(billingInfo);
   if(!btn.dataset.billingBound){
     btn.dataset.billingBound='1';
     btn.addEventListener('click', handleCampBillingClick);
@@ -974,7 +1082,7 @@ async function handleCampBillingClick(){
   }
   btn.disabled=true;
   try{
-    if(isCampDcPlusActive()){
+    if(getCampBillingInfo().active || getCampBillingInfo().pastDue){
       btn.textContent='Opening billing...';
       await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
     }else{
@@ -1324,7 +1432,7 @@ function applyMemberModalProfileDisplay(profile = {}){
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
   document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
-  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim())) ? String(profile.yearJoined).trim() : "—";
+  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
   document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
@@ -1405,18 +1513,8 @@ function refreshVisibleStewardProfile(nextProfile = {}){
     if(mobileBadge) mobileBadge.innerHTML = renderAvatarMarkup(stewardMember, stewardMember.name);
     mobileStewardName.textContent = stewardMember.name || 'Camp Steward';
   }
-  try{renderCampMembersSection();}catch(error){console.warn('CampMembers silent refresh skipped.', error);}
-  try{populateMemberSelects();}catch(error){console.warn('Member select silent refresh skipped.', error);}
-  try{renderMenu();}catch(error){console.warn('Menu silent refresh skipped after Steward profile save.', error);}
-}
-function markCampProfileRefreshTick(){
-  try{
-    const tick = String(Date.now());
-    localStorage.setItem(campScopeKey(activeCampId, 'refreshTick'), tick);
-    localStorage.setItem('deercamp.lastProfileRefreshTick', tick);
-  }catch(error){
-    console.warn('Could not mark profile refresh tick.', error);
-  }
+  renderCampMembersSection();
+  populateMemberSelects();
 }
 function saveStewardProfileFromModal(event){
   event.preventDefault();
@@ -1469,13 +1567,7 @@ function saveStewardProfileFromModal(event){
     data.dashboardSlim.members = upsertStewardInArray(data.dashboardSlim.members, nextProfile);
     data.dashboardSlim.people = upsertStewardInArray(data.dashboardSlim.people, nextProfile);
   }
-  try{
-    persist();
-    syncStewardProfileToDashboardCache(nextProfile);
-    refreshVisibleStewardProfile(nextProfile);
-    markCampProfileRefreshTick();
-    if(status) status.textContent='Saved and refreshed.';
-  }
+  try{persist(); syncStewardProfileToDashboardCache(nextProfile); refreshVisibleStewardProfile(nextProfile); if(status) status.textContent='Saved.';}
   catch(error){console.warn('Could not save Steward profile.', error); if(status) status.textContent='Save failed. Please try again.';}
 }
 function openMemberModal(member){
