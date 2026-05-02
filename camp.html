@@ -1324,7 +1324,7 @@ function applyMemberModalProfileDisplay(profile = {}){
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
   document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
-  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
+  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim())) ? String(profile.yearJoined).trim() : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
   document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
@@ -1405,8 +1405,18 @@ function refreshVisibleStewardProfile(nextProfile = {}){
     if(mobileBadge) mobileBadge.innerHTML = renderAvatarMarkup(stewardMember, stewardMember.name);
     mobileStewardName.textContent = stewardMember.name || 'Camp Steward';
   }
-  renderCampMembersSection();
-  populateMemberSelects();
+  try{renderCampMembersSection();}catch(error){console.warn('CampMembers silent refresh skipped.', error);}
+  try{populateMemberSelects();}catch(error){console.warn('Member select silent refresh skipped.', error);}
+  try{renderMenu();}catch(error){console.warn('Menu silent refresh skipped after Steward profile save.', error);}
+}
+function markCampProfileRefreshTick(){
+  try{
+    const tick = String(Date.now());
+    localStorage.setItem(campScopeKey(activeCampId, 'refreshTick'), tick);
+    localStorage.setItem('deercamp.lastProfileRefreshTick', tick);
+  }catch(error){
+    console.warn('Could not mark profile refresh tick.', error);
+  }
 }
 function saveStewardProfileFromModal(event){
   event.preventDefault();
@@ -1459,7 +1469,13 @@ function saveStewardProfileFromModal(event){
     data.dashboardSlim.members = upsertStewardInArray(data.dashboardSlim.members, nextProfile);
     data.dashboardSlim.people = upsertStewardInArray(data.dashboardSlim.people, nextProfile);
   }
-  try{persist(); syncStewardProfileToDashboardCache(nextProfile); refreshVisibleStewardProfile(nextProfile); if(status) status.textContent='Saved.';}
+  try{
+    persist();
+    syncStewardProfileToDashboardCache(nextProfile);
+    refreshVisibleStewardProfile(nextProfile);
+    markCampProfileRefreshTick();
+    if(status) status.textContent='Saved and refreshed.';
+  }
   catch(error){console.warn('Could not save Steward profile.', error); if(status) status.textContent='Save failed. Please try again.';}
 }
 function openMemberModal(member){
