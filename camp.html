@@ -1728,10 +1728,34 @@ function normalizeRecentUpdates(){
   const recentPosts = normalizeContentSubmissions(contentSubmissions, calendarEvents)
     .filter(i=>String(i.type||"").toLowerCase()!=="photo")
     .map(item => Object.assign({ priority: 1 }, item));
-  const merged=[...recentPosts, ...officialCalendarUpdates];
+  const basicStandUpdates = normalizeDeerStandPosts(deerStandPosts)
+    .filter(item => (Array.isArray(item.tags) ? item.tags : []).some(tag => /basic|dcf/i.test(String(tag || ""))))
+    .map(item => ({
+      type:"deerstand",
+      linkedItemId:item.id,
+      title:`${item.title} -- added to CampDeerStands`,
+      member:item.author || "Camp Steward",
+      summary:[item.standType ? `Type: ${item.standType}` : "", item.body || "Basic deer stand card added from the Steward Dashboard."].filter(Boolean).join(" • "),
+      createdAt:item.createdAt,
+      createdAtMs:item.createdAtMs,
+      priority: 1
+    }));
+  const basicDriveUpdates = normalizeDeerDrivePosts(deerDrivePosts)
+    .filter(item => (Array.isArray(item.tags) ? item.tags : []).some(tag => /basic|dcf/i.test(String(tag || ""))))
+    .map(item => ({
+      type:"deerdrive",
+      linkedItemId:item.id,
+      title:`${item.title} -- added to CampDeerDrives`,
+      member:item.author || "Camp Steward",
+      summary:[item.windLabel ? `Wind: ${item.windLabel}` : "", item.body || "Basic deer drive card added from the Steward Dashboard."].filter(Boolean).join(" • "),
+      createdAt:item.createdAt,
+      createdAtMs:item.createdAtMs,
+      priority: 1
+    }));
+  const merged=[...recentPosts, ...basicStandUpdates, ...basicDriveUpdates, ...officialCalendarUpdates];
   const dedupe=new Map();
   merged.forEach((item,idx)=>{
-    const key=[item.type,item.title,item.summary].join("|").toLowerCase();
+    const key=[item.type,item.linkedItemId||"",item.title,item.summary].join("|").toLowerCase();
     if(!dedupe.has(key)) dedupe.set(key,{...item, id:item.id||`update-${idx}`});
   });
   return Array.from(dedupe.values())
@@ -2213,9 +2237,9 @@ function renderRecentUpdates(){
   list.innerHTML = visible.length ? visible.map(item=>`
     <div class="recent-card">
       <p class="recent-title">${esc(item.title||'CampUpdate')}</p>
-      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':item.type==='deerdrive'?'Deer Drive':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
+      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':item.type==='deerdrive'?'Deer Drive':item.type==='deerstand'?'Deer Stand':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
       <p class="recent-body">${esc(item.summary||'New update posted to camp.')}</p>
-    </div>`).join('') : '<p class="empty">No CampUpdates yet. New traditions, recipes, and calendar events will appear here first.</p>';
+    </div>`).join('') : '<p class="empty">No CampUpdates yet. New traditions, recipes, deer stands, deer drives, and calendar events will appear here first.</p>';
   if(prevBtn && nextBtn){
     const needsPaging = items.length > pageSize;
     prevBtn.hidden = !needsPaging;

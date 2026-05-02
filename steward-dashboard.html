@@ -1808,6 +1808,35 @@
       return true;
     }
 
+    function buildBasicFieldCampUpdate(kind, item = {}) {
+      const createdAtMs = Number(item.createdAtMs || Date.now());
+      const createdAt = String(item.createdAt || new Date(createdAtMs).toISOString());
+      const isStand = kind === "stand";
+      const title = String(item.title || (isStand ? "Basic Deer Stand" : "Basic Deer Drive")).trim() || (isStand ? "Basic Deer Stand" : "Basic Deer Drive");
+      const summaryParts = [];
+      if (isStand) {
+        if (item.standType || item.type) summaryParts.push(`Type: ${String(item.standType || item.type).trim()}`);
+        if (item.location) summaryParts.push(`Location: ${String(item.location).trim()}`);
+        if (item.notes || item.body) summaryParts.push(String(item.notes || item.body).trim());
+      } else {
+        if (item.windLabel) summaryParts.push(`Wind: ${String(item.windLabel).trim()}`);
+        if (item.drivers) summaryParts.push(`Drivers / Pushers: ${String(item.drivers).trim()}`);
+        if (item.standers) summaryParts.push(`Standers / Blockers: ${String(item.standers).trim()}`);
+        if (item.notes || item.body) summaryParts.push(String(item.notes || item.body).trim());
+      }
+      return {
+        id: `campupdate-${kind}-${String(item.id || title).replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase()}-${createdAtMs}`,
+        source: "dashboard-basic",
+        linkedItemId: String(item.id || ""),
+        type: isStand ? "deerstand" : "deerdrive",
+        member: String(item.author || state.stewardName || "Camp Steward").trim() || "Camp Steward",
+        title: `${title} -- added to ${isStand ? "CampDeerStands" : "CampDeerDrives"}`,
+        summary: summaryParts.filter(Boolean).join(" • ") || (isStand ? "Basic deer stand card added from the Steward Dashboard." : "Basic deer drive card added from the Steward Dashboard."),
+        createdAt,
+        createdAtMs
+      };
+    }
+
     async function persistBasicFieldItem(kind, item) {
       const savedCampData = syncCampData();
       const driveKeys = ["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"];
@@ -1818,6 +1847,11 @@
         list.unshift({ ...item });
         savedCampData[key] = list;
       });
+      const campUpdate = buildBasicFieldCampUpdate(kind, item);
+      const submissions = Array.isArray(savedCampData.contentSubmissions) ? savedCampData.contentSubmissions.slice() : [];
+      const updateKey = [campUpdate.type, campUpdate.linkedItemId, campUpdate.title].join("|").toLowerCase();
+      const withoutDuplicate = submissions.filter(entry => [entry.type, entry.linkedItemId, entry.title].join("|").toLowerCase() !== updateKey);
+      savedCampData.contentSubmissions = [campUpdate, ...withoutDuplicate].slice(0, 30);
       if (!savedCampData.enabledSections || typeof savedCampData.enabledSections !== "object") savedCampData.enabledSections = {};
       if (kind === "stand") {
         savedCampData.enabledSections.campdeerstands = true;
@@ -1830,6 +1864,7 @@
         savedCampData.lastDeerDriveSaveAt = item.createdAt;
         state.sections.campdeerdrives = true;
       }
+      savedCampData.lastCampUpdateSaveAt = item.createdAt;
       if (savedCampData.dashboardSlim && typeof savedCampData.dashboardSlim === "object") {
         savedCampData.dashboardSlim.sections = Object.assign({}, savedCampData.dashboardSlim.sections || {}, state.sections, {
           stands: Boolean(state.sections.campdeerstands),
@@ -1900,7 +1935,7 @@
         };
         await persistBasicFieldItem("drive", item);
         document.getElementById("basicDriveForm").reset();
-        setBasicFieldStatus("drive", "Basic deer drive saved and published to CampDeerDrives.", "success");
+        setBasicFieldStatus("drive", "Basic deer drive saved, published to CampDeerDrives, and posted to CampUpdate.", "success");
         showToast("Basic deer drive saved.", 5200);
       } catch (error) {
         console.error("Basic deer drive save failed.", error);
@@ -1950,7 +1985,7 @@
         };
         await persistBasicFieldItem("stand", item);
         document.getElementById("basicStandForm").reset();
-        setBasicFieldStatus("stand", "Basic deer stand saved and published to CampDeerStands.", "success");
+        setBasicFieldStatus("stand", "Basic deer stand saved, published to CampDeerStands, and posted to CampUpdate.", "success");
         showToast("Basic deer stand saved.", 5200);
       } catch (error) {
         console.error("Basic deer stand save failed.", error);
