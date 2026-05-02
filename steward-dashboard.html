@@ -1382,6 +1382,40 @@
       updateInviteButton();
     }
 
+    function getActiveCampMemberUsage() {
+      return state.members.filter(member => {
+        const role = String(member.role || "").trim().toLowerCase();
+        const status = String(member.status || "Active").trim().toLowerCase();
+        return role !== "camp steward" && status !== "removed";
+      }).length;
+    }
+
+    function getDashboardBillingCampData() {
+      return Object.assign({}, campData || {}, {
+        campId: state.campId,
+        billing: campData && typeof campData.billing === "object" ? campData.billing : {},
+        tier: campData ? campData.tier : "dcf",
+        billingStatus: campData ? campData.billingStatus : "free",
+        memberProfiles: state.members.map(member => ({ ...member })),
+        dashboardMembers: state.members.map(member => ({ ...member }))
+      });
+    }
+
+    function blockMemberLimitIfNeeded() {
+      const billing = window.DeerCampBilling;
+      if (!billing || typeof billing.getFeatureAccess !== "function") return false;
+      const usage = getActiveCampMemberUsage();
+      const dataForBilling = getDashboardBillingCampData();
+      const access = billing.getFeatureAccess("member_limit", dataForBilling, { usage });
+      if (access.allowed) return false;
+      const message = typeof billing.getUpgradeMessage === "function"
+        ? billing.getUpgradeMessage("member_limit", dataForBilling, { usage })
+        : (access.upgradeMessage || "DCF includes up to 8 members. Upgrade to DC+ for a larger camp roster.");
+      setMemberFormNote(message, "error");
+      showToast(message, 7500);
+      return true;
+    }
+
     function renderMembers() {
       const list = document.getElementById("memberList");
       const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
@@ -1853,6 +1887,9 @@
         inviteError: ""
       }, profileFields);
       const duplicateIndex = state.members.findIndex(existing => memberIdentityKey(existing) === memberIdentityKey(proposedMember));
+      if (duplicateIndex < 0 && blockMemberLimitIfNeeded()) {
+        return;
+      }
       if (duplicateIndex >= 0) {
         purgeMemberEverywhere(state.members[duplicateIndex]);
         state.members.push(proposedMember);

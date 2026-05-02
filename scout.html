@@ -844,6 +844,7 @@ function getBuilderVisibleDriveRoutes(){
 }
 
 function showAllDrives(){
+  if(blockScoutLimitFeature('show_all_drives')) return;
   const pts = [
     ...drivers.map(item => [Number(item.lat), Number(item.lng)]),
     ...standers.map(item => [Number(item.lat), Number(item.lng)]),
@@ -860,12 +861,14 @@ function showAllDrives(){
 }
 
 function openBuilderPosterPreview(){
+  if(blockScoutLimitFeature('poster_export')) return;
   if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
   updatePrintableCampBranding({forceVisible:true});
   document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Use External Print Save for high-resolution output.`;
 }
 
 async function externalPrintSave(){
+  if(blockScoutLimitFeature('poster_export')) return;
   if(SCOUT_BUILDER_MODE === 'drive') showAllDrives(); else showAllStands();
   await printMap();
 }
@@ -2159,6 +2162,7 @@ async function saveDriveSnapshot(){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
     return;
   }
+  if(blockScoutLimitFeature('drive_limit', getScoutFeatureUsage('drive_limit'))) return;
   try{
     const saveStatus = document.getElementById('save-drive-status');
     if(saveStatus) saveStatus.textContent = '';
@@ -3121,6 +3125,11 @@ async function saveStand(){
   try{
     if(saveBtn) saveBtn.textContent='Saving...';
     if(feedback){feedback.textContent='Saving stand...';feedback.classList.add('show');}
+    const isNewStand = editingStandId === null;
+    if(isNewStand && blockScoutLimitFeature('stand_limit', getScoutFeatureUsage('stand_limit'), feedback)){
+      if(saveBtn) saveBtn.textContent='Save';
+      return;
+    }
     const name=document.getElementById('f-name').value.trim()||'Unnamed Stand';
     const type=document.getElementById('f-type').value;
     const notes=document.getElementById('f-notes').value.trim();
@@ -4000,6 +4009,44 @@ function getScoutBillingCampData(){
     const snapshot=getScopedCampSnapshotForScout();
     return Object.keys(snapshot.scoped||{}).length ? snapshot.scoped : snapshot.generic;
   }catch(error){ return {}; }
+}
+function getScoutFeatureUsage(featureKey){
+  const data=getScoutBillingCampData();
+  const billing=window.DeerCampBilling;
+  const normalized=billing&&typeof billing.normalizeFeatureKey==='function'?billing.normalizeFeatureKey(featureKey):String(featureKey||'');
+  const countFromBilling=()=>billing&&typeof billing.countFeatureUsage==='function'?billing.countFeatureUsage(normalized,data):0;
+  if(normalized==='stand_limit') return Math.max(countFromBilling(), Array.isArray(stands)?stands.length:0);
+  if(normalized==='drive_limit') {
+    const persisted=Math.max(
+      Array.isArray(data.deerDrivePosts)?data.deerDrivePosts.length:0,
+      Array.isArray(data.deerDrives)?data.deerDrives.length:0,
+      Array.isArray(data.savedDeerDrives)?data.savedDeerDrives.length:0,
+      Array.isArray(data.scoutDeerDrives)?data.scoutDeerDrives.length:0
+    );
+    return persisted;
+  }
+  return countFromBilling();
+}
+function blockScoutLimitFeature(featureKey, usageOverride, feedbackEl){
+  try{
+    const billing=window.DeerCampBilling;
+    if(!billing||typeof billing.getFeatureAccess!=='function') return false;
+    const data=getScoutBillingCampData();
+    const usage=Number.isFinite(Number(usageOverride))?Number(usageOverride):getScoutFeatureUsage(featureKey);
+    const access=billing.getFeatureAccess(featureKey,data,{usage});
+    if(access.allowed) return false;
+    const message=typeof billing.getUpgradeMessage==='function'?billing.getUpgradeMessage(featureKey,data,{usage}):(access.upgradeMessage||'Upgrade to DC+ to unlock this DeerCamp feature.');
+    const status=document.getElementById('status-bar');
+    if(status) status.innerHTML=message;
+    if(feedbackEl){feedbackEl.innerHTML=`⚠️ ${message}`;feedbackEl.classList.add('show');}
+    try{showScoutToast(message,4200);}catch(e){}
+    ensureScoutBillingLock();
+    document.body.classList.add('scout-premium-locked');
+    return true;
+  }catch(error){
+    console.warn('Scout feature gate check skipped.', error);
+    return false;
+  }
 }
 function scoutHasDcPlus(){
   try{

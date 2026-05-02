@@ -934,11 +934,49 @@ function toggleScoutBuilderMenu(menuId, buttonId){
   menuEl.classList.toggle('open', shouldOpen);
   btn?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
 }
+function showFeatureUpgradeNotice(featureKey, usage){
+  const notice=document.getElementById('billingNotice');
+  let message='Upgrade to DC+ to unlock this DeerCamp feature.';
+  try{
+    if(window.DeerCampBilling && typeof window.DeerCampBilling.getUpgradeMessage === 'function'){
+      message = window.DeerCampBilling.getUpgradeMessage(featureKey, data || {}, {usage});
+    }
+  }catch(error){}
+  if(notice){
+    notice.hidden=false;
+    notice.classList.remove('is-error');
+    notice.classList.add('is-warning');
+    notice.textContent=message;
+    try{notice.scrollIntoView({behavior:'smooth', block:'nearest'});}catch(error){}
+  }
+  const btn=document.getElementById('campBillingBtn');
+  if(btn){
+    btn.hidden=false;
+    try{btn.focus({preventScroll:true});}catch(error){}
+  }
+}
+function campCanUseFeature(featureKey, usage){
+  try{
+    if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') return window.DeerCampBilling.canUseFeature(featureKey, data || {}, {usage});
+  }catch(error){}
+  return isCampDcPlusActive();
+}
+function bindFeatureGuardToLink(el, featureKey){
+  if(!el || el.dataset.featureGuardBound === featureKey) return;
+  el.dataset.featureGuardBound = featureKey;
+  el.addEventListener('click', event => {
+    if(campCanUseFeature(featureKey)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeScoutBuilderMenus();
+    showFeatureUpgradeNotice(featureKey);
+  });
+}
 function bindScoutBuilderMenus(){
   const standUrl=buildScoutBuilderUrl('stand');
   const driveUrl=buildScoutBuilderUrl('drive');
-  ['headerStandBuilderLink','mobileStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=standUrl;});
-  ['headerDriveBuilderLink','mobileDriveBuilderLink','menuDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el) el.href=driveUrl;});
+  ['headerStandBuilderLink','mobileStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el){ el.href=standUrl; bindFeatureGuardToLink(el, 'stand_builder'); }});
+  ['headerDriveBuilderLink','mobileDriveBuilderLink','menuDriveBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el){ el.href=driveUrl; bindFeatureGuardToLink(el, 'drive_builder'); }});
   const headerBtn=document.getElementById('headerScoutBtn');
   const mobileBtn=document.getElementById('mobileScoutBtn');
   if(headerBtn && !headerBtn.dataset.scoutMenuBound){headerBtn.dataset.scoutMenuBound='1'; headerBtn.addEventListener('click',e=>{e.preventDefault(); e.stopPropagation(); toggleScoutBuilderMenu('headerScoutBuilderMenu','headerScoutBtn');});}

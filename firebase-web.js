@@ -478,6 +478,45 @@
     canUseFeature(featureKey, data = {}, options = {}) {
       return this.getFeatureAccess(featureKey, data, options).allowed;
     },
+    getUpgradeMessage(featureKey, data = {}, options = {}) {
+      const access = this.getFeatureAccess(featureKey, data, options);
+      if (access.reason === "limit_reached") {
+        const used = Number.isFinite(access.usage) ? access.usage : 0;
+        const limit = Number.isFinite(access.limit) ? access.limit : "unlimited";
+        return `${access.upgradeMessage} (${used}/${limit} used.)`;
+      }
+      if (access.reason === "billing_attention_required") return "Fix billing to keep using this DC+ feature.";
+      return access.upgradeMessage || "Upgrade to DC+ to unlock this DeerCamp feature.";
+    },
+    countFeatureUsage(featureKey, data = {}) {
+      const normalizedFeature = this.normalizeFeatureKey(featureKey);
+      const arrays = {
+        member_limit: [data.memberProfiles, data.dashboardMembers, data.members, data.campMembers],
+        stand_limit: [data.deerStandPosts, data.deerStands, data.savedDeerStands, data.scoutDeerStands, data.stands],
+        drive_limit: [data.deerDrivePosts, data.deerDrives, data.savedDeerDrives, data.scoutDeerDrives]
+      };
+      const candidates = arrays[normalizedFeature] || [];
+      for (const list of candidates) {
+        if (Array.isArray(list)) {
+          if (normalizedFeature === "member_limit") {
+            return list.filter(item => {
+              if (item && typeof item === "object") {
+                const role = String(item.role || "").toLowerCase();
+                const status = String(item.status || "Active").toLowerCase();
+                return role !== "camp steward" && status !== "removed";
+              }
+              return String(item || "").trim();
+            }).length;
+          }
+          return list.filter(Boolean).length;
+        }
+      }
+      return 0;
+    },
+    getLimitFeatureAccess(featureKey, data = {}, usageOverride) {
+      const usage = Number.isFinite(Number(usageOverride)) ? Number(usageOverride) : this.countFeatureUsage(featureKey, data);
+      return this.getFeatureAccess(featureKey, data, { usage });
+    },
     async postJson(url, payload) {
       const response = await fetch(url, {
         method: "POST",
