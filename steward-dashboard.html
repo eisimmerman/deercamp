@@ -68,6 +68,21 @@
     .mini-stat{padding:14px;border-radius:18px;background:linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.16));border:1px solid rgba(69,42,22,.08)}
     .mini-stat strong{display:block;font-size:1.45rem;color:var(--brown-deep);line-height:1;margin-bottom:6px}
     .mini-stat span{color:var(--muted);font-size:.9rem;line-height:1.42}
+    .tier-status-card{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;padding:20px 22px;border-radius:var(--radius);background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.24));border:1px solid rgba(69,42,22,.1);box-shadow:var(--shadow)}
+    .tier-status-card.is-free{background:linear-gradient(180deg,rgba(255,247,223,.94),rgba(247,241,231,.9));border-color:rgba(177,121,45,.28)}
+    .tier-status-card.is-plus{background:linear-gradient(180deg,rgba(232,245,229,.94),rgba(247,241,231,.9));border-color:rgba(73,102,71,.22)}
+    .tier-status-card.is-warning{background:linear-gradient(180deg,rgba(255,244,216,.96),rgba(247,241,231,.9));border-color:rgba(177,121,45,.34)}
+    .tier-status-card.is-error{background:linear-gradient(180deg,rgba(252,232,226,.96),rgba(247,241,231,.9));border-color:rgba(139,45,29,.24)}
+    .tier-status-copy{display:grid;gap:8px;min-width:0}
+    .tier-status-eyebrow{display:inline-flex;width:max-content;align-items:center;min-height:28px;padding:5px 10px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
+    .tier-status-title{margin:0;color:var(--brown-deep);font-size:1.4rem;line-height:1.1}
+    .tier-status-card.is-plus .tier-status-title{color:#27411e}
+    .tier-status-card.is-error .tier-status-title{color:#8b2d1d}
+    .tier-status-body{margin:0;color:var(--muted);line-height:1.55}
+    .tier-status-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+    .tier-status-chip{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(69,42,22,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800}
+    .tier-status-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+    .tier-status-actions .btn{white-space:nowrap}
     .form-grid{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:14px 16px}
     .field{display:grid;gap:7px}
     .field.span-2{grid-column:1 / -1}
@@ -133,6 +148,7 @@
       .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions{flex-direction:column}
       .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
       .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
+      .tier-status-card{grid-template-columns:1fr;padding:18px}.tier-status-actions{justify-content:stretch}.tier-status-actions .btn{width:100%}
     }
   </style>
 
@@ -165,6 +181,19 @@
           <strong id="previewCampName">Your DeerCamp</strong>
           <span id="previewCampMeta">Camp details appear here.</span>
         </div>
+      </div>
+    </section>
+
+    <section id="tierStatusCard" class="tier-status-card is-free" aria-live="polite">
+      <div class="tier-status-copy">
+        <span id="tierStatusEyebrow" class="tier-status-eyebrow">DeerCamp Free</span>
+        <h3 id="tierStatusTitle" class="tier-status-title">DeerCamp Free</h3>
+        <p id="tierStatusBody" class="tier-status-body">Upgrade to DC+ for Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p>
+        <div id="tierStatusMeta" class="tier-status-meta"></div>
+      </div>
+      <div class="tier-status-actions">
+        <button id="tierStatusPrimaryBtn" class="btn btn-primary" type="button">Upgrade to DC+</button>
+        <a id="tierStatusLiveLink" class="btn btn-secondary" href="camp.html">View Live Camp</a>
       </div>
     </section>
 
@@ -2023,6 +2052,65 @@
       }
       catch(error){ return false; }
     }
+
+    function dashboardTierLimitLabel(featureKey, fallbackLabel){
+      try{
+        if(!window.DeerCampBilling || typeof window.DeerCampBilling.getFeatureAccess !== 'function') return fallbackLabel;
+        const source = getDashboardBillingSource();
+        const usage = typeof window.DeerCampBilling.countFeatureUsage === 'function'
+          ? window.DeerCampBilling.countFeatureUsage(featureKey, source)
+          : null;
+        const access = window.DeerCampBilling.getFeatureAccess(featureKey, source, { usage });
+        if(!Number.isFinite(access.limit)) return fallbackLabel.replace(/: .+$/, ': Unlimited');
+        return `${fallbackLabel.split(':')[0]}: ${usage || 0}/${access.limit}`;
+      }catch(error){ return fallbackLabel; }
+    }
+    function renderDashboardTierStatusCard(){
+      const card=document.getElementById('tierStatusCard');
+      if(!card) return;
+      const eyebrow=document.getElementById('tierStatusEyebrow');
+      const title=document.getElementById('tierStatusTitle');
+      const body=document.getElementById('tierStatusBody');
+      const meta=document.getElementById('tierStatusMeta');
+      const primary=document.getElementById('tierStatusPrimaryBtn');
+      const live=document.getElementById('tierStatusLiveLink');
+      const tierState=getDashboardTierState();
+      const plus=dashboardHasDcPlus();
+      const liveUrl=`camp.html?campId=${encodeURIComponent(state.campId || '')}`;
+      if(live) live.href=liveUrl;
+      card.className='tier-status-card';
+      let model;
+      if(tierState.pastDue){
+        card.classList.add('is-error');
+        model={eyebrow:'Billing attention needed',title:'Fix Billing',body:'Your DC+ billing needs attention. Fix billing to keep Scout Elite, Stand Builder, Drive Builder, and printable maps available.',primary:'Fix Billing',primaryAction:openDashboardBillingPortal,chips:['DC+ billing issue','Paid features may lock']};
+      } else if(plus && tierState.scheduledCancel){
+        card.classList.add('is-warning');
+        const until=tierState.activeUntilLabel || 'the paid-through date';
+        model={eyebrow:'DC+ cancellation scheduled',title:`DC+ Active Until ${until}`,body:`Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps remain unlocked through ${until}.`,primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Paid-through access active','Cancel scheduled']};
+      } else if(plus){
+        card.classList.add('is-plus');
+        model={eyebrow:'DeerCamp Plus',title:'DeerCamp Plus Active',body:'Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps are unlocked for this camp.',primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Scout Elite unlocked','Billing active']};
+      } else {
+        card.classList.add('is-free');
+        model={eyebrow:'DeerCamp Free',title:'DeerCamp Free',body:'DCF keeps camp creation, members, sections, and basic memories simple. Upgrade to DC+ for Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.',primary:'Upgrade to DC+',primaryAction:openDashboardBillingModal,chips:[dashboardTierLimitLabel('member_limit','Members: 0/8'),dashboardTierLimitLabel('stand_limit','Stands: 0/3'),dashboardTierLimitLabel('drive_limit','Drives: 0/1')]};
+      }
+      if(eyebrow) eyebrow.textContent=model.eyebrow;
+      if(title) title.textContent=model.title;
+      if(body) body.textContent=model.body;
+      if(meta){
+        meta.innerHTML='';
+        (model.chips || []).forEach(chip=>{
+          const span=document.createElement('span');
+          span.className='tier-status-chip';
+          span.textContent=chip;
+          meta.appendChild(span);
+        });
+      }
+      if(primary){
+        primary.textContent=model.primary;
+        primary.onclick=model.primaryAction;
+      }
+    }
     function ensureDashboardBillingStyles(){
       if(document.getElementById('dashboardBillingStyles')) return;
       const style=document.createElement('style');
@@ -2075,6 +2163,7 @@
         const tierLabel = plus ? (tierState.scheduledCancel && tierState.activeUntilLabel ? `DC+ until ${tierState.activeUntilLabel}` : 'DC+') : 'DCF';
         pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${tierLabel}`;
       }
+      renderDashboardTierStatusCard();
     }
 
     function applyCloudCampToDashboard(cloud = {}) {
