@@ -4002,8 +4002,11 @@ function getScoutBillingCampData(){
   }catch(error){ return {}; }
 }
 function scoutHasDcPlus(){
-  try{ return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(getScoutBillingCampData()) : false; }
-  catch(error){ return false; }
+  try{
+    const campData = getScoutBillingCampData();
+    if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') return window.DeerCampBilling.canUseFeature('scout_elite', campData);
+    return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(campData) : false;
+  }catch(error){ return false; }
 }
 function ensureScoutBillingStyles(){
   if(document.getElementById('scoutBillingStyles')) return;
@@ -4049,7 +4052,14 @@ function enforceScoutDcPlusGate(){
   ensureScoutBillingLock();
   document.body.classList.add('scout-premium-locked');
   const status=document.getElementById('status-bar');
-  if(status) status.innerHTML='DC+ required to use DeerCamp Scout Elite planning tools.';
+  if(status){
+    let message='DC+ required to use DeerCamp Scout Elite planning tools.';
+    try{
+      const access=window.DeerCampBilling && typeof window.DeerCampBilling.getFeatureAccess==='function' ? window.DeerCampBilling.getFeatureAccess('scout_elite', getScoutBillingCampData()) : null;
+      if(access && access.upgradeMessage) message=access.upgradeMessage;
+    }catch(error){}
+    status.innerHTML=message;
+  }
   return false;
 }
 function blockScoutPremiumAction(event){

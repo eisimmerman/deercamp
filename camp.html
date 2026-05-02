@@ -984,6 +984,28 @@ function formatBillingDate(value){
   }
 }
 function getCampBillingInfo(){
+  if(window.DeerCampBilling && typeof window.DeerCampBilling.getBillingState === "function"){
+    try{
+      const state = window.DeerCampBilling.getBillingState(data || {});
+      return {
+        tier: state.tier,
+        status: state.status,
+        dcPlusTier: state.dcPlusTier,
+        active: state.active,
+        scheduledCancel: state.scheduledCancel,
+        pastDue: state.pastDue,
+        ended: state.ended,
+        currentPeriodEnd: state.currentPeriodEnd,
+        cancelAt: state.cancelAt,
+        activeUntilDate: state.activeUntilDate,
+        activeUntilLabel: state.activeUntilLabel,
+        stripeSubscriptionId: state.stripeSubscriptionId || "",
+        effectiveTier: state.effectiveTier
+      };
+    }catch(error){
+      console.warn("Shared DeerCamp billing helper failed; using local fallback.", error);
+    }
+  }
   const billing = data && typeof data.billing === "object" ? data.billing : {};
   const rawTier = billing.tier || data.tier || "";
   let tier = String(rawTier || "").trim().toLowerCase();
@@ -996,7 +1018,7 @@ function getCampBillingInfo(){
   const cancelAtPeriodEnd = parseBillingBoolean(billing.cancelAtPeriodEnd || billing.cancel_at_period_end || billing.cancelScheduled || billing.scheduledCancellation || data.cancelAtPeriodEnd || data.cancel_at_period_end) || Boolean(cancelAt && parseBillingDate(cancelAt));
   const periodEndDate = parseBillingDate(currentPeriodEnd || cancelAt);
   const periodStillOpen = periodEndDate ? periodEndDate.getTime() > Date.now() : false;
-  const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus"].includes(tier);
+  const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus","dcp"].includes(tier);
   const activeStatus = ["active","trialing"].includes(status);
   const pastDueStatus = ["past_due","unpaid","incomplete","incomplete_expired"].includes(status);
   const endedStatus = ["canceled","cancelled","deleted","ended","expired"].includes(status);
@@ -1014,11 +1036,16 @@ function getCampBillingInfo(){
     cancelAt,
     activeUntilDate: periodEndDate,
     activeUntilLabel: formatBillingDate(currentPeriodEnd || cancelAt),
-    stripeSubscriptionId:String(billing.stripeSubscriptionId || billing.subscriptionId || "").trim()
+    stripeSubscriptionId:String(billing.stripeSubscriptionId || billing.subscriptionId || "").trim(),
+    effectiveTier: active ? tier : "dcf"
   };
 }
+
 function isCampDcPlusActive(){
   try{
+    if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === "function"){
+      return window.DeerCampBilling.canUseFeature("scout_elite", data || {});
+    }
     if(window.DeerCampBilling && typeof window.DeerCampBilling.hasDcPlus === "function" && window.DeerCampBilling.hasDcPlus(data)) return true;
   }catch(error){}
   return getCampBillingInfo().active;

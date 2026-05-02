@@ -1972,8 +1972,18 @@
         return Object.assign({}, campData || {}, scoped || {});
       }catch(error){ return campData || {}; }
     }
+    function getDashboardTierState(){
+      try{
+        if(window.DeerCampBilling && typeof window.DeerCampBilling.getBillingState === 'function') return window.DeerCampBilling.getBillingState(getDashboardBillingSource());
+      }catch(error){}
+      return { effectiveTier: 'dcf', active: false, scheduledCancel: false, activeUntilLabel: '' };
+    }
     function dashboardHasDcPlus(){
-      try{ return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(getDashboardBillingSource()) : false; }
+      try{
+        const source = getDashboardBillingSource();
+        if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') return window.DeerCampBilling.canUseFeature('scout_elite', source);
+        return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(source) : false;
+      }
       catch(error){ return false; }
     }
     function ensureDashboardBillingStyles(){
@@ -2023,7 +2033,11 @@
       const btn=document.getElementById('dashboardBillingBtn');
       if(btn){ btn.className='billing-btn '+(plus?'manage':''); btn.textContent=plus?'Manage Billing':'Upgrade to DC+'; btn.onclick=()=> plus ? openDashboardBillingPortal() : openDashboardBillingModal(); }
       const pill=document.getElementById('dashboardStatePill');
-      if(pill){ pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${plus ? 'DC+' : 'DCF'}`; }
+      if(pill){
+        const tierState = getDashboardTierState();
+        const tierLabel = plus ? (tierState.scheduledCancel && tierState.activeUntilLabel ? `DC+ until ${tierState.activeUntilLabel}` : 'DC+') : 'DCF';
+        pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${tierLabel}`;
+      }
     }
 
     function applyCloudCampToDashboard(cloud = {}) {

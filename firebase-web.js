@@ -251,11 +251,118 @@
       dcPlusMonthly: "price_1TRsjcDOIUbMFzLxNCO58x3n",
       dcPlusAnnual: "price_1TRsjcDOIUbMFzLxmw4bEOuM"
     },
+    tiers: {
+      DCF: "dcf",
+      DC_PLUS: "dc_plus",
+      DCP: "dcp"
+    },
+    featureKeys: {
+      SCOUT_ELITE: "scout_elite",
+      STAND_BUILDER: "stand_builder",
+      DRIVE_BUILDER: "drive_builder",
+      SHOW_ALL_STANDS: "show_all_stands",
+      SHOW_ALL_DRIVES: "show_all_drives",
+      POSTER_EXPORT: "poster_export",
+      MULTI_IMAGE_POSTS: "multi_image_posts",
+      VIDEO_POSTS: "video_posts",
+      MEMBER_LIMIT: "member_limit",
+      STAND_LIMIT: "stand_limit",
+      DRIVE_LIMIT: "drive_limit",
+      SINGLE_IMAGE_POSTS: "single_image_posts",
+      BASIC_CAMP: "basic_camp"
+    },
+    tierLimits: {
+      dcf: {
+        members: 8,
+        deerStands: 3,
+        deerDrives: 1,
+        imagesPerPost: 1,
+        videosPerPost: 0
+      },
+      dc_plus: {
+        members: Infinity,
+        deerStands: Infinity,
+        deerDrives: Infinity,
+        imagesPerPost: Infinity,
+        videosPerPost: Infinity
+      },
+      dcp: {
+        members: Infinity,
+        deerStands: Infinity,
+        deerDrives: Infinity,
+        imagesPerPost: Infinity,
+        videosPerPost: Infinity
+      }
+    },
+    featureRules: {
+      basic_camp: { tiers: ["dcf", "dc_plus", "dcp"] },
+      single_image_posts: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "imagesPerPost" },
+      scout_elite: { tiers: ["dc_plus", "dcp"] },
+      stand_builder: { tiers: ["dc_plus", "dcp"] },
+      drive_builder: { tiers: ["dc_plus", "dcp"] },
+      show_all_stands: { tiers: ["dc_plus", "dcp"] },
+      show_all_drives: { tiers: ["dc_plus", "dcp"] },
+      poster_export: { tiers: ["dc_plus", "dcp"] },
+      multi_image_posts: { tiers: ["dc_plus", "dcp"] },
+      video_posts: { tiers: ["dc_plus", "dcp"] },
+      member_limit: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "members" },
+      stand_limit: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "deerStands" },
+      drive_limit: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "deerDrives" }
+    },
+    featureAliases: {
+      dc_plus: "scout_elite",
+      dcplus: "scout_elite",
+      scout: "scout_elite",
+      scoutelite: "scout_elite",
+      deer_camp_scout_elite: "scout_elite",
+      deerstand_builder: "stand_builder",
+      deer_drive_builder: "drive_builder",
+      deerdrive_builder: "drive_builder",
+      show_all: "show_all_stands",
+      showall_stands: "show_all_stands",
+      showall_drives: "show_all_drives",
+      pdf_export: "poster_export",
+      poster_pdf: "poster_export",
+      export_poster: "poster_export",
+      members: "member_limit",
+      member: "member_limit",
+      deer_stands: "stand_limit",
+      stands: "stand_limit",
+      stand: "stand_limit",
+      save_stand: "stand_limit",
+      saved_stands: "stand_limit",
+      deer_drives: "drive_limit",
+      drives: "drive_limit",
+      drive: "drive_limit",
+      save_drive: "drive_limit",
+      saved_drives: "drive_limit",
+      multi_image: "multi_image_posts",
+      multi_images: "multi_image_posts",
+      video: "video_posts",
+      videos: "video_posts"
+    },
+    upgradeMessages: {
+      scout_elite: "Upgrade to DC+ to unlock DeerCamp Scout Elite planning tools.",
+      stand_builder: "Upgrade to DC+ to unlock Stand Builder and save more stand plans.",
+      drive_builder: "Upgrade to DC+ to unlock Drive Builder and save more deer drive plans.",
+      show_all_stands: "Upgrade to DC+ to show all stands on one map.",
+      show_all_drives: "Upgrade to DC+ to show all deer drives on one map.",
+      poster_export: "Upgrade to DC+ to unlock 24×36 printable map exports.",
+      multi_image_posts: "Upgrade to DC+ to add multi-image camp posts.",
+      video_posts: "Upgrade to DC+ to add video camp posts.",
+      member_limit: "DCF includes up to 8 members. Upgrade to DC+ for a larger camp roster.",
+      stand_limit: "DCF includes up to 3 saved stands. Upgrade to DC+ to save more stands.",
+      drive_limit: "DCF includes 1 saved deer drive. Upgrade to DC+ to save more deer drives."
+    },
     normalizeTier(value) {
       const clean = String(value || "").trim().toLowerCase();
       if (["dc_plus", "dc+", "plus", "deercamp_plus"].includes(clean)) return "dc_plus";
       if (["dcp", "premium", "deercamp_premium"].includes(clean)) return "dcp";
       return "dcf";
+    },
+    normalizeFeatureKey(value) {
+      const clean = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+      return this.featureRules[clean] ? clean : (this.featureAliases[clean] || clean || "basic_camp");
     },
     parseBoolean(value) {
       if (value === true) return true;
@@ -284,6 +391,15 @@
         return null;
       }
     },
+    formatDate(value) {
+      const date = this.parseDate(value);
+      if (!date) return "";
+      try {
+        return date.toLocaleDateString(undefined, { month: "numeric", day: "numeric" });
+      } catch (error) {
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      }
+    },
     getBilling(data = {}) {
       const billing = data && typeof data.billing === "object" ? data.billing : {};
       const currentPeriodEnd = billing.currentPeriodEnd || billing.current_period_end || billing.currentPeriodEndsAt || billing.periodEnd || billing.activeUntil || billing.dcPlusActiveUntil || data.currentPeriodEnd || data.current_period_end || data.dcPlusActiveUntil || null;
@@ -299,11 +415,68 @@
         cancelAtPeriodEnd: this.parseBoolean(billing.cancelAtPeriodEnd || billing.cancel_at_period_end || billing.cancelScheduled || billing.scheduledCancellation || data.cancelAtPeriodEnd || data.cancel_at_period_end) || Boolean(cancelAt && this.parseDate(cancelAt))
       };
     },
-    hasDcPlus(data = {}) {
+    getBillingState(data = {}) {
       const billing = this.getBilling(data);
       const periodEnd = this.parseDate(billing.currentPeriodEnd || billing.cancelAt);
       const periodStillOpen = periodEnd ? periodEnd.getTime() > Date.now() : false;
-      return billing.tier === "dc_plus" && (["active", "trialing"].includes(billing.status) || (["canceled", "cancelled", "ended", "expired"].includes(billing.status) && periodStillOpen));
+      const activeStatus = ["active", "trialing"].includes(billing.status);
+      const pastDueStatus = ["past_due", "unpaid", "incomplete", "incomplete_expired"].includes(billing.status);
+      const endedStatus = ["canceled", "cancelled", "deleted", "ended", "expired"].includes(billing.status);
+      const dcPlusTier = ["dc_plus", "dcp"].includes(billing.tier);
+      const active = dcPlusTier && (activeStatus || (endedStatus && periodStillOpen));
+      const scheduledCancel = active && (billing.cancelAtPeriodEnd || Boolean(billing.cancelAt));
+      const effectiveTier = active ? billing.tier : "dcf";
+      return {
+        ...billing,
+        dcPlusTier,
+        active,
+        scheduledCancel,
+        pastDue: dcPlusTier && pastDueStatus,
+        ended: dcPlusTier && endedStatus && !periodStillOpen,
+        activeUntilDate: periodEnd,
+        activeUntilLabel: this.formatDate(billing.currentPeriodEnd || billing.cancelAt),
+        effectiveTier
+      };
+    },
+    getTier(data = {}) {
+      return this.getBillingState(data).effectiveTier;
+    },
+    hasDcPlus(data = {}) {
+      return ["dc_plus", "dcp"].includes(this.getTier(data));
+    },
+    getLimit(limitKey, data = {}) {
+      const tier = this.getTier(data);
+      const tierLimits = this.tierLimits[tier] || this.tierLimits.dcf;
+      return Object.prototype.hasOwnProperty.call(tierLimits, limitKey) ? tierLimits[limitKey] : Infinity;
+    },
+    getFeatureAccess(featureKey, data = {}, options = {}) {
+      const normalizedFeature = this.normalizeFeatureKey(featureKey);
+      const rule = this.featureRules[normalizedFeature] || { tiers: ["dcf", "dc_plus", "dcp"] };
+      const tier = this.getTier(data);
+      const allowedTier = (rule.tiers || ["dcf", "dc_plus", "dcp"]).includes(tier);
+      const limit = rule.limitKey ? this.getLimit(rule.limitKey, data) : Infinity;
+      const usage = Number.isFinite(Number(options.usage)) ? Number(options.usage) : null;
+      const withinLimit = !rule.limitKey || !Number.isFinite(limit) || usage === null || usage < limit;
+      const allowed = Boolean(allowedTier && withinLimit);
+      const billingState = this.getBillingState(data);
+      let reason = allowed ? "allowed" : "upgrade_required";
+      if (allowedTier && !withinLimit) reason = "limit_reached";
+      if (billingState.pastDue && rule.tiers && !rule.tiers.includes("dcf")) reason = "billing_attention_required";
+      return {
+        allowed,
+        featureKey: normalizedFeature,
+        tier,
+        requiredTiers: rule.tiers || ["dcf", "dc_plus", "dcp"],
+        limit,
+        usage,
+        remaining: Number.isFinite(limit) && usage !== null ? Math.max(0, limit - usage) : Infinity,
+        reason,
+        upgradeMessage: this.upgradeMessages[normalizedFeature] || "Upgrade to DC+ to unlock this DeerCamp feature.",
+        billingState
+      };
+    },
+    canUseFeature(featureKey, data = {}, options = {}) {
+      return this.getFeatureAccess(featureKey, data, options).allowed;
     },
     async postJson(url, payload) {
       const response = await fetch(url, {
