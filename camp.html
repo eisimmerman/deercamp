@@ -1927,7 +1927,7 @@ visibleSections().forEach(section=>{
   } else if(section.key==="campdeerdrives"){
     container.innerHTML=`
       <div class="feed-header">
-        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
+        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans from Basic Field Cards or Scout Elite with previews and notes.</p></div>
         <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${deerDrivePosts.length} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
       </div>
       <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
@@ -2334,8 +2334,13 @@ function openDeerItemEdit(type, index){
   document.getElementById('deerItemEditTitleLabel').textContent = item.title || item.name || (type === 'drive' ? 'Saved Deer Drive' : 'Saved Deer Stand');
   document.getElementById('deerItemEditTitle').value = item.title || item.name || '';
   document.getElementById('deerItemEditBody').value = item.body || item.notes || item.description || '';
-  document.getElementById('deerItemEditStatus').textContent = 'Edit the card title/notes here. Use Open in Scout for map-level changes.';
-  document.getElementById('deerItemEditScout').onclick = () => { window.open(getScoutEditUrl(type, item, index), '_blank', 'noopener,noreferrer'); };
+  const isBasicFieldCard = String(item.source || '').includes('dashboard-basic');
+  document.getElementById('deerItemEditStatus').textContent = isBasicFieldCard ? 'Edit the basic card title/notes here. Map-level Scout editing is available with DC+ Scout Elite.' : 'Edit the card title/notes here. Use Open in Scout for map-level changes.';
+  const scoutBtn = document.getElementById('deerItemEditScout');
+  if(scoutBtn){
+    scoutBtn.hidden = isBasicFieldCard;
+    scoutBtn.onclick = isBasicFieldCard ? null : () => { window.open(getScoutEditUrl(type, item, index), '_blank', 'noopener,noreferrer'); };
+  }
   document.getElementById('deerItemEditBackdrop').classList.add('open');
   document.getElementById('deerItemEditModal').classList.add('open');
   document.getElementById('deerItemEditModal').setAttribute('aria-hidden','false');
@@ -2398,10 +2403,10 @@ function ensureDeerShelfSections(){
   if(needsDrives && !document.getElementById("campdeerdrives")){
     page.insertAdjacentHTML("beforeend", `<section class="content-section" id="campdeerdrives">
       <div class="feed-header">
-        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans posted from Scout with thumbnail previews and notes.</p></div>
+        <div><h2 style="margin:0">CampDeerDrives</h2><p class="section-helper" style="margin:8px 0 0">Saved deer drive plans from Basic Field Cards or Scout Elite with previews and notes.</p></div>
         <div class="deer-shelf-controls"><span id="deerDrivesCount" class="pill">${Array.isArray(deerDrivePosts) ? deerDrivePosts.length : 0} saved</span><button id="deerDrivesPrev" class="arrow" type="button" aria-label="Previous deer drives" hidden>◀</button><button id="deerDrivesNext" class="arrow" type="button" aria-label="Next deer drives" hidden>▶</button></div>
       </div>
-      <div id="deerDrivesGrid" class="deer-shelf-grid"></div><div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Open DeerCamp Scout Elite to save one.</div>
+      <div id="deerDrivesGrid" class="deer-shelf-grid"></div><div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. DCF Stewards can add 1 Basic Deer Drive from the Steward Dashboard. DC+ unlocks Scout Elite Drive Builder.</div>
     </section>`);
   }
 }
@@ -2454,7 +2459,7 @@ function renderDeerStands(delta = 0){
             ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
             <div class="deer-card-actions">
               <button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>
-              <a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>
+              ${String(item.source || '').includes('dashboard-basic') ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>`}
             </div>
           </div>
         </article>`;
@@ -2498,7 +2503,7 @@ function renderDeerDrives(delta = 0){
         <div class="deer-card-actions">
           <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
           <button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>
-          <a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>
+          ${String(item.source || '').includes('dashboard-basic') ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>`}
         </div>
       </div>
     </article>`;

@@ -83,6 +83,14 @@
     .tier-status-chip{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(69,42,22,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800}
     .tier-status-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
     .tier-status-actions .btn{white-space:nowrap}
+    .basic-field-card{display:grid;gap:14px}
+    .basic-field-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .basic-field-form{display:grid;gap:12px;padding:16px;border-radius:20px;background:rgba(255,255,255,.46);border:1px solid rgba(69,42,22,.08)}
+    .basic-field-form h4{margin:0;color:var(--brown-deep)}
+    .basic-field-form p{margin:0;color:var(--muted);line-height:1.5;font-size:.92rem}
+    .basic-field-status{min-height:1.2em;color:var(--muted);font-size:.9rem;font-weight:700;line-height:1.45}
+    .basic-field-status.is-success{padding:10px 12px;border-radius:14px;background:rgba(73,102,71,.12);color:#27411e;border:1px solid rgba(73,102,71,.18)}
+    .basic-field-status.is-error{padding:10px 12px;border-radius:14px;background:rgba(139,45,29,.08);color:#8b2d1d;border:1px solid rgba(139,45,29,.18)}
     .form-grid{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:14px 16px}
     .field{display:grid;gap:7px}
     .field.span-2{grid-column:1 / -1}
@@ -148,7 +156,7 @@
       .page-shell{padding:16px}.topbar{flex-direction:column; align-items:stretch}.top-actions,.hero-actions{flex-direction:column}
       .btn{width:100%}.mini-stats{grid-template-columns:1fr}.form-grid,.profile-editor-grid{grid-template-columns:1fr}.member-row,.section-row{grid-template-columns:1fr}
       .footer-note{border-radius:22px}.recipe-grid{grid-template-columns:1fr}
-      .tier-status-card{grid-template-columns:1fr;padding:18px}.tier-status-actions{justify-content:stretch}.tier-status-actions .btn{width:100%}
+      .tier-status-card{grid-template-columns:1fr;padding:18px}.tier-status-actions{justify-content:stretch}.tier-status-actions .btn{width:100%}.basic-field-grid{grid-template-columns:1fr}
     }
   </style>
 
@@ -192,6 +200,8 @@
         <div id="tierStatusMeta" class="tier-status-meta"></div>
       </div>
       <div class="tier-status-actions">
+        <button id="tierStatusBasicDriveBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Drive</button>
+        <button id="tierStatusBasicStandBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Stand</button>
         <button id="tierStatusPrimaryBtn" class="btn btn-primary" type="button">Upgrade to DC+</button>
         <a id="tierStatusLiveLink" class="btn btn-secondary" href="camp.html">View Live Camp</a>
       </div>
@@ -302,13 +312,43 @@
         </div>
       </section>
 
-      <section class="section-card">
+      <section class="section-card basic-field-card" id="basicFieldCardsSection">
         <div>
-          <h3>4. Future Content Opportunities</h3>
-          <p class="helper">Optional DeerCamp tools for field updates, stand planning, deer drives, and map detail.</p>
+          <h3>4. Basic field cards</h3>
+          <p class="helper">DCF Stewards can create basic field cards within the free limits. DC+ upgrades unlock the Scout Elite map-based builders, show-all maps, and printable exports.</p>
+        </div>
+        <div class="basic-field-grid">
+          <form id="basicDriveForm" class="basic-field-form">
+            <div>
+              <h4>Basic Deer Drive</h4>
+              <p>Free camps include 1 basic deer drive card. Use DC+ for the full map-based Drive Builder.</p>
+            </div>
+            <div class="field"><label for="basicDriveTitle">Drive Name</label><input id="basicDriveTitle" type="text" placeholder="North Ridge Push" /></div>
+            <div class="field"><label for="basicDriveWind">Wind Direction</label><input id="basicDriveWind" type="text" placeholder="NW wind / from NW to SE" /></div>
+            <div class="field"><label for="basicDriveDrivers">Drivers / Pushers</label><input id="basicDriveDrivers" type="text" placeholder="Eric, Alan" /></div>
+            <div class="field"><label for="basicDriveStanders">Standers / Blockers</label><input id="basicDriveStanders" type="text" placeholder="Paul at old logging road" /></div>
+            <div class="field span-2"><label for="basicDriveNotes">Drive Notes</label><textarea id="basicDriveNotes" placeholder="Brief plan, route notes, safety reminders, and where everyone starts/ends."></textarea></div>
+            <div class="field span-2"><label for="basicDriveImage">Optional Image</label><input id="basicDriveImage" type="file" accept="image/*" /></div>
+            <div class="field span-2 member-form-actions"><button id="basicDriveSubmitBtn" class="btn btn-primary" type="submit">Save Basic Deer Drive</button></div>
+            <div id="basicDriveStatus" class="field span-2 basic-field-status" aria-live="polite"></div>
+          </form>
+
+          <form id="basicStandForm" class="basic-field-form">
+            <div>
+              <h4>Basic Deer Stand</h4>
+              <p>Free camps include 3 basic stand cards. Use DC+ for the full map-based Stand Builder.</p>
+            </div>
+            <div class="field"><label for="basicStandTitle">Stand Name</label><input id="basicStandTitle" type="text" placeholder="South Oak Ladder" /></div>
+            <div class="field"><label for="basicStandType">Stand Type</label><input id="basicStandType" type="text" placeholder="Ladder, box, tripod, blind" /></div>
+            <div class="field span-2"><label for="basicStandLocation">Location</label><input id="basicStandLocation" type="text" placeholder="South ridge by old oak / field edge" /></div>
+            <div class="field span-2"><label for="basicStandNotes">Stand Notes</label><textarea id="basicStandNotes" placeholder="Access notes, wind notes, best time, safety reminders."></textarea></div>
+            <div class="field span-2"><label for="basicStandImage">Optional Image</label><input id="basicStandImage" type="file" accept="image/*" /></div>
+            <div class="field span-2 member-form-actions"><button id="basicStandSubmitBtn" class="btn btn-primary" type="submit">Save Basic Deer Stand</button></div>
+            <div id="basicStandStatus" class="field span-2 basic-field-status" aria-live="polite"></div>
+          </form>
         </div>
         <div class="later-list">
-          <div class="later-row"><strong>CampMaps</strong><p>Camp land maps with landmarks, routes, and visual reference points.</p></div>
+          <div class="later-row"><strong>DC+ Scout Elite</strong><p>Upgrade to DC+ for map-based Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p></div>
           <div class="later-row"><strong>CampUpdate - Field Event Capture</strong><p>Future enhancement to add pictures and/or voice clips via mobile phone.</p></div>
         </div>
       </section>
@@ -1426,7 +1466,16 @@
         tier: campData ? campData.tier : "dcf",
         billingStatus: campData ? campData.billingStatus : "free",
         memberProfiles: state.members.map(member => ({ ...member })),
-        dashboardMembers: state.members.map(member => ({ ...member }))
+        dashboardMembers: state.members.map(member => ({ ...member })),
+        deerDrivePosts: Array.isArray(campData.deerDrivePosts) ? campData.deerDrivePosts : [],
+        deerDrives: Array.isArray(campData.deerDrives) ? campData.deerDrives : [],
+        savedDeerDrives: Array.isArray(campData.savedDeerDrives) ? campData.savedDeerDrives : [],
+        scoutDeerDrives: Array.isArray(campData.scoutDeerDrives) ? campData.scoutDeerDrives : [],
+        deerStandPosts: Array.isArray(campData.deerStandPosts) ? campData.deerStandPosts : [],
+        deerStands: Array.isArray(campData.deerStands) ? campData.deerStands : [],
+        stands: Array.isArray(campData.stands) ? campData.stands : [],
+        savedDeerStands: Array.isArray(campData.savedDeerStands) ? campData.savedDeerStands : [],
+        scoutDeerStands: Array.isArray(campData.scoutDeerStands) ? campData.scoutDeerStands : []
       });
     }
 
@@ -1670,6 +1719,246 @@
 
     function maybeOpenRequestedProfileEditor() {
       return false;
+    }
+
+
+    function setBasicFieldStatus(kind, message = "", variant = "") {
+      const node = document.getElementById(kind === "stand" ? "basicStandStatus" : "basicDriveStatus");
+      if (!node) return;
+      node.textContent = message;
+      node.classList.remove("is-success", "is-error");
+      if (variant) node.classList.add(`is-${variant}`);
+    }
+
+    async function makeBasicFieldImagePayload(kind, title, inputId) {
+      const input = document.getElementById(inputId);
+      const file = input && input.files && input.files[0] ? input.files[0] : null;
+      if (!file) return {};
+      const img = await loadImageFromFile(file);
+      function toDataUrl(maxSize, quality) {
+        const scale = Math.min(1, maxSize / Math.max(img.naturalWidth || img.width, img.naturalHeight || img.height));
+        const width = Math.max(1, Math.round((img.naturalWidth || img.width) * scale));
+        const height = Math.max(1, Math.round((img.naturalHeight || img.height) * scale));
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+        return canvas.toDataURL("image/jpeg", quality);
+      }
+      const displayDataUrl = toDataUrl(900, 0.74);
+      const thumbDataUrl = toDataUrl(260, 0.66);
+      const entityId = `${kind}-${slugify(title || Date.now())}-${Date.now()}`;
+      try {
+        if (window.DeerCampStorage && typeof DeerCampStorage.uploadCampImagePair === "function") {
+          const uploaded = await DeerCampStorage.uploadCampImagePair({
+            campId: state.campId,
+            folder: kind === "stand" ? "basic-deer-stands" : "basic-deer-drives",
+            entityId,
+            displayDataUrl,
+            thumbDataUrl
+          });
+          if (uploaded && (uploaded.displayUrl || uploaded.thumbUrl)) {
+            return {
+              image: uploaded.thumbUrl || uploaded.displayUrl,
+              thumbnail: uploaded.thumbUrl || uploaded.displayUrl,
+              detailImage: uploaded.displayUrl || uploaded.thumbUrl,
+              originalMapImage: uploaded.displayUrl || uploaded.thumbUrl,
+              imageStoragePath: uploaded.displayPath || "",
+              thumbnailStoragePath: uploaded.thumbPath || "",
+              storageProvider: uploaded.storageProvider || "firebase"
+            };
+          }
+        }
+      } catch (error) {
+        console.warn("Basic field image upload failed; keeping compressed local fallback.", error);
+      }
+      return {
+        image: thumbDataUrl,
+        thumbnail: thumbDataUrl,
+        detailImage: displayDataUrl,
+        originalMapImage: displayDataUrl,
+        storageProvider: "local-fallback"
+      };
+    }
+
+    function getBasicFieldUsage(featureKey) {
+      const dataForBilling = getDashboardBillingCampData();
+      if (window.DeerCampBilling && typeof window.DeerCampBilling.countFeatureUsage === "function") {
+        return window.DeerCampBilling.countFeatureUsage(featureKey, dataForBilling);
+      }
+      return 0;
+    }
+
+    function blockBasicFieldLimitIfNeeded(kind) {
+      const billing = window.DeerCampBilling;
+      if (!billing || typeof billing.getFeatureAccess !== "function") return false;
+      const featureKey = kind === "stand" ? "stand_limit" : "drive_limit";
+      const usage = getBasicFieldUsage(featureKey);
+      const dataForBilling = getDashboardBillingCampData();
+      const access = billing.getFeatureAccess(featureKey, dataForBilling, { usage });
+      if (access.allowed) return false;
+      const message = typeof billing.getUpgradeMessage === "function"
+        ? billing.getUpgradeMessage(featureKey, dataForBilling, { usage })
+        : (kind === "stand" ? "DCF includes up to 3 saved stands. Upgrade to DC+ to save more stands." : "DCF includes 1 saved deer drive. Upgrade to DC+ to save more deer drives.");
+      setBasicFieldStatus(kind, message, "error");
+      showToast(message, 7500);
+      return true;
+    }
+
+    async function persistBasicFieldItem(kind, item) {
+      const savedCampData = syncCampData();
+      const driveKeys = ["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"];
+      const standKeys = ["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"];
+      const keys = kind === "stand" ? standKeys : driveKeys;
+      keys.forEach(key => {
+        const list = Array.isArray(savedCampData[key]) ? savedCampData[key].slice() : [];
+        list.unshift({ ...item });
+        savedCampData[key] = list;
+      });
+      if (!savedCampData.enabledSections || typeof savedCampData.enabledSections !== "object") savedCampData.enabledSections = {};
+      if (kind === "stand") {
+        savedCampData.enabledSections.campdeerstands = true;
+        savedCampData.enabledSections.stands = true;
+        savedCampData.lastDeerStandSaveAt = item.createdAt;
+        state.sections.campdeerstands = true;
+      } else {
+        savedCampData.enabledSections.campdeerdrives = true;
+        savedCampData.enabledSections.deerdrives = true;
+        savedCampData.lastDeerDriveSaveAt = item.createdAt;
+        state.sections.campdeerdrives = true;
+      }
+      if (savedCampData.dashboardSlim && typeof savedCampData.dashboardSlim === "object") {
+        savedCampData.dashboardSlim.sections = Object.assign({}, savedCampData.dashboardSlim.sections || {}, state.sections, {
+          stands: Boolean(state.sections.campdeerstands),
+          deerdrives: Boolean(state.sections.campdeerdrives)
+        });
+      }
+      Object.assign(campData, savedCampData);
+      writeCampAndDashboardStorage(savedCampData, savedCampData.dashboardSlim || {
+        campId: state.campId,
+        camp: state.camp,
+        stewardName: state.stewardName,
+        stewardEmail: state.stewardEmail,
+        sections: state.sections,
+        members: state.members,
+        people: state.members,
+        pendingInvites: []
+      });
+      if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+        await DeerCampCloud.saveCamp(state.campId, savedCampData);
+      }
+      try {
+        localStorage.setItem(`deercamp.${kind === "stand" ? "stand" : "drive"}.refreshTick`, String(Date.now()));
+        localStorage.setItem(`deercamp.${state.campId}.${kind === "stand" ? "stand" : "drive"}.refreshTick`, String(Date.now()));
+      } catch {}
+      renderSections();
+      renderPreview();
+      renderDashboardBillingControls();
+    }
+
+    async function saveBasicDriveFromForm(event) {
+      event.preventDefault();
+      if (blockBasicFieldLimitIfNeeded("drive")) return;
+      const title = document.getElementById("basicDriveTitle").value.trim();
+      const wind = document.getElementById("basicDriveWind").value.trim();
+      const drivers = document.getElementById("basicDriveDrivers").value.trim();
+      const standers = document.getElementById("basicDriveStanders").value.trim();
+      const notes = document.getElementById("basicDriveNotes").value.trim();
+      if (!title) {
+        setBasicFieldStatus("drive", "Add a drive name first.", "error");
+        showToast("Add a drive name first.");
+        return;
+      }
+      const btn = document.getElementById("basicDriveSubmitBtn");
+      const oldLabel = btn ? btn.textContent : "";
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+        setBasicFieldStatus("drive", "Saving basic deer drive...", "");
+        const imagePayload = await makeBasicFieldImagePayload("drive", title, "basicDriveImage");
+        const createdAt = new Date().toISOString();
+        const body = [notes, drivers ? `Drivers / Pushers: ${drivers}` : "", standers ? `Standers / Blockers: ${standers}` : ""].filter(Boolean).join("\n\n");
+        const item = {
+          id: `basic-drive-${slugify(title)}-${Date.now()}`,
+          source: "dashboard-basic",
+          title,
+          driveName: title,
+          body: body || "Basic deer drive card.",
+          notes: body || "Basic deer drive card.",
+          author: state.stewardName || "Camp Steward",
+          createdAt,
+          createdAtMs: Date.now(),
+          tags: ["Basic Drive", "DCF"],
+          windLabel: wind,
+          drivers,
+          standers,
+          routeCount: 0,
+          routeSummaries: [],
+          ...imagePayload
+        };
+        await persistBasicFieldItem("drive", item);
+        document.getElementById("basicDriveForm").reset();
+        setBasicFieldStatus("drive", "Basic deer drive saved and published to CampDeerDrives.", "success");
+        showToast("Basic deer drive saved.", 5200);
+      } catch (error) {
+        console.error("Basic deer drive save failed.", error);
+        setBasicFieldStatus("drive", "Could not save the basic deer drive. Check console and try again.", "error");
+        showToast("Basic deer drive save failed.", 6500);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = oldLabel || "Save Basic Deer Drive"; }
+      }
+    }
+
+    async function saveBasicStandFromForm(event) {
+      event.preventDefault();
+      if (blockBasicFieldLimitIfNeeded("stand")) return;
+      const title = document.getElementById("basicStandTitle").value.trim();
+      const standType = document.getElementById("basicStandType").value.trim();
+      const location = document.getElementById("basicStandLocation").value.trim();
+      const notes = document.getElementById("basicStandNotes").value.trim();
+      if (!title) {
+        setBasicFieldStatus("stand", "Add a stand name first.", "error");
+        showToast("Add a stand name first.");
+        return;
+      }
+      const btn = document.getElementById("basicStandSubmitBtn");
+      const oldLabel = btn ? btn.textContent : "";
+      try {
+        if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
+        setBasicFieldStatus("stand", "Saving basic deer stand...", "");
+        const imagePayload = await makeBasicFieldImagePayload("stand", title, "basicStandImage");
+        const createdAt = new Date().toISOString();
+        const body = [notes, location ? `Location: ${location}` : "", standType ? `Type: ${standType}` : ""].filter(Boolean).join("\n\n");
+        const item = {
+          id: `basic-stand-${slugify(title)}-${Date.now()}`,
+          source: "dashboard-basic",
+          title,
+          standName: title,
+          name: title,
+          body: body || "Basic deer stand card.",
+          notes: body || "Basic deer stand card.",
+          standType,
+          type: standType,
+          location,
+          author: state.stewardName || "Camp Steward",
+          createdAt,
+          createdAtMs: Date.now(),
+          tags: ["Basic Stand", "DCF"],
+          ...imagePayload
+        };
+        await persistBasicFieldItem("stand", item);
+        document.getElementById("basicStandForm").reset();
+        setBasicFieldStatus("stand", "Basic deer stand saved and published to CampDeerStands.", "success");
+        showToast("Basic deer stand saved.", 5200);
+      } catch (error) {
+        console.error("Basic deer stand save failed.", error);
+        setBasicFieldStatus("stand", "Could not save the basic deer stand. Check console and try again.", "error");
+        showToast("Basic deer stand save failed.", 6500);
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = oldLabel || "Save Basic Deer Stand"; }
+      }
     }
 
     function renderRecipeSelector() {
@@ -1997,6 +2286,8 @@
     document.getElementById("memberResetBtn").addEventListener("click", resetMemberForm);
     document.getElementById("memberPhotoPicker")?.addEventListener("change", handleMemberPhotoUpload);
     document.getElementById("memberPhotoClear")?.addEventListener("click", clearMemberPhoto);
+    document.getElementById("basicDriveForm")?.addEventListener("submit", saveBasicDriveFromForm);
+    document.getElementById("basicStandForm")?.addEventListener("submit", saveBasicStandFromForm);
 
     document.getElementById("memberDeleteBtn").addEventListener("click", () => {
       const editIndex = document.getElementById("memberEditIndex").value;
@@ -2072,6 +2363,8 @@
       const title=document.getElementById('tierStatusTitle');
       const body=document.getElementById('tierStatusBody');
       const meta=document.getElementById('tierStatusMeta');
+      const basicDriveBtn=document.getElementById('tierStatusBasicDriveBtn');
+      const basicStandBtn=document.getElementById('tierStatusBasicStandBtn');
       const primary=document.getElementById('tierStatusPrimaryBtn');
       const live=document.getElementById('tierStatusLiveLink');
       const tierState=getDashboardTierState();
@@ -2092,7 +2385,7 @@
         model={eyebrow:'DeerCamp Plus',title:'DeerCamp Plus Active',body:'Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps are unlocked for this camp.',primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Scout Elite unlocked','Billing active']};
       } else {
         card.classList.add('is-free');
-        model={eyebrow:'DeerCamp Free',title:'DeerCamp Free',body:'DCF keeps camp creation, members, sections, and basic memories simple. Upgrade to DC+ for Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.',primary:'Upgrade to DC+',primaryAction:openDashboardBillingModal,chips:[dashboardTierLimitLabel('member_limit','Members: 0/8'),dashboardTierLimitLabel('stand_limit','Stands: 0/3'),dashboardTierLimitLabel('drive_limit','Drives: 0/1')]};
+        model={eyebrow:'DeerCamp Free',title:'DeerCamp Free',body:'DCF includes basic field cards with limits: 3 basic stands and 1 basic deer drive. Upgrade to DC+ for Scout Elite map-based builders, show-all maps, and printable camp maps.',primary:'Upgrade to DC+ for Scout Elite',primaryAction:openDashboardBillingModal,chips:[dashboardTierLimitLabel('member_limit','Members: 0/8'),dashboardTierLimitLabel('stand_limit','Stands: 0/3'),dashboardTierLimitLabel('drive_limit','Drives: 0/1')]};
       }
       if(eyebrow) eyebrow.textContent=model.eyebrow;
       if(title) title.textContent=model.title;
@@ -2105,6 +2398,24 @@
           span.textContent=chip;
           meta.appendChild(span);
         });
+      }
+      if(basicDriveBtn){
+        const driveUsage=getBasicFieldUsage('drive_limit');
+        const driveAccess=window.DeerCampBilling && typeof window.DeerCampBilling.getFeatureAccess === 'function'
+          ? window.DeerCampBilling.getFeatureAccess('drive_limit', getDashboardBillingCampData(), { usage: driveUsage })
+          : { allowed: true };
+        basicDriveBtn.hidden = plus || !driveAccess.allowed;
+        basicDriveBtn.textContent = driveAccess.allowed ? 'Add Basic Deer Drive' : 'Drive Limit Reached';
+        basicDriveBtn.onclick = () => document.getElementById('basicDriveForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      }
+      if(basicStandBtn){
+        const standUsage=getBasicFieldUsage('stand_limit');
+        const standAccess=window.DeerCampBilling && typeof window.DeerCampBilling.getFeatureAccess === 'function'
+          ? window.DeerCampBilling.getFeatureAccess('stand_limit', getDashboardBillingCampData(), { usage: standUsage })
+          : { allowed: true };
+        basicStandBtn.hidden = plus || !standAccess.allowed;
+        basicStandBtn.textContent = standAccess.allowed ? 'Add Basic Deer Stand' : 'Stand Limit Reached';
+        basicStandBtn.onclick = () => document.getElementById('basicStandForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
       }
       if(primary){
         primary.textContent=model.primary;

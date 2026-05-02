@@ -268,6 +268,8 @@
       MEMBER_LIMIT: "member_limit",
       STAND_LIMIT: "stand_limit",
       DRIVE_LIMIT: "drive_limit",
+      BASIC_DEER_STAND: "basic_deer_stand",
+      BASIC_DEER_DRIVE: "basic_deer_drive",
       SINGLE_IMAGE_POSTS: "single_image_posts",
       BASIC_CAMP: "basic_camp"
     },
@@ -297,6 +299,8 @@
     featureRules: {
       basic_camp: { tiers: ["dcf", "dc_plus", "dcp"] },
       single_image_posts: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "imagesPerPost" },
+      basic_deer_stand: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "deerStands" },
+      basic_deer_drive: { tiers: ["dcf", "dc_plus", "dcp"], limitKey: "deerDrives" },
       scout_elite: { tiers: ["dc_plus", "dcp"] },
       stand_builder: { tiers: ["dc_plus", "dcp"] },
       drive_builder: { tiers: ["dc_plus", "dcp"] },
@@ -329,11 +333,17 @@
       deer_stands: "stand_limit",
       stands: "stand_limit",
       stand: "stand_limit",
+      basic_stand: "basic_deer_stand",
+      basic_deerstand: "basic_deer_stand",
+      basic_deer_stands: "basic_deer_stand",
       save_stand: "stand_limit",
       saved_stands: "stand_limit",
       deer_drives: "drive_limit",
       drives: "drive_limit",
       drive: "drive_limit",
+      basic_drive: "basic_deer_drive",
+      basic_deerdrive: "basic_deer_drive",
+      basic_deer_drives: "basic_deer_drive",
       save_drive: "drive_limit",
       saved_drives: "drive_limit",
       multi_image: "multi_image_posts",
@@ -352,7 +362,9 @@
       video_posts: "Upgrade to DC+ to add video camp posts.",
       member_limit: "DCF includes up to 8 members. Upgrade to DC+ for a larger camp roster.",
       stand_limit: "DCF includes up to 3 saved stands. Upgrade to DC+ to save more stands.",
-      drive_limit: "DCF includes 1 saved deer drive. Upgrade to DC+ to save more deer drives."
+      drive_limit: "DCF includes 1 saved deer drive. Upgrade to DC+ to save more deer drives.",
+      basic_deer_stand: "DCF includes up to 3 basic deer stand cards. Upgrade to DC+ for map-based Stand Builder and more stands.",
+      basic_deer_drive: "DCF includes 1 basic deer drive card. Upgrade to DC+ for map-based Drive Builder and more drives."
     },
     normalizeTier(value) {
       const clean = String(value || "").trim().toLowerCase();
@@ -493,7 +505,9 @@
       const arrays = {
         member_limit: [data.memberProfiles, data.dashboardMembers, data.members, data.campMembers],
         stand_limit: [data.deerStandPosts, data.deerStands, data.savedDeerStands, data.scoutDeerStands, data.stands],
-        drive_limit: [data.deerDrivePosts, data.deerDrives, data.savedDeerDrives, data.scoutDeerDrives]
+        basic_deer_stand: [data.deerStandPosts, data.deerStands, data.savedDeerStands, data.scoutDeerStands, data.stands],
+        drive_limit: [data.deerDrivePosts, data.deerDrives, data.savedDeerDrives, data.scoutDeerDrives],
+        basic_deer_drive: [data.deerDrivePosts, data.deerDrives, data.savedDeerDrives, data.scoutDeerDrives]
       };
       const candidates = arrays[normalizedFeature] || [];
       for (const list of candidates) {
