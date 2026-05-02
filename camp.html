@@ -132,6 +132,14 @@
   .avatar img{display:block;width:100%;height:100%;object-fit:cover}
   .member-section{padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.48);display:grid;gap:8px}
   .member-detail-row{display:grid;grid-template-columns:minmax(132px,152px) minmax(0,1fr);gap:10px}
+  .member-edit-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:4px}
+  .member-edit-form label{display:grid;gap:6px;color:#452a16;font-size:.82rem;font-weight:800}
+  .member-edit-form input,.member-edit-form textarea{width:100%;min-height:42px;padding:10px 12px;border-radius:12px;border:1px solid rgba(69,42,22,.16);background:#fff;color:#231a13}
+  .member-edit-form textarea{min-height:92px;resize:vertical;line-height:1.4}
+  .member-edit-form .span-2{grid-column:1/-1}
+  .member-edit-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+  .member-edit-status{color:#5b3d1e;font-size:.88rem;font-weight:700}
+  @media (max-width:720px){.member-edit-form{grid-template-columns:1fr}.member-edit-actions .btn{width:100%}}
   .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
   .calendar-main,.calendar-side{background:rgba(252,246,236,.72);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(0,0,0,.08)}
   .calendar-side{display:grid;grid-template-columns:minmax(250px,.72fr) minmax(520px,1.28fr);gap:18px}
@@ -1300,24 +1308,14 @@ function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
   }
   return esc(initials(member?.name || fallbackLabel));
 }
-function buildStewardProfileEditUrl(){
-  const url = new URL('steward-dashboard.html', window.location.href);
-  if(activeCampId) url.searchParams.set('campId', activeCampId);
-  url.searchParams.set('edit', 'steward');
-  return `${url.pathname}?${url.searchParams.toString()}`;
+let activeMemberModalSource = null;
+let activeMemberModalProfile = null;
+
+function cleanProfileDisplayValue(value){
+  const clean = String(value || "").trim();
+  return clean && clean !== "—" ? clean : "";
 }
-function renderMemberModalEditAction(profile = {}){
-  const wrap = document.getElementById('memberModalEditAction');
-  if(!wrap) return;
-  const isSteward = String(profile.role || '').trim().toLowerCase() === 'camp steward';
-  if(isSteward){
-    wrap.innerHTML = `<a class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" href="${esc(buildStewardProfileEditUrl())}">Edit Steward Profile</a>`;
-  } else {
-    wrap.textContent = 'Member-only editing will be added with secure sign-in.';
-  }
-}
-function openMemberModal(member){
-  const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
+function applyMemberModalProfileDisplay(profile = {}){
   document.getElementById("memberModalAvatar").innerHTML=renderAvatarMarkup(profile, profile.role || "Camp Member");
   document.getElementById("memberModalName").textContent=profile.name||"Camp Member";
   document.getElementById("memberModalRole").textContent=profile.role||"Camp Member";
@@ -1334,6 +1332,141 @@ function openMemberModal(member){
   document.getElementById("memberModalMemory").textContent=profile.bestCampMemory||"—";
   document.getElementById("memberModalSpecialty").textContent=profile.specialty||"—";
   document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
+}
+function renderMemberModalEditAction(profile = {}){
+  const wrap = document.getElementById('memberModalEditAction');
+  if(!wrap) return;
+  const isSteward = String(profile.role || '').trim().toLowerCase() === 'camp steward';
+  if(isSteward){
+    wrap.innerHTML = `<button id="openStewardProfileEditBtn" class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" type="button">Edit Steward Profile</button>`;
+    document.getElementById('openStewardProfileEditBtn')?.addEventListener('click', () => renderStewardProfileEditForm(profile));
+  } else {
+    wrap.textContent = 'Member-only editing will be added with secure sign-in.';
+  }
+}
+function renderStewardProfileEditForm(profile = {}){
+  const wrap = document.getElementById('memberModalEditAction');
+  if(!wrap) return;
+  wrap.innerHTML = `
+    <form id="stewardInlineProfileForm" class="member-edit-form">
+      <label>Name<input id="stewardInlineName" type="text" value="${esc(cleanProfileDisplayValue(profile.name))}" placeholder="Eric S"></label>
+      <label>Email<input id="stewardInlineEmail" type="email" value="${esc(cleanProfileDisplayValue(profile.email))}" placeholder="name@example.com"></label>
+      <label>Nickname<input id="stewardInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
+      <label>Joined<input id="stewardInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
+      <label>Favorite Stand<input id="stewardInlineFavoriteStand" type="text" value="${esc(cleanProfileDisplayValue(profile.favoriteStand))}" placeholder="North ridge stand"></label>
+      <label>Favorite Gear<input id="stewardInlineFavoriteGear" type="text" value="${esc(cleanProfileDisplayValue(profile.favoriteGear))}" placeholder="Favorite gear"></label>
+      <label>Harvest Highlight<input id="stewardInlineHarvest" type="text" value="${esc(cleanProfileDisplayValue(profile.harvestHighlight))}" placeholder="Best harvest moment"></label>
+      <label>Best Camp Memory<input id="stewardInlineMemory" type="text" value="${esc(cleanProfileDisplayValue(profile.bestCampMemory))}" placeholder="Favorite camp memory"></label>
+      <label class="span-2">Specialty<input id="stewardInlineSpecialty" type="text" value="${esc(cleanProfileDisplayValue(profile.specialty))}" placeholder="Camp cook, map keeper, storyteller..."></label>
+      <label class="span-2">Note<textarea id="stewardInlineNote" placeholder="What should the camp know about this Steward?">${esc(cleanProfileDisplayValue(profile.note))}</textarea></label>
+      <div class="member-edit-actions span-2">
+        <button class="btn" type="submit">Save Steward Profile</button>
+        <button id="cancelStewardInlineEditBtn" class="btn btn-secondary" type="button">Cancel</button>
+        <span id="stewardInlineStatus" class="member-edit-status"></span>
+      </div>
+    </form>`;
+  document.getElementById('stewardInlineProfileForm')?.addEventListener('submit', saveStewardProfileFromModal);
+  document.getElementById('cancelStewardInlineEditBtn')?.addEventListener('click', () => renderMemberModalEditAction(activeMemberModalProfile || profile));
+}
+function upsertStewardInArray(items = [], nextProfile = {}){
+  const arr = Array.isArray(items) ? items.slice() : [];
+  const idx = arr.findIndex(item => String(item?.role || '').trim().toLowerCase() === 'camp steward');
+  const merged = { ...(idx >= 0 ? arr[idx] : {}), ...nextProfile, role:'Camp Steward' };
+  if(idx >= 0) arr[idx] = merged; else arr.unshift(merged);
+  return arr;
+}
+function syncStewardProfileToDashboardCache(nextProfile = {}){
+  try{
+    const scopedKey = campScopeKey(activeCampId, 'dashboardSlim');
+    const dashboard = safeParseJson(scopedKey ? localStorage.getItem(scopedKey) : '', safeParseJson(localStorage.getItem('deercamp.stewardDashboardSlim'), {}));
+    if(dashboard && typeof dashboard === 'object'){
+      dashboard.stewardName = nextProfile.name || dashboard.stewardName || '';
+      dashboard.stewardEmail = nextProfile.email || dashboard.stewardEmail || '';
+      dashboard.stewardProfile = { ...(dashboard.stewardProfile || {}), ...nextProfile };
+      dashboard.members = upsertStewardInArray(dashboard.members, nextProfile);
+      dashboard.people = upsertStewardInArray(dashboard.people, nextProfile);
+      dashboard.dashboardMembers = upsertStewardInArray(dashboard.dashboardMembers, nextProfile);
+      dashboard.dashboardPeople = upsertStewardInArray(dashboard.dashboardPeople, nextProfile);
+      if(scopedKey) localStorage.setItem(scopedKey, JSON.stringify(dashboard));
+      localStorage.setItem('deercamp.stewardDashboardSlim', JSON.stringify(dashboard));
+      localStorage.setItem('deerCampStewardDashboard', JSON.stringify(dashboard));
+    }
+  }catch(error){console.warn('Could not sync steward profile to dashboard cache.', error);}
+}
+function refreshVisibleStewardProfile(nextProfile = {}){
+  if(activeMemberModalSource) Object.assign(activeMemberModalSource, nextProfile);
+  if(stewardMember) Object.assign(stewardMember, nextProfile);
+  activeMemberModalProfile = buildDetailedMemberProfile(nextProfile, 'Camp Steward');
+  applyMemberModalProfileDisplay(activeMemberModalProfile);
+  renderMemberModalEditAction(activeMemberModalProfile);
+  if(stewardWrap && stewardMember){stewardWrap.innerHTML=''; stewardWrap.appendChild(buildHeaderMemberButton(stewardMember, true));}
+  if(mobileStewardButton && mobileStewardName && stewardMember){
+    const mobileBadge = mobileStewardButton.querySelector('.mobile-steward-badge');
+    if(mobileBadge) mobileBadge.innerHTML = renderAvatarMarkup(stewardMember, stewardMember.name);
+    mobileStewardName.textContent = stewardMember.name || 'Camp Steward';
+  }
+  renderCampMembersSection();
+  populateMemberSelects();
+}
+function saveStewardProfileFromModal(event){
+  event.preventDefault();
+  const read = id => String(document.getElementById(id)?.value || '').trim();
+  const status = document.getElementById('stewardInlineStatus');
+  const existing = activeMemberModalProfile || {};
+  const photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
+  const nextProfile = {
+    ...existing,
+    name: read('stewardInlineName') || existing.name || 'Camp Steward',
+    email: read('stewardInlineEmail'),
+    nickname: read('stewardInlineNickname'),
+    yearJoined: read('stewardInlineYearJoined'),
+    favoriteStand: read('stewardInlineFavoriteStand'),
+    favoriteGear: read('stewardInlineFavoriteGear'),
+    harvestHighlight: read('stewardInlineHarvest'),
+    bestCampMemory: read('stewardInlineMemory'),
+    specialty: read('stewardInlineSpecialty'),
+    note: read('stewardInlineNote') || getRoleTemplate('Camp Steward').roleLine,
+    role: 'Camp Steward',
+    roleLine: read('stewardInlineNote') || getRoleTemplate('Camp Steward').roleLine,
+    responsibilitiesLabel: getRoleTemplate('Camp Steward').responsibilitiesLabel,
+    responsibilities: getRoleTemplate('Camp Steward').responsibilities.slice(),
+    profileUpdatedAt: new Date().toISOString()
+  };
+  if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
+  data.stewardName = nextProfile.name;
+  data.steward = nextProfile.name;
+  data.campSteward = nextProfile.name;
+  data.stewardEmail = nextProfile.email;
+  data.stewardProfile = { ...(data.stewardProfile || {}), ...nextProfile };
+  data.campStewardProfile = { ...(data.campStewardProfile || {}), ...nextProfile };
+  data.stewardNickname = nextProfile.nickname;
+  data.stewardYearJoined = nextProfile.yearJoined;
+  data.stewardFavoriteStand = nextProfile.favoriteStand;
+  data.stewardFavoriteGear = nextProfile.favoriteGear;
+  data.stewardHarvestHighlight = nextProfile.harvestHighlight;
+  data.stewardBestCampMemory = nextProfile.bestCampMemory;
+  data.stewardSpecialty = nextProfile.specialty;
+  data.stewardRoleLine = nextProfile.roleLine;
+  data.memberProfiles = upsertStewardInArray(data.memberProfiles, nextProfile);
+  data.members = upsertStewardInArray(data.members, nextProfile);
+  data.campMembers = upsertStewardInArray(data.campMembers, nextProfile);
+  data.dashboardMembers = upsertStewardInArray(data.dashboardMembers, nextProfile);
+  data.dashboardPeople = upsertStewardInArray(data.dashboardPeople, nextProfile);
+  if(data.dashboardSlim && typeof data.dashboardSlim === 'object'){
+    data.dashboardSlim.stewardName = nextProfile.name;
+    data.dashboardSlim.stewardEmail = nextProfile.email;
+    data.dashboardSlim.stewardProfile = { ...(data.dashboardSlim.stewardProfile || {}), ...nextProfile };
+    data.dashboardSlim.members = upsertStewardInArray(data.dashboardSlim.members, nextProfile);
+    data.dashboardSlim.people = upsertStewardInArray(data.dashboardSlim.people, nextProfile);
+  }
+  try{persist(); syncStewardProfileToDashboardCache(nextProfile); refreshVisibleStewardProfile(nextProfile); if(status) status.textContent='Saved.';}
+  catch(error){console.warn('Could not save Steward profile.', error); if(status) status.textContent='Save failed. Please try again.';}
+}
+function openMemberModal(member){
+  activeMemberModalSource = member || null;
+  const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
+  activeMemberModalProfile = profile;
+  applyMemberModalProfileDisplay(profile);
   renderMemberModalEditAction(profile);
   document.getElementById("memberModal").classList.add("open");
   document.getElementById("memberModalBackdrop").classList.add("open");
