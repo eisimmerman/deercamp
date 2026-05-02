@@ -152,6 +152,7 @@
         <p id="welcomeCopy">Confirm the camp identity (#1), Members (#2) and Camp Sections (#3).</p>
         <div class="hero-actions">
           <a id="shareCampBtn" class="btn btn-soft" href="#">Copy Share Link</a>
+          <button id="editStewardProfileBtn" class="btn btn-secondary" type="button">Edit Steward Profile</button>
         </div>
         <div class="hero-subnote" id="heroSubnote">Use this as the first real work surface after camp creation.</div>
       </div>
@@ -410,6 +411,15 @@
       return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
     }
 
+    function getDashboardEditTarget() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return String(params.get("edit") || params.get("profile") || "").trim().toLowerCase();
+      } catch (error) {
+        return "";
+      }
+    }
+
     function titleCaseFromSlug(value = "") {
       return String(value || "")
         .split("-")
@@ -515,7 +525,7 @@
       if (status === 'removed') return 'Removed';
       if (status === 'accepted' || status === 'active') return 'Active';
       if (status === 'invite sent' || status === 'invited') return 'Invite Sent';
-      if (status === 'sending') return 'Sending';
+      if (status === 'sending') return 'Ready';
       if (status === 'failed') return 'Failed';
       if (hasEmail) return 'Ready';
       return 'Draft';
@@ -1219,6 +1229,7 @@
           pendingInvite: Boolean(member.pendingInvite),
           inviteToken: String(member.inviteToken || "").trim(),
           inviteSentAt: String(member.inviteSentAt || "").trim(),
+          inviteStartedAt: String(member.inviteStartedAt || "").trim(),
           inviteError: String(member.inviteError || "").trim()
         };
         copyMemberProfileFields(profile, member);
@@ -1252,7 +1263,7 @@
         members: keptMembers.map(member => ({ ...member })),
         people: keptMembers.map(member => ({ ...member })),
         pendingInvites: keptMembers
-          .filter(member => String(member.role || '').toLowerCase() !== 'camp steward' && (member.status === 'Ready' || member.status === 'Invite Sent' || member.status === 'Sending' || member.status === 'Failed'))
+          .filter(member => String(member.role || '').toLowerCase() !== 'camp steward' && (member.status === 'Ready' || member.status === 'Invite Sent' || member.status === 'Failed'))
           .map(member => ({ ...member }))
       };
 
@@ -1526,12 +1537,14 @@
 
       try {
         member.status = "Sending";
+        member.inviteStartedAt = new Date().toISOString();
         member.inviteError = "";
         renderMembers();
         const result = await sendMemberInvite(member);
         member.pendingInvite = false;
         member.status = "Invite Sent";
         member.inviteSentAt = new Date().toISOString();
+        member.inviteStartedAt = "";
         member.inviteToken = result.inviteToken;
         member.inviteError = "";
         syncCampData();
@@ -1541,6 +1554,7 @@
         showToast(`Invite resent to ${member.name}.`);
       } catch (error) {
         member.status = "Failed";
+        member.inviteStartedAt = "";
         member.inviteError = error?.message || "Failed to resend invite.";
         syncCampData();
         renderMembers();
@@ -1577,6 +1591,27 @@
       if (deleteBtn) deleteBtn.hidden = true;
       clearMemberEditPulse();
       updateInviteButton();
+    }
+
+    function focusStewardProfileEditor({ scroll = true } = {}) {
+      ensureStewardMember();
+      const stewardIndex = state.members.findIndex(member => String(member.role || "").toLowerCase() === "camp steward");
+      if (stewardIndex < 0) return false;
+      loadMemberForEdit(stewardIndex);
+      const form = document.getElementById("memberForm");
+      if (scroll && form && typeof form.scrollIntoView === "function") {
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+      showToast("Editing Camp Steward profile.", 4200);
+      return true;
+    }
+
+    function maybeOpenRequestedProfileEditor() {
+      const target = getDashboardEditTarget();
+      if (target === "steward" || target === "camp-steward" || target === "campsteward") {
+        return focusStewardProfileEditor({ scroll: true });
+      }
+      return false;
     }
 
     function renderRecipeSelector() {
@@ -1854,6 +1889,7 @@
       inviteBtn.textContent = "Sending Invites...";
       pending.forEach(member => {
         member.status = "Sending";
+        member.inviteStartedAt = new Date().toISOString();
       });
       renderMembers();
 
@@ -1867,11 +1903,13 @@
           result.member.status = "Invite Sent";
           result.member.inviteToken = result.inviteToken;
           result.member.inviteSentAt = new Date().toISOString();
+          result.member.inviteStartedAt = "";
           result.member.inviteError = "";
           successCount += 1;
         } else {
           result.member.status = "Failed";
           result.member.pendingInvite = true;
+          result.member.inviteStartedAt = "";
           result.member.inviteError = result.error || "Failed to send invite.";
           failCount += 1;
           console.error(`Invite failed for ${result.member.name}:`, result.error);
@@ -2044,7 +2082,7 @@
       if (cloudMembers.length) {
         state.members = cloudMembers.filter(item => String(item.status || "Active").toLowerCase() !== "removed").map(item => {
           const normalizedStatus = normalizeMemberStatus(item);
-          const member = { name: String(item.name || "").trim(), email: String(item.email || "").trim(), note: String(item.note || "").trim(), role: String(item.role || "Camp Member").trim() || "Camp Member", status: normalizedStatus, pendingInvite: normalizedStatus === "Ready", inviteToken: String(item.inviteToken || "").trim(), inviteSentAt: String(item.inviteSentAt || "").trim(), inviteError: String(item.inviteError || "").trim() };
+          const member = { name: String(item.name || "").trim(), email: String(item.email || "").trim(), note: String(item.note || "").trim(), role: String(item.role || "Camp Member").trim() || "Camp Member", status: normalizedStatus, pendingInvite: normalizedStatus === "Ready", inviteToken: String(item.inviteToken || "").trim(), inviteSentAt: String(item.inviteSentAt || "").trim(), inviteStartedAt: String(item.inviteStartedAt || "").trim(), inviteError: String(item.inviteError || "").trim() };
           copyMemberProfileFields(member, item);
           return member;
         });
@@ -2076,13 +2114,16 @@
       return false;
     }
 
+    document.getElementById("editStewardProfileBtn")?.addEventListener("click", () => focusStewardProfileEditor({ scroll: true }));
+
     syncCampData();
     renderPreview();
     renderDashboardBillingControls();
     renderMembers();
     renderSections();
     updateInviteButton();
-    hydrateDashboardFromCloud();
+    maybeOpenRequestedProfileEditor();
+    hydrateDashboardFromCloud().then(() => maybeOpenRequestedProfileEditor());
   </script>
 </body>
 </html>

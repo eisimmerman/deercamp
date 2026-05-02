@@ -551,8 +551,8 @@
       <div class="member-detail-row"><div><strong>Specialty</strong></div><div id="memberModalSpecialty">—</div></div>
       <div class="member-detail-row"><div><strong>Note</strong></div><div id="memberModalDetailNote">—</div></div>
     </div>
-    <div class="member-section">
-      <div class="member-detail-row"><div><strong>Member card edits</strong></div><div>Member-only editing will be added with secure sign-in.</div></div>
+    <div class="member-section" id="memberModalEditSection">
+      <div class="member-detail-row"><div><strong>Profile edits</strong></div><div id="memberModalEditAction">Member-only editing will be added with secure sign-in.</div></div>
     </div>
   </div>
 </div>
@@ -1300,6 +1300,22 @@ function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
   }
   return esc(initials(member?.name || fallbackLabel));
 }
+function buildStewardProfileEditUrl(){
+  const url = new URL('steward-dashboard.html', window.location.href);
+  if(activeCampId) url.searchParams.set('campId', activeCampId);
+  url.searchParams.set('edit', 'steward');
+  return `${url.pathname}?${url.searchParams.toString()}`;
+}
+function renderMemberModalEditAction(profile = {}){
+  const wrap = document.getElementById('memberModalEditAction');
+  if(!wrap) return;
+  const isSteward = String(profile.role || '').trim().toLowerCase() === 'camp steward';
+  if(isSteward){
+    wrap.innerHTML = `<a class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" href="${esc(buildStewardProfileEditUrl())}">Edit Steward Profile</a>`;
+  } else {
+    wrap.textContent = 'Member-only editing will be added with secure sign-in.';
+  }
+}
 function openMemberModal(member){
   const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
   document.getElementById("memberModalAvatar").innerHTML=renderAvatarMarkup(profile, profile.role || "Camp Member");
@@ -1318,6 +1334,7 @@ function openMemberModal(member){
   document.getElementById("memberModalMemory").textContent=profile.bestCampMemory||"—";
   document.getElementById("memberModalSpecialty").textContent=profile.specialty||"—";
   document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
+  renderMemberModalEditAction(profile);
   document.getElementById("memberModal").classList.add("open");
   document.getElementById("memberModalBackdrop").classList.add("open");
   document.body.classList.add("modal-open");
