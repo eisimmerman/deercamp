@@ -886,7 +886,14 @@ function persist(){
     }
     return nextEntry;
   });
-  data.campPhotoGallery = campPhotoGallery.slice(0,12);
+  data.campPhotoGallery = campPhotoGallery.slice(0,12).map(item => {
+    const nextPhoto = Object.assign({}, item);
+    if(/^data:image\//i.test(String(nextPhoto.image || ''))) delete nextPhoto.image;
+    if(/^data:image\//i.test(String(nextPhoto.thumbnail || ''))) delete nextPhoto.thumbnail;
+    if(/^data:image\//i.test(String(nextPhoto.displayUrl || ''))) delete nextPhoto.displayUrl;
+    if(/^data:image\//i.test(String(nextPhoto.thumbUrl || ''))) delete nextPhoto.thumbUrl;
+    return nextPhoto;
+  });
   data.deerStandPosts = Array.isArray(deerStandPosts) ? deerStandPosts.slice() : [];
   data.deerStands = data.deerStandPosts.slice();
   data.stands = data.deerStandPosts.slice();
@@ -1574,6 +1581,29 @@ async function uploadStewardProfilePhoto(file, profile = {}){
     thumbDataUrl: pair.thumbDataUrl
   });
 }
+async function buildCampFeedPhotoPair(file){
+  if(!file) return null;
+  const img = await loadImageElementFromFile(file);
+  return {
+    displayDataUrl: canvasImageDataUrl(img, 1200, 1200, 0.78),
+    thumbDataUrl: canvasImageDataUrl(img, 360, 360, 0.70)
+  };
+}
+async function uploadCampFeedPhoto(file, photoId = '', title = ''){
+  if(!file) return null;
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
+    throw new Error('Firebase Storage is not available.');
+  }
+  const pair = await buildCampFeedPhotoPair(file);
+  const entityId = `${slugify(photoId || title || 'campfeed-photo')}-${Date.now()}`;
+  return window.DeerCampStorage.uploadCampImagePair({
+    campId: activeCampId,
+    folder: 'campfeed',
+    entityId,
+    displayDataUrl: pair.displayDataUrl,
+    thumbDataUrl: pair.thumbDataUrl
+  });
+}
 function previewStewardProfilePhotoFile(event){
   const file = event?.target?.files?.[0];
   const preview = document.getElementById('stewardInlinePhotoPreview');
@@ -1782,8 +1812,9 @@ function normalizePhotoEntries(){
   let orderIndex = 0;
   const push=item=>{
     if (isLegacySeedFeedItem(item)) return;
-    const image=String(item.image||item.img||"").trim();
-    if(!image) return;
+    const image=String(item.thumbUrl||item.thumbnailUrl||item.thumbnail||item.image||item.img||item.displayUrl||item.imageUrl||"").trim();
+    const displayImage=String(item.displayUrl||item.imageUrl||item.image||item.img||image||"").trim();
+    if(!image && !displayImage) return;
     const fallbackId = slugify(`${item.title || 'camp-picture'}-${orderIndex + 1}`) || `photo-${orderIndex + 1}`;
     const stableId = String(item.id || item.imageRef || fallbackId).trim();
     const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
@@ -2148,37 +2179,40 @@ if(document.getElementById('updateType')){
       const caption=String(document.getElementById('photoCaption').value||'').trim();
       if(!title){setUpdateFeedback('Add a picture title before posting.', true); return;}
       if(!file){setUpdateFeedback('Choose a picture first.', true); return;}
-      const image = await new Promise((resolve,reject)=>{
-        const reader=new FileReader();
-        reader.onload=()=>{
-          const img = new Image();
-          img.onload=()=>{
-            const maxWidth = 900;
-            const maxHeight = 900;
-            const scale = Math.min(1, maxWidth / img.width, maxHeight / img.height);
-            const width = Math.max(1, Math.round(img.width * scale));
-            const height = Math.max(1, Math.round(img.height * scale));
-            const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if(!ctx){ resolve(reader.result); return; }
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0,0,width,height);
-            ctx.drawImage(img, 0, 0, width, height);
-            resolve(canvas.toDataURL("image/jpeg", 0.52));
-          };
-          img.onerror=()=>resolve(reader.result);
-          img.src=String(reader.result||"");
-        };
-        reader.onerror=()=>reject(reader.error);
-        reader.readAsDataURL(file);
-      });
       const photoId=`campphoto-${createdAtMs}`;
-      const photo={id:photoId,title,caption,member,image,createdAt,createdAtMs,tags:["Picture","CampUpdate"]};
+      let uploadedPhoto=null;
+      try{
+        setUpdateFeedback('Uploading CampFeed picture...');
+        uploadedPhoto = await uploadCampFeedPhoto(file, photoId, title);
+      }catch(uploadError){
+        console.warn('CampFeed photo upload failed.', uploadError);
+        setUpdateFeedback('CampFeed picture could not upload. Try a smaller image and post again.', true);
+        return;
+      }
+      if(!uploadedPhoto || !uploadedPhoto.displayUrl){
+        setUpdateFeedback('CampFeed picture could not upload. Try again before posting.', true);
+        return;
+      }
+      const image=uploadedPhoto.thumbUrl || uploadedPhoto.displayUrl;
+      const photo={
+        id:photoId,
+        title,
+        caption,
+        member,
+        image,
+        thumbnail: uploadedPhoto.thumbUrl || uploadedPhoto.displayUrl,
+        displayUrl: uploadedPhoto.displayUrl,
+        thumbUrl: uploadedPhoto.thumbUrl || uploadedPhoto.displayUrl,
+        storagePath: uploadedPhoto.displayPath || '',
+        thumbPath: uploadedPhoto.thumbPath || '',
+        storageProvider: uploadedPhoto.storageProvider || 'firebase',
+        createdAt,
+        createdAtMs,
+        tags:["Picture","CampUpdate"]
+      };
       campPhotoGallery.unshift(photo);
       feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs});
-      try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try a smaller image.', true); return; }
+      try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
       renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
     }
     if(type==='recipe'){
