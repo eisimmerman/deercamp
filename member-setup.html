@@ -585,11 +585,6 @@
                   <div class="field-error">Best camp memory is required.</div>
                 </div>
                 <div class="field span-2">
-                  <label for="memberPhoto">Profile photo URL</label>
-                  <input id="memberPhoto" placeholder="Optional image URL" />
-                  <div class="field-note">You can paste an image URL, or use the upload field below for a local image during setup.</div>
-                </div>
-                <div class="field span-2">
                   <label for="memberPhotoUpload">Upload profile photo</label>
                   <input id="memberPhotoUpload" type="file" accept="image/*" />
                   <div class="field-note">Uploaded profile photos are saved to Firebase Storage and stored as lightweight image URLs.</div>
@@ -716,6 +711,102 @@
       }
     }
 
+
+    function safeSetItem(key, value) {
+      if (!key) return false;
+      try {
+        localStorage.setItem(key, value);
+        return true;
+      } catch (error) {
+        console.warn(`localStorage write skipped for ${key}.`, error);
+        try { localStorage.removeItem(key); } catch (_) {}
+        try {
+          localStorage.setItem(key, value);
+          return true;
+        } catch (retryError) {
+          console.warn(`localStorage retry skipped for ${key}. Continuing without blocking setup.`, retryError);
+          return false;
+        }
+      }
+    }
+
+    function safeRemoveItem(key) {
+      if (!key) return;
+      try { localStorage.removeItem(key); } catch (error) { console.warn(`localStorage remove skipped for ${key}.`, error); }
+    }
+
+
+    function stripHeavyLocalMedia(value, options = {}) {
+      const maxDataUrlLength = Number(options.maxDataUrlLength || 1400);
+      const seen = new WeakSet();
+      function walk(item) {
+        if (!item || typeof item !== 'object') return item;
+        if (seen.has(item)) return item;
+        seen.add(item);
+        if (Array.isArray(item)) return item.map(walk);
+        const out = {};
+        Object.keys(item).forEach(key => {
+          const val = item[key];
+          if (typeof val === 'string' && /^data:(image|audio|video)\//i.test(val) && val.length > maxDataUrlLength) {
+            out[`${key}DroppedForStorage`] = true;
+            return;
+          }
+          if (typeof val === 'string' && /^blob:/i.test(val)) {
+            out[`${key}DroppedForStorage`] = true;
+            return;
+          }
+          out[key] = walk(val);
+        });
+        return out;
+      }
+      return walk(value);
+    }
+
+    function buildLeanMemberSetupCampPayload(payload = {}) {
+      const base = stripHeavyLocalMedia(payload || {}, { maxDataUrlLength: 1400 });
+      return {
+        campId: String(base.campId || '').trim(),
+        name: String(base.name || base.campName || 'Your DeerCamp').trim(),
+        campName: String(base.campName || base.name || 'Your DeerCamp').trim(),
+        city: String(base.city || '').trim(),
+        state: String(base.state || '').trim(),
+        zip: String(base.zip || '').trim(),
+        established: String(base.established || '').trim(),
+        hero: String(base.hero || base.campHero || '').trim(),
+        campHero: String(base.campHero || base.hero || '').trim(),
+        stewardName: String(base.stewardName || base.steward || 'Camp Steward').trim(),
+        steward: String(base.steward || base.stewardName || 'Camp Steward').trim(),
+        stewardEmail: String(base.stewardEmail || '').trim(),
+        enabledSections: base.enabledSections || {},
+        selectedRecipeIds: Array.isArray(base.selectedRecipeIds) ? base.selectedRecipeIds.slice() : [],
+        members: Array.isArray(base.members) ? base.members.slice() : [],
+        campMembers: Array.isArray(base.campMembers) ? base.campMembers.slice() : [],
+        memberProfiles: Array.isArray(base.memberProfiles) ? base.memberProfiles.map(item => ({ ...item })) : [],
+        pendingInvites: Array.isArray(base.pendingInvites) ? base.pendingInvites.map(item => ({ ...item })) : [],
+        dashboardMembers: Array.isArray(base.dashboardMembers) ? base.dashboardMembers.map(item => ({ ...item })) : [],
+        dashboardPeople: Array.isArray(base.dashboardPeople) ? base.dashboardPeople.map(item => ({ ...item })) : [],
+        dashboardSlim: base.dashboardSlim || {},
+        storageMode: 'member-setup-lean'
+      };
+    }
+
+    function safeSetJson(key, payload, options = {}) {
+      if (!key) return false;
+      const fullJson = JSON.stringify(payload || {});
+      if (safeSetItem(key, fullJson)) return true;
+      if (!options.leanFallback) return false;
+      const leanPayload = buildLeanMemberSetupCampPayload(payload || {});
+      return safeSetItem(key, JSON.stringify(leanPayload));
+    }
+
+    function shouldAvoidOverwritingExistingCampKey(key, campId = '') {
+      if (!key) return true;
+      const existing = parseJSON(localStorage.getItem(key) || '{}', {});
+      if (!existing || !Object.keys(existing).length) return false;
+      const existingCampId = String(existing.campId || existing.camp?.campId || '').trim();
+      return Boolean(existingCampId && campId && existingCampId === campId);
+    }
+
     function slugify(value = '') {
       return String(value || '')
         .trim()
@@ -779,7 +870,7 @@
 
     function clearLegacyWizardState() {
       try {
-        localStorage.removeItem('deerCampMemberWizard');
+        safeRemoveItem('deerCampMemberWizard');
       } catch (error) {
         console.warn('Could not clear legacy member wizard cache.', error);
       }
@@ -961,13 +1052,21 @@
         }
       };
       if (seedInviteEntry) {
-        localStorage.setItem(INVITE_KEY, JSON.stringify(seedInviteEntry));
+        safeSetJson(INVITE_KEY, seedInviteEntry);
       }
-      localStorage.setItem(ACTIVE_CAMP_KEY, invite.campId);
-      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(seededCampData));
-      localStorage.setItem(scopedCampKey, JSON.stringify(seededCampData));
-      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(seededDashboard));
-      localStorage.setItem(scopedDashboardKey, JSON.stringify(seededDashboard));
+      safeSetItem(ACTIVE_CAMP_KEY, invite.campId);
+
+      // Do not write a full camp payload during invite seeding. Large legacy/base64 media can
+      // exceed browser Storage quota and stop the setup wizard before it renders the URL invite context.
+      const leanSeededCampData = buildLeanMemberSetupCampPayload(seededCampData);
+      if (!shouldAvoidOverwritingExistingCampKey(scopedCampKey, invite.campId)) {
+        safeSetJson(scopedCampKey, leanSeededCampData, { leanFallback: true });
+      }
+      if (!shouldAvoidOverwritingExistingCampKey(CAMP_DATA_KEY, invite.campId)) {
+        safeSetJson(CAMP_DATA_KEY, leanSeededCampData, { leanFallback: true });
+      }
+      safeSetJson(DASHBOARD_SLIM_KEY, seededDashboard, { leanFallback: true });
+      safeSetJson(scopedDashboardKey, seededDashboard, { leanFallback: true });
     }
 
     ensureInviteContextSeed();
@@ -1167,15 +1266,7 @@
 
     async function prepareMemberPhotoForSave(invite = {}) {
       const member = state.member || {};
-      const photoField = String(document.getElementById('memberPhoto')?.value || '').trim();
       const existingPhoto = String(member.photo || '').trim();
-
-      if (photoField && !photoField.startsWith('data:') && !photoField.startsWith('blob:')) {
-        state.member.photo = photoField;
-        state.member.profilePhoto = photoField;
-        state.member.avatar = photoField;
-        return photoField;
-      }
 
       try {
         let blob = null;
@@ -1206,8 +1297,6 @@
             URL.revokeObjectURL(uploadedPhotoPreviewUrl);
           }
           uploadedPhotoPreviewUrl = '';
-          const photoInput = document.getElementById('memberPhoto');
-          if (photoInput) photoInput.value = downloadUrl;
           return downloadUrl;
         }
       } catch (error) {
@@ -1226,8 +1315,6 @@
         URL.revokeObjectURL(uploadedPhotoPreviewUrl);
       }
       uploadedPhotoPreviewUrl = '';
-      const photoInput = document.getElementById('memberPhoto');
-      if (photoInput && (photoInput.value.startsWith('data:') || photoInput.value.startsWith('blob:'))) photoInput.value = '';
       return state.member.photo || '';
     }
 
@@ -1236,7 +1323,7 @@
     }
 
     function persistState(showSavedLabel = false) {
-      localStorage.setItem(wizardStorageKey, JSON.stringify(state));
+      safeSetItem(wizardStorageKey, JSON.stringify(state));
       if (showSavedLabel) setSavePill(currentTimestampLabel());
     }
 
@@ -1290,7 +1377,6 @@
       fillField('memberSpecialty', state.member.specialty);
       fillField('memberHarvestHighlight', state.member.harvestHighlight);
       fillField('memberBestMemory', state.member.bestCampMemory);
-      fillField('memberPhoto', state.member.photo && !state.member.photo.startsWith('data:') ? state.member.photo : '');
       fillField('memberNote', state.member.note);
     }
 
@@ -1306,12 +1392,7 @@
       state.member.harvestHighlight = document.getElementById('memberHarvestHighlight').value.trim();
       state.member.bestCampMemory = document.getElementById('memberBestMemory').value.trim();
       state.member.note = document.getElementById('memberNote').value.trim() || 'Adds field content and helps keep camp traditions alive.';
-      const photoUrl = document.getElementById('memberPhoto').value.trim();
-      if (photoUrl) {
-        state.member.photo = photoUrl;
-        state.member.profilePhoto = photoUrl;
-        state.member.avatar = photoUrl;
-      } else if (!uploadedPhotoFile && !uploadedPhotoPreviewUrl) {
+      if (!uploadedPhotoFile && !uploadedPhotoPreviewUrl) {
         state.member.photo = state.member.photo || '';
       }
       state.member.id = slugify(state.member.email || state.member.name || state.member.id || `member-${Date.now()}`);
@@ -1561,7 +1642,7 @@
       };
 
       try {
-        localStorage.setItem(INVITE_KEY, JSON.stringify(urlBackedInvite));
+        safeSetItem(INVITE_KEY, JSON.stringify(urlBackedInvite));
       } catch (error) {
         console.warn('Could not cache invite context locally.', error);
       }
@@ -1602,9 +1683,9 @@
         campMembers: members,
         memberProfiles
       };
-      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(updatedCampData));
+      safeSetJson(CAMP_DATA_KEY, updatedCampData, { leanFallback: true });
       const scopedCampKey = campScopeKey(invite.campId || updatedCampData.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
-      if (scopedCampKey) localStorage.setItem(scopedCampKey, JSON.stringify(updatedCampData));
+      if (scopedCampKey) safeSetJson(scopedCampKey, updatedCampData, { leanFallback: true });
 
       const people = Array.isArray(dashboard.people) ? [...dashboard.people] : [];
       const existingPersonIndex = people.findIndex(person => {
@@ -1677,11 +1758,11 @@
         pendingInvites: updatedPendingInvites,
         lastSaved: currentTimestampLabel()
       };
-      localStorage.setItem(DASHBOARD_KEY, JSON.stringify(updatedDashboard));
-      localStorage.setItem(DASHBOARD_SLIM_KEY, JSON.stringify(updatedDashboard));
+      safeSetJson(DASHBOARD_KEY, updatedDashboard, { leanFallback: true });
+      safeSetJson(DASHBOARD_SLIM_KEY, updatedDashboard, { leanFallback: true });
       const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
-      if (scopedDashboardKey) localStorage.setItem(scopedDashboardKey, JSON.stringify(updatedDashboard));
-      localStorage.setItem(INVITE_KEY, JSON.stringify({ id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken }));
+      if (scopedDashboardKey) safeSetJson(scopedDashboardKey, updatedDashboard, { leanFallback: true });
+      safeSetJson(INVITE_KEY, { id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken });
       try {
         if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function') {
           await withTimeout(DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData), 10000, null);
@@ -1689,7 +1770,7 @@
       } catch (error) {
         console.warn('Cloud save skipped for joined member.', error);
       }
-      localStorage.removeItem(wizardStorageKey);
+      safeRemoveItem(wizardStorageKey);
     }
 
     document.getElementById('viewCampBtn').addEventListener('click', () => {
@@ -1746,7 +1827,7 @@
           '';
 
         if (finalCampId) {
-          localStorage.setItem('deercamp.activeCampId', finalCampId);
+          safeSetItem('deercamp.activeCampId', finalCampId);
         }
 
         setSavePill('Joining — opening camp...');
@@ -1755,7 +1836,7 @@
         console.warn('Join Camp had a recoverable issue; opening camp anyway.', error);
         const invite = getInviteContext();
         const fallbackCampId = invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '';
-        if (fallbackCampId) localStorage.setItem('deercamp.activeCampId', fallbackCampId);
+        if (fallbackCampId) safeSetItem('deercamp.activeCampId', fallbackCampId);
         setSavePill('Opening camp...');
         window.location.href = buildCampUrl('camp.html', fallbackCampId);
       } finally {
@@ -1778,7 +1859,6 @@
       'memberSpecialty',
       'memberHarvestHighlight',
       'memberBestMemory',
-      'memberPhoto',
       'memberNote'
     ];
 
@@ -1793,8 +1873,7 @@
       'memberFavoriteGear',
       'memberSpecialty',
       'memberHarvestHighlight',
-      'memberBestMemory',
-      'memberPhoto'
+      'memberBestMemory'
     ];
 
     profileInputIds.forEach(id => {
@@ -1834,8 +1913,6 @@
           URL.revokeObjectURL(uploadedPhotoPreviewUrl);
         }
         uploadedPhotoPreviewUrl = URL.createObjectURL(file);
-        const photoInput = document.getElementById('memberPhoto');
-        if (photoInput) photoInput.value = '';
         setSavePill('Profile photo ready — uploads when you join');
         renderProfilePreview();
       } catch (error) {
