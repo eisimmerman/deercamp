@@ -780,8 +780,20 @@ const dashboardSectionSources = [
   data.dashboardSlim && data.dashboardSlim.sections
 ].filter(source => source && typeof source === "object");
 dashboardSectionSources.forEach(source => Object.assign(enabledSections, source));
-if(enabledSections.campdeerdrives || enabledSections.deerdrives) { enabledSections.campdeerdrives = true; enabledSections.deerdrives = true; }
-if(enabledSections.campdeerstands || enabledSections.stands) { enabledSections.campdeerstands = true; enabledSections.stands = true; }
+function canonicalSectionEnabled(primaryKey, aliasKey){
+  if (Object.prototype.hasOwnProperty.call(enabledSections, primaryKey)) return Boolean(enabledSections[primaryKey]);
+  if (aliasKey && Object.prototype.hasOwnProperty.call(enabledSections, aliasKey)) return Boolean(enabledSections[aliasKey]);
+  return false;
+}
+enabledSections.campdeerstands = canonicalSectionEnabled("campdeerstands", "stands");
+enabledSections.stands = enabledSections.campdeerstands;
+enabledSections.campdeerdrives = canonicalSectionEnabled("campdeerdrives", "deerdrives");
+enabledSections.deerdrives = enabledSections.campdeerdrives;
+function isSectionEnabled(primaryKey, aliasKey){
+  if (primaryKey === "campdeerstands") return Boolean(enabledSections.campdeerstands);
+  if (primaryKey === "campdeerdrives") return Boolean(enabledSections.campdeerdrives);
+  return Boolean(enabledSections[primaryKey] || (aliasKey && enabledSections[aliasKey]));
+}
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
@@ -1814,8 +1826,8 @@ function visibleSections(){
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campdeerstands") return !!(truthySection("campdeerstands", "stands") || (Array.isArray(deerStandPosts) && deerStandPosts.length));
-    if (s.key === "campdeerdrives") return !!(truthySection("campdeerdrives", "deerdrives") || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
+    if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
+    if (s.key === "campdeerdrives") return isSectionEnabled("campdeerdrives", "deerdrives");
     return !!enabledSections[map[s.key]];
   });
 }
@@ -2670,8 +2682,10 @@ async function deleteDeerItemEdit(){
 function ensureDeerShelfSections(){
   const page = document.getElementById("content");
   if(!page) return;
-  const needsStands = Boolean(enabledSections.campdeerstands || enabledSections.stands || (Array.isArray(deerStandPosts) && deerStandPosts.length));
-  const needsDrives = Boolean(enabledSections.campdeerdrives || enabledSections.deerdrives || (Array.isArray(deerDrivePosts) && deerDrivePosts.length));
+  const needsStands = isSectionEnabled("campdeerstands", "stands");
+  const needsDrives = isSectionEnabled("campdeerdrives", "deerdrives");
+  if(!needsStands) document.getElementById("campdeerstands")?.remove();
+  if(!needsDrives) document.getElementById("campdeerdrives")?.remove();
   if(needsStands && !document.getElementById("campdeerstands")){
     page.insertAdjacentHTML("beforeend", `<section class="content-section" id="campdeerstands">
       <div class="feed-header">
