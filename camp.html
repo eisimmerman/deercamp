@@ -2387,13 +2387,34 @@ function purgeDeletedDeerItemEverywhere(type, removed){
   }
   contentSubmissions = (Array.isArray(contentSubmissions) ? contentSubmissions : []).filter(entry => !deerItemMatchesRemoved(entry, removed) && !String(entry.title || "").toLowerCase().includes(String(removed.title || removed.name || "").trim().toLowerCase()));
   data.contentSubmissions = contentSubmissions.slice();
+  const tombstone = {
+    type,
+    id: String(removed.id || removed.linkedItemId || removed.driveId || removed.standId || "").trim(),
+    title: String(removed.title || removed.name || removed.driveName || removed.standName || "").trim(),
+    deletedAt: new Date().toISOString(),
+    deletedAtMs: Date.now()
+  };
+  const deletedItems = Array.isArray(data.deletedDeerItems) ? data.deletedDeerItems.slice() : [];
+  data.deletedDeerItems = [tombstone, ...deletedItems].slice(0, 50);
 }
-function pingDashboardAfterDeerDelete(type){
+function pingDashboardAfterDeerDelete(type, removed){
   try{
     const tick = String(Date.now());
     const key = type === "drive" ? "drive" : "stand";
+    const payload = JSON.stringify({
+      type,
+      id: String((removed && (removed.id || removed.linkedItemId || removed.driveId || removed.standId)) || "").trim(),
+      title: String((removed && (removed.title || removed.name || removed.driveName || removed.standName)) || "").trim(),
+      campId: activeCampId || "",
+      deletedAt: new Date().toISOString(),
+      tick
+    });
     localStorage.setItem(`deercamp.${key}.refreshTick`, tick);
-    if(activeCampId) localStorage.setItem(`deercamp.${activeCampId}.${key}.refreshTick`, tick);
+    localStorage.setItem(`deercamp.${key}.deletedItem`, payload);
+    if(activeCampId) {
+      localStorage.setItem(`deercamp.${activeCampId}.${key}.refreshTick`, tick);
+      localStorage.setItem(`deercamp.${activeCampId}.${key}.deletedItem`, payload);
+    }
     localStorage.setItem("deercamp.dashboard.refreshTick", tick);
     if(activeCampId) localStorage.setItem(`deercamp.${activeCampId}.dashboard.refreshTick`, tick);
   }catch{}
@@ -2458,7 +2479,7 @@ async function deleteDeerItemEdit(){
     if(window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function'){
       await DeerCampCloud.saveCamp(activeCampId, data);
     }
-    pingDashboardAfterDeerDelete(type);
+    pingDashboardAfterDeerDelete(type, removed);
     if(status) status.textContent = 'Deleted and synced. Dashboard limits will update on refresh.';
   }catch(error){
     console.warn('Deer item delete save failed.', error);

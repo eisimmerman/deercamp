@@ -1240,6 +1240,18 @@
       return mergeUniqueCampItems(...arrays);
     }
 
+    function collectCanonicalCampItemsFromSnapshots(keys = []) {
+      const snapshots = getCurrentLocalCampSnapshots();
+      for (const source of snapshots) {
+        for (const key of keys) {
+          if (Object.prototype.hasOwnProperty.call(source, key) && Array.isArray(source[key])) {
+            return mergeUniqueCampItems(source[key]);
+          }
+        }
+      }
+      return [];
+    }
+
     function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
       const profilePayload = buildProfileOnlyCampPayload(nextCampData, nextDashboard);
       safeSetJson(scopedProfileDataKey, profilePayload);
@@ -1335,8 +1347,8 @@
           .map(member => ({ ...member }))
       };
 
-      const preservedDeerDrivePosts = collectCampArraysFromSnapshots(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]);
-      const preservedDeerStandPosts = collectCampArraysFromSnapshots(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]);
+      const preservedDeerDrivePosts = collectCanonicalCampItemsFromSnapshots(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]);
+      const preservedDeerStandPosts = collectCanonicalCampItemsFromSnapshots(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]);
       const savedCampSnapshot = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
 
       const nextCampData = Object.assign({}, campData, {
@@ -2571,6 +2583,8 @@
       ensureStewardMember();
       try {
         const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
+        Object.keys(campData).forEach(key => { delete campData[key]; });
+        Object.assign(campData, cloudCampCache);
         localStorage.setItem(scopedCampDataKey, JSON.stringify(cloudCampCache));
         localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(cloudCampCache));
       } catch (error) { console.warn("Could not cache cloud camp data locally.", error); }
