@@ -824,6 +824,33 @@ const SCOUT_BUILDER_MODE = (() => {
 document.body.classList.add(SCOUT_BUILDER_MODE === 'drive' ? 'builder-drive' : 'builder-stand');
 function isScoutStandBuilder(){ return SCOUT_BUILDER_MODE === 'stand'; }
 function isScoutDriveBuilder(){ return SCOUT_BUILDER_MODE === 'drive'; }
+function getScoutCampIdForSecurity(){
+  try { return String(new URLSearchParams(window.location.search).get('campId') || localStorage.getItem('deercamp.activeCampId') || '').trim(); }
+  catch(error){ return String(localStorage.getItem('deercamp.activeCampId') || '').trim(); }
+}
+function isScoutSteward(){
+  try { return window.DeerCampSecurity?.isSteward?.(getScoutCampIdForSecurity()) || false; } catch(error) { return false; }
+}
+function requireScoutSteward(message = 'Only the Camp Steward can use Scout Elite builder controls.'){
+  if(isScoutSteward()) return true;
+  try { showScoutToast(message, 4200); } catch(error) {}
+  const status = document.getElementById('status-bar');
+  if(status) status.textContent = message;
+  return false;
+}
+function applyScoutSecurityMode(){
+  if(isScoutSteward()) return;
+  document.body.classList.remove('builder-stand','builder-drive');
+  document.body.classList.add('builder-viewonly');
+  document.querySelectorAll('.builder-only,#stand-save-btn,#btn-del-stand,#save-drive-confirm-btn,#mode-save-drive,#mode-setdrive,#mode-route,#mode-deerdrivebuilder').forEach(el => {
+    if(!el) return;
+    el.hidden = true;
+    el.style.display = 'none';
+  });
+  const status = document.getElementById('status-bar');
+  if(status) status.textContent = 'View-only Scout Map — only the Camp Steward can create, edit, save, or delete stands and drives.';
+}
+setTimeout(applyScoutSecurityMode, 0);
 
 function applyScoutBuilderMode(){
   const title = SCOUT_BUILDER_MODE === 'drive' ? 'Drive Builder' : 'Stand Builder';
@@ -2005,6 +2032,7 @@ async function saveDriveCampPayloadToCloud(activeCampId, payload){
   return Boolean(cloudWrote);
 }
 async function persistDriveToCamp(){
+  if(!requireScoutSteward('Only the Camp Steward can save deer drives.')) return {ok:false, blocked:true};
   const scopedFromUrl = getCampIdFromUrl();
   const activeFromStorage = localStorage.getItem(ACTIVE_CAMP_KEY) || '';
   const genericCampData = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
@@ -2157,6 +2185,7 @@ async function commitSavedDriveSummary(){
   }
 }
 async function saveDriveSnapshot(){
+  if(!requireScoutSteward('Only the Camp Steward can save deer drives.')) return;
 
   if(!drivers.length && !standers.length && !(Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length)){
     document.getElementById('status-bar').innerHTML='Nothing to save yet. Build a drive first.';
@@ -3082,6 +3111,7 @@ async function persistStandToCamp(s){
   return {posted:false,postPending:true};
 }
 function openStandModal(stand=null){
+  if(!requireScoutSteward('Only the Camp Steward can create or edit deer stands.')) return;
   document.getElementById('stand-modal-title').textContent=stand?'Edit Stand':'New Stand';
   document.getElementById('f-name').value=stand?.name||'';
   document.getElementById('f-type').value=stand?.type||'elevatedboxblind';
@@ -3120,6 +3150,7 @@ function pickWind(d){
   document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
 }
 async function saveStand(){
+  if(!requireScoutSteward('Only the Camp Steward can save deer stands.')) return;
   const feedback=document.getElementById('stand-save-feedback');
   const saveBtn=document.getElementById('stand-save-btn');
   try{
@@ -3429,7 +3460,8 @@ function runDeepLinkedScoutEditRetries(){
     setTimeout(tryOpen, 500);
   }
 }
-function deleteStand(){delStandById(editingStandId);closeStandModal();}
+function deleteStand(){
+  if(!requireScoutSteward('Only the Camp Steward can delete deer stands.')) return;delStandById(editingStandId);closeStandModal();}
 function delStandById(id){
   if(allLayers[id]){map.removeLayer(allLayers[id]);delete allLayers[id];}
   stands=stands.filter(s=>s.id!==id);

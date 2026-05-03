@@ -384,6 +384,22 @@
 
   <script>
     const CAMP_DATA_KEY = "campData";
+    function getDashboardCampIdParam() {
+      try { return String(new URLSearchParams(window.location.search).get("campId") || localStorage.getItem("deercamp.activeCampId") || "").trim(); }
+      catch (error) { return String(localStorage.getItem("deercamp.activeCampId") || "").trim(); }
+    }
+    function blockDashboardForMemberSession() {
+      try {
+        const campId = getDashboardCampIdParam();
+        if (window.DeerCampSecurity?.getActorRole?.(campId) === "member") {
+          document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:520px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><h1 style="margin:0 0 10px;color:#452a16;">Steward controls are protected</h1><p style="margin:0 0 18px;color:#6b5644;line-height:1.55;">Only the Camp Steward can open the Steward Dashboard, manage sections, billing, member invites, deer stands, or deer drives.</p><a style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#6a4427;color:#fff;text-decoration:none;font-weight:700;" href="camp.html${campId ? `?campId=${encodeURIComponent(campId)}` : ""}">Return to Camp</a></div></div>`;
+          return true;
+        }
+        window.DeerCampSecurity?.setActor?.("steward", { campId });
+      } catch (error) {}
+      return false;
+    }
+    if (blockDashboardForMemberSession()) throw new Error("DeerCamp member session cannot open Steward Dashboard.");
     const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
     const CAMP_SCOPE_PREFIX = "deercamp.camps.";
     const DASHBOARD_SLIM_KEY = "deercamp.stewardDashboardSlim";

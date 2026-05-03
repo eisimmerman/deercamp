@@ -593,6 +593,24 @@
 
 <script>
 const CAMP_DATA_KEY="campData", ACTIVE_CAMP_KEY="deercamp.activeCampId", CAMP_SCOPE_PREFIX="deercamp.camps.", DASHBOARD_KEY="deerCampStewardDashboard";
+function getCurrentSecurityRole(){
+  try { return window.DeerCampSecurity?.getActorRole?.(activeCampId || "") || "visitor"; } catch(error) { return "visitor"; }
+}
+function isCurrentSteward(){
+  try { return window.DeerCampSecurity?.isSteward?.(activeCampId || "") || false; } catch(error) { return false; }
+}
+function requireCurrentSteward(message = "Only the Camp Steward can manage this."){
+  try {
+    if (window.DeerCampSecurity?.requireSteward?.(activeCampId || "", message)) return true;
+  } catch(error) {}
+  try { showToast(message); } catch(error) { alert(message); }
+  return false;
+}
+function shouldUseMemberLockedView(){ return getCurrentSecurityRole() === "member"; }
+window.addEventListener("deercamp:security-denied", (event) => {
+  const message = event?.detail?.message || "Only the Camp Steward can manage this.";
+  try { showToast(message); } catch(error) {}
+});
 const STARTER_RECIPES = [
   {id:"starter-recipe-1",title:"Skillet Eggs & Sausage Hash",description:"One pan, hot fire, full belly — ready before first light.",time:"20 min",serves:"4",difficulty:"Easy",ingredients:["1 lb breakfast sausage links or patties","6 large eggs","1 can (15 oz) diced potatoes, drained","1 small onion, rough chopped","Salt, pepper, garlic powder","2 tbsp butter or oil"],steps:["Brown sausage in skillet over medium-high heat. Set aside, leave drippings.","Add butter, onion, and potatoes. Cook until golden and slightly crispy, 8–10 min.","Crumble sausage back in. Make wells and crack eggs directly into them.","Season well. Cover with foil and cook until eggs set, about 5 min."],serving:["Serve hot before first light.","Best with strong camp coffee."],tips:["Use a lid from a pot or foil as a cover. No fancy lids needed out here."]},
   {id:"starter-recipe-2",title:"Campfire Pancakes with Syrup",description:"Stack 'em high. Simple batter, big satisfaction.",time:"15 min",serves:"4",difficulty:"Easy",ingredients:["2 cups pancake mix (just-add-water kind)","1½ cups water (adjust as needed)","2 tbsp vegetable oil","Maple syrup or honey for serving","Butter for the pan"],steps:["Whisk pancake mix, water, and oil until just combined — lumps are fine.","Heat griddle or skillet over medium heat. Melt a pat of butter.","Pour ¼ cup batter per pancake. Cook until bubbles form and edges look set, about 2 min.","Flip once; cook another 1–2 min. Serve with syrup."],serving:["Serve in warm stacks with butter and syrup.","Keep the finished pancakes near the fire, not over it."],tips:["Keep cooked pancakes warm by stacking them on a plate set near (not over) the fire."]},
@@ -1176,6 +1194,7 @@ async function handleCampBillingClick(){
 }
 function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
 function hasStewardDashboardAccess(){
+  if(shouldUseMemberLockedView()) return false;
   try{
     const hasNamedSteward = Boolean(String(data.stewardName || data.steward || data.campSteward || "").trim());
     const rosterHasSteward = Array.isArray(roster) && roster.some(member => String(member.role || "").trim().toLowerCase() === "camp steward");
@@ -1522,11 +1541,11 @@ function renderMemberModalEditAction(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
   if(!wrap) return;
   const isSteward = String(profile.role || '').trim().toLowerCase() === 'camp steward';
-  if(isSteward){
+  if(isSteward && isCurrentSteward()){
     wrap.innerHTML = `<button id="openStewardProfileEditBtn" class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" type="button">Edit Steward Profile</button>`;
     document.getElementById('openStewardProfileEditBtn')?.addEventListener('click', () => renderStewardProfileEditForm(profile));
   } else {
-    wrap.textContent = 'Member-only editing will be added with secure sign-in.';
+    wrap.textContent = isSteward ? 'Only the Camp Steward can edit the Steward profile.' : 'Member-only editing will be added with secure sign-in.';
   }
 }
 function loadImageElementFromFile(file){
@@ -1686,6 +1705,7 @@ function refreshVisibleStewardProfile(nextProfile = {}){
 }
 async function saveStewardProfileFromModal(event){
   event.preventDefault();
+  if(!requireCurrentSteward("Only the Camp Steward can edit the Steward profile.")) return;
   const read = id => String(document.getElementById(id)?.value || '').trim();
   const status = document.getElementById('stewardInlineStatus');
   const existing = activeMemberModalProfile || {};
@@ -2168,6 +2188,7 @@ if(document.getElementById('updateType')){
   setUpdatePanel('photo');
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
+    if(!requireCurrentSteward('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.')) { setUpdateFeedback('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.', true); return; }
     try{
     const type=document.getElementById('updateType').value;
     const member=document.getElementById('updateMember').value;
@@ -2554,6 +2575,7 @@ function pingDashboardAfterDeerDelete(type, removed){
   }catch{}
 }
 function openDeerItemEdit(type, index){
+  if(!requireCurrentSteward(type === "drive" ? "Only the Camp Steward can edit deer drives." : "Only the Camp Steward can edit deer stands.")) return;
   const collection = getDeerEditCollection(type);
   const item = collection && collection[index];
   if(!item) return;
@@ -2581,6 +2603,7 @@ function closeDeerItemEdit(){
   document.body.classList.remove('modal-open');
 }
 function saveDeerItemEdit(){
+  if(!requireCurrentSteward("Only the Camp Steward can save deer stand/drive changes.")) return;
   const { type, index } = deerItemEditState;
   const collection = getDeerEditCollection(type);
   const item = collection && collection[index];
@@ -2598,6 +2621,7 @@ function saveDeerItemEdit(){
   setTimeout(closeDeerItemEdit, 650);
 }
 async function deleteDeerItemEdit(){
+  if(!requireCurrentSteward("Only the Camp Steward can delete deer stand/drive cards.")) return;
   const { type, index } = deerItemEditState;
   const collection = getDeerEditCollection(type);
   if(!collection || !collection[index]) return;
@@ -2694,8 +2718,8 @@ function renderDeerStands(delta = 0){
             <div class="deerstand-meta">${tags.map(tag => `<span class="deerstand-tag">${esc(tag)}</span>`).join("")}</div>
             ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
             <div class="deer-card-actions">
-              <button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>
-              ${String(item.source || '').includes('dashboard-basic') ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>`}
+              ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>` : ""}
+              ${isCurrentSteward() && !String(item.source || '').includes('dashboard-basic') ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>` : ''}
             </div>
           </div>
         </article>`;
@@ -2738,8 +2762,8 @@ function renderDeerDrives(delta = 0){
         </div>
         <div class="deer-card-actions">
           <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
-          <button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>
-          ${isBasicFieldCard(item) ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>`}
+          ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>` : ""}
+          ${isCurrentSteward() && !isBasicFieldCard(item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>` : ''}
         </div>
       </div>
     </article>`;

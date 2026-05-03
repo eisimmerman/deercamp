@@ -593,8 +593,63 @@
     }
   };
 
+
+
+  const DeerCampSecurity = window.DeerCampSecurity || {
+    ROLE_KEY: "deercamp.currentActorRole",
+    MEMBER_EMAIL_KEY: "deercamp.currentMemberEmail",
+    campRoleKey(campId) {
+      const cleanCampId = String(campId || "").trim();
+      return cleanCampId ? `deercamp.camps.${cleanCampId}.currentActorRole` : "";
+    },
+    setActor(role = "visitor", options = {}) {
+      const cleanRole = String(role || "visitor").trim().toLowerCase() === "steward" ? "steward" : (String(role || "").trim().toLowerCase() === "member" ? "member" : "visitor");
+      try { sessionStorage.setItem(this.ROLE_KEY, cleanRole); } catch (error) {}
+      try { localStorage.setItem(this.ROLE_KEY, cleanRole); } catch (error) {}
+      const campId = String(options.campId || "").trim();
+      const scopedKey = this.campRoleKey(campId);
+      if (scopedKey) {
+        try { sessionStorage.setItem(scopedKey, cleanRole); } catch (error) {}
+        try { localStorage.setItem(scopedKey, cleanRole); } catch (error) {}
+      }
+      const email = String(options.email || "").trim().toLowerCase();
+      if (email) {
+        try { sessionStorage.setItem(this.MEMBER_EMAIL_KEY, email); } catch (error) {}
+        try { localStorage.setItem(this.MEMBER_EMAIL_KEY, email); } catch (error) {}
+      }
+      return cleanRole;
+    },
+    getActorRole(campId = "") {
+      const scopedKey = this.campRoleKey(campId);
+      const keys = [scopedKey, this.ROLE_KEY].filter(Boolean);
+      for (const key of keys) {
+        try {
+          const value = String(sessionStorage.getItem(key) || "").trim().toLowerCase();
+          if (value) return value;
+        } catch (error) {}
+      }
+      for (const key of keys) {
+        try {
+          const value = String(localStorage.getItem(key) || "").trim().toLowerCase();
+          if (value) return value;
+        } catch (error) {}
+      }
+      return "visitor";
+    },
+    isSteward(campId = "") { return this.getActorRole(campId) === "steward"; },
+    isMember(campId = "") { return this.getActorRole(campId) === "member"; },
+    requireSteward(campId = "", message = "Only the Camp Steward can manage this.") {
+      if (this.isSteward(campId)) return true;
+      try { window.dispatchEvent(new CustomEvent("deercamp:security-denied", { detail: { message, campId } })); } catch (error) {}
+      return false;
+    },
+    allowMemberCalendarAdd() { return true; },
+    allowMemberFeedComment() { return true; }
+  };
+
   window.DeerCampCloud = DeerCampCloud;
   window.DeerCampStorage = DeerCampStorage;
   window.DeerCampBilling = DeerCampBilling;
+  window.DeerCampSecurity = DeerCampSecurity;
   window.DEERCAMP_FIREBASE_READY = Boolean(DeerCampCloud.ensureReady());
 })();

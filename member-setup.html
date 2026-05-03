@@ -685,6 +685,13 @@
 
   <script>
     const CAMP_DATA_KEY = 'campData';
+    function setMemberSecurityActor(invite = {}, member = {}) {
+      try {
+        const campId = String(invite.campId || getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
+        const email = normalizeInviteEmail(String(member.email || invite.email || '').trim()).toLowerCase();
+        window.DeerCampSecurity?.setActor?.('member', { campId, email });
+      } catch (error) {}
+    }
     const DASHBOARD_KEY = 'deerCampStewardDashboard';
     const DASHBOARD_SLIM_KEY = 'deercamp.stewardDashboardSlim';
     const ACTIVE_CAMP_KEY = 'deercamp.activeCampId';
@@ -1775,6 +1782,7 @@
 
     document.getElementById('viewCampBtn').addEventListener('click', () => {
       const invite = getInviteContext();
+      setMemberSecurityActor(invite, state.member);
       window.location.href = buildCampUrl('camp.html', invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '');
     });
 
@@ -1829,6 +1837,7 @@
         if (finalCampId) {
           safeSetItem('deercamp.activeCampId', finalCampId);
         }
+        setMemberSecurityActor(invite, state.member);
 
         setSavePill('Joining — opening camp...');
         window.location.href = buildCampUrl('camp.html', finalCampId);
@@ -1837,6 +1846,7 @@
         const invite = getInviteContext();
         const fallbackCampId = invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '';
         if (fallbackCampId) safeSetItem('deercamp.activeCampId', fallbackCampId);
+        setMemberSecurityActor(invite, state.member);
         setSavePill('Opening camp...');
         window.location.href = buildCampUrl('camp.html', fallbackCampId);
       } finally {
