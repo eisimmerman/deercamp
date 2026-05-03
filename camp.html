@@ -2511,22 +2511,21 @@ function isBasicFieldCard(item){
   const tags = Array.isArray(item.tags) ? item.tags.map(tag => String(tag || "").toLowerCase()) : [];
   return source.includes("dashboard-basic") || id.startsWith("basic-drive-") || id.startsWith("basic-stand-") || tags.some(tag => tag.includes("basic") || tag === "dcf");
 }
-function hasRealMapGeometry(item = {}){
+function hasScoutMapData(type, item = {}){
   if(!item || typeof item !== "object") return false;
-  const numericPair = (...pairs) => pairs.some(pair => {
-    const [lat, lng] = pair;
-    const latNum = Number(lat);
-    const lngNum = Number(lng);
-    return Number.isFinite(latNum) && Number.isFinite(lngNum) && Math.abs(latNum) <= 90 && Math.abs(lngNum) <= 180 && !(latNum === 0 && lngNum === 0);
-  });
-  if(numericPair([item.lat, item.lng], [item.latitude, item.longitude], [item.mapLat, item.mapLng], [item.location?.lat, item.location?.lng], [item.coords?.lat, item.coords?.lng])) return true;
-  const summary = item.savedSummary && typeof item.savedSummary === "object" ? item.savedSummary : {};
-  if(numericPair([summary.lat, summary.lng], [summary.latitude, summary.longitude], [summary.location?.lat, summary.location?.lng])) return true;
-  const arrays = [item.routes, item.routeSummaries, item.savedRoutes, item.points, item.markers, item.drivers, item.standers, summary.routes, summary.points, summary.markers, summary.drivers, summary.standers];
-  return arrays.some(arr => Array.isArray(arr) && arr.length > 0);
+  if(isBasicFieldCard(item)) return false;
+  if(type === "stand"){
+    const lat = Number(item.lat ?? item.latitude ?? item.coords?.lat ?? item.position?.lat);
+    const lng = Number(item.lng ?? item.longitude ?? item.coords?.lng ?? item.position?.lng);
+    return Number.isFinite(lat) && Number.isFinite(lng);
+  }
+  const source = String(item.source || "").toLowerCase();
+  if(source.includes("scout")) return true;
+  const geometryArrays = [item.routes, item.routePaths, item.driveRoutes, item.accessRoutes, item.boundaryPoints, item.points, item.markers].filter(Array.isArray);
+  return geometryArrays.some(list => list.length > 0) || Boolean(item.mapState || item.geometry || item.scoutMapData);
 }
-function canOpenInScoutMap(item = {}){
-  return Boolean(item && typeof item === "object" && !isBasicFieldCard(item) && hasRealMapGeometry(item));
+function canOpenScoutForDeerItem(type, item = {}){
+  return isCurrentSteward() && hasScoutMapData(type, item);
 }
 function deerItemMatchesRemoved(item, removed){
   if(!item || typeof item !== "object" || !removed || typeof removed !== "object") return false;
@@ -2601,15 +2600,17 @@ function openDeerItemEdit(type, index){
   document.getElementById('deerItemEditTitleLabel').textContent = item.title || item.name || (type === 'drive' ? 'Saved Deer Drive' : 'Saved Deer Stand');
   document.getElementById('deerItemEditTitle').value = item.title || item.name || '';
   document.getElementById('deerItemEditBody').value = item.body || item.notes || item.description || '';
-  const canUseScoutMap = canOpenInScoutMap(item);
-  const isBasicCard = isBasicFieldCard(item);
-  document.getElementById('deerItemEditStatus').textContent = isBasicCard
-    ? 'Edit the basic card title/notes here. Basic DCF cards are not map-based Scout items.'
-    : (canUseScoutMap ? 'Edit the card title/notes here. Use Open in Scout for map-level changes.' : 'Edit the card title/notes here. Scout editing appears only for map-based items with saved location data.');
+  const basicFieldCard = isBasicFieldCard(item);
+  const canOpenScout = canOpenScoutForDeerItem(type, item);
+  document.getElementById('deerItemEditStatus').textContent = canOpenScout
+    ? 'Edit the card title/notes here. Use Open in Scout for map-level changes.'
+    : 'Edit the basic card title/notes here. Basic DCF cards are not map-based Scout items.';
   const scoutBtn = document.getElementById('deerItemEditScout');
   if(scoutBtn){
-    scoutBtn.hidden = !canUseScoutMap;
-    scoutBtn.onclick = canUseScoutMap ? () => { window.open(getScoutEditUrl(type, item, index), '_blank', 'noopener,noreferrer'); } : null;
+    scoutBtn.hidden = !canOpenScout;
+    scoutBtn.disabled = !canOpenScout;
+    scoutBtn.style.display = canOpenScout ? '' : 'none';
+    scoutBtn.onclick = canOpenScout ? () => { window.open(getScoutEditUrl(type, item, index), '_blank', 'noopener,noreferrer'); } : null;
   }
   document.getElementById('deerItemEditBackdrop').classList.add('open');
   document.getElementById('deerItemEditModal').classList.add('open');
@@ -2739,7 +2740,7 @@ function renderDeerStands(delta = 0){
             ${coords ? `<p class="deerstand-location">📍 ${esc(coords)}</p>` : ""}
             <div class="deer-card-actions">
               ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>` : ""}
-              ${isCurrentSteward() && canOpenInScoutMap(item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>` : ''}
+              ${canOpenScoutForDeerItem('stand', item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>` : ''}
             </div>
           </div>
         </article>`;
@@ -2783,7 +2784,7 @@ function renderDeerDrives(delta = 0){
         <div class="deer-card-actions">
           <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
           ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>` : ""}
-          ${isCurrentSteward() && canOpenInScoutMap(item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>` : ''}
+          ${canOpenScoutForDeerItem('drive', item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>` : ''}
         </div>
       </div>
     </article>`;
@@ -2931,12 +2932,7 @@ ensureStateSeasonOpeners();
 calendarEvents = normalizeCalendarEvents(calendarEvents);
 contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents);
 
-function getLocalDateKey(date = new Date()){
-  const d = date instanceof Date ? date : new Date(date);
-  if(Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-}
-let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=getLocalDateKey(new Date());
+let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=(calendarEvents[0]?.date || "");
 function populateCalendarGrid(){
   const grid=document.getElementById('calendarGrid'), label=document.getElementById('calendarMonthLabel'); if(!grid||!label) return;
   label.textContent=calendarCursor.toLocaleDateString(undefined,{month:'long',year:'numeric'});
