@@ -2349,6 +2349,55 @@ let deerItemEditState = { type: '', index: -1 };
 function getDeerEditCollection(type){
   return type === 'drive' ? deerDrivePosts : deerStandPosts;
 }
+function isBasicFieldCard(item){
+  if(!item || typeof item !== "object") return false;
+  const source = String(item.source || "").toLowerCase();
+  const id = String(item.id || "").toLowerCase();
+  const tags = Array.isArray(item.tags) ? item.tags.map(tag => String(tag || "").toLowerCase()) : [];
+  return source.includes("dashboard-basic") || id.startsWith("basic-drive-") || id.startsWith("basic-stand-") || tags.some(tag => tag.includes("basic") || tag === "dcf");
+}
+function deerItemMatchesRemoved(item, removed){
+  if(!item || typeof item !== "object" || !removed || typeof removed !== "object") return false;
+  const itemId = String(item.id || item.linkedItemId || item.driveId || item.standId || "").trim();
+  const removedId = String(removed.id || removed.linkedItemId || removed.driveId || removed.standId || "").trim();
+  if(itemId && removedId && itemId === removedId) return true;
+  const itemTitle = String(item.title || item.name || item.driveName || item.standName || "").trim().toLowerCase();
+  const removedTitle = String(removed.title || removed.name || removed.driveName || removed.standName || "").trim().toLowerCase();
+  return Boolean(itemTitle && removedTitle && itemTitle === removedTitle);
+}
+function purgeDeletedDeerItemEverywhere(type, removed){
+  const keys = type === "drive"
+    ? ["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]
+    : ["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"];
+  keys.forEach(key => {
+    const current = Array.isArray(data[key]) ? data[key] : [];
+    data[key] = current.filter(item => !deerItemMatchesRemoved(item, removed));
+  });
+  if(type === "drive") {
+    deerDrivePosts = Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts.slice() : [];
+    data.deerDrives = deerDrivePosts.slice();
+    data.savedDeerDrives = deerDrivePosts.slice();
+    data.scoutDeerDrives = deerDrivePosts.slice();
+  } else {
+    deerStandPosts = Array.isArray(data.deerStandPosts) ? data.deerStandPosts.slice() : [];
+    data.deerStands = deerStandPosts.slice();
+    data.stands = deerStandPosts.slice();
+    data.savedDeerStands = deerStandPosts.slice();
+    data.scoutDeerStands = deerStandPosts.slice();
+  }
+  contentSubmissions = (Array.isArray(contentSubmissions) ? contentSubmissions : []).filter(entry => !deerItemMatchesRemoved(entry, removed) && !String(entry.title || "").toLowerCase().includes(String(removed.title || removed.name || "").trim().toLowerCase()));
+  data.contentSubmissions = contentSubmissions.slice();
+}
+function pingDashboardAfterDeerDelete(type){
+  try{
+    const tick = String(Date.now());
+    const key = type === "drive" ? "drive" : "stand";
+    localStorage.setItem(`deercamp.${key}.refreshTick`, tick);
+    if(activeCampId) localStorage.setItem(`deercamp.${activeCampId}.${key}.refreshTick`, tick);
+    localStorage.setItem("deercamp.dashboard.refreshTick", tick);
+    if(activeCampId) localStorage.setItem(`deercamp.${activeCampId}.dashboard.refreshTick`, tick);
+  }catch{}
+}
 function openDeerItemEdit(type, index){
   const collection = getDeerEditCollection(type);
   const item = collection && collection[index];
@@ -2393,21 +2442,29 @@ function saveDeerItemEdit(){
   catch(error){ document.getElementById('deerItemEditStatus').textContent = 'Save failed. Try again.'; console.warn('Deer item edit save failed.', error); }
   setTimeout(closeDeerItemEdit, 650);
 }
-function deleteDeerItemEdit(){
+async function deleteDeerItemEdit(){
   const { type, index } = deerItemEditState;
   const collection = getDeerEditCollection(type);
   if(!collection || !collection[index]) return;
-  const removed = collection.splice(index, 1)[0];
+  const removed = collection[index];
+  purgeDeletedDeerItemEverywhere(type, removed);
   if(type === 'drive') { deerDriveShelfOffset = clampShelfOffset(deerDriveShelfOffset, deerDrivePosts.length); renderDeerDrives(); }
   else { deerStandShelfOffset = clampShelfOffset(deerStandShelfOffset, deerStandPosts.length); renderDeerStands(); }
-  contentSubmissions = contentSubmissions.filter(entry => {
-    const title = String(entry.title || '').toLowerCase();
-    const name = String(removed.title || removed.name || '').toLowerCase();
-    return !name || !title.includes(name);
-  });
   recentUpdatesOffset = 0; renderRecentUpdates();
-  try{ persist(); }catch(error){ console.warn('Deer item delete save failed.', error); }
-  closeDeerItemEdit();
+  const status = document.getElementById('deerItemEditStatus');
+  if(status) status.textContent = 'Deleting and syncing...';
+  try{
+    persist();
+    if(window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function'){
+      await DeerCampCloud.saveCamp(activeCampId, data);
+    }
+    pingDashboardAfterDeerDelete(type);
+    if(status) status.textContent = 'Deleted and synced. Dashboard limits will update on refresh.';
+  }catch(error){
+    console.warn('Deer item delete save failed.', error);
+    if(status) status.textContent = 'Delete saved locally, but cloud sync may need a refresh.';
+  }
+  setTimeout(closeDeerItemEdit, 350);
 }
 
 function ensureDeerShelfSections(){
@@ -2527,7 +2584,7 @@ function renderDeerDrives(delta = 0){
         <div class="deer-card-actions">
           <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
           <button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>
-          ${String(item.source || '').includes('dashboard-basic') ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>`}
+          ${isBasicFieldCard(item) ? '' : `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>`}
         </div>
       </div>
     </article>`;
