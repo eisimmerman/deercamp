@@ -143,6 +143,11 @@
   .member-edit-form .span-2{grid-column:1/-1}
   .member-edit-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
   .member-edit-status{color:#5b3d1e;font-size:.88rem;font-weight:700}
+  .steward-photo-field{padding:12px;border-radius:14px;background:rgba(255,255,255,.46);border:1px solid rgba(69,42,22,.08)}
+  .steward-photo-field input[type="file"]{margin-top:6px;min-height:42px;padding:9px;border-radius:12px;border:1px solid rgba(69,42,22,.16);background:#fff;color:#231a13}
+  .steward-photo-preview{display:flex;align-items:center;gap:10px;margin-top:8px;padding:10px;border-radius:12px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08)}
+  .steward-photo-preview .avatar{width:52px;height:52px;flex:0 0 52px}
+  .steward-photo-preview-text{color:#5b3d1e;font-size:.84rem;font-weight:700;line-height:1.4}
   @media (max-width:720px){.member-edit-form{grid-template-columns:1fr}.member-edit-actions .btn{width:100%}}
   .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
   .calendar-main,.calendar-side{background:rgba(252,246,236,.72);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(0,0,0,.08)}
@@ -1517,6 +1522,69 @@ function renderMemberModalEditAction(profile = {}){
     wrap.textContent = 'Member-only editing will be added with secure sign-in.';
   }
 }
+function loadImageElementFromFile(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read that image.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not load that image.'));
+      img.onload = () => resolve(img);
+      img.src = String(reader.result || '');
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function canvasImageDataUrl(img, maxWidth, maxHeight, quality = 0.78){
+  const naturalWidth = img.naturalWidth || img.width || 1;
+  const naturalHeight = img.naturalHeight || img.height || 1;
+  const scale = Math.min(1, maxWidth / naturalWidth, maxHeight / naturalHeight);
+  const width = Math.max(1, Math.round(naturalWidth * scale));
+  const height = Math.max(1, Math.round(naturalHeight * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  if(!ctx) throw new Error('Image canvas is not available.');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas.toDataURL('image/jpeg', quality);
+}
+async function buildStewardProfilePhotoPair(file){
+  if(!file) return null;
+  const img = await loadImageElementFromFile(file);
+  return {
+    displayDataUrl: canvasImageDataUrl(img, 640, 640, 0.78),
+    thumbDataUrl: canvasImageDataUrl(img, 160, 160, 0.70)
+  };
+}
+async function uploadStewardProfilePhoto(file, profile = {}){
+  if(!file) return null;
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
+    throw new Error('Firebase Storage is not available.');
+  }
+  const pair = await buildStewardProfilePhotoPair(file);
+  const entityId = `steward-${slugify(profile.name || data.stewardName || 'steward')}-${Date.now()}`;
+  return window.DeerCampStorage.uploadCampImagePair({
+    campId: activeCampId,
+    folder: 'profile-photos',
+    entityId,
+    displayDataUrl: pair.displayDataUrl,
+    thumbDataUrl: pair.thumbDataUrl
+  });
+}
+function previewStewardProfilePhotoFile(event){
+  const file = event?.target?.files?.[0];
+  const preview = document.getElementById('stewardInlinePhotoPreview');
+  const text = document.getElementById('stewardInlinePhotoPreviewText');
+  if(!preview || !text || !file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.innerHTML = `<span class="avatar"><img src="${esc(String(reader.result || ''))}" alt="Steward photo preview"></span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">New photo ready. Save Steward Profile to upload it.</span>`;
+  };
+  reader.readAsDataURL(file);
+}
 function renderStewardProfileEditForm(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
   if(!wrap) return;
@@ -1524,6 +1592,10 @@ function renderStewardProfileEditForm(profile = {}){
     <form id="stewardInlineProfileForm" class="member-edit-form">
       <label>Name<input id="stewardInlineName" type="text" value="${esc(cleanProfileDisplayValue(profile.name))}" placeholder="Eric S"></label>
       <label>Email<input id="stewardInlineEmail" type="email" value="${esc(cleanProfileDisplayValue(profile.email))}" placeholder="name@example.com"></label>
+      <label class="span-2 steward-photo-field">Steward Photo
+        <input id="stewardInlinePhotoUpload" type="file" accept="image/*">
+        <div id="stewardInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Steward')}</span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement Steward photo. On save, DeerCamp stores the image in Firebase Storage and keeps only lean URLs in the camp record.</span></div>
+      </label>
       <label>Nickname<input id="stewardInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
       <label>Joined<input id="stewardInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
       <label>Favorite Stand<input id="stewardInlineFavoriteStand" type="text" value="${esc(cleanProfileDisplayValue(profile.favoriteStand))}" placeholder="North ridge stand"></label>
@@ -1539,6 +1611,7 @@ function renderStewardProfileEditForm(profile = {}){
       </div>
     </form>`;
   document.getElementById('stewardInlineProfileForm')?.addEventListener('submit', saveStewardProfileFromModal);
+  document.getElementById('stewardInlinePhotoUpload')?.addEventListener('change', previewStewardProfilePhotoFile);
   document.getElementById('cancelStewardInlineEditBtn')?.addEventListener('click', () => renderMemberModalEditAction(activeMemberModalProfile || profile));
 }
 function upsertStewardInArray(items = [], nextProfile = {}){
@@ -1581,12 +1654,14 @@ function refreshVisibleStewardProfile(nextProfile = {}){
   renderCampMembersSection();
   populateMemberSelects();
 }
-function saveStewardProfileFromModal(event){
+async function saveStewardProfileFromModal(event){
   event.preventDefault();
   const read = id => String(document.getElementById(id)?.value || '').trim();
   const status = document.getElementById('stewardInlineStatus');
   const existing = activeMemberModalProfile || {};
-  const photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
+  let photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
+  let uploadedPhoto = null;
+  const photoFile = document.getElementById('stewardInlinePhotoUpload')?.files?.[0] || null;
   const nextProfile = {
     ...existing,
     name: read('stewardInlineName') || existing.name || 'Camp Steward',
@@ -1605,6 +1680,23 @@ function saveStewardProfileFromModal(event){
     responsibilities: getRoleTemplate('Camp Steward').responsibilities.slice(),
     profileUpdatedAt: new Date().toISOString()
   };
+  if(photoFile){
+    try{
+      if(status) status.textContent = 'Uploading Steward photo...';
+      uploadedPhoto = await uploadStewardProfilePhoto(photoFile, nextProfile);
+      if(uploadedPhoto && uploadedPhoto.displayUrl){
+        photo = uploadedPhoto.displayUrl;
+        nextProfile.profilePhotoThumbUrl = uploadedPhoto.thumbUrl || '';
+        nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
+        nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
+        nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
+      }
+    }catch(error){
+      console.warn('Could not upload Steward profile photo.', error);
+      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
+      return;
+    }
+  }
   if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
   data.stewardName = nextProfile.name;
   data.steward = nextProfile.name;
@@ -1620,6 +1712,14 @@ function saveStewardProfileFromModal(event){
   data.stewardBestCampMemory = nextProfile.bestCampMemory;
   data.stewardSpecialty = nextProfile.specialty;
   data.stewardRoleLine = nextProfile.roleLine;
+  if(nextProfile.photo){
+    data.stewardPhoto = nextProfile.photo;
+    data.stewardProfilePhoto = nextProfile.photo;
+    data.stewardAvatar = nextProfile.photo;
+  }
+  if(nextProfile.profilePhotoThumbUrl) data.stewardProfilePhotoThumbUrl = nextProfile.profilePhotoThumbUrl;
+  if(nextProfile.profilePhotoPath) data.stewardProfilePhotoPath = nextProfile.profilePhotoPath;
+  if(nextProfile.profilePhotoThumbPath) data.stewardProfilePhotoThumbPath = nextProfile.profilePhotoThumbPath;
   data.memberProfiles = upsertStewardInArray(data.memberProfiles, nextProfile);
   data.members = upsertStewardInArray(data.members, nextProfile);
   data.campMembers = upsertStewardInArray(data.campMembers, nextProfile);
