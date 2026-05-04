@@ -167,6 +167,22 @@
   .day-dots{display:flex;gap:4px;min-height:10px;margin-top:8px}
   .dot{width:8px;height:8px;border-radius:999px;background:#7a4723}
   .selected-date{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.98rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+
+  .calendar-shell,.calendar-main,.calendar-side,.calendar-grid,.calendar-event-list{overflow-anchor:none}
+  .calendar-grid{touch-action:manipulation}
+  .calendar-header .arrow,.calendar-event-nav .arrow,.day{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+  .calendar-event-list{min-height:150px}
+  @media (max-width:720px){
+    .calendar-shell{grid-template-columns:1fr;gap:14px}
+    .calendar-side{grid-template-columns:1fr;gap:14px}
+    .calendar-main{padding:14px}
+    .calendar-grid{gap:5px}
+    .day{min-height:48px;border-radius:12px}
+    .calendar-event-shell{grid-template-columns:1fr;gap:10px}
+    .calendar-event-nav{display:flex;gap:10px;align-content:initial}
+    .calendar-event-nav .arrow{width:44px;height:44px;flex:0 0 44px}
+    .calendar-event-list{min-height:170px}
+  }
   .cinematic-footer{display:block;width:100%;line-height:0;overflow:hidden}
   .footer-logo{display:block;width:100%;height:auto}
 
@@ -3031,19 +3047,31 @@ function populateCalendarGrid(){
     const cell=document.createElement('button'); cell.type='button'; cell.setAttribute('data-date-key', dateKey); cell.className='day'+(selectedDateKey===dateKey?' selected':'');
     const dots=(byDate[dateKey]||[]).slice(0,3).map(()=>'<span class="dot"></span>').join('');
     cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
-    cell.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();});});
+    cell.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();}, event);});
     grid.appendChild(cell);
   }
 }
 function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
-function preserveCalendarScroll(action){
-  const y = window.scrollY || document.documentElement.scrollTop || 0;
-  const active = document.activeElement;
+function preserveCalendarScroll(action, event){
+  const anchor = document.getElementById('campcalendar') || document.querySelector('[data-section="campcalendar"]') || document.getElementById('calendarGrid') || document.body;
+  const beforeTop = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect().top : 0;
+  const target = event && event.currentTarget ? event.currentTarget : document.activeElement;
+  try{ if(event && typeof event.preventDefault === 'function') event.preventDefault(); }catch(error){}
+  try{ if(target && typeof target.blur === 'function') target.blur(); }catch(error){}
   try{ if(typeof action === 'function') action(); }catch(error){ console.warn('Calendar action failed.', error); }
-  requestAnimationFrame(()=>{
-    try{ if(active && typeof active.blur === 'function') active.blur(); }catch(error){}
-    try{ window.scrollTo({top:y, left:0, behavior:'auto'}); }catch(error){ window.scrollTo(0,y); }
-  });
+  const restore = () => {
+    try{
+      if(!anchor || !anchor.getBoundingClientRect) return;
+      const afterTop = anchor.getBoundingClientRect().top;
+      const delta = afterTop - beforeTop;
+      if(Math.abs(delta) > 1){
+        window.scrollTo({top:(window.scrollY || document.documentElement.scrollTop || 0) + delta, left:0, behavior:'auto'});
+      }
+    }catch(error){}
+  };
+  requestAnimationFrame(()=>{ restore(); requestAnimationFrame(restore); });
+  setTimeout(restore, 60);
+  setTimeout(restore, 180);
 }
 let calendarEventsOffset = 0;
 function renderCalendarEvents(){
@@ -3066,10 +3094,10 @@ function renderCalendarEvents(){
 }
 if(document.getElementById('calendarPrev')){
   populateMemberSelects(); updateSelectedDateChip(); populateCalendarGrid(); renderCalendarEvents();
-  document.getElementById('calendarPrev').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});});
-  document.getElementById('calendarNext').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});});
-  document.getElementById('calendarEventsPrev')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();});});
-  document.getElementById('calendarEventsNext')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();});});
+  document.getElementById('calendarPrev').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();}, event);});
+  document.getElementById('calendarNext').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();}, event);});
+  document.getElementById('calendarEventsPrev')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();}, event);});
+  document.getElementById('calendarEventsNext')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();}, event);});
   document.getElementById('calendarMemberEventForm').addEventListener('submit',e=>{
     e.preventDefault();
     const title=String(document.getElementById('calendarMemberEventTitle').value||'').trim();
@@ -3082,7 +3110,7 @@ if(document.getElementById('calendarPrev')){
     const createdAt=new Date().toISOString(), createdAtMs=Date.now();
     contentSubmissions.unshift({type:'event',member,title:`${title} -- added to CampCalendar`,summary:`${formatDateHuman(selectedDateKey)} • ${description || 'Camp event submitted.'}`,createdAt,createdAtMs});
     try{ persist(); }catch(error){ setCalendarFeedback('CampCalendar could not save that event. Please try again.', true); return; }
-    calendarEvents = normalizeCalendarEvents(calendarEvents); populateCalendarGrid(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
+    calendarEvents = normalizeCalendarEvents(calendarEvents); preserveCalendarScroll(()=>{populateCalendarGrid(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); updateSelectedDateChip();}, e); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
   });
 }
 
