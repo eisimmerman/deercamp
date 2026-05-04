@@ -856,6 +856,16 @@
       return /\.cm$/i.test(clean) ? clean.replace(/\.cm$/i, '.com') : clean;
     }
 
+
+    function isAcceptedInviteEntry(entry = {}) {
+      const status = String(entry?.status || '').trim().toLowerCase();
+      return status === 'accepted' ||
+        status === 'active' ||
+        status === 'joined' ||
+        entry?.accepted === true ||
+        (entry?.pendingInvite === false && Boolean(entry?.acceptedAt));
+    }
+
     function resolveCampHeroPath(value = '') {
       const clean = String(value || '').trim();
       if (!clean) return '';
@@ -1006,7 +1016,17 @@
       }) : -1;
       if (seedInviteEntry) {
         if (profileIndex >= 0) {
-          existingProfiles[profileIndex] = { ...existingProfiles[profileIndex], ...seedInviteEntry };
+          const existingProfile = existingProfiles[profileIndex] || {};
+          existingProfiles[profileIndex] = isAcceptedInviteEntry(existingProfile)
+            ? {
+                ...seedInviteEntry,
+                ...existingProfile,
+                status: existingProfile.status || 'Active',
+                pendingInvite: false,
+                accepted: existingProfile.accepted === true || true,
+                acceptedAt: existingProfile.acceptedAt || new Date().toISOString()
+              }
+            : { ...existingProfile, ...seedInviteEntry };
         } else {
           existingProfiles.push(seedInviteEntry);
         }
@@ -1039,7 +1059,17 @@
           return (inviteToken && entryToken === inviteToken) || (inviteEmail && entryEmail === inviteEmail.toLowerCase()) || (inviteName && entryName === inviteName.toLowerCase());
         });
         if (pendingIndex >= 0) {
-          pendingInvites[pendingIndex] = { ...pendingInvites[pendingIndex], ...seedInviteEntry };
+          const existingPendingInvite = pendingInvites[pendingIndex] || {};
+          pendingInvites[pendingIndex] = isAcceptedInviteEntry(existingPendingInvite)
+            ? {
+                ...seedInviteEntry,
+                ...existingPendingInvite,
+                status: existingPendingInvite.status || 'Accepted',
+                pendingInvite: false,
+                accepted: existingPendingInvite.accepted === true || true,
+                acceptedAt: existingPendingInvite.acceptedAt || new Date().toISOString()
+              }
+            : { ...existingPendingInvite, ...seedInviteEntry };
         } else {
           pendingInvites.push(seedInviteEntry);
         }
@@ -1622,8 +1652,7 @@
 
       const matchedInvite = candidateEntries.find(matchesInvite);
       if (matchedInvite) {
-        const pendingStatus = String(matchedInvite.status || '').trim().toLowerCase();
-        if (pendingStatus === 'accepted' || pendingStatus === 'active') {
+        if (isAcceptedInviteEntry(matchedInvite)) {
           showInviteStatus('used');
           return false;
         }
@@ -1633,10 +1662,9 @@
       const exactAcceptedMatch = candidateEntries.find(entry => {
         const entryToken = String(entry?.inviteToken || '').trim();
         const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
-        const entryStatus = String(entry?.status || '').trim().toLowerCase();
         if (!entryToken || entryToken !== inviteToken) return false;
         if (entryCampId && entryCampId !== inviteCampId) return false;
-        return entryStatus === 'accepted' || entryStatus === 'active';
+        return isAcceptedInviteEntry(entry);
       });
       if (exactAcceptedMatch) {
         showInviteStatus('used');
@@ -1945,6 +1973,18 @@
 
     render();
     showStep(0, { persist: false });
+
+    // When a member reopens the original invite email after joining, do not show
+    // the setup wizard again. Show an Already Joined screen with a clean Open Camp CTA.
+    (async () => {
+      try {
+        const invite = getInviteContext();
+        if (!invite.campId || !invite.inviteToken) return;
+        await validateInviteOrBlock();
+      } catch (error) {
+        console.warn('Invite return check skipped.', error);
+      }
+    })();
   </script>
 </body>
 </html>
