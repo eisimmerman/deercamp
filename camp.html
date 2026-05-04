@@ -45,6 +45,11 @@
   .billing-notice.is-warning{background:rgba(177,121,45,.15);border-color:rgba(177,121,45,.24);color:#7c561f}
   .billing-notice.is-error{background:rgba(139,45,29,.10);border-color:rgba(139,45,29,.18);color:#8b2d1d}
   .billing-notice[hidden]{display:none!important}
+
+  .role-context-pill{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.88);color:#4b3116;border:1px solid rgba(95,64,33,.18);font-size:.78rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 2px 6px rgba(0,0,0,.10);white-space:nowrap}
+  .role-context-pill.is-member{background:rgba(73,102,71,.14);color:#27411e;border-color:rgba(73,102,71,.22)}
+  .role-context-pill.is-steward{background:rgba(177,121,45,.18);color:#5b3d1e;border-color:rgba(177,121,45,.28)}
+  .role-context-pill.is-visitor{background:rgba(255,255,255,.72);color:#6b5644}
   .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
   .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
   .scout-builder-menu.open{display:grid;gap:6px}
@@ -298,6 +303,9 @@
     }
     .mobile-pill:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(0,0,0,.2)}
     .mobile-pill:active{transform:scale(.98);box-shadow:0 4px 10px rgba(0,0,0,.18);background:rgba(255,255,255,.96)}
+
+    .mobile-role-pill{align-self:flex-end;min-height:30px;padding:5px 10px;font-size:.7rem;pointer-events:auto;}
+    .mobile-billing-pill{align-self:flex-end;min-height:40px;pointer-events:auto;}
     .mobile-menu-pill,.mobile-members-pill{justify-content:center}
     .mobile-hero-center{
       display:block;position:absolute;left:50%;top:226px;transform:translateX(-50%);width:min(90vw,370px);z-index:4;
@@ -349,6 +357,8 @@
   <div class="mobile-top-bar">
     <a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="mobile-hoof" alt="DeerCamp icon"></a>
     <div class="mobile-actions-right">
+      <div id="mobileRolePill" class="role-context-pill mobile-role-pill is-visitor">Visitor View</div>
+      <button id="mobileBillingBtn" class="mobile-pill mobile-billing-pill billing-btn" type="button" hidden>Upgrade to DC+</button>
       <div class="scout-menu-wrap"><button id="mobileScoutBtn" class="mobile-pill mobile-scout-pill" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="mobileScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="mobileStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="mobileDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
       <button id="mobileMenuToggle" class="mobile-pill mobile-menu-pill" type="button" aria-expanded="false">☰ Menu</button>
     </div>
@@ -385,6 +395,7 @@
     <div class="header-right">
       <div class="header-actions">
         <div class="scout-menu-wrap"><button id="headerScoutBtn" class="scout-btn" type="button" aria-expanded="false"><img class="scout-product-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true"> DeerCamp Scout Elite</button><div id="headerScoutBuilderMenu" class="scout-builder-menu" aria-label="Choose Scout builder"><a id="headerStandBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">📍 Stand Builder</a><a id="headerDriveBuilderLink" href="scout.html" target="_blank" rel="noopener noreferrer">🦌 Drive Builder</a></div></div>
+        <span id="desktopRolePill" class="role-context-pill is-visitor">Visitor View</span>
         <button id="campBillingBtn" class="billing-btn" type="button" hidden>Upgrade to DC+</button>
         <button id="menuToggle" class="menu-btn" type="button">☰ Menu</button>
       </div>
@@ -611,6 +622,24 @@ window.addEventListener("deercamp:security-denied", (event) => {
   const message = event?.detail?.message || "Only the Camp Steward can manage this.";
   try { showToast(message); } catch(error) {}
 });
+
+function getRoleViewLabel(){
+  const role = getCurrentSecurityRole();
+  if(role === "steward") return "Steward View";
+  if(role === "member") return "Member View";
+  return "Visitor View";
+}
+function refreshRoleContextPills(){
+  const role = getCurrentSecurityRole();
+  [document.getElementById('desktopRolePill'), document.getElementById('mobileRolePill')].forEach(el=>{
+    if(!el) return;
+    el.textContent = getRoleViewLabel();
+    el.classList.remove('is-steward','is-member','is-visitor');
+    el.classList.add(role === 'steward' ? 'is-steward' : (role === 'member' ? 'is-member' : 'is-visitor'));
+    el.title = role === 'steward' ? 'You are using Steward controls for this camp.' : (role === 'member' ? 'You are viewing this camp as a Camp Member.' : 'No member or Steward session is active in this browser.');
+  });
+}
+
 const STARTER_RECIPES = [
   {id:"starter-recipe-1",title:"Skillet Eggs & Sausage Hash",description:"One pan, hot fire, full belly — ready before first light.",time:"20 min",serves:"4",difficulty:"Easy",ingredients:["1 lb breakfast sausage links or patties","6 large eggs","1 can (15 oz) diced potatoes, drained","1 small onion, rough chopped","Salt, pepper, garlic powder","2 tbsp butter or oil"],steps:["Brown sausage in skillet over medium-high heat. Set aside, leave drippings.","Add butter, onion, and potatoes. Cook until golden and slightly crispy, 8–10 min.","Crumble sausage back in. Make wells and crack eggs directly into them.","Season well. Cover with foil and cook until eggs set, about 5 min."],serving:["Serve hot before first light.","Best with strong camp coffee."],tips:["Use a lid from a pot or foil as a cover. No fancy lids needed out here."]},
   {id:"starter-recipe-2",title:"Campfire Pancakes with Syrup",description:"Stack 'em high. Simple batter, big satisfaction.",time:"15 min",serves:"4",difficulty:"Easy",ingredients:["2 cups pancake mix (just-add-water kind)","1½ cups water (adjust as needed)","2 tbsp vegetable oil","Maple syrup or honey for serving","Butter for the pan"],steps:["Whisk pancake mix, water, and oil until just combined — lumps are fine.","Heat griddle or skillet over medium heat. Melt a pat of butter.","Pour ¼ cup batter per pancake. Cook until bubbles form and edges look set, about 2 min.","Flip once; cook another 1–2 min. Serve with syrup."],serving:["Serve in warm stacks with butter and syrup.","Keep the finished pancakes near the fire, not over it."],tips:["Keep cooked pancakes warm by stacking them on a plate set near (not over) the fire."]},
@@ -989,6 +1018,8 @@ function showFeatureUpgradeNotice(featureKey, usage){
     notice.classList.remove('is-error');
     notice.classList.add('is-warning');
     notice.textContent=message;
+    notice.style.cursor='pointer';
+    notice.onclick = () => { const b=document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn'); if(b && !b.hidden) b.click(); };
     try{notice.scrollIntoView({behavior:'smooth', block:'nearest'});}catch(error){}
   }
   const btn=document.getElementById('campBillingBtn');
@@ -1015,6 +1046,14 @@ function bindFeatureGuardToLink(el, featureKey){
   });
 }
 function bindScoutBuilderMenus(){
+  const role = getCurrentSecurityRole();
+  const canUseStandBuilder = campCanUseFeature('stand_builder');
+  const canUseDriveBuilder = campCanUseFeature('drive_builder');
+  const showScoutBuilders = role === 'steward' && canUseStandBuilder && canUseDriveBuilder;
+  document.querySelectorAll('#headerScoutBtn,#mobileScoutBtn').forEach(btn=>{
+    const wrap = btn?.closest('.scout-menu-wrap');
+    if(wrap) wrap.style.display = showScoutBuilders ? '' : 'none';
+  });
   const standUrl=buildScoutBuilderUrl('stand');
   const driveUrl=buildScoutBuilderUrl('drive');
   ['headerStandBuilderLink','mobileStandBuilderLink','menuStandBuilderLink'].forEach(id=>{const el=document.getElementById(id); if(el){ el.href=standUrl; bindFeatureGuardToLink(el, 'stand_builder'); }});
@@ -1157,29 +1196,34 @@ function getCampBillingButtonLabel(info = getCampBillingInfo()){
   return 'Upgrade to DC+';
 }
 function renderCampBillingButton(){
-  const btn=document.getElementById('campBillingBtn');
-  if(!btn) return;
+  const buttons=[document.getElementById('campBillingBtn'), document.getElementById('mobileBillingBtn')].filter(Boolean);
+  if(!buttons.length) return;
   const billingInfo=getCampBillingInfo();
   const isPlus=billingInfo.active;
-  btn.hidden=false;
-  btn.classList.toggle('is-plus', isPlus);
-  btn.textContent=getCampBillingButtonLabel(billingInfo);
-  if(billingInfo.scheduledCancel){
-    const until = billingInfo.activeUntilLabel ? ` through ${billingInfo.activeUntilLabel}` : " through the paid-through date";
-    btn.title = `DC+ remains active${until}. Open Stripe billing to manage it.`;
-  }else if(billingInfo.pastDue){
-    btn.title = 'Open Stripe billing to fix this DC+ payment.';
-  }else{
-    btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
-  }
+  const role = getCurrentSecurityRole();
+  const label=getCampBillingButtonLabel(billingInfo);
+  buttons.forEach(btn=>{
+    btn.hidden = role === 'member';
+    btn.classList.toggle('is-plus', isPlus);
+    btn.textContent=label;
+    if(billingInfo.scheduledCancel){
+      const until = billingInfo.activeUntilLabel ? ` through ${billingInfo.activeUntilLabel}` : " through the paid-through date";
+      btn.title = `DC+ remains active${until}. Open Stripe billing to manage it.`;
+    }else if(billingInfo.pastDue){
+      btn.title = 'Open Stripe billing to fix this DC+ payment.';
+    }else{
+      btn.title=isPlus ? 'Manage this camp subscription in Stripe' : 'Unlock DC+ for this camp';
+    }
+    if(!btn.dataset.billingBound){
+      btn.dataset.billingBound='1';
+      btn.addEventListener('click', handleCampBillingClick);
+    }
+  });
   renderBillingNotice(billingInfo);
-  if(!btn.dataset.billingBound){
-    btn.dataset.billingBound='1';
-    btn.addEventListener('click', handleCampBillingClick);
-  }
 }
 async function handleCampBillingClick(){
-  const btn=document.getElementById('campBillingBtn');
+  if(getCurrentSecurityRole() === 'member'){ try{showToast('Members can view camp content, comment on CampFeed, and add calendar events. Only the Steward manages DC+.');}catch(error){} return; }
+  const btn=document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn');
   if(!btn) return;
   const original=btn.textContent;
   if(!window.DeerCampBilling){
@@ -1497,18 +1541,21 @@ function bindMenuLinks(){
   });
 }
 function renderMenu(){
+  const role = getCurrentSecurityRole();
+  const isMemberView = role === 'member';
+  const isStewardView = role === 'steward';
   const standBuilderUrl = buildScoutBuilderUrl('stand');
   const driveBuilderUrl = buildScoutBuilderUrl('drive');
-  const dashboardLink = `<a href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>`;
-  const sectionLinks = visibleSections()
-    .slice()
-    .sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" }))
-    .map(section => `<a href="#${section.key}">${section.title}</a>`)
-    .join('');
-  const scoutLinks = `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>`;
+  const canUseStandBuilder = campCanUseFeature('stand_builder');
+  const canUseDriveBuilder = campCanUseFeature('drive_builder');
+  const dashboardLink = (!isMemberView && hasStewardDashboardAccess()) ? `<a id="menuDashboardLink" href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>` : '';
+  const sectionLinks = visibleSections().slice().sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })).map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
+  const scoutLinks = (isStewardView && canUseStandBuilder && canUseDriveBuilder) ? `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>` : '';
   menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
+  document.getElementById('menuDashboardLink')?.addEventListener('click', () => { try{ window.DeerCampSecurity?.setActor?.('steward', {campId: activeCampId}); }catch(error){} });
+  refreshRoleContextPills();
   bindScoutBuilderMenus();
-renderCampBillingButton();
+  renderCampBillingButton();
   bindMenuLinks();
 }
 
@@ -1832,6 +1879,8 @@ function visibleSections(){
   });
 }
 renderMenu();
+refreshRoleContextPills();
+window.addEventListener('resize', refreshRoleContextPills);
 function getCommentsForPost(postId = "") {
   const key = String(postId || "").trim();
   const items = key && Array.isArray(feedComments[key]) ? feedComments[key] : [];
@@ -2040,11 +2089,11 @@ visibleSections().forEach(section=>{
   if(section.key==="campupdate"){
     container.innerHTML=`
       <h2>CampUpdate</h2>
-      <p class="section-helper">Members can post a picture, tradition, or recipe. Pictures post into CampFeed. Traditions and recipes appear here in Recent CampUpdates and also cross-post into their permanent camp sections. Calendar events are added in CampCalendar and also appear here.</p>
+      <p class="section-helper">Stewards can post pictures, traditions, or recipes. Members can comment on CampFeed posts and add CampCalendar events.</p>
       <div class="two-col">
         <div class="panel">
           <h4>Post a CampUpdate</h4>
-          <p class="section-helper" style="margin-top:0">Choose your name, choose a post type, and add it once. Pictures post into CampFeed. Traditions and recipes post here and into the right camp section. Use CampCalendar to add events.</p>
+          <p class="section-helper" style="margin-top:0">Stewards can post CampUpdates here. Members can participate through CampFeed comments and CampCalendar events.</p>
           <form id="campUpdateForm" class="form-grid">
             <div class="form-side">
               <label class="form-row"><span class="label">Submitted By</span><select id="updateMember" class="select"></select></label>
@@ -2198,6 +2247,11 @@ if(document.getElementById('updateType')){
   populateMemberSelects();
   document.getElementById('updateType').addEventListener('change',e=>setUpdatePanel(e.target.value));
   setUpdatePanel('photo');
+  if(getCurrentSecurityRole() === 'member'){
+    const form=document.getElementById('campUpdateForm');
+    form?.querySelectorAll('input,select,textarea,button').forEach(el=>{ el.disabled = true; });
+    setUpdateFeedback('Member view: use CampFeed comments or CampCalendar to contribute. CampUpdate posting is Steward-only for launch.');
+  }
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
     if(!requireCurrentSteward('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.')) { setUpdateFeedback('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.', true); return; }
@@ -2946,7 +3000,14 @@ ensureStateSeasonOpeners();
 calendarEvents = normalizeCalendarEvents(calendarEvents);
 contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents);
 
-let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=(calendarEvents[0]?.date || "");
+const todayKey=new Date().toISOString().slice(0,10);
+let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=todayKey;
+function refreshCalendarSelectedClasses(){
+  document.querySelectorAll('#calendarGrid .day').forEach(cell=>{
+    const key = cell.getAttribute('data-date-key') || '';
+    cell.classList.toggle('selected', key && key === selectedDateKey);
+  });
+}
 function populateCalendarGrid(){
   const grid=document.getElementById('calendarGrid'), label=document.getElementById('calendarMonthLabel'); if(!grid||!label) return;
   label.textContent=calendarCursor.toLocaleDateString(undefined,{month:'long',year:'numeric'});
@@ -2958,10 +3019,10 @@ function populateCalendarGrid(){
   for(let i=0;i<offset;i++){const e=document.createElement('button');e.className='day empty';grid.appendChild(e)}
   for(let day=1;day<=days;day++){
     const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const cell=document.createElement('button'); cell.type='button'; cell.className='day'+(selectedDateKey===dateKey?' selected':'');
+    const cell=document.createElement('button'); cell.type='button'; cell.setAttribute('data-date-key', dateKey); cell.className='day'+(selectedDateKey===dateKey?' selected':'');
     const dots=(byDate[dateKey]||[]).slice(0,3).map(()=>'<span class="dot"></span>').join('');
     cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
-    cell.addEventListener('click',()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; populateCalendarGrid(); renderCalendarEvents(); updateSelectedDateChip();});
+    cell.addEventListener('click',()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();});
     grid.appendChild(cell);
   }
 }

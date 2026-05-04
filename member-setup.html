@@ -430,7 +430,8 @@
         <h1 id="inviteStatusTitle" style="margin:0 0 12px;color:#452a16;font-size:1.9rem;">Invite Issue</h1>
         <p id="inviteStatusMessage" style="margin:0;color:#6b5644;line-height:1.6;"></p>
         <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px;">
-          <a href="index.html" class="btn btn-primary">Return to DeerCamp</a>
+          <a id="openUsedInviteCampBtn" href="camp.html" class="btn btn-primary" style="display:none;">Open Camp</a>
+          <a href="index.html" class="btn btn-secondary">Return to DeerCamp</a>
           <button type="button" onclick="history.back()" class="btn btn-secondary">Go Back</button>
         </div>
       </div>
@@ -1544,6 +1545,7 @@
     }
 
     function showInviteStatus(type) {
+      const inviteBeforeRender = getInviteContext();
       const screen = document.getElementById('inviteStatusScreen');
       if (!screen) return;
       document.body.innerHTML = screen.outerHTML;
@@ -1555,10 +1557,17 @@
 
       const title = document.getElementById('inviteStatusTitle');
       const message = document.getElementById('inviteStatusMessage');
+      const openCampBtn = document.getElementById('openUsedInviteCampBtn');
+      const campId = String(inviteBeforeRender.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
 
       if (type === 'used') {
-        title.textContent = 'Invite Already Used';
-        message.textContent = 'This DeerCamp invite has already been used to join the camp.';
+        title.textContent = 'Already Joined';
+        message.textContent = 'You have already joined this DeerCamp. Open the camp directly instead of repeating setup.';
+        if(openCampBtn && campId){
+          openCampBtn.href = buildCampUrl('camp.html', campId);
+          openCampBtn.style.display = 'inline-flex';
+          openCampBtn.addEventListener('click',()=>setMemberSecurityActor(inviteBeforeRender, {email: inviteBeforeRender.email, name: inviteBeforeRender.name}));
+        }
         return;
       }
 
