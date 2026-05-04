@@ -342,6 +342,12 @@
 
   @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
   @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
+  .mobile-upgrade-sticky{display:none}
+  @media (max-width:720px){
+    .mobile-upgrade-sticky{position:fixed;left:12px;right:12px;bottom:12px;z-index:1450;min-height:50px;border-radius:999px;border:1px solid rgba(106,68,39,.24);background:rgba(255,250,244,.96);color:#4b3116;font-weight:900;box-shadow:0 10px 26px rgba(0,0,0,.22);backdrop-filter:blur(8px);align-items:center;justify-content:center;padding:0 18px}
+    .mobile-upgrade-sticky:not([hidden]){display:flex}
+    body.has-mobile-upgrade-sticky{padding-bottom:74px}
+  }
   .form-actions-full{display:grid;gap:8px;align-content:start}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -383,6 +389,7 @@
     <button id="mobileMembersToggle" class="mobile-pill mobile-members-pill" type="button" hidden>☰ Members (0)</button>
   </div>
 </section>
+<button id="mobileBillingStickyBtn" class="mobile-upgrade-sticky billing-btn" type="button" hidden>Upgrade to DC+</button>
 <header class="camp-header">
   <div class="header-inner">
     <div class="header-left"><a href="https://www.ourdeercamp.com" class="brand-home-link" aria-label="Open DeerCamp home in a new tab" target="_blank" rel="noopener noreferrer"><img src="assets/branding/deer-track.png" class="deer-icon" alt="DeerCamp icon"></a></div>
@@ -1196,14 +1203,15 @@ function getCampBillingButtonLabel(info = getCampBillingInfo()){
   return 'Upgrade to DC+';
 }
 function renderCampBillingButton(){
-  const buttons=[document.getElementById('campBillingBtn'), document.getElementById('mobileBillingBtn')].filter(Boolean);
+  const buttons=[document.getElementById('campBillingBtn'), document.getElementById('mobileBillingBtn'), document.getElementById('mobileBillingStickyBtn')].filter(Boolean);
   if(!buttons.length) return;
   const billingInfo=getCampBillingInfo();
   const isPlus=billingInfo.active;
   const role = getCurrentSecurityRole();
   const label=getCampBillingButtonLabel(billingInfo);
   buttons.forEach(btn=>{
-    btn.hidden = role === 'member';
+    const shouldHide = role === 'member';
+    btn.hidden = shouldHide;
     btn.classList.toggle('is-plus', isPlus);
     btn.textContent=label;
     if(billingInfo.scheduledCancel){
@@ -1219,11 +1227,12 @@ function renderCampBillingButton(){
       btn.addEventListener('click', handleCampBillingClick);
     }
   });
+  try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role !== 'member'); }catch(error){}
   renderBillingNotice(billingInfo);
 }
-async function handleCampBillingClick(){
+async function handleCampBillingClick(event){
   if(getCurrentSecurityRole() === 'member'){ try{showToast('Members can view camp content, comment on CampFeed, and add calendar events. Only the Steward manages DC+.');}catch(error){} return; }
-  const btn=document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn');
+  const btn=(event && event.currentTarget) || document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn') || document.getElementById('mobileBillingStickyBtn');
   if(!btn) return;
   const original=btn.textContent;
   if(!window.DeerCampBilling){
@@ -3022,11 +3031,20 @@ function populateCalendarGrid(){
     const cell=document.createElement('button'); cell.type='button'; cell.setAttribute('data-date-key', dateKey); cell.className='day'+(selectedDateKey===dateKey?' selected':'');
     const dots=(byDate[dateKey]||[]).slice(0,3).map(()=>'<span class="dot"></span>').join('');
     cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
-    cell.addEventListener('click',()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();});
+    cell.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();});});
     grid.appendChild(cell);
   }
 }
 function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
+function preserveCalendarScroll(action){
+  const y = window.scrollY || document.documentElement.scrollTop || 0;
+  const active = document.activeElement;
+  try{ if(typeof action === 'function') action(); }catch(error){ console.warn('Calendar action failed.', error); }
+  requestAnimationFrame(()=>{
+    try{ if(active && typeof active.blur === 'function') active.blur(); }catch(error){}
+    try{ window.scrollTo({top:y, left:0, behavior:'auto'}); }catch(error){ window.scrollTo(0,y); }
+  });
+}
 let calendarEventsOffset = 0;
 function renderCalendarEvents(){
   const list=document.getElementById('calendarEventList'); if(!list) return;
@@ -3048,10 +3066,10 @@ function renderCalendarEvents(){
 }
 if(document.getElementById('calendarPrev')){
   populateMemberSelects(); updateSelectedDateChip(); populateCalendarGrid(); renderCalendarEvents();
-  document.getElementById('calendarPrev').addEventListener('click',()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});
-  document.getElementById('calendarNext').addEventListener('click',()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});
-  document.getElementById('calendarEventsPrev')?.addEventListener('click',()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();});
-  document.getElementById('calendarEventsNext')?.addEventListener('click',()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();});
+  document.getElementById('calendarPrev').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});});
+  document.getElementById('calendarNext').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();});});
+  document.getElementById('calendarEventsPrev')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();});});
+  document.getElementById('calendarEventsNext')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();});});
   document.getElementById('calendarMemberEventForm').addEventListener('submit',e=>{
     e.preventDefault();
     const title=String(document.getElementById('calendarMemberEventTitle').value||'').trim();
