@@ -1203,9 +1203,10 @@ function formatBillingDate(value){
   const date=parseBillingDate(value);
   if(!date) return "";
   try{
-    return date.toLocaleDateString(undefined,{month:"numeric",day:"numeric"});
+    return date.toLocaleDateString(undefined,{month:"numeric",day:"numeric",year:"2-digit"});
   }catch(error){
-    return `${date.getMonth()+1}/${date.getDate()}`;
+    const year=String(date.getFullYear()).slice(-2);
+    return `${date.getMonth()+1}/${date.getDate()}/${year}`;
   }
 }
 function getCampBillingInfo(){
@@ -1279,13 +1280,8 @@ function renderBillingNotice(info = getCampBillingInfo()){
   const notice=document.getElementById('billingNotice');
   if(!notice) return;
   notice.classList.remove('is-warning','is-error');
-  if(info.scheduledCancel){
-    notice.hidden=false;
-    notice.classList.add('is-warning');
-    const until = info.activeUntilLabel ? ` through ${info.activeUntilLabel}` : " through the paid-through date";
-    notice.textContent = `DC+ cancellation is scheduled. Scout Elite, Stand Builder, and Drive Builder stay unlocked${until}.`;
-    return;
-  }
+  // Scheduled cancellations are intentionally handled by the compact DC+ badge only.
+  // Do not show cancellation banners on Steward or Member camp views.
   if(info.pastDue){
     notice.hidden=false;
     notice.classList.add('is-error');
@@ -1296,7 +1292,7 @@ function renderBillingNotice(info = getCampBillingInfo()){
   notice.textContent='';
 }
 function getCampBillingButtonLabel(info = getCampBillingInfo()){
-  if(info.scheduledCancel) return info.activeUntilLabel ? `DC+ Active Until ${info.activeUntilLabel}` : 'DC+ Ending Soon';
+  if(info.scheduledCancel) return info.activeUntilLabel ? `DC+ Active (through ${info.activeUntilLabel})` : 'DC+ Active';
   if(info.pastDue) return 'Fix Billing';
   if(info.active) return 'Manage Billing';
   return 'Upgrade to DC+';
@@ -2372,14 +2368,14 @@ if(document.getElementById('updateType')){
   populateMemberSelects();
   document.getElementById('updateType').addEventListener('change',e=>setUpdatePanel(e.target.value));
   setUpdatePanel('photo');
-  if(getCurrentSecurityRole() === 'member'){
-    const form=document.getElementById('campUpdateForm');
-    form?.querySelectorAll('input,select,textarea,button').forEach(el=>{ el.disabled = true; });
-    setUpdateFeedback('Member view: use CampFeed comments or CampCalendar to contribute. CampUpdate posting is Steward-only for launch.');
+  const updateRole = getCurrentSecurityRole();
+  if(updateRole === 'member'){
+    setUpdateFeedback('Members can add CampUpdates, comment on CampFeed posts, and add CampCalendar events.');
   }
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
-    if(!requireCurrentSteward('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.')) { setUpdateFeedback('Only the Camp Steward can add CampUpdate posts for launch. Members can comment on CampFeed posts and add CampCalendar events.', true); return; }
+    const submitRole = getCurrentSecurityRole();
+    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Join this camp as a member or open Steward View to add CampUpdates.', true); return; }
     try{
     const type=document.getElementById('updateType').value;
     const member=document.getElementById('updateMember').value;
