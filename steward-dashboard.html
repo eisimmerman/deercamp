@@ -2599,9 +2599,27 @@
         return Object.assign({}, campData || {}, scoped || {});
       }catch(error){ return campData || {}; }
     }
+    function formatDashboardTwoDigitDate(value){
+      if(!value) return '';
+      try{
+        let date = value;
+        if(typeof value === 'object' && typeof value.toDate === 'function') date = value.toDate();
+        else if(typeof value === 'object' && Number.isFinite(value.seconds)) date = new Date(Number(value.seconds) * 1000);
+        else if(typeof value === 'object' && Number.isFinite(value._seconds)) date = new Date(Number(value._seconds) * 1000);
+        else if(typeof value === 'number') date = new Date(value < 10000000000 ? value * 1000 : value);
+        else if(typeof value === 'string' && /^\d+$/.test(value.trim())) { const n = Number(value.trim()); date = new Date(n < 10000000000 ? n * 1000 : n); }
+        else date = new Date(value);
+        if(!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+        return date.toLocaleDateString(undefined, { month:'numeric', day:'numeric', year:'2-digit' });
+      }catch(error){ return ''; }
+    }
     function getDashboardTierState(){
       try{
-        if(window.DeerCampBilling && typeof window.DeerCampBilling.getBillingState === 'function') return window.DeerCampBilling.getBillingState(getDashboardBillingSource());
+        if(window.DeerCampBilling && typeof window.DeerCampBilling.getBillingState === 'function') {
+          const state = window.DeerCampBilling.getBillingState(getDashboardBillingSource());
+          const normalizedActiveUntilLabel = formatDashboardTwoDigitDate(state.activeUntilDate || state.currentPeriodEnd || state.cancelAt) || state.activeUntilLabel || '';
+          return Object.assign({}, state, { activeUntilLabel: normalizedActiveUntilLabel });
+        }
       }catch(error){}
       return { effectiveTier: 'dcf', active: false, scheduledCancel: false, activeUntilLabel: '' };
     }
@@ -2655,7 +2673,7 @@
       } else if(plus && tierState.scheduledCancel){
         card.classList.add('is-warning');
         const until=tierState.activeUntilLabel || 'the paid-through date';
-        model={eyebrow:'DC+ cancellation scheduled',title:`DC+ Active Until ${until}`,body:`Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps remain unlocked through ${until}.`,primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Paid-through access active','Cancel scheduled']};
+        model={eyebrow:'DC+ cancellation scheduled',title:`DC+ Active (through ${until})`,body:`Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps remain unlocked through ${until}.`,primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Paid-through access active','Cancel scheduled']};
       } else if(plus){
         card.classList.add('is-plus');
         model={eyebrow:'DeerCamp Plus',title:'DeerCamp Plus Active',body:'Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps are unlocked for this camp.',primary:'Manage Billing',primaryAction:openDashboardBillingPortal,chips:['Scout Elite unlocked','Billing active']};
@@ -2763,7 +2781,7 @@
       const pill=document.getElementById('dashboardStatePill');
       if(pill){
         const tierState = getDashboardTierState();
-        const tierLabel = plus ? (tierState.scheduledCancel && tierState.activeUntilLabel ? `DC+ until ${tierState.activeUntilLabel}` : 'DC+') : 'DCF';
+        const tierLabel = plus ? (tierState.scheduledCancel && tierState.activeUntilLabel ? `DC+ through ${tierState.activeUntilLabel}` : 'DC+') : 'DCF';
         pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${tierLabel}`;
       }
       renderDashboardTierStatusCard();
