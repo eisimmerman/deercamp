@@ -426,9 +426,32 @@
       };
     }
 
-    function buildCampUrl(path, campId) {
+    function buildCampUrl(path, campId, extras = {}) {
       const cleanCampId = String(campId || "").trim();
-      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+      const url = new URL(path, window.location.href);
+      if (cleanCampId) url.searchParams.set("campId", cleanCampId);
+      Object.entries(extras || {}).forEach(([key, value]) => {
+        const clean = String(value || "").trim();
+        if (clean) url.searchParams.set(key, clean);
+      });
+      const query = url.searchParams.toString();
+      return `${url.pathname}${query ? `?${query}` : ""}`;
+    }
+
+    function forceStewardSession(campId) {
+      const cleanCampId = String(campId || "").trim();
+      try {
+        if (cleanCampId) {
+          localStorage.setItem(ACTIVE_CAMP_KEY, cleanCampId);
+          localStorage.setItem(`deercamp.camps.${cleanCampId}.role`, "steward");
+          localStorage.setItem(`deercamp.camps.${cleanCampId}.view`, "steward");
+        }
+        localStorage.setItem("deercamp.role", "steward");
+        localStorage.setItem("deercamp.view", "steward");
+        window.DeerCampSecurity?.setActor?.("steward", { campId: cleanCampId });
+      } catch (error) {
+        console.warn("Could not persist Steward session.", error);
+      }
     }
 
     function cloneMember(person = {}) {
@@ -548,7 +571,7 @@
     );
 
     if (activeCampId) {
-      localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
+      forceStewardSession(activeCampId);
     }
 
     const scopedCampData = activeCampId ? safeParse(campScopeKey(activeCampId, "campData"), {}) : {};
@@ -611,8 +634,15 @@
       heroHelper.textContent = 'Add a Steward email during setup so you always have a simple return path.';
     }
 
-    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId);
-    document.getElementById('finishSetupBtn').setAttribute('href', dashboardUrl);
+    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId, { role: 'steward', view: 'steward' });
+    const finishSetupBtn = document.getElementById('finishSetupBtn');
+    finishSetupBtn.setAttribute('href', dashboardUrl);
+    finishSetupBtn.addEventListener('click', (event) => {
+      if (!activeCampId) return;
+      event.preventDefault();
+      forceStewardSession(activeCampId);
+      window.location.href = dashboardUrl;
+    });
 
     const heroPreviewFrame = document.getElementById('heroPreviewFrame');
     const heroPreviewEmpty = document.getElementById('heroPreviewEmpty');

@@ -388,20 +388,49 @@
       try { return String(new URLSearchParams(window.location.search).get("campId") || localStorage.getItem("deercamp.activeCampId") || "").trim(); }
       catch (error) { return String(localStorage.getItem("deercamp.activeCampId") || "").trim(); }
     }
+    function getDashboardRoleParam() {
+      try {
+        const params = new URLSearchParams(window.location.search || "");
+        return String(params.get("role") || params.get("view") || "").trim().toLowerCase();
+      } catch (error) {
+        return "";
+      }
+    }
+    function forceDashboardStewardSession(campId) {
+      const cleanCampId = String(campId || "").trim();
+      try {
+        if (cleanCampId) {
+          localStorage.setItem("deercamp.activeCampId", cleanCampId);
+          localStorage.setItem(`deercamp.camps.${cleanCampId}.role`, "steward");
+          localStorage.setItem(`deercamp.camps.${cleanCampId}.view`, "steward");
+        }
+        localStorage.setItem("deercamp.role", "steward");
+        localStorage.setItem("deercamp.view", "steward");
+        window.DeerCampSecurity?.setActor?.("steward", { campId: cleanCampId });
+      } catch (error) {
+        console.warn("Could not persist Steward dashboard session.", error);
+      }
+    }
     function blockDashboardForMemberSession() {
       try {
         const campId = getDashboardCampIdParam();
+        const roleParam = getDashboardRoleParam();
+        if (roleParam === "steward") {
+          forceDashboardStewardSession(campId);
+          return false;
+        }
         if (window.DeerCampSecurity?.getActorRole?.(campId) === "member") {
           document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><p style="margin:0 0 8px;color:#6b5644;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Member View Active</p><h1 style="margin:0 0 10px;color:#452a16;">Steward controls are protected</h1><p style="margin:0 0 18px;color:#6b5644;line-height:1.55;">This browser is currently in Member View. If you are the Camp Steward and opened this from your Steward email, switch to Steward View below.</p><div style="display:flex;gap:10px;flex-wrap:wrap;"><button id="switchToStewardBtn" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:#6a4427;color:#fff;text-decoration:none;font-weight:700;cursor:pointer;">Switch to Steward View</button><a style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;color:#452a16;text-decoration:none;font-weight:700;border:1px solid rgba(69,42,22,.12);" href="camp.html${campId ? `?campId=${encodeURIComponent(campId)}` : ""}">Return to Camp</a></div></div></div>`;
           setTimeout(()=>{
             document.getElementById('switchToStewardBtn')?.addEventListener('click',()=>{
-              try{ window.DeerCampSecurity?.setActor?.('steward', { campId }); }catch(error){}
-              window.location.reload();
+              try{ forceDashboardStewardSession(campId); }catch(error){}
+              const nextUrl = campId ? `steward-dashboard.html?campId=${encodeURIComponent(campId)}&role=steward&view=steward` : 'steward-dashboard.html?role=steward&view=steward';
+              window.location.href = nextUrl;
             });
           },0);
           return true;
         }
-        window.DeerCampSecurity?.setActor?.("steward", { campId });
+        forceDashboardStewardSession(campId);
       } catch (error) {}
       return false;
     }
@@ -507,9 +536,16 @@
       return clean;
     }
 
-    function buildCampUrl(path, campId) {
+    function buildCampUrl(path, campId, extras = {}) {
       const cleanCampId = String(campId || "").trim();
-      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+      const url = new URL(path, window.location.href);
+      if (cleanCampId) url.searchParams.set("campId", cleanCampId);
+      Object.entries(extras || {}).forEach(([key, value]) => {
+        const clean = String(value || "").trim();
+        if (clean) url.searchParams.set(key, clean);
+      });
+      const query = url.searchParams.toString();
+      return `${url.pathname}${query ? `?${query}` : ""}`;
     }
 
     function getDashboardEditTarget() {

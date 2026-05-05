@@ -664,7 +664,9 @@ function buildBuilderResumeUrl(path, payload = {}) {
     ["campHero", payload.campHero],
     ["campBrand", payload.campBrand],
     ["memberNames", payload.memberNames],
-    ["campDescription", payload.campDescription]
+    ["campDescription", payload.campDescription],
+    ["role", payload.role],
+    ["view", payload.view]
   ];
   entries.forEach(([key, value]) => {
     const clean = String(value || "").trim();
@@ -2291,8 +2293,20 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     campBrand: selectedSignAssetPath,
     memberNames: campMembers.join(", "),
     campDescription: location ? `${name || "DeerCamp"} • ${location}` : (name || "DeerCamp"),
+    role: "steward",
+    view: "steward",
     send: true
   };
+
+  try {
+    localStorage.setItem(ACTIVE_CAMP_KEY, campId);
+    localStorage.setItem("deercamp.role", "steward");
+    localStorage.setItem("deercamp.view", "steward");
+    localStorage.setItem(`deercamp.camps.${campId}.role`, "steward");
+    localStorage.setItem(`deercamp.camps.${campId}.view`, "steward");
+  } catch (sessionError) {
+    console.warn("Could not persist Steward session before continuation.", sessionError);
+  }
 
   sendStewardWelcomeEmailInBackground(welcomePayload, stewardEmail);
 
