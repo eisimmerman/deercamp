@@ -365,6 +365,18 @@
     body.has-mobile-upgrade-sticky{padding-bottom:74px}
   }
   .form-actions-full{display:grid;gap:8px;align-content:start}
+
+  @media (max-width:720px){
+    .mobile-top-bar{position:absolute;top:12px;left:12px;right:12px;}
+    .mobile-top-bar .brand-home-link{position:absolute;top:0;left:0;z-index:1312;}
+    .mobile-actions-right{position:fixed;top:112px;right:12px;z-index:1311;}
+    .menu{position:fixed;top:292px;right:12px;max-width:calc(100vw - 24px);max-height:calc(100vh - 324px);overflow:auto;padding-top:14px;}
+    .menu a:first-child{margin-top:8px;}
+    body.modal-open .mobile-upgrade-sticky{display:none!important;}
+    body.modal-open.has-mobile-upgrade-sticky{padding-bottom:0;}
+    .member-modal.open{padding-bottom:96px;}
+    .member-modal-card{padding-bottom:96px;}
+  }
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -1953,6 +1965,15 @@ function normalizePhotoEntries(){
   return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
 }
 function normalizeRecentUpdates(){
+  const standsVisible = isSectionEnabled("campdeerstands", "stands");
+  const drivesVisible = isSectionEnabled("campdeerdrives", "deerdrives");
+  const shouldShowRecentItem = item => {
+    const type = String(item.type || "").toLowerCase();
+    const title = String(item.title || "").toLowerCase();
+    if ((type === "deerstand" || title.includes("campdeerstands")) && !standsVisible) return false;
+    if ((type === "deerdrive" || title.includes("campdeerdrives")) && !drivesVisible) return false;
+    return true;
+  };
   const officialCalendarUpdates = normalizeCalendarEvents(calendarEvents).map(ev=>({
     type:"event",
     title:`${ev.title} -- added to CampCalendar`,
@@ -1964,9 +1985,12 @@ function normalizeRecentUpdates(){
   }));
   const recentPosts = normalizeContentSubmissions(contentSubmissions, calendarEvents)
     .filter(i=>String(i.type||"").toLowerCase()!=="photo")
+    .filter(shouldShowRecentItem)
     .map(item => Object.assign({ priority: 1 }, item));
-  const basicStandUpdates = normalizeDeerStandPosts(deerStandPosts)
+  const recentLinkedKeys = new Set(recentPosts.map(item => [String(item.type || "").toLowerCase(), String(item.linkedItemId || "").trim()].join("|")));
+  const basicStandUpdates = standsVisible ? normalizeDeerStandPosts(deerStandPosts)
     .filter(item => (Array.isArray(item.tags) ? item.tags : []).some(tag => /basic|dcf/i.test(String(tag || ""))))
+    .filter(item => !recentLinkedKeys.has(["deerstand", String(item.id || "").trim()].join("|")))
     .map(item => ({
       type:"deerstand",
       linkedItemId:item.id,
@@ -1976,9 +2000,10 @@ function normalizeRecentUpdates(){
       createdAt:item.createdAt,
       createdAtMs:item.createdAtMs,
       priority: 1
-    }));
-  const basicDriveUpdates = normalizeDeerDrivePosts(deerDrivePosts)
+    })) : [];
+  const basicDriveUpdates = drivesVisible ? normalizeDeerDrivePosts(deerDrivePosts)
     .filter(item => (Array.isArray(item.tags) ? item.tags : []).some(tag => /basic|dcf/i.test(String(tag || ""))))
+    .filter(item => !recentLinkedKeys.has(["deerdrive", String(item.id || "").trim()].join("|")))
     .map(item => ({
       type:"deerdrive",
       linkedItemId:item.id,
@@ -1988,7 +2013,7 @@ function normalizeRecentUpdates(){
       createdAt:item.createdAt,
       createdAtMs:item.createdAtMs,
       priority: 1
-    }));
+    })) : [];
   const merged=[...recentPosts, ...basicStandUpdates, ...basicDriveUpdates, ...officialCalendarUpdates];
   const dedupe=new Map();
   merged.forEach((item,idx)=>{

@@ -2002,34 +2002,55 @@
       };
     }
 
+    function isBasicFieldSectionVisible(kind) {
+      if (kind === "stand") return Boolean(state.sections.campdeerstands || state.sections.stands);
+      return Boolean(state.sections.campdeerdrives || state.sections.deerdrives);
+    }
+
     async function persistBasicFieldItem(kind, item) {
       const savedCampData = syncCampData();
       const driveKeys = ["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"];
       const standKeys = ["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"];
       const keys = kind === "stand" ? standKeys : driveKeys;
+      const sectionIsVisible = isBasicFieldSectionVisible(kind);
       keys.forEach(key => {
         const list = Array.isArray(savedCampData[key]) ? savedCampData[key].slice() : [];
-        list.unshift({ ...item });
-        savedCampData[key] = list;
+        const dedupeKey = String(item.id || item.title || "").trim().toLowerCase();
+        const withoutDuplicate = dedupeKey
+          ? list.filter(entry => String(entry.id || entry.title || "").trim().toLowerCase() !== dedupeKey)
+          : list;
+        savedCampData[key] = [{ ...item, isPrivateFieldCard: !sectionIsVisible }, ...withoutDuplicate];
       });
-      const campUpdate = buildBasicFieldCampUpdate(kind, item);
+
       const submissions = Array.isArray(savedCampData.contentSubmissions) ? savedCampData.contentSubmissions.slice() : [];
-      const updateKey = [campUpdate.type, campUpdate.linkedItemId, campUpdate.title].join("|").toLowerCase();
-      const withoutDuplicate = submissions.filter(entry => [entry.type, entry.linkedItemId, entry.title].join("|").toLowerCase() !== updateKey);
-      savedCampData.contentSubmissions = [campUpdate, ...withoutDuplicate].slice(0, 30);
-      if (!savedCampData.enabledSections || typeof savedCampData.enabledSections !== "object") savedCampData.enabledSections = {};
-      if (kind === "stand") {
-        savedCampData.enabledSections.campdeerstands = true;
-        savedCampData.enabledSections.stands = true;
-        savedCampData.lastDeerStandSaveAt = item.createdAt;
-        state.sections.campdeerstands = true;
+      if (sectionIsVisible) {
+        const campUpdate = buildBasicFieldCampUpdate(kind, item);
+        const updateKey = [campUpdate.type, campUpdate.linkedItemId, campUpdate.title].join("|").toLowerCase();
+        const withoutDuplicate = submissions.filter(entry => [entry.type, entry.linkedItemId, entry.title].join("|").toLowerCase() !== updateKey);
+        savedCampData.contentSubmissions = [campUpdate, ...withoutDuplicate].slice(0, 30);
+        savedCampData.lastCampUpdateSaveAt = item.createdAt;
       } else {
-        savedCampData.enabledSections.campdeerdrives = true;
-        savedCampData.enabledSections.deerdrives = true;
-        savedCampData.lastDeerDriveSaveAt = item.createdAt;
-        state.sections.campdeerdrives = true;
+        const hiddenType = kind === "stand" ? "deerstand" : "deerdrive";
+        savedCampData.contentSubmissions = submissions.filter(entry => {
+          const entryType = String(entry.type || "").toLowerCase();
+          const linkedItemId = String(entry.linkedItemId || "").trim();
+          const title = String(entry.title || "").toLowerCase();
+          const isThisItem = linkedItemId && linkedItemId === String(item.id || "").trim();
+          const isThisSensitiveKind = entryType === hiddenType || title.includes(kind === "stand" ? "campdeerstands" : "campdeerdrives");
+          return !(isThisItem || isThisSensitiveKind);
+        }).slice(0, 30);
       }
-      savedCampData.lastCampUpdateSaveAt = item.createdAt;
+
+      if (!savedCampData.enabledSections || typeof savedCampData.enabledSections !== "object") savedCampData.enabledSections = {};
+      savedCampData.enabledSections = Object.assign({}, savedCampData.enabledSections, state.sections, {
+        stands: Boolean(state.sections.campdeerstands),
+        deerdrives: Boolean(state.sections.campdeerdrives)
+      });
+      if (kind === "stand") {
+        savedCampData.lastDeerStandSaveAt = item.createdAt;
+      } else {
+        savedCampData.lastDeerDriveSaveAt = item.createdAt;
+      }
       if (savedCampData.dashboardSlim && typeof savedCampData.dashboardSlim === "object") {
         savedCampData.dashboardSlim.sections = Object.assign({}, savedCampData.dashboardSlim.sections || {}, state.sections, {
           stands: Boolean(state.sections.campdeerstands),
@@ -2057,6 +2078,7 @@
       renderSections();
       renderPreview();
       renderDashboardBillingControls();
+      return { sectionIsVisible };
     }
 
     async function saveBasicDriveFromForm(event) {
@@ -2098,10 +2120,15 @@
           routeSummaries: [],
           ...imagePayload
         };
-        await persistBasicFieldItem("drive", item);
+        const saveResult = await persistBasicFieldItem("drive", item);
         document.getElementById("basicDriveForm").reset();
-        setBasicFieldStatus("drive", "Basic deer drive saved, published to CampDeerDrives, and posted to CampUpdate.", "success");
-        showToast("Basic deer drive saved.", 5200);
+        if (saveResult && saveResult.sectionIsVisible) {
+          setBasicFieldStatus("drive", "Basic deer drive saved, published to CampDeerDrives, and posted to CampUpdate.", "success");
+          showToast("Basic deer drive saved.", 5200);
+        } else {
+          setBasicFieldStatus("drive", "Basic deer drive saved privately. CampDeerDrives is off, so no CampUpdate post was created.", "success");
+          showToast("Basic deer drive saved privately.", 5200);
+        }
       } catch (error) {
         console.error("Basic deer drive save failed.", error);
         setBasicFieldStatus("drive", "Could not save the basic deer drive. Check console and try again.", "error");
@@ -2148,10 +2175,15 @@
           tags: ["Basic Stand", "DCF"],
           ...imagePayload
         };
-        await persistBasicFieldItem("stand", item);
+        const saveResult = await persistBasicFieldItem("stand", item);
         document.getElementById("basicStandForm").reset();
-        setBasicFieldStatus("stand", "Basic deer stand saved, published to CampDeerStands, and posted to CampUpdate.", "success");
-        showToast("Basic deer stand saved.", 5200);
+        if (saveResult && saveResult.sectionIsVisible) {
+          setBasicFieldStatus("stand", "Basic deer stand saved, published to CampDeerStands, and posted to CampUpdate.", "success");
+          showToast("Basic deer stand saved.", 5200);
+        } else {
+          setBasicFieldStatus("stand", "Basic deer stand saved privately. CampDeerStands is off, so no CampUpdate post was created.", "success");
+          showToast("Basic deer stand saved privately.", 5200);
+        }
       } catch (error) {
         console.error("Basic deer stand save failed.", error);
         setBasicFieldStatus("stand", "Could not save the basic deer stand. Check console and try again.", "error");
