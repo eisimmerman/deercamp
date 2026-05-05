@@ -47,6 +47,8 @@
     .btn-primary{background:var(--brown); color:#fff; box-shadow:0 10px 24px rgba(69,42,22,.18)}
     .btn-secondary{background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12)}
     .btn-soft{background:rgba(255,255,255,.66);color:var(--brown-deep);border:1px solid rgba(69,42,22,.1)}
+    .btn-warning{background:#b1792d;color:#fff;border:1px solid rgba(133,87,19,.18);box-shadow:0 10px 24px rgba(177,121,45,.20)}
+    .btn-warning:hover{box-shadow:0 12px 26px rgba(177,121,45,.26)}
     .hero-panel{padding:24px;display:grid;grid-template-columns:minmax(0, 1.08fr) minmax(320px, .92fr);gap:20px;align-items:center}
     .eyebrow{display:inline-flex;align-items:center;min-height:32px;padding:6px 12px;border-radius:999px;background:rgba(106,68,39,.08);color:var(--brown-deep);font-size:.8rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border:1px solid rgba(69,42,22,.08)}
     .hero-copy h2{margin:14px 0 10px;font-size:clamp(2rem, 4vw, 3.25rem);line-height:1.02;color:var(--brown-deep)}
@@ -2671,18 +2673,32 @@
         const driveAccess=window.DeerCampBilling && typeof window.DeerCampBilling.getFeatureAccess === 'function'
           ? window.DeerCampBilling.getFeatureAccess('drive_limit', getDashboardBillingCampData(), { usage: driveUsage })
           : { allowed: true };
-        basicDriveBtn.hidden = plus || !driveAccess.allowed;
-        basicDriveBtn.textContent = driveAccess.allowed ? 'Add Basic Deer Drive' : 'Drive Limit Reached';
-        basicDriveBtn.onclick = () => document.getElementById('basicDriveForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        const driveLimitReached = !driveAccess.allowed;
+        basicDriveBtn.hidden = plus;
+        basicDriveBtn.disabled = false;
+        basicDriveBtn.classList.toggle('btn-warning', driveLimitReached);
+        basicDriveBtn.classList.toggle('btn-secondary', !driveLimitReached);
+        basicDriveBtn.textContent = driveLimitReached ? 'Drive Limit Reached — Delete or Upgrade' : 'Add Basic Deer Drive';
+        basicDriveBtn.title = driveLimitReached ? 'Delete an existing basic drive from the live camp, or upgrade to DC+ for upgraded deer drives.' : 'Add your DCF basic deer drive.';
+        basicDriveBtn.onclick = driveLimitReached
+          ? openDashboardBillingModal
+          : () => document.getElementById('basicDriveForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
       }
       if(basicStandBtn){
         const standUsage=getBasicFieldUsage('stand_limit');
         const standAccess=window.DeerCampBilling && typeof window.DeerCampBilling.getFeatureAccess === 'function'
           ? window.DeerCampBilling.getFeatureAccess('stand_limit', getDashboardBillingCampData(), { usage: standUsage })
           : { allowed: true };
-        basicStandBtn.hidden = plus || !standAccess.allowed;
-        basicStandBtn.textContent = standAccess.allowed ? 'Add Basic Deer Stand' : 'Stand Limit Reached';
-        basicStandBtn.onclick = () => document.getElementById('basicStandForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        const standLimitReached = !standAccess.allowed;
+        basicStandBtn.hidden = plus;
+        basicStandBtn.disabled = false;
+        basicStandBtn.classList.toggle('btn-warning', standLimitReached);
+        basicStandBtn.classList.toggle('btn-secondary', !standLimitReached);
+        basicStandBtn.textContent = standLimitReached ? 'Stand Limit Reached — Delete or Upgrade' : 'Add Basic Deer Stand';
+        basicStandBtn.title = standLimitReached ? 'Delete an existing basic stand from the live camp, or upgrade to DC+ for upgraded stands and drives.' : 'Add another DCF basic deer stand.';
+        basicStandBtn.onclick = standLimitReached
+          ? openDashboardBillingModal
+          : () => document.getElementById('basicStandForm')?.scrollIntoView({ behavior:'smooth', block:'start' });
       }
       if(primary){
         primary.textContent=model.primary;
