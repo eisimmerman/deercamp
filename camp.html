@@ -348,7 +348,7 @@
     .menu{
       top:92px;right:12px;left:auto;min-width:220px;max-width:calc(100vw - 24px);
       background:rgba(255,250,244,.98);box-shadow:0 18px 36px rgba(0,0,0,.24);
-      transform:translateY(-8px);opacity:0;pointer-events:auto;
+      transform:translateY(-8px);opacity:0;pointer-events:none;
       transition:opacity .2s ease, transform .2s ease;
       display:block;
       z-index:1305;
@@ -1583,7 +1583,11 @@ if(mobileMembersToggle){
   if(additionalMembers.length){
     mobileMembersToggle.hidden = false;
     mobileMembersToggle.textContent = `☰ Members (${additionalMembers.length})`;
-    mobileMembersToggle.addEventListener("click", openMembersSheet);
+    mobileMembersToggle.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openMembersSheet();
+    });
   } else {
     mobileMembersToggle.hidden = true;
   }
@@ -1609,8 +1613,8 @@ function toggleMenuVisibility(nextState){
   menuToggle?.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
   mobileMenuToggle?.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
 }
-menuToggle.addEventListener("click",()=>toggleMenuVisibility());
-mobileMenuToggle?.addEventListener("click",()=>toggleMenuVisibility());
+menuToggle.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); toggleMenuVisibility(); });
+mobileMenuToggle?.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); toggleMenuVisibility(); });
 document.addEventListener("click",e=>{
   if(e.target.closest && e.target.closest('.scout-menu-wrap')) return;
   if(!menu.contains(e.target)&&e.target!==menuToggle&&e.target!==mobileMenuToggle) toggleMenuVisibility(false);
@@ -3131,21 +3135,15 @@ function populateCalendarGrid(){
 }
 function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
 function preserveCalendarScroll(action, event){
-  const anchor = document.getElementById('campcalendar') || document.querySelector('[data-section="campcalendar"]') || document.getElementById('calendarGrid') || document.body;
-  const beforeTop = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect().top : 0;
+  const beforeY = window.scrollY || document.documentElement.scrollTop || 0;
   const target = event && event.currentTarget ? event.currentTarget : document.activeElement;
   try{ if(event && typeof event.preventDefault === 'function') event.preventDefault(); }catch(error){}
+  try{ if(event && typeof event.stopPropagation === 'function') event.stopPropagation(); }catch(error){}
+  try{ if(event && typeof event.stopImmediatePropagation === 'function') event.stopImmediatePropagation(); }catch(error){}
   try{ if(target && typeof target.blur === 'function') target.blur(); }catch(error){}
   try{ if(typeof action === 'function') action(); }catch(error){ console.warn('Calendar action failed.', error); }
   const restore = () => {
-    try{
-      if(!anchor || !anchor.getBoundingClientRect) return;
-      const afterTop = anchor.getBoundingClientRect().top;
-      const delta = afterTop - beforeTop;
-      if(Math.abs(delta) > 1){
-        window.scrollTo({top:(window.scrollY || document.documentElement.scrollTop || 0) + delta, left:0, behavior:'auto'});
-      }
-    }catch(error){}
+    try{ window.scrollTo({top: beforeY, left:0, behavior:'auto'}); }catch(error){}
   };
   requestAnimationFrame(()=>{ restore(); requestAnimationFrame(restore); });
   setTimeout(restore, 60);
