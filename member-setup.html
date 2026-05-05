@@ -431,8 +431,6 @@
         <p id="inviteStatusMessage" style="margin:0;color:#6b5644;line-height:1.6;"></p>
         <div style="margin-top:22px;display:flex;flex-direction:column;gap:10px;">
           <a id="openUsedInviteCampBtn" href="camp.html" class="btn btn-primary" style="display:none;">Open Camp</a>
-          <a href="index.html" class="btn btn-secondary">Return to DeerCamp</a>
-          <button type="button" onclick="history.back()" class="btn btn-secondary">Go Back</button>
         </div>
       </div>
     </div>
@@ -1591,12 +1589,28 @@
       const campId = String(inviteBeforeRender.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
 
       if (type === 'used') {
-        title.textContent = 'Already Joined';
-        message.textContent = 'You have already joined this DeerCamp. Open the camp directly instead of repeating setup.';
+        const campHref = buildCampUrl('camp.html', campId);
+        title.textContent = "You're already in this DeerCamp";
+        message.textContent = 'Opening your camp now — no setup needed.';
+
+        try {
+          setMemberSecurityActor(inviteBeforeRender, {
+            email: inviteBeforeRender.email,
+            name: inviteBeforeRender.name
+          });
+        } catch (error) {}
+
         if(openCampBtn && campId){
-          openCampBtn.href = buildCampUrl('camp.html', campId);
+          openCampBtn.href = campHref;
           openCampBtn.style.display = 'inline-flex';
+          openCampBtn.textContent = 'Open Camp';
           openCampBtn.addEventListener('click',()=>setMemberSecurityActor(inviteBeforeRender, {email: inviteBeforeRender.email, name: inviteBeforeRender.name}));
+        }
+
+        if (campId) {
+          window.setTimeout(() => {
+            window.location.replace(campHref);
+          }, 250);
         }
         return;
       }
