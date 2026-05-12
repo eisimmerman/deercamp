@@ -518,7 +518,7 @@
 
 
 <section class="support-strip" aria-label="DeerCamp support">
-  Need help with your DeerCamp? Email <a href="mailto:support@ourdeercamp.com">support@ourdeercamp.com</a>.
+  Need help with your DeerCamp? Email <a id="campSupportLink" href="mailto:support@ourdeercamp.com">support@ourdeercamp.com</a>.
 </section>
 
 <footer class="cinematic-footer">
@@ -1276,6 +1276,54 @@ function getCampBillingInfo(){
   };
 }
 
+
+function getSupportSafeText(value, fallback = ""){
+  const clean = String(value || "").trim();
+  return clean || fallback;
+}
+function getCampSupportTierLabel(info = getCampBillingInfo()){
+  const rawTier = String(info.effectiveTier || info.tier || data.tier || data.membershipTier || "").trim().toLowerCase();
+  if(info.active || info.pastDue || info.scheduledCancel || ["dc_plus","dc+","plus","deercamp_plus"].includes(rawTier)) return "DC+";
+  if(["dcp","premium","deercamp_premium"].includes(rawTier)) return "DCP";
+  return "DCF";
+}
+function getCampSupportPriority(info = getCampBillingInfo()){
+  const tierLabel = getCampSupportTierLabel(info);
+  if(tierLabel === "DC+" || tierLabel === "DCP") return "Priority";
+  return "Standard";
+}
+function buildDeerCampSupportMailto(source = data || {}){
+  const info = getCampBillingInfo();
+  const campName = getSupportSafeText(source.name || source.campName || source.camp?.name, "Your DeerCamp");
+  const campId = getSupportSafeText(activeCampId || source.campId, "Unknown");
+  const stewardName = getSupportSafeText(source.stewardName || source.steward || source.campSteward || source.camp?.stewardName, "");
+  const stewardEmail = getSupportSafeText(source.stewardEmail || source.campStewardEmail || source.camp?.stewardEmail, "");
+  const tierLabel = getCampSupportTierLabel(info);
+  const supportPriority = getCampSupportPriority(info);
+  const subscriptionStatus = getSupportSafeText(info.status || source.subscriptionStatus || source.billingStatus, tierLabel === "DCF" ? "none" : "active");
+  const subject = `DeerCamp Support Request - ${campName} - ${tierLabel}`;
+  const body = [
+    `Camp Name: ${campName}`,
+    `Camp ID: ${campId}`,
+    stewardName ? `Steward: ${stewardName}` : "Steward:",
+    stewardEmail ? `Steward Email: ${stewardEmail}` : "Steward Email:",
+    `Membership: ${tierLabel}`,
+    `Subscription Status: ${subscriptionStatus}`,
+    `Support Priority: ${supportPriority}`,
+    "",
+    "Issue:",
+    ""
+  ].join("\n");
+  return `mailto:support@ourdeercamp.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+function refreshCampSupportLinks(){
+  const href = buildDeerCampSupportMailto(data || {});
+  document.querySelectorAll('a[href^="mailto:support@ourdeercamp.com"], #campSupportLink').forEach(link => {
+    link.href = href;
+    link.title = "Email DeerCamp support with camp and membership details included.";
+  });
+}
+
 function isCampDcPlusActive(){
   try{
     if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === "function"){
@@ -1673,6 +1721,7 @@ function renderMenu(){
   refreshRoleContextPills();
   bindScoutBuilderMenus();
   renderCampBillingButton();
+  refreshCampSupportLinks();
   bindMenuLinks();
 }
 

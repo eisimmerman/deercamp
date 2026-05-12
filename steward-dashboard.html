@@ -381,12 +381,12 @@
         <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
         <span class="pill" id="dashboardStatePill">Private camp</span>
         <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
-        <a class="btn btn-secondary" href="mailto:support@ourdeercamp.com">Contact Support</a>
+        <a id="dashboardSupportBtn" class="btn btn-secondary" href="mailto:support@ourdeercamp.com">Contact Support</a>
       </div>
     </header>
 
     <section class="footer-note" aria-label="DeerCamp support">
-      <p><strong>Need help?</strong> Email <a class="support-link" href="mailto:support@ourdeercamp.com">support@ourdeercamp.com</a>. DC+ Stewards receive priority support.</p>
+      <p><strong>Need help?</strong> Email <a id="dashboardSupportFooterLink" class="support-link" href="mailto:support@ourdeercamp.com">support@ourdeercamp.com</a>. DC+ Stewards receive priority support.</p>
     </section>
 
   </div>
@@ -2640,6 +2640,54 @@
       catch(error){ return false; }
     }
 
+
+    function getDashboardSupportSafeText(value, fallback = ""){
+      const clean = String(value || "").trim();
+      return clean || fallback;
+    }
+    function getDashboardSupportTierLabel(tierState = getDashboardTierState()){
+      const rawTier = String(tierState.effectiveTier || tierState.tier || campData.tier || campData.membershipTier || "").trim().toLowerCase();
+      if(dashboardHasDcPlus() || tierState.active || tierState.pastDue || tierState.scheduledCancel || ["dc_plus","dc+","plus","deercamp_plus"].includes(rawTier)) return "DC+";
+      if(["dcp","premium","deercamp_premium"].includes(rawTier)) return "DCP";
+      return "DCF";
+    }
+    function getDashboardSupportPriority(tierState = getDashboardTierState()){
+      const tierLabel = getDashboardSupportTierLabel(tierState);
+      return tierLabel === "DC+" || tierLabel === "DCP" ? "Priority" : "Standard";
+    }
+    function buildDashboardSupportMailto(){
+      const tierState = getDashboardTierState();
+      const campName = getDashboardSupportSafeText(state.camp?.name || campData.name || campData.campName, "Your DeerCamp");
+      const campId = getDashboardSupportSafeText(state.campId || activeCampId || campData.campId, "Unknown");
+      const stewardName = getDashboardSupportSafeText(state.stewardName || campData.stewardName || campData.campSteward, "");
+      const stewardEmail = getDashboardSupportSafeText(state.stewardEmail || campData.stewardEmail || campData.campStewardEmail, "");
+      const tierLabel = getDashboardSupportTierLabel(tierState);
+      const supportPriority = getDashboardSupportPriority(tierState);
+      const subscriptionStatus = getDashboardSupportSafeText(tierState.status || campData.subscriptionStatus || campData.billingStatus, tierLabel === "DCF" ? "none" : "active");
+      const subject = `DeerCamp Support Request - ${campName} - ${tierLabel}`;
+      const body = [
+        `Camp Name: ${campName}`,
+        `Camp ID: ${campId}`,
+        stewardName ? `Steward: ${stewardName}` : "Steward:",
+        stewardEmail ? `Steward Email: ${stewardEmail}` : "Steward Email:",
+        `Membership: ${tierLabel}`,
+        `Subscription Status: ${subscriptionStatus}`,
+        `Support Priority: ${supportPriority}`,
+        "",
+        "Issue:",
+        ""
+      ].join("\n");
+      return `mailto:support@ourdeercamp.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+    function refreshDashboardSupportLinks(){
+      const href = buildDashboardSupportMailto();
+      [document.getElementById('dashboardSupportBtn'), document.getElementById('dashboardSupportFooterLink')].forEach(link => {
+        if(!link) return;
+        link.href = href;
+        link.title = 'Email DeerCamp support with camp and membership details included.';
+      });
+    }
+
     function dashboardTierLimitLabel(featureKey, fallbackLabel){
       try{
         if(!window.DeerCampBilling || typeof window.DeerCampBilling.getFeatureAccess !== 'function') return fallbackLabel;
@@ -2792,6 +2840,7 @@
         const tierLabel = plus ? (tierState.scheduledCancel && tierState.activeUntilLabel ? `DC+ through ${tierState.activeUntilLabel}` : 'DC+') : 'DCF';
         pill.textContent = `${state.camp.publishState === 'public' ? 'Public' : 'Private'} · ${tierLabel}`;
       }
+      renderDashboardSupportLinks();
       renderDashboardTierStatusCard();
     }
 
