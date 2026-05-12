@@ -1,10 +1,10 @@
-# DeerCamp Prefill Link Contract
+# DeerCamp Resume Link Contract
 
-This contract defines the setup link used in the Steward welcome email.
+This contract defines the setup link used in the Steward welcome and resume-later emails.
 
 ## Placeholder used in email templates
 
-- `{{setup_link}}` = fully generated DeerCamp setup URL
+- `{{setup_link}}` = fully generated DeerCamp resume URL
 
 ## Target route
 
@@ -13,34 +13,26 @@ This contract defines the setup link used in the Steward welcome email.
 ## Expected URL shape
 
 ```text
-https://www.ourdeercamp.com/buildyourcamp.html?campName={campName}&locationName={locationName}&city={city}&state={state}&zip={zip}&stewardFirstName={stewardFirstName}&stewardLastName={stewardLastName}&stewardEmail={stewardEmail}&campType={campType}&campDescription={campDescription}
+https://www.ourdeercamp.com/buildyourcamp.html?campId={campId}
 ```
-
-Use only the parameters you actually have. Omit empty values rather than sending blank placeholders.
-
-## Parameter contract
-
-- `campName`: Camp name shown to the Steward
-- `locationName`: Friendly camp property or land name
-- `city`: Camp city
-- `state`: Two-letter state code preferred
-- `zip`: ZIP code
-- `stewardFirstName`: Steward first name
-- `stewardLastName`: Steward last name
-- `stewardEmail`: Steward email address
-- `campType`: Camp style/type selected in the starter form
-- `campDescription`: Short camp description or summary
 
 ## Rules
 
-1. URL-encode every value.
-2. Do not include parameters with null, undefined, or empty-string values.
-3. Preserve source-of-truth values from the initial 5-minute form submission.
-4. Insert the fully built URL into `{{setup_link}}` before sending.
+1. Use the `campId`-based resume link whenever `campId` exists.
+2. The resume link must reopen the same saved DeerCamp setup without overwriting saved Steward work.
+3. Saved Steward edits always win over original starter data.
+4. The starter 5-minute builder data is only used to fill blanks.
 5. The email sender should be `welcome@ourdeercamp.com`.
 
-## Example generated link
+## Save + Continue Later behavior
 
-```text
-https://www.ourdeercamp.com/buildyourcamp.html?campName=Northwoods%20Ridge&city=Eau%20Claire&state=WI&zip=54701&stewardFirstName=Eric&stewardLastName=Simmerman&stewardEmail=eric@example.com
-```
+When a Steward taps **Save + Continue Later** in `buildyourcamp.html`:
+
+1. Save the current wizard state locally.
+2. Send a resume email to the Steward email on file.
+3. Use the same non-destructive `campId` resume link.
+4. Do not regenerate or overwrite the camp.
+
+## Legacy fallback
+
+If `campId` is unavailable, the system may temporarily fall back to a prefill-style setup URL until a valid `campId` exists.
