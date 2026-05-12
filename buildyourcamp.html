@@ -377,6 +377,33 @@
       return "";
     }
 
+    function getDefaultSubscriptionFields(source = {}) {
+      const billing = source && typeof source.billing === "object" ? source.billing : {};
+      const tier = firstNonEmpty(source.tier, source.membershipTier, billing.tier, "DCF");
+      const subscriptionStatus = firstNonEmpty(source.subscriptionStatus, source.billingStatus, billing.status, "none");
+      const supportPriority = firstNonEmpty(source.supportPriority, billing.supportPriority, "standard");
+      return {
+        tier,
+        membershipTier: firstNonEmpty(source.membershipTier, tier),
+        subscriptionStatus,
+        billingStatus: firstNonEmpty(source.billingStatus, subscriptionStatus),
+        supportPriority,
+        stripeCustomerId: firstNonEmpty(source.stripeCustomerId, billing.stripeCustomerId),
+        stripeSubscriptionId: firstNonEmpty(source.stripeSubscriptionId, billing.stripeSubscriptionId),
+        subscribedAt: firstNonEmpty(source.subscribedAt, billing.subscribedAt),
+        planName: firstNonEmpty(source.planName, billing.planName),
+        billing: {
+          tier: firstNonEmpty(billing.tier, tier).toLowerCase(),
+          status: firstNonEmpty(billing.status, subscriptionStatus),
+          supportPriority,
+          stripeCustomerId: firstNonEmpty(billing.stripeCustomerId, source.stripeCustomerId),
+          stripeSubscriptionId: firstNonEmpty(billing.stripeSubscriptionId, source.stripeSubscriptionId),
+          planName: firstNonEmpty(billing.planName, source.planName),
+          subscribedAt: firstNonEmpty(billing.subscribedAt, source.subscribedAt)
+        }
+      };
+    }
+
     function readParam(params, names = []) {
       for (const name of names) {
         const value = params.get(name);
@@ -535,7 +562,9 @@
     function hydrateDashboardSnapshot(activeCampId, campData = {}, dashboardData = {}) {
       if (!activeCampId) return dashboardData;
       const mergedMembers = mergeMembersFromCampAndDashboard(campData, dashboardData);
+      const subscriptionFields = getDefaultSubscriptionFields(Object.assign({}, dashboardData, campData));
       const mergedDashboard = {
+        ...subscriptionFields,
         campId: activeCampId,
         camp: {
           name: firstNonEmpty(campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp"),
