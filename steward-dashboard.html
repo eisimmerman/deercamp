@@ -2823,7 +2823,9 @@
     function getDashboardBillingSource(){
       try{
         const scoped = safeParse(localStorage.getItem(scopedCampDataKey), {});
-        return Object.assign({}, campData || {}, scoped || {});
+        const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+        const profile = safeParse(localStorage.getItem(scopedProfileDataKey), {});
+        return Object.assign({}, campData || {}, profile || {}, generic || {}, scoped || {});
       }catch(error){ return campData || {}; }
     }
     function formatDashboardTwoDigitDate(value){
@@ -2857,6 +2859,37 @@
         return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(source) : false;
       }
       catch(error){ return false; }
+    }
+
+
+    async function hydrateDashboardBillingFromCloud(reason = "page-load"){
+      try {
+        if (!window.DeerCampCloud || typeof DeerCampCloud.getCamp !== "function" || !state.campId) return null;
+        const cloud = window.DeerCampBilling && typeof window.DeerCampBilling.hydrateBillingForCamp === "function"
+          ? await window.DeerCampBilling.hydrateBillingForCamp(state.campId)
+          : await DeerCampCloud.getCamp(state.campId);
+        if (!cloud || typeof cloud !== "object") return null;
+
+        Object.assign(campData, cloud, { campId: state.campId });
+        if (cloud.billing && typeof cloud.billing === "object") {
+          campData.billing = Object.assign({}, campData.billing || {}, cloud.billing);
+        }
+        if (cloud.tier) campData.tier = cloud.tier;
+        if (cloud.billingStatus) campData.billingStatus = cloud.billingStatus;
+        if (cloud.subscriptionStatus) campData.subscriptionStatus = cloud.subscriptionStatus;
+
+        try {
+          localStorage.setItem(scopedCampDataKey, JSON.stringify(campData));
+          localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(campData));
+        } catch(error) {}
+
+        renderDashboardBillingControls();
+        renderDashboardInventoryCounter(dashboardHasDcPlus());
+        return cloud;
+      } catch (error) {
+        console.warn("Dashboard billing hydration skipped.", error);
+        return null;
+      }
     }
 
 
@@ -3228,8 +3261,13 @@
     try { renderDashboardBillingControls(); } catch (error) { console.warn("Dashboard billing controls skipped.", error); }
     try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) { console.warn("Dashboard inventory counter skipped.", error); }
     setTimeout(() => { try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {} }, 250);
+    hydrateDashboardBillingFromCloud("initial-load").then(() => {
+      try { renderDashboardBillingControls(); } catch (error) {}
+      try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
+    });
     maybeOpenRequestedProfileEditor();
-    hydrateDashboardFromCloud().then(() => {
+    hydrateDashboardFromCloud().then(async () => {
+      await hydrateDashboardBillingFromCloud("post-cloud-hydrate");
       ensureBuilderDraftMembers();
       syncCampData();
       renderMembers();
@@ -3239,5 +3277,24 @@
       maybeOpenRequestedProfileEditor();
     });
   </script>
+
+  <script>
+    window.deercampBillingHydrationRetry = true;
+    setTimeout(() => {
+      try {
+        if (typeof hydrateDashboardBillingFromCloud === "function") {
+          hydrateDashboardBillingFromCloud("delayed-pass-1");
+        }
+      } catch (error) {}
+    }, 900);
+    setTimeout(() => {
+      try {
+        if (typeof hydrateDashboardBillingFromCloud === "function") {
+          hydrateDashboardBillingFromCloud("delayed-pass-2");
+        }
+      } catch (error) {}
+    }, 2500);
+  </script>
+
 </body>
 </html>

@@ -817,6 +817,52 @@ function getCampIdFromUrl(){try{return String(new URLSearchParams(window.locatio
 function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?`${CAMP_SCOPE_PREFIX}${c}.${suffix}`:""}
 function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
+async function hydrateBillingStateFromCloud(campId, options = {}){
+  const cleanCampId = String(campId || "").trim();
+  if (!cleanCampId || !window.DeerCampCloud) return null;
+  try {
+    const cloud = window.DeerCampBilling && typeof window.DeerCampBilling.hydrateBillingForCamp === "function"
+      ? await window.DeerCampBilling.hydrateBillingForCamp(cleanCampId)
+      : await window.DeerCampCloud.hydrateCampToLocal(cleanCampId);
+    if (cloud && typeof cloud === "object") {
+      data = Object.assign({}, data || {}, cloud, { campId: cleanCampId });
+      if (cloud.billing && typeof cloud.billing === "object") data.billing = Object.assign({}, data.billing || {}, cloud.billing);
+      try {
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
+        localStorage.setItem(campScopeKey(cleanCampId, "campData"), JSON.stringify(data));
+      } catch(error) {}
+    }
+    return cloud || null;
+  } catch (error) {
+    console.warn("Billing hydration skipped.", error);
+    return null;
+  }
+}
+async function handleCheckoutReturnHydration(){
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const checkoutState = String(params.get("checkout") || params.get("billing") || "").toLowerCase();
+    if (checkoutState !== "success" && checkoutState !== "returned") return;
+    const notice = document.getElementById("billingNotice");
+    if (notice) {
+      notice.hidden = false;
+      notice.classList.remove("is-error", "is-warning");
+      notice.textContent = "Refreshing your DeerCamp Plus access...";
+    }
+    await hydrateBillingStateFromCloud(activeCampId, { reason: checkoutState });
+    try { renderBillingControls(); } catch(error) {}
+    try { renderScoutControls(); } catch(error) {}
+    try { renderMenu(); } catch(error) {}
+    if (notice) {
+      const plus = window.DeerCampBilling && window.DeerCampBilling.hasDcPlus(data || {});
+      notice.textContent = plus ? "DC+ is active for this camp." : "Checkout completed. If DC+ does not appear yet, refresh once more in a few seconds.";
+      notice.classList.toggle("is-warning", !plus);
+    }
+  } catch (error) {
+    console.warn("Checkout return hydration failed.", error);
+  }
+}
+
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
@@ -865,6 +911,7 @@ const preHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(acti
 const preHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
 const preHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
 await hydrateCampFromCloud(activeCampId);
+await hydrateBillingStateFromCloud(activeCampId, { reason: "page-load" });
 
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
@@ -3471,6 +3518,8 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
 ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+
+try { await handleCheckoutReturnHydration(); } catch(error) { console.warn('Checkout hydration final pass skipped.', error); }
 })();
 </script>
 </body>

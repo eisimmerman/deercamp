@@ -92,11 +92,57 @@
       }
     },
 
+    mergeCloudBillingIntoCachedCamp(cleanCampId, cloud) {
+      try {
+        if (!cleanCampId || !cloud || typeof cloud !== "object") return;
+        const keys = [
+          "campData",
+          scopedKey(cleanCampId, "campData"),
+          scopedKey(cleanCampId, "profileData")
+        ].filter(Boolean);
+        keys.forEach((key) => {
+          let cached = {};
+          try { cached = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (error) { cached = {}; }
+          const merged = {
+            ...cached,
+            ...cloud,
+            campId: cleanCampId
+          };
+          if (cloud.billing && typeof cloud.billing === "object") merged.billing = { ...(cached.billing || {}), ...cloud.billing };
+          if (cloud.tier) merged.tier = cloud.tier;
+          if (cloud.billingStatus) merged.billingStatus = cloud.billingStatus;
+          if (cloud.subscriptionStatus) merged.subscriptionStatus = cloud.subscriptionStatus;
+          if (cloud.stripeCustomerId) merged.stripeCustomerId = cloud.stripeCustomerId;
+          if (cloud.stripeSubscriptionId) merged.stripeSubscriptionId = cloud.stripeSubscriptionId;
+          localStorage.setItem(key, JSON.stringify(merged));
+        });
+
+        const dashboardKeys = [
+          "deercamp.stewardDashboardSlim",
+          "deerCampStewardDashboard",
+          scopedKey(cleanCampId, "dashboardSlim")
+        ].filter(Boolean);
+        dashboardKeys.forEach((key) => {
+          let dashboard = {};
+          try { dashboard = JSON.parse(localStorage.getItem(key) || "{}") || {}; } catch (error) { dashboard = {}; }
+          dashboard.campId = cleanCampId;
+          dashboard.billing = cloud.billing || dashboard.billing || {};
+          dashboard.tier = cloud.tier || dashboard.tier || "";
+          dashboard.billingStatus = cloud.billingStatus || dashboard.billingStatus || "";
+          dashboard.subscriptionStatus = cloud.subscriptionStatus || dashboard.subscriptionStatus || "";
+          localStorage.setItem(key, JSON.stringify(dashboard));
+        });
+      } catch (error) {
+        console.warn("Could not merge Firestore billing into local cache.", error);
+      }
+    },
+
     async hydrateCampToLocal(campId) {
       const cleanCampId = String(campId || "").trim();
       if (!cleanCampId) return null;
       const cloud = await this.getCamp(cleanCampId);
       if (!cloud || typeof cloud !== "object") return null;
+      this.mergeCloudBillingIntoCachedCamp(cleanCampId, cloud);
       try {
         const scopedCampKey = scopedKey(cleanCampId, "campData");
         const scopedDashboardKey = scopedKey(cleanCampId, "dashboardSlim");
@@ -577,6 +623,23 @@
       if (!session.url) throw new Error("Stripe checkout URL was not returned.");
       window.location.href = session.url;
       return session;
+    },
+    async hydrateBillingForCamp(campId) {
+      const cleanCampId = String(campId || "").trim();
+      if (!cleanCampId || !window.DeerCampCloud || typeof window.DeerCampCloud.getCamp !== "function") return null;
+      const cloud = await window.DeerCampCloud.getCamp(cleanCampId);
+      if (cloud && typeof cloud === "object") {
+        try {
+          if (typeof window.DeerCampCloud.mergeCloudBillingIntoCachedCamp === "function") {
+            window.DeerCampCloud.mergeCloudBillingIntoCachedCamp(cleanCampId, cloud);
+          } else if (typeof window.DeerCampCloud.hydrateCampToLocal === "function") {
+            await window.DeerCampCloud.hydrateCampToLocal(cleanCampId);
+          }
+        } catch (error) {
+          console.warn("Could not cache hydrated billing state.", error);
+        }
+      }
+      return cloud || null;
     },
     async manageBilling(options = {}) {
       const campId = String(options.campId || "").trim();
