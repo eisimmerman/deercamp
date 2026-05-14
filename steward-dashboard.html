@@ -873,21 +873,54 @@
     }
 
     function mergeMemberRecords(previous = {}, next = {}) {
+      const previousStatusRaw = String(previous.status || "").trim();
+      const nextStatusRaw = String(next.status || "").trim();
+      const previousStatus = previousStatusRaw.toLowerCase();
+      const nextStatus = nextStatusRaw.toLowerCase();
+      const previousInviteSentAt = String(previous.inviteSentAt || "").trim();
+      const nextInviteSentAt = String(next.inviteSentAt || "").trim();
+      const previousInviteToken = String(previous.inviteToken || "").trim();
+      const nextInviteToken = String(next.inviteToken || "").trim();
+
+      const lockedStatuses = ["invite sent", "active", "accepted"];
+      const previousIsLocked = lockedStatuses.includes(previousStatus) || Boolean(previousInviteSentAt);
+      const nextIsLocked = lockedStatuses.includes(nextStatus) || Boolean(nextInviteSentAt);
+      const nextIsStale = !nextStatus || nextStatus === "ready" || nextStatus === "draft" || nextStatus === "sending";
+
+      const preferPreviousInviteState = previousIsLocked && !nextIsLocked && nextIsStale;
+      const chosenStatus = preferPreviousInviteState ? previousStatusRaw : (nextStatusRaw || previousStatusRaw || "Draft");
+
       const merged = {
         name: String(next.name || previous.name || "").trim(),
         email: String(next.email || previous.email || "").trim(),
         note: String(next.note || previous.note || "").trim(),
         role: String(next.role || previous.role || "Camp Member").trim() || "Camp Member",
-        status: String(next.status || previous.status || "Draft").trim() || "Draft",
-        pendingInvite: Boolean(next.pendingInvite || previous.pendingInvite),
-        inviteToken: String(next.inviteToken || previous.inviteToken || "").trim(),
-        inviteSentAt: String(next.inviteSentAt || previous.inviteSentAt || "").trim(),
-        inviteError: String(next.inviteError || previous.inviteError || "").trim()
+        status: chosenStatus,
+        pendingInvite: preferPreviousInviteState ? false : Boolean(next.pendingInvite || previous.pendingInvite),
+        inviteToken: String((preferPreviousInviteState ? previousInviteToken : (nextInviteToken || previousInviteToken)) || "").trim(),
+        inviteSentAt: String((preferPreviousInviteState ? previousInviteSentAt : (nextInviteSentAt || previousInviteSentAt)) || "").trim(),
+        inviteStartedAt: String((preferPreviousInviteState ? "" : (next.inviteStartedAt || previous.inviteStartedAt)) || "").trim(),
+        inviteError: String((preferPreviousInviteState ? "" : (next.inviteError || previous.inviteError)) || "").trim()
       };
+
       copyMemberProfileFields(merged, previous);
       copyMemberProfileFields(merged, next);
-      merged.status = normalizeMemberStatus(merged);
-      merged.pendingInvite = merged.status === "Ready";
+
+      const mergedStatusLower = String(merged.status || "").trim().toLowerCase();
+      if (mergedStatusLower === "invite sent" || Boolean(merged.inviteSentAt)) {
+        merged.status = "Invite Sent";
+        merged.pendingInvite = false;
+        merged.inviteError = "";
+        merged.inviteStartedAt = "";
+      } else if (mergedStatusLower === "accepted" || mergedStatusLower === "active") {
+        merged.status = "Active";
+        merged.pendingInvite = false;
+        merged.inviteError = "";
+        merged.inviteStartedAt = "";
+      } else {
+        merged.status = normalizeMemberStatus(merged);
+        merged.pendingInvite = merged.status === "Ready";
+      }
       return merged;
     }
 
@@ -1851,6 +1884,19 @@
       inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
     }
 
+    async function persistDashboardCampToCloud(savedCampData = null) {
+      try {
+        const payload = savedCampData || currentDashboardPayload();
+        if (!payload || typeof payload !== "object") return false;
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+          return await DeerCampCloud.saveCamp(state.campId, payload);
+        }
+      } catch (error) {
+        console.warn("Could not persist dashboard state to cloud.", error);
+      }
+      return false;
+    }
+
     async function sendMemberInvites(members) {
       const results = [];
       for (const member of members) {
@@ -1912,9 +1958,18 @@
         member.status = "Failed";
         member.pendingInvite = true;
         member.inviteError = data.error || "Failed to send invite.";
-        syncCampData();
+        const failedCampData = syncCampData();
+        await persistDashboardCampToCloud(failedCampData);
         throw new Error(data.error || "Failed to send invite.");
       }
+
+      member.status = "Invite Sent";
+      member.pendingInvite = false;
+      member.inviteSentAt = member.inviteSentAt || new Date().toISOString();
+      member.inviteStartedAt = "";
+      member.inviteError = "";
+      const sentCampData = syncCampData();
+      await persistDashboardCampToCloud(sentCampData);
       return { data, inviteToken };
     }
 
@@ -1940,7 +1995,8 @@
         member.inviteStartedAt = "";
         member.inviteToken = result.inviteToken;
         member.inviteError = "";
-        syncCampData();
+        const inviteCampData = syncCampData();
+        await persistDashboardCampToCloud(inviteCampData);
         renderMembers();
         renderPreview();
         updateInviteButton();
@@ -1949,7 +2005,8 @@
         member.status = "Failed";
         member.inviteStartedAt = "";
         member.inviteError = error?.message || "Failed to resend invite.";
-        syncCampData();
+        const failedInviteCampData = syncCampData();
+        await persistDashboardCampToCloud(failedInviteCampData);
         renderMembers();
         updateInviteButton();
         showToast(`Could not resend invite to ${member.name}.`);
@@ -2918,7 +2975,7 @@
       };
     }
 
-    function renderDashboardInventoryCounter(plus){
+    function renderDashboardInventoryCounter(plus = dashboardHasDcPlus()){
       const inventory = document.getElementById("tierInventory");
       if (!inventory) return;
       if (plus) {
@@ -2941,6 +2998,7 @@
         </div>
       `).join("");
     }
+    window.renderDashboardInventoryCounter = renderDashboardInventoryCounter;
 
     function renderDashboardTierStatusCard(){
       const card=document.getElementById('tierStatusCard');
@@ -3068,6 +3126,8 @@
       try{ await window.DeerCampBilling.manageBilling({campId:state.campId, returnUrl:window.location.href}); }
       catch(error){ openDashboardBillingModal(); const status=document.getElementById('dashboardBillingStatus'); if(status){ status.textContent=error?.message||'Billing portal is available after checkout.'; status.classList.add('error'); } }
     }
+    window.updateTierStatusCard = renderDashboardTierStatusCard;
+
     function renderDashboardBillingControls(){
       ensureDashboardBillingStyles();
       const actions=document.querySelector('.top-actions');

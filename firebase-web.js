@@ -8,9 +8,149 @@
     appId: "1:343631330837:web:246adec6a15421c390d81c"
   };
 
+  function safeParseLocalJson(raw, fallback = {}) {
+    try { return JSON.parse(raw || JSON.stringify(fallback)) || fallback; }
+    catch (error) { return fallback; }
+  }
+
   function scopedKey(campId, suffix) {
     const cleanCampId = String(campId || "").trim();
     return cleanCampId ? `deercamp.camps.${cleanCampId}.${suffix}` : "";
+  }
+
+  function campItemIdentity(item = {}, fallback = "") {
+    const title = String(item.title || item.driveName || item.standName || item.name || "").trim().toLowerCase();
+    return String(item.id || item.driveId || item.standId || item.savedSummary?.id || title || fallback).trim().toLowerCase();
+  }
+
+  function mergeUniqueCampItems(...sources) {
+    const out = [];
+    const seen = new Set();
+    sources.forEach(source => {
+      (Array.isArray(source) ? source : []).forEach((item, index) => {
+        if (!item || typeof item !== "object") return;
+        const key = campItemIdentity(item, `item-${out.length}-${index}`);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(item);
+      });
+    });
+    return out;
+  }
+
+  function memberMergeKey(member = {}, index = 0) {
+    const role = String(member.role || "").trim().toLowerCase();
+    const email = String(member.email || "").trim().toLowerCase();
+    const name = String(member.name || "").trim().toLowerCase();
+    if (role === "camp steward") return "role:camp-steward";
+    return email ? `email:${email}` : (name ? `name:${name}` : `idx:${index}`);
+  }
+
+  function mergeMemberArraysPreservingInvites(...sources) {
+    const byKey = new Map();
+    sources.forEach(source => {
+      (Array.isArray(source) ? source : []).forEach((member, index) => {
+        if (!member || typeof member !== "object") return;
+        const key = memberMergeKey(member, index);
+        const previous = byKey.get(key) || {};
+        const previousSent = String(previous.status || "").trim().toLowerCase() === "invite sent" || Boolean(String(previous.inviteSentAt || "").trim());
+        const nextSent = String(member.status || "").trim().toLowerCase() === "invite sent" || Boolean(String(member.inviteSentAt || "").trim());
+        const merged = { ...previous, ...member };
+        if (previousSent && !nextSent) {
+          merged.status = "Invite Sent";
+          merged.pendingInvite = false;
+          merged.inviteSentAt = previous.inviteSentAt || merged.inviteSentAt || "";
+          merged.inviteToken = previous.inviteToken || merged.inviteToken || "";
+          merged.inviteError = "";
+          merged.inviteStartedAt = "";
+        } else if (nextSent) {
+          merged.status = "Invite Sent";
+          merged.pendingInvite = false;
+          merged.inviteError = "";
+          merged.inviteStartedAt = "";
+        }
+        byKey.set(key, merged);
+      });
+    });
+    return Array.from(byKey.values()).filter(member => String(member.name || member.email || "").trim());
+  }
+
+  function preserveCampCollectionsDuringHydration(cleanCampId, cloud = {}) {
+    const scopedCampKey = scopedKey(cleanCampId, "campData");
+    const scopedDashboardKey = scopedKey(cleanCampId, "dashboardSlim");
+    const scopedProfileKey = scopedKey(cleanCampId, "profileData");
+    const existingSources = [
+      safeParseLocalJson(localStorage.getItem(scopedCampKey), {}),
+      safeParseLocalJson(localStorage.getItem("campData"), {}),
+      safeParseLocalJson(localStorage.getItem(scopedProfileKey), {}),
+      safeParseLocalJson(localStorage.getItem(scopedDashboardKey), {}),
+      safeParseLocalJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {}),
+      safeParseLocalJson(localStorage.getItem("deerCampStewardDashboard"), {})
+    ].filter(Boolean);
+    const allSources = [...existingSources, cloud];
+
+    const driveItems = mergeUniqueCampItems(...allSources.flatMap(source => [
+      source.deerDrivePosts,
+      source.deerDrives,
+      source.savedDeerDrives,
+      source.scoutDeerDrives,
+      source.dashboardSlim && source.dashboardSlim.deerDrivePosts,
+      source.dashboardSlim && source.dashboardSlim.deerDrives,
+      source.dashboardSlim && source.dashboardSlim.savedDeerDrives,
+      source.dashboardSlim && source.dashboardSlim.scoutDeerDrives
+    ]));
+    const standItems = mergeUniqueCampItems(...allSources.flatMap(source => [
+      source.deerStandPosts,
+      source.deerStands,
+      source.stands,
+      source.savedDeerStands,
+      source.scoutDeerStands,
+      source.dashboardSlim && source.dashboardSlim.deerStandPosts,
+      source.dashboardSlim && source.dashboardSlim.deerStands,
+      source.dashboardSlim && source.dashboardSlim.stands,
+      source.dashboardSlim && source.dashboardSlim.savedDeerStands,
+      source.dashboardSlim && source.dashboardSlim.scoutDeerStands
+    ]));
+
+    if (driveItems.length) {
+      cloud.deerDrivePosts = driveItems;
+      cloud.deerDrives = driveItems.slice();
+      cloud.savedDeerDrives = driveItems.slice();
+      cloud.scoutDeerDrives = driveItems.slice();
+    }
+    if (standItems.length) {
+      cloud.deerStandPosts = standItems;
+      cloud.deerStands = standItems.slice();
+      cloud.stands = standItems.slice();
+      cloud.savedDeerStands = standItems.slice();
+    }
+
+    const members = mergeMemberArraysPreservingInvites(
+      ...allSources.flatMap(source => [
+        source.memberProfiles,
+        source.dashboardMembers,
+        source.dashboardPeople,
+        source.pendingInvites,
+        source.members,
+        source.people,
+        source.dashboardSlim && source.dashboardSlim.members,
+        source.dashboardSlim && source.dashboardSlim.people,
+        source.dashboardSlim && source.dashboardSlim.pendingInvites
+      ])
+    );
+
+    if (members.length) {
+      cloud.dashboardMembers = members;
+      cloud.dashboardPeople = members;
+      cloud.pendingInvites = members.filter(member => String(member.status || "").trim().toLowerCase() !== "active");
+      if (cloud.dashboardSlim && typeof cloud.dashboardSlim === "object") {
+        cloud.dashboardSlim.members = members;
+        cloud.dashboardSlim.people = members;
+        cloud.dashboardSlim.pendingInvites = cloud.pendingInvites;
+      }
+    }
+
+    return cloud;
   }
 
   const DeerCampCloud = window.DeerCampCloud || {
@@ -95,6 +235,7 @@
     mergeCloudBillingIntoCachedCamp(cleanCampId, cloud) {
       try {
         if (!cleanCampId || !cloud || typeof cloud !== "object") return;
+        preserveCampCollectionsDuringHydration(cleanCampId, cloud);
         const keys = [
           "campData",
           scopedKey(cleanCampId, "campData"),
@@ -146,6 +287,7 @@
       try {
         const scopedCampKey = scopedKey(cleanCampId, "campData");
         const scopedDashboardKey = scopedKey(cleanCampId, "dashboardSlim");
+        preserveCampCollectionsDuringHydration(cleanCampId, cloud);
 
         localStorage.setItem("campData", JSON.stringify(cloud));
         localStorage.setItem(scopedCampKey, JSON.stringify(cloud));
@@ -194,6 +336,14 @@
         localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(hydratedDashboard));
         localStorage.setItem("deerCampStewardDashboard", JSON.stringify(hydratedDashboard));
         localStorage.setItem(scopedDashboardKey, JSON.stringify(hydratedDashboard));
+        try {
+          window.renderDashboardInventoryCounter?.();
+          window.updateTierStatusCard?.();
+          window.renderStats?.();
+        } catch (error) {
+          console.warn("Could not refresh dashboard inventory UI.", error);
+        }
+
       } catch (error) {
         console.warn("Could not cache Firestore camp locally.", error);
       }
