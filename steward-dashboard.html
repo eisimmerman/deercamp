@@ -873,21 +873,37 @@
     }
 
     function mergeMemberRecords(previous = {}, next = {}) {
+      const previousStatus = normalizeMemberStatus(previous);
+      const nextStatus = normalizeMemberStatus(next);
+      const previousInviteSentAt = String(previous.inviteSentAt || "").trim();
+      const nextInviteSentAt = String(next.inviteSentAt || "").trim();
+      const previousIsSent = previousStatus === "Invite Sent" || Boolean(previousInviteSentAt);
+      const nextIsSent = nextStatus === "Invite Sent" || Boolean(nextInviteSentAt);
+      const preferPreviousInviteState = previousIsSent && !nextIsSent;
+
       const merged = {
         name: String(next.name || previous.name || "").trim(),
         email: String(next.email || previous.email || "").trim(),
         note: String(next.note || previous.note || "").trim(),
         role: String(next.role || previous.role || "Camp Member").trim() || "Camp Member",
-        status: String(next.status || previous.status || "Draft").trim() || "Draft",
-        pendingInvite: Boolean(next.pendingInvite || previous.pendingInvite),
-        inviteToken: String(next.inviteToken || previous.inviteToken || "").trim(),
-        inviteSentAt: String(next.inviteSentAt || previous.inviteSentAt || "").trim(),
-        inviteError: String(next.inviteError || previous.inviteError || "").trim()
+        status: preferPreviousInviteState ? "Invite Sent" : String(next.status || previous.status || "Draft").trim() || "Draft",
+        pendingInvite: preferPreviousInviteState ? false : Boolean(next.pendingInvite || previous.pendingInvite),
+        inviteToken: String((preferPreviousInviteState ? previous.inviteToken : (next.inviteToken || previous.inviteToken)) || "").trim(),
+        inviteSentAt: String((preferPreviousInviteState ? previous.inviteSentAt : (next.inviteSentAt || previous.inviteSentAt)) || "").trim(),
+        inviteStartedAt: String((preferPreviousInviteState ? "" : (next.inviteStartedAt || previous.inviteStartedAt)) || "").trim(),
+        inviteError: String((preferPreviousInviteState ? "" : (next.inviteError || previous.inviteError)) || "").trim()
       };
       copyMemberProfileFields(merged, previous);
       copyMemberProfileFields(merged, next);
-      merged.status = normalizeMemberStatus(merged);
-      merged.pendingInvite = merged.status === "Ready";
+      if (previousIsSent || nextIsSent) {
+        merged.status = "Invite Sent";
+        merged.pendingInvite = false;
+        merged.inviteError = "";
+        merged.inviteStartedAt = "";
+      } else {
+        merged.status = normalizeMemberStatus(merged);
+        merged.pendingInvite = merged.status === "Ready";
+      }
       return merged;
     }
 
@@ -1961,7 +1977,8 @@
         member.inviteStartedAt = "";
         member.inviteToken = result.inviteToken;
         member.inviteError = "";
-        syncCampData();
+        const resendCampData = syncCampData();
+        await persistMemberInviteStateToCloud(resendCampData);
         renderMembers();
         renderPreview();
         updateInviteButton();
@@ -1970,7 +1987,8 @@
         member.status = "Failed";
         member.inviteStartedAt = "";
         member.inviteError = error?.message || "Failed to resend invite.";
-        syncCampData();
+        const resendFailedCampData = syncCampData();
+        await persistMemberInviteStateToCloud(resendFailedCampData);
         renderMembers();
         updateInviteButton();
         showToast(`Could not resend invite to ${member.name}.`);
@@ -2903,26 +2921,33 @@
     }
     function getDashboardInventoryUsage(){
       const source = getDashboardBillingCampData();
-      const countByFeature = (featureKey, fallbackKeys = []) => {
-        try {
-          if (window.DeerCampBilling && typeof window.DeerCampBilling.countFeatureUsage === 'function') {
-            const counted = Number(window.DeerCampBilling.countFeatureUsage(featureKey, source));
-            if (Number.isFinite(counted)) return counted;
-          }
-        } catch(error) {}
+      const snapshots = [source, ...getCurrentLocalCampSnapshots()].filter(item => item && typeof item === "object");
+      const countFromSnapshots = (fallbackKeys = []) => {
         const seen = new Set();
         let total = 0;
-        fallbackKeys.forEach(key => {
-          const list = Array.isArray(source[key]) ? source[key] : [];
-          list.forEach((item, index) => {
-            if (!item || typeof item !== 'object') return;
-            const id = String(item.id || item.driveId || item.standId || item.title || item.name || `${key}-${index}`).trim().toLowerCase();
-            if (!id || seen.has(id)) return;
-            seen.add(id);
-            total += 1;
+        snapshots.forEach(snapshot => {
+          fallbackKeys.forEach(key => {
+            const list = Array.isArray(snapshot[key]) ? snapshot[key] : [];
+            list.forEach((item, index) => {
+              if (!item || typeof item !== 'object') return;
+              const id = String(item.id || item.driveId || item.standId || item.title || item.name || `${key}-${index}`).trim().toLowerCase();
+              if (!id || seen.has(id)) return;
+              seen.add(id);
+              total += 1;
+            });
           });
         });
         return total;
+      };
+      const countByFeature = (featureKey, fallbackKeys = []) => {
+        const fallbackCount = countFromSnapshots(fallbackKeys);
+        try {
+          if (window.DeerCampBilling && typeof window.DeerCampBilling.countFeatureUsage === 'function') {
+            const counted = Number(window.DeerCampBilling.countFeatureUsage(featureKey, source));
+            if (Number.isFinite(counted)) return Math.max(counted, fallbackCount);
+          }
+        } catch(error) {}
+        return fallbackCount;
       };
       return {
         members: getActiveCampMemberUsage(),
@@ -2953,6 +2978,10 @@
           <div class="tier-inventory-note">${item.note}</div>
         </div>
       `).join('');
+      const meta = document.getElementById('tierStatusMeta');
+      if (meta && !meta.dataset.inventoryRendered) {
+        meta.dataset.inventoryRendered = "true";
+      }
     }
 
     function renderDashboardTierStatusCard(){
@@ -3197,12 +3226,16 @@
     renderSections();
     updateInviteButton();
     try { renderDashboardBillingControls(); } catch (error) { console.warn("Dashboard billing controls skipped.", error); }
+    try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) { console.warn("Dashboard inventory counter skipped.", error); }
+    setTimeout(() => { try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {} }, 250);
     maybeOpenRequestedProfileEditor();
     hydrateDashboardFromCloud().then(() => {
       ensureBuilderDraftMembers();
       syncCampData();
       renderMembers();
       resetMemberForm();
+      try { renderDashboardBillingControls(); } catch (error) {}
+      try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
       maybeOpenRequestedProfileEditor();
     });
   </script>
