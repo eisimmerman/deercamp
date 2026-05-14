@@ -291,15 +291,15 @@
           <input id="memberEditIndex" type="hidden" value="" />
           <div id="memberNameField" class="field">
             <label for="memberName">Member Name</label>
-            <input id="memberName" type="text" placeholder="Ben Larson" />
+            <input id="memberName" type="text" placeholder="Member name" />
           </div>
           <div id="memberEmailField" class="field">
             <label for="memberEmail">Email</label>
-            <input id="memberEmail" type="email" placeholder="ben@example.com" />
+            <input id="memberEmail" type="email" placeholder="member@example.com" />
           </div>
           <div class="field span-2">
             <label for="memberNote">Quick Note</label>
-            <input id="memberNote" type="text" placeholder="West Ridge crew" />
+            <input id="memberNote" type="text" placeholder="Optional quick note" />
           </div>
           <div class="field span-2 field-note">
             Dashboard edits are limited to name, email, invite status, and quick note. Full DeerCamp Profile details are edited from the profile popup on the live camp page.
@@ -1061,6 +1061,46 @@
       });
     });
 
+
+    (Array.isArray(campData.campMembers) ? campData.campMembers : []).forEach(name => {
+      const clean = String(name || "").trim();
+      if (!clean) return;
+      fallbackMembers.push({
+        name: clean,
+        email: "",
+        note: "",
+        role: "Camp Member",
+        status: "Draft",
+        pendingInvite: false
+      });
+    });
+
+    function normalizeDashboardMemberRecord(item = {}) {
+      const normalizedStatus = normalizeMemberStatus(item);
+      const nextMember = {
+        name: String(item.name || item.displayName || item.fullName || "").trim(),
+        email: String(item.email || "").trim(),
+        note: String(item.note || "").trim(),
+        role: String(item.role || "Camp Member").trim() || "Camp Member",
+        status: normalizedStatus,
+        pendingInvite: normalizedStatus === "Ready",
+        inviteToken: String(item.inviteToken || "").trim(),
+        inviteSentAt: String(item.inviteSentAt || "").trim(),
+        inviteError: String(item.inviteError || "").trim()
+      };
+      copyMemberProfileFields(nextMember, item);
+      return nextMember;
+    }
+
+    const mergedInitialMembers = dedupeMembers([
+      ...fallbackMembers,
+      ...(Array.isArray(memberProfiles) ? memberProfiles.filter(item => String(item.status || "Active").toLowerCase() !== "removed").map(normalizeDashboardMemberRecord) : []),
+      ...(Array.isArray(campData.dashboardMembers) ? campData.dashboardMembers.map(normalizeDashboardMemberRecord) : []),
+      ...(Array.isArray(campData.dashboardPeople) ? campData.dashboardPeople.map(normalizeDashboardMemberRecord) : []),
+      ...(Array.isArray(savedDashboard.members) ? savedDashboard.members.map(normalizeDashboardMemberRecord) : []),
+      ...(Array.isArray(savedDashboard.people) ? savedDashboard.people.map(normalizeDashboardMemberRecord) : [])
+    ]);
+
     const state = {
       campId: activeCampId,
       camp: {
@@ -1103,28 +1143,7 @@
       selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
         ? savedDashboard.selectedRecipeIds.map(String)
         : (Array.isArray(campData.selectedRecipeIds) ? campData.selectedRecipeIds.map(String) : defaultSelectedRecipeIds.slice()),
-      members: Array.isArray(savedDashboard.members) && savedDashboard.members.length
-        ? savedDashboard.members
-        : (memberProfiles.length
-            ? memberProfiles
-                .filter(item => String(item.status || "Active").toLowerCase() !== "removed")
-                .map(item => {
-                  const normalizedStatus = normalizeMemberStatus(item);
-                  const nextMember = {
-                    name: String(item.name || "").trim(),
-                    email: String(item.email || "").trim(),
-                    note: String(item.note || "").trim(),
-                    role: String(item.role || "Camp Member").trim() || "Camp Member",
-                    status: normalizedStatus,
-                    pendingInvite: normalizedStatus === "Ready",
-                    inviteToken: String(item.inviteToken || "").trim(),
-                    inviteSentAt: String(item.inviteSentAt || "").trim(),
-                    inviteError: String(item.inviteError || "").trim()
-                  };
-                  copyMemberProfileFields(nextMember, item);
-                  return nextMember;
-                })
-            : fallbackMembers)
+      members: mergedInitialMembers
     };
 
     state.sections = {
