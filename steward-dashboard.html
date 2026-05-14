@@ -291,15 +291,15 @@
           <input id="memberEditIndex" type="hidden" value="" />
           <div id="memberNameField" class="field">
             <label for="memberName">Member Name</label>
-            <input id="memberName" type="text" placeholder="Ben Larson" />
+            <input id="memberName" type="text" placeholder="Member name" />
           </div>
           <div id="memberEmailField" class="field">
             <label for="memberEmail">Email</label>
-            <input id="memberEmail" type="email" placeholder="ben@example.com" />
+            <input id="memberEmail" type="email" placeholder="member@example.com" />
           </div>
           <div class="field span-2">
             <label for="memberNote">Quick Note</label>
-            <input id="memberNote" type="text" placeholder="West Ridge crew" />
+            <input id="memberNote" type="text" placeholder="Optional quick note" />
           </div>
           <div class="field span-2 field-note">
             Dashboard edits are limited to name, email, invite status, and quick note. Full DeerCamp Profile details are edited from the profile popup on the live camp page.
@@ -1126,6 +1126,64 @@
       ...buildDraftDashboardMembersFromNames(setupSeedMemberNames)
     ]);
 
+
+    function coerceNameList(value = "") {
+      if (Array.isArray(value)) return value.map(item => typeof item === "object" ? String(item.name || "").trim() : String(item || "").trim()).filter(Boolean);
+      const input = String(value || "").trim();
+      if (!input) return [];
+      const separator = /\||;|\n/.test(input) ? /\s*\|\s*|\s*;\s*|\n+/ : /\s*,\s*/;
+      return input.split(separator).map(item => item.trim()).filter(Boolean);
+    }
+
+    function collectBuilderDraftMemberNames(extraSources = []) {
+      const names = [];
+      const add = (value) => { coerceNameList(value).forEach(name => names.push(name)); };
+      try {
+        add(getSetupParam("campMembers", "memberNames", "members", "memberList"));
+      } catch (error) {}
+      [setupSeed, campData, savedDashboard, ...(Array.isArray(extraSources) ? extraSources : [])].forEach(source => {
+        if (!source || typeof source !== "object") return;
+        add(source.campMembers);
+        add(source.memberNames);
+        add(source.members);
+        add(source.memberList);
+        if (source.dashboardSlim && typeof source.dashboardSlim === "object") {
+          add(source.dashboardSlim.campMembers);
+          add(source.dashboardSlim.memberNames);
+          add(source.dashboardSlim.members);
+          add(source.dashboardSlim.memberList);
+        }
+      });
+      return [...new Set(names.map(name => String(name || "").trim()).filter(Boolean))];
+    }
+
+    function ensureBuilderDraftMembers(extraSources = []) {
+      if (!Array.isArray(state.members)) state.members = [];
+      const existingKeys = new Set(state.members.map(member => {
+        const role = String(member.role || "").trim().toLowerCase();
+        const email = String(member.email || "").trim().toLowerCase();
+        const name = String(member.name || "").trim().toLowerCase();
+        return role === "camp steward" ? "role:camp steward" : (email || name);
+      }).filter(Boolean));
+      collectBuilderDraftMemberNames(extraSources).forEach(name => {
+        const key = String(name || "").trim().toLowerCase();
+        if (!key || existingKeys.has(key)) return;
+        existingKeys.add(key);
+        state.members.push({
+          name,
+          email: "",
+          note: "",
+          role: "Camp Member",
+          status: "Draft",
+          pendingInvite: false,
+          inviteToken: "",
+          inviteSentAt: "",
+          inviteError: ""
+        });
+      });
+      state.members = dedupeMembers(state.members);
+    }
+
     const state = {
       campId: activeCampId,
       camp: {
@@ -1184,6 +1242,8 @@
     if (!Array.isArray(state.members)) state.members = [];
     state.members = dedupeMembers(state.members);
     ensureStewardMember();
+    ensureBuilderDraftMembers();
+    syncCampData();
 
     const sectionConfig = [
       { key: "campfeed", label: "CampFeed", note: "The running stream of recent camp posts and member interaction." },
@@ -2940,14 +3000,16 @@
       else if (Array.isArray(cloud.selectedRecipeIds)) state.selectedRecipeIds = cloud.selectedRecipeIds.map(String);
       const cloudMembers = Array.isArray(slim.members) && slim.members.length ? slim.members : (Array.isArray(cloud.dashboardMembers) && cloud.dashboardMembers.length ? cloud.dashboardMembers : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : []));
       if (cloudMembers.length) {
-        state.members = cloudMembers.filter(item => String(item.status || "Active").toLowerCase() !== "removed").map(item => {
+        const normalizedCloudMembers = cloudMembers.filter(item => String(item.status || "Active").toLowerCase() !== "removed").map(item => {
           const normalizedStatus = normalizeMemberStatus(item);
           const member = { name: String(item.name || "").trim(), email: String(item.email || "").trim(), note: String(item.note || "").trim(), role: String(item.role || "Camp Member").trim() || "Camp Member", status: normalizedStatus, pendingInvite: normalizedStatus === "Ready", inviteToken: String(item.inviteToken || "").trim(), inviteSentAt: String(item.inviteSentAt || "").trim(), inviteStartedAt: String(item.inviteStartedAt || "").trim(), inviteError: String(item.inviteError || "").trim() };
           copyMemberProfileFields(member, item);
           return member;
         });
+        state.members = dedupeMembers([...(Array.isArray(state.members) ? state.members : []), ...normalizedCloudMembers]);
       }
       ensureStewardMember();
+      ensureBuilderDraftMembers([cloud, slim]);
       try {
         const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
         Object.keys(campData).forEach(key => { delete campData[key]; });
@@ -2977,13 +3039,20 @@
     }
 
     syncCampData();
-    renderPreview();
-    renderDashboardBillingControls();
     renderMembers();
+    resetMemberForm();
+    renderPreview();
     renderSections();
     updateInviteButton();
+    try { renderDashboardBillingControls(); } catch (error) { console.warn("Dashboard billing controls skipped.", error); }
     maybeOpenRequestedProfileEditor();
-    hydrateDashboardFromCloud().then(() => maybeOpenRequestedProfileEditor());
+    hydrateDashboardFromCloud().then(() => {
+      ensureBuilderDraftMembers();
+      syncCampData();
+      renderMembers();
+      resetMemberForm();
+      maybeOpenRequestedProfileEditor();
+    });
   </script>
 </body>
 </html>
