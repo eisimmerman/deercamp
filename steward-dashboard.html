@@ -84,6 +84,11 @@
     .tier-status-body{margin:0;color:var(--muted);line-height:1.55}
     .tier-status-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
     .tier-status-chip{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(69,42,22,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800}
+    .tier-inventory{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+    .tier-inventory-item{display:grid;gap:3px;min-width:148px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.64);border:1px solid rgba(69,42,22,.08)}
+    .tier-inventory-label{color:var(--muted);font-size:.74rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+    .tier-inventory-value{color:var(--brown-deep);font-size:1.02rem;font-weight:900;line-height:1.1}
+    .tier-inventory-note{color:var(--muted);font-size:.78rem;line-height:1.3}
     .tier-status-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
     .tier-status-actions .btn{white-space:nowrap}
     .basic-field-card{display:grid;gap:14px}
@@ -209,6 +214,7 @@
         <h3 id="tierStatusTitle" class="tier-status-title">DeerCamp Free</h3>
         <p id="tierStatusBody" class="tier-status-body">Upgrade to DC+ for Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p>
         <div id="tierStatusMeta" class="tier-status-meta"></div>
+        <div id="tierInventory" class="tier-inventory" aria-label="DCF inventory usage"></div>
       </div>
       <div class="tier-status-actions">
         <button id="tierStatusBasicDriveBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Drive</button>
@@ -291,15 +297,15 @@
           <input id="memberEditIndex" type="hidden" value="" />
           <div id="memberNameField" class="field">
             <label for="memberName">Member Name</label>
-            <input id="memberName" type="text" placeholder="Ben Larson" />
+            <input id="memberName" type="text" placeholder="Member name" />
           </div>
           <div id="memberEmailField" class="field">
             <label for="memberEmail">Email</label>
-            <input id="memberEmail" type="email" placeholder="ben@example.com" />
+            <input id="memberEmail" type="email" placeholder="member@example.com" />
           </div>
           <div class="field span-2">
             <label for="memberNote">Quick Note</label>
-            <input id="memberNote" type="text" placeholder="West Ridge crew" />
+            <input id="memberNote" type="text" placeholder="Optional quick note" />
           </div>
           <div class="field span-2 field-note">
             Dashboard edits are limited to name, email, invite status, and quick note. Full DeerCamp Profile details are edited from the profile popup on the live camp page.
@@ -867,21 +873,34 @@
     }
 
     function mergeMemberRecords(previous = {}, next = {}) {
+      const previousStatus = normalizeMemberStatus(previous);
+      const nextStatus = normalizeMemberStatus(next);
+      const previousIsSent = previousStatus === "Invite Sent" || Boolean(String(previous.inviteSentAt || "").trim());
+      const nextIsSent = nextStatus === "Invite Sent" || Boolean(String(next.inviteSentAt || "").trim());
+      const preferPreviousInviteState = previousIsSent && !nextIsSent;
       const merged = {
         name: String(next.name || previous.name || "").trim(),
         email: String(next.email || previous.email || "").trim(),
         note: String(next.note || previous.note || "").trim(),
         role: String(next.role || previous.role || "Camp Member").trim() || "Camp Member",
-        status: String(next.status || previous.status || "Draft").trim() || "Draft",
-        pendingInvite: Boolean(next.pendingInvite || previous.pendingInvite),
-        inviteToken: String(next.inviteToken || previous.inviteToken || "").trim(),
-        inviteSentAt: String(next.inviteSentAt || previous.inviteSentAt || "").trim(),
-        inviteError: String(next.inviteError || previous.inviteError || "").trim()
+        status: preferPreviousInviteState ? "Invite Sent" : String(next.status || previous.status || "Draft").trim() || "Draft",
+        pendingInvite: preferPreviousInviteState ? false : Boolean(next.pendingInvite || previous.pendingInvite),
+        inviteToken: String((preferPreviousInviteState ? previous.inviteToken : (next.inviteToken || previous.inviteToken)) || "").trim(),
+        inviteSentAt: String((preferPreviousInviteState ? previous.inviteSentAt : (next.inviteSentAt || previous.inviteSentAt)) || "").trim(),
+        inviteStartedAt: String((preferPreviousInviteState ? "" : (next.inviteStartedAt || previous.inviteStartedAt)) || "").trim(),
+        inviteError: String((preferPreviousInviteState ? "" : (next.inviteError || previous.inviteError)) || "").trim()
       };
       copyMemberProfileFields(merged, previous);
       copyMemberProfileFields(merged, next);
-      merged.status = normalizeMemberStatus(merged);
-      merged.pendingInvite = merged.status === "Ready";
+      if (previousIsSent || nextIsSent) {
+        merged.status = "Invite Sent";
+        merged.pendingInvite = false;
+        merged.inviteError = "";
+        merged.inviteStartedAt = "";
+      } else {
+        merged.status = normalizeMemberStatus(merged);
+        merged.pendingInvite = merged.status === "Ready";
+      }
       return merged;
     }
 
@@ -1061,70 +1080,55 @@
       });
     });
 
-    function parseDashboardDelimitedNames(value = "") {
+    function coerceNameList(value = "") {
+      if (Array.isArray(value)) return value.map(item => typeof item === "object" ? String(item.name || "").trim() : String(item || "").trim()).filter(Boolean);
       const input = String(value || "").trim();
       if (!input) return [];
       const separator = /\||;|\n/.test(input) ? /\s*\|\s*|\s*;\s*|\n+/ : /\s*,\s*/;
       return input.split(separator).map(item => item.trim()).filter(Boolean);
     }
 
-    function buildDraftDashboardMembersFromNames(names = []) {
-      return (Array.isArray(names) ? names : [])
-        .map(name => String(name || "").trim())
-        .filter(Boolean)
-        .map(name => ({
-          name,
-          email: "",
-          note: "",
-          role: "Camp Member",
-          status: "Draft",
-          pendingInvite: false,
-          inviteToken: "",
-          inviteSentAt: "",
-          inviteError: ""
-        }));
-    }
-
-    function normalizeDashboardMemberSource(members = []) {
-      return (Array.isArray(members) ? members : [])
-        .filter(member => member && typeof member === "object")
-        .map(member => {
-          const normalizedStatus = normalizeMemberStatus(member);
-          const nextMember = {
-            name: String(member.name || "").trim(),
-            email: String(member.email || "").trim(),
-            note: String(member.note || "").trim(),
-            role: String(member.role || "Camp Member").trim() || "Camp Member",
-            status: normalizedStatus,
-            pendingInvite: normalizedStatus === "Ready",
-            inviteToken: String(member.inviteToken || "").trim(),
-            inviteSentAt: String(member.inviteSentAt || "").trim(),
-            inviteError: String(member.inviteError || "").trim()
-          };
-          copyMemberProfileFields(nextMember, member);
-          return nextMember;
+    function recoverBuilderMembersIntoState(extraSources = []) {
+      if (!Array.isArray(state.members)) state.members = [];
+      const candidates = [];
+      try {
+        const params = new URLSearchParams(window.location.search || "");
+        ["campMembers","memberNames","members","memberList"].forEach(key => candidates.push(params.get(key) || ""));
+      } catch (error) {}
+      [setupSeed, campData, savedDashboard, safeParse(localStorage.getItem(scopedCampDataKey), {}), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}), safeParse(localStorage.getItem(scopedDashboardKey), {}), safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {}), ...extraSources].forEach(source => {
+        if (!source || typeof source !== "object") return;
+        candidates.push(source.campMembers, source.memberNames, source.members, source.memberList);
+        if (Array.isArray(source.memberProfiles)) candidates.push(source.memberProfiles);
+        if (Array.isArray(source.dashboardMembers)) candidates.push(source.dashboardMembers);
+        if (Array.isArray(source.members)) candidates.push(source.members);
+        if (source.dashboardSlim && typeof source.dashboardSlim === "object") {
+          candidates.push(source.dashboardSlim.campMembers, source.dashboardSlim.memberNames, source.dashboardSlim.members, source.dashboardSlim.memberList, source.dashboardSlim.memberProfiles, source.dashboardSlim.dashboardMembers);
+        }
+      });
+      const stewardNames = new Set([state.stewardName, setupParamStewardName, setupSeedStewardName, campData.stewardName, campData.steward].map(value => String(value || "").trim().toLowerCase()).filter(Boolean));
+      const stewardEmails = new Set([state.stewardEmail, setupSeedStewardEmail, campData.stewardEmail, campData.campStewardEmail].map(value => String(value || "").trim().toLowerCase()).filter(Boolean));
+      const existing = new Set(state.members.map(member => String(member.email || member.name || "").trim().toLowerCase()).filter(Boolean));
+      candidates.forEach(value => {
+        coerceNameList(value).forEach(name => {
+          const clean = String(name || "").trim();
+          const key = clean.toLowerCase();
+          if (!key || existing.has(key) || stewardNames.has(key) || stewardEmails.has(key)) return;
+          existing.add(key);
+          state.members.push({
+            name: clean,
+            email: "",
+            note: "",
+            role: "Camp Member",
+            status: "Draft",
+            pendingInvite: false,
+            inviteToken: "",
+            inviteSentAt: "",
+            inviteError: ""
+          });
         });
+      });
+      state.members = dedupeMembers(state.members);
     }
-
-    const setupSeedMemberNames = parseDashboardDelimitedNames(firstNonEmpty(
-      getSetupParam("campMembers", "memberNames", "members", "memberList"),
-      setupSeed.campMembers,
-      setupSeed.memberNames,
-      setupSeed.members,
-      setupSeed.memberList
-    ));
-
-    const mergedInitialMembers = dedupeMembers([
-      ...fallbackMembers,
-      ...normalizeDashboardMemberSource(memberProfiles.filter(item => String(item.status || "Active").toLowerCase() !== "removed")),
-      ...normalizeDashboardMemberSource(Array.isArray(campData.dashboardMembers) ? campData.dashboardMembers : []),
-      ...normalizeDashboardMemberSource(Array.isArray(campData.dashboardPeople) ? campData.dashboardPeople : []),
-      ...normalizeDashboardMemberSource(Array.isArray(campData.pendingInvites) ? campData.pendingInvites : []),
-      ...normalizeDashboardMemberSource(Array.isArray(savedDashboard.members) ? savedDashboard.members : []),
-      ...normalizeDashboardMemberSource(Array.isArray(savedDashboard.people) ? savedDashboard.people : []),
-      ...normalizeDashboardMemberSource(Array.isArray(savedDashboard.pendingInvites) ? savedDashboard.pendingInvites : []),
-      ...buildDraftDashboardMembersFromNames(setupSeedMemberNames)
-    ]);
 
     const state = {
       campId: activeCampId,
@@ -1168,7 +1172,28 @@
       selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
         ? savedDashboard.selectedRecipeIds.map(String)
         : (Array.isArray(campData.selectedRecipeIds) ? campData.selectedRecipeIds.map(String) : defaultSelectedRecipeIds.slice()),
-      members: mergedInitialMembers
+      members: Array.isArray(savedDashboard.members) && savedDashboard.members.length
+        ? savedDashboard.members
+        : (memberProfiles.length
+            ? memberProfiles
+                .filter(item => String(item.status || "Active").toLowerCase() !== "removed")
+                .map(item => {
+                  const normalizedStatus = normalizeMemberStatus(item);
+                  const nextMember = {
+                    name: String(item.name || "").trim(),
+                    email: String(item.email || "").trim(),
+                    note: String(item.note || "").trim(),
+                    role: String(item.role || "Camp Member").trim() || "Camp Member",
+                    status: normalizedStatus,
+                    pendingInvite: normalizedStatus === "Ready",
+                    inviteToken: String(item.inviteToken || "").trim(),
+                    inviteSentAt: String(item.inviteSentAt || "").trim(),
+                    inviteError: String(item.inviteError || "").trim()
+                  };
+                  copyMemberProfileFields(nextMember, item);
+                  return nextMember;
+                })
+            : fallbackMembers)
     };
 
     state.sections = {
@@ -1184,6 +1209,7 @@
     if (!Array.isArray(state.members)) state.members = [];
     state.members = dedupeMembers(state.members);
     ensureStewardMember();
+    recoverBuilderMembersIntoState();
 
     const sectionConfig = [
       { key: "campfeed", label: "CampFeed", note: "The running stream of recent camp posts and member interaction." },
@@ -1727,6 +1753,19 @@
       inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
     }
 
+    async function persistMemberInviteStateToCloud(savedCampData = null) {
+      try {
+        const latestCampData = savedCampData || JSON.parse(localStorage.getItem(scopedCampDataKey) || localStorage.getItem(CAMP_DATA_KEY) || '{}');
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function" && latestCampData && typeof latestCampData === "object") {
+          await DeerCampCloud.saveCamp(state.campId, latestCampData);
+          return true;
+        }
+      } catch (error) {
+        console.warn("Member invite state saved locally, but cloud sync was not confirmed.", error);
+      }
+      return false;
+    }
+
     async function sendMemberInvites(members) {
       const results = [];
       for (const member of members) {
@@ -1788,9 +1827,17 @@
         member.status = "Failed";
         member.pendingInvite = true;
         member.inviteError = data.error || "Failed to send invite.";
-        syncCampData();
+        const failedCampData = syncCampData();
+        await persistMemberInviteStateToCloud(failedCampData);
         throw new Error(data.error || "Failed to send invite.");
       }
+      member.status = "Invite Sent";
+      member.pendingInvite = false;
+      member.inviteSentAt = member.inviteSentAt || new Date().toISOString();
+      member.inviteStartedAt = "";
+      member.inviteError = "";
+      const sentCampData = syncCampData();
+      await persistMemberInviteStateToCloud(sentCampData);
       return { data, inviteToken };
     }
 
@@ -2004,12 +2051,34 @@
       };
     }
 
+    function countDashboardFieldItems(keys = []) {
+      const seen = new Set();
+      let total = 0;
+      getCurrentLocalCampSnapshots().forEach(snapshot => {
+        keys.forEach(key => {
+          const list = Array.isArray(snapshot[key]) ? snapshot[key] : [];
+          list.forEach((item, index) => {
+            if (!item || typeof item !== "object") return;
+            const id = campItemIdentity(item, `${key}-${index}`);
+            if (!id || seen.has(id)) return;
+            seen.add(id);
+            total += 1;
+          });
+        });
+      });
+      return total;
+    }
+
     function getBasicFieldUsage(featureKey) {
       const dataForBilling = getDashboardBillingCampData();
+      const fallbackUsage = featureKey === "stand_limit"
+        ? countDashboardFieldItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"])
+        : countDashboardFieldItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]);
       if (window.DeerCampBilling && typeof window.DeerCampBilling.countFeatureUsage === "function") {
-        return window.DeerCampBilling.countFeatureUsage(featureKey, dataForBilling);
+        const counted = Number(window.DeerCampBilling.countFeatureUsage(featureKey, dataForBilling));
+        return Number.isFinite(counted) ? Math.max(counted, fallbackUsage) : fallbackUsage;
       }
-      return 0;
+      return fallbackUsage;
     }
 
     function blockBasicFieldLimitIfNeeded(kind) {
@@ -2648,7 +2717,10 @@
     function getDashboardBillingSource(){
       try{
         const scoped = safeParse(localStorage.getItem(scopedCampDataKey), {});
-        return Object.assign({}, campData || {}, scoped || {});
+        const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+        const profile = safeParse(localStorage.getItem(scopedProfileDataKey), {});
+        const dashboard = safeParse(localStorage.getItem(scopedDashboardKey), {});
+        return Object.assign({}, campData || {}, generic || {}, profile || {}, dashboard || {}, scoped || {});
       }catch(error){ return campData || {}; }
     }
     function formatDashboardTwoDigitDate(value){
@@ -2744,6 +2816,32 @@
         return `${fallbackLabel.split(':')[0]}: ${usage || 0}/${access.limit}`;
       }catch(error){ return fallbackLabel; }
     }
+    function renderDashboardInventoryCounter(plus){
+      const inventory = document.getElementById('tierInventory');
+      if (!inventory) return;
+      if (plus) {
+        inventory.innerHTML = '';
+        inventory.hidden = true;
+        return;
+      }
+      inventory.hidden = false;
+      const drives = getBasicFieldUsage('drive_limit');
+      const stands = getBasicFieldUsage('stand_limit');
+      const members = getActiveCampMemberUsage();
+      const items = [
+        { label: 'Basic Deer Drives', value: `${drives}/1 used`, note: drives >= 1 ? 'DCF drive limit reached' : '1 free drive included' },
+        { label: 'Basic Deer Stands', value: `${stands}/3 used`, note: stands >= 3 ? 'DCF stand limit reached' : '3 free stands included' },
+        { label: 'Camp Members', value: `${members}/8 used`, note: 'Steward not counted against member limit' }
+      ];
+      inventory.innerHTML = items.map(item => `
+        <div class="tier-inventory-item">
+          <div class="tier-inventory-label">${item.label}</div>
+          <div class="tier-inventory-value">${item.value}</div>
+          <div class="tier-inventory-note">${item.note}</div>
+        </div>
+      `).join('');
+    }
+
     function renderDashboardTierStatusCard(){
       const card=document.getElementById('tierStatusCard');
       if(!card) return;
@@ -2757,6 +2855,7 @@
       const live=document.getElementById('tierStatusLiveLink');
       const tierState=getDashboardTierState();
       const plus=dashboardHasDcPlus();
+      renderDashboardInventoryCounter(plus);
       const basicFieldCardsSection=document.getElementById('basicFieldCardsSection');
       if(basicFieldCardsSection){
         basicFieldCardsSection.hidden = plus;
@@ -2829,12 +2928,7 @@
       }
       if(primary){
         primary.textContent=model.primary;
-        primary.disabled=false;
-        primary.onclick=(event)=>{
-          try{ event?.preventDefault?.(); event?.stopPropagation?.(); }catch(error){}
-          if(dashboardHasDcPlus() || getDashboardTierState().pastDue) openDashboardBillingPortal();
-          else openDashboardBillingModal();
-        };
+        primary.onclick=model.primaryAction;
       }
     }
     function ensureDashboardBillingStyles(){
@@ -2857,17 +2951,13 @@
         const status=document.getElementById('dashboardBillingStatus');
         try{
           if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
-          if(status){ status.textContent='Opening secure Stripe checkout...'; status.classList.remove('error'); }
-          await window.DeerCampBilling.startCheckout({
-            campId:state.campId,
-            planKey,
-            email:state.stewardEmail||'',
-            successUrl:`${window.location.origin}/steward-dashboard.html?campId=${encodeURIComponent(state.campId)}&checkout=success&role=steward&view=steward`,
-            cancelUrl:window.location.href
-          });
+          status.textContent='Opening secure Stripe checkout...';
+          status.classList.remove('error');
+          await window.DeerCampBilling.startCheckout({campId:state.campId, planKey, email:state.stewardEmail||''});
         }catch(error){
           console.error('Dashboard billing checkout failed', error);
-          if(status){ status.textContent=error?.message || 'Could not start checkout.'; status.classList.add('error'); }
+          status.textContent=error?.message || 'Could not start checkout.';
+          status.classList.add('error');
         }
       };
       document.getElementById('dashboardBillingMonthly')?.addEventListener('click',()=>start('dcPlusMonthly'));
@@ -2878,18 +2968,6 @@
       try{ await window.DeerCampBilling.manageBilling({campId:state.campId, returnUrl:window.location.href}); }
       catch(error){ openDashboardBillingModal(); const status=document.getElementById('dashboardBillingStatus'); if(status){ status.textContent=error?.message||'Billing portal is available after checkout.'; status.classList.add('error'); } }
     }
-    async function dashboardCheckoutReturnHydration(){
-      try{
-        const params=new URLSearchParams(window.location.search||"");
-        const checkoutState=String(params.get("checkout")||params.get("billing")||"").toLowerCase();
-        if(checkoutState!=="success" && checkoutState!=="returned") return;
-        showToast("Refreshing DC+ billing status...");
-        await hydrateDashboardBillingFromCloud("checkout-return");
-        setTimeout(()=>hydrateDashboardBillingFromCloud("checkout-return-retry"), 1200);
-        setTimeout(()=>hydrateDashboardBillingFromCloud("checkout-return-final"), 3000);
-      }catch(error){ console.warn("Dashboard checkout return hydration skipped.", error); }
-    }
-
     function renderDashboardBillingControls(){
       ensureDashboardBillingStyles();
       const actions=document.querySelector('.top-actions');
@@ -2985,9 +3063,11 @@
         const cloud = await DeerCampCloud.getCamp(state.campId);
         if (!cloud || typeof cloud !== "object") return false;
         if (applyCloudCampToDashboard(cloud)) {
+          recoverBuilderMembersIntoState([cloud, cloud.dashboardSlim || {}]);
           syncCampData();
           renderPreview();
           renderDashboardBillingControls();
+          try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
           renderMembers();
           renderSections();
           updateInviteButton();
@@ -3000,13 +3080,22 @@
     syncCampData();
     renderPreview();
     renderDashboardBillingControls();
+    try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
     renderMembers();
     renderSections();
     updateInviteButton();
     maybeOpenRequestedProfileEditor();
-    hydrateDashboardFromCloud().then(() => maybeOpenRequestedProfileEditor());
-  
-    try{ dashboardCheckoutReturnHydration(); }catch(error){}
-</script>
+    hydrateDashboardFromCloud().then(() => {
+      try {
+        recoverBuilderMembersIntoState();
+        syncCampData();
+        renderMembers();
+        renderPreview();
+        renderDashboardBillingControls();
+        renderDashboardInventoryCounter(dashboardHasDcPlus());
+      } catch (error) {}
+      maybeOpenRequestedProfileEditor();
+    });
+  </script>
 </body>
 </html>
