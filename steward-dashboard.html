@@ -2241,17 +2241,23 @@
         people: state.members,
         pendingInvites: []
       });
+      let cloudSaveOk = true;
       if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
-        await DeerCampCloud.saveCamp(state.campId, savedCampData);
+        try {
+          await DeerCampCloud.saveCamp(state.campId, savedCampData);
+        } catch (cloudError) {
+          cloudSaveOk = false;
+          console.warn("Basic field card saved locally but cloud sync failed.", cloudError);
+        }
       }
       try {
         localStorage.setItem(`deercamp.${kind === "stand" ? "stand" : "drive"}.refreshTick`, String(Date.now()));
         localStorage.setItem(`deercamp.${state.campId}.${kind === "stand" ? "stand" : "drive"}.refreshTick`, String(Date.now()));
       } catch {}
-      renderSections();
-      renderPreview();
-      renderDashboardBillingControls();
-      return { sectionIsVisible };
+      try { renderSections(); } catch (renderError) { console.warn("Basic field section refresh skipped.", renderError); }
+      try { renderPreview(); } catch (previewError) { console.warn("Basic field preview refresh skipped.", previewError); }
+      try { renderDashboardBillingControls(); } catch (billingError) { console.warn("Basic field billing refresh skipped.", billingError); }
+      return { sectionIsVisible, cloudSaveOk };
     }
 
     async function saveBasicDriveFromForm(event) {
@@ -2296,10 +2302,12 @@
         const saveResult = await persistBasicFieldItem("drive", item);
         document.getElementById("basicDriveForm").reset();
         if (saveResult && saveResult.sectionIsVisible) {
-          setBasicFieldStatus("drive", "Basic deer drive saved, published to CampDeerDrives, and posted to CampUpdate.", "success");
+          const cloudNote = saveResult.cloudSaveOk === false ? " Local save worked; cloud sync will retry on the next save." : "";
+          setBasicFieldStatus("drive", `Basic deer drive saved, published to CampDeerDrives, and posted to CampUpdate.${cloudNote}`, "success");
           showToast("Basic deer drive saved.", 5200);
         } else {
-          setBasicFieldStatus("drive", "Basic deer drive saved privately. CampDeerDrives is off, so no CampUpdate post was created.", "success");
+          const cloudNote = saveResult && saveResult.cloudSaveOk === false ? " Local save worked; cloud sync will retry on the next save." : "";
+          setBasicFieldStatus("drive", `Basic deer drive saved privately. CampDeerDrives is off, so no CampUpdate post was created.${cloudNote}`, "success");
           showToast("Basic deer drive saved privately.", 5200);
         }
       } catch (error) {
@@ -2351,10 +2359,12 @@
         const saveResult = await persistBasicFieldItem("stand", item);
         document.getElementById("basicStandForm").reset();
         if (saveResult && saveResult.sectionIsVisible) {
-          setBasicFieldStatus("stand", "Basic deer stand saved, published to CampDeerStands, and posted to CampUpdate.", "success");
+          const cloudNote = saveResult.cloudSaveOk === false ? " Local save worked; cloud sync will retry on the next save." : "";
+          setBasicFieldStatus("stand", `Basic deer stand saved, published to CampDeerStands, and posted to CampUpdate.${cloudNote}`, "success");
           showToast("Basic deer stand saved.", 5200);
         } else {
-          setBasicFieldStatus("stand", "Basic deer stand saved privately. CampDeerStands is off, so no CampUpdate post was created.", "success");
+          const cloudNote = saveResult && saveResult.cloudSaveOk === false ? " Local save worked; cloud sync will retry on the next save." : "";
+          setBasicFieldStatus("stand", `Basic deer stand saved privately. CampDeerStands is off, so no CampUpdate post was created.${cloudNote}`, "success");
           showToast("Basic deer stand saved privately.", 5200);
         }
       } catch (error) {
