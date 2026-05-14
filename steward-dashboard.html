@@ -1851,6 +1851,19 @@
       inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
     }
 
+    async function persistMemberInviteStateToCloud(savedCampData = null) {
+      try {
+        const latestCampData = savedCampData || JSON.parse(localStorage.getItem(scopedCampDataKey) || localStorage.getItem(CAMP_DATA_KEY) || '{}');
+        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function" && latestCampData && typeof latestCampData === "object") {
+          await DeerCampCloud.saveCamp(state.campId, latestCampData);
+          return true;
+        }
+      } catch (error) {
+        console.warn("Member invite state saved locally, but cloud sync was not confirmed.", error);
+      }
+      return false;
+    }
+
     async function sendMemberInvites(members) {
       const results = [];
       for (const member of members) {
@@ -1912,9 +1925,17 @@
         member.status = "Failed";
         member.pendingInvite = true;
         member.inviteError = data.error || "Failed to send invite.";
-        syncCampData();
+        const failedCampData = syncCampData();
+        await persistMemberInviteStateToCloud(failedCampData);
         throw new Error(data.error || "Failed to send invite.");
       }
+      member.status = "Invite Sent";
+      member.pendingInvite = false;
+      member.inviteSentAt = member.inviteSentAt || new Date().toISOString();
+      member.inviteStartedAt = "";
+      member.inviteError = "";
+      const sentCampData = syncCampData();
+      await persistMemberInviteStateToCloud(sentCampData);
       return { data, inviteToken };
     }
 
@@ -2725,7 +2746,8 @@
 
       inviteBtn.disabled = false;
       inviteBtn.textContent = originalLabel;
-      syncCampData();
+      const inviteSavedCampData = syncCampData();
+      await persistMemberInviteStateToCloud(inviteSavedCampData);
       renderMembers();
       renderPreview();
       renderDashboardBillingControls();
