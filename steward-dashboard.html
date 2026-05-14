@@ -84,6 +84,11 @@
     .tier-status-body{margin:0;color:var(--muted);line-height:1.55}
     .tier-status-meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
     .tier-status-chip{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.66);border:1px solid rgba(69,42,22,.08);color:var(--brown-deep);font-size:.78rem;font-weight:800}
+    .tier-inventory{display:flex;flex-wrap:wrap;gap:10px;margin-top:4px}
+    .tier-inventory-item{display:grid;gap:3px;min-width:148px;padding:10px 12px;border-radius:16px;background:rgba(255,255,255,.64);border:1px solid rgba(69,42,22,.08)}
+    .tier-inventory-label{color:var(--muted);font-size:.74rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+    .tier-inventory-value{color:var(--brown-deep);font-size:1.02rem;font-weight:900;line-height:1.1}
+    .tier-inventory-note{color:var(--muted);font-size:.78rem;line-height:1.3}
     .tier-status-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
     .tier-status-actions .btn{white-space:nowrap}
     .basic-field-card{display:grid;gap:14px}
@@ -209,6 +214,7 @@
         <h3 id="tierStatusTitle" class="tier-status-title">DeerCamp Free</h3>
         <p id="tierStatusBody" class="tier-status-body">Upgrade to DC+ for Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p>
         <div id="tierStatusMeta" class="tier-status-meta"></div>
+        <div id="tierInventory" class="tier-inventory" aria-label="DCF inventory usage"></div>
       </div>
       <div class="tier-status-actions">
         <button id="tierStatusBasicDriveBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Drive</button>
@@ -2257,6 +2263,7 @@
       try { renderSections(); } catch (renderError) { console.warn("Basic field section refresh skipped.", renderError); }
       try { renderPreview(); } catch (previewError) { console.warn("Basic field preview refresh skipped.", previewError); }
       try { renderDashboardBillingControls(); } catch (billingError) { console.warn("Basic field billing refresh skipped.", billingError); }
+      try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (inventoryError) { console.warn("Basic field inventory refresh skipped.", inventoryError); }
       return { sectionIsVisible, cloudSaveOk };
     }
 
@@ -2872,6 +2879,60 @@
         return `${fallbackLabel.split(':')[0]}: ${usage || 0}/${access.limit}`;
       }catch(error){ return fallbackLabel; }
     }
+    function getDashboardInventoryUsage(){
+      const source = getDashboardBillingCampData();
+      const countByFeature = (featureKey, fallbackKeys = []) => {
+        try {
+          if (window.DeerCampBilling && typeof window.DeerCampBilling.countFeatureUsage === 'function') {
+            const counted = Number(window.DeerCampBilling.countFeatureUsage(featureKey, source));
+            if (Number.isFinite(counted)) return counted;
+          }
+        } catch(error) {}
+        const seen = new Set();
+        let total = 0;
+        fallbackKeys.forEach(key => {
+          const list = Array.isArray(source[key]) ? source[key] : [];
+          list.forEach((item, index) => {
+            if (!item || typeof item !== 'object') return;
+            const id = String(item.id || item.driveId || item.standId || item.title || item.name || `${key}-${index}`).trim().toLowerCase();
+            if (!id || seen.has(id)) return;
+            seen.add(id);
+            total += 1;
+          });
+        });
+        return total;
+      };
+      return {
+        members: getActiveCampMemberUsage(),
+        stands: countByFeature('stand_limit', ['deerStandPosts','deerStands','stands','savedDeerStands','scoutDeerStands']),
+        drives: countByFeature('drive_limit', ['deerDrivePosts','deerDrives','savedDeerDrives','scoutDeerDrives'])
+      };
+    }
+
+    function renderDashboardInventoryCounter(plus){
+      const inventory = document.getElementById('tierInventory');
+      if (!inventory) return;
+      if (plus) {
+        inventory.innerHTML = '';
+        inventory.hidden = true;
+        return;
+      }
+      inventory.hidden = false;
+      const usage = getDashboardInventoryUsage();
+      const items = [
+        { label: 'Basic Deer Drives', value: `${usage.drives}/1 used`, note: usage.drives >= 1 ? 'DCF drive limit reached' : '1 free drive included' },
+        { label: 'Basic Deer Stands', value: `${usage.stands}/3 used`, note: usage.stands >= 3 ? 'DCF stand limit reached' : '3 free stands included' },
+        { label: 'Camp Members', value: `${usage.members}/8 used`, note: 'Steward not counted against member limit' }
+      ];
+      inventory.innerHTML = items.map(item => `
+        <div class="tier-inventory-item">
+          <div class="tier-inventory-label">${item.label}</div>
+          <div class="tier-inventory-value">${item.value}</div>
+          <div class="tier-inventory-note">${item.note}</div>
+        </div>
+      `).join('');
+    }
+
     function renderDashboardTierStatusCard(){
       const card=document.getElementById('tierStatusCard');
       if(!card) return;
@@ -2885,6 +2946,7 @@
       const live=document.getElementById('tierStatusLiveLink');
       const tierState=getDashboardTierState();
       const plus=dashboardHasDcPlus();
+      renderDashboardInventoryCounter(plus);
       const basicFieldCardsSection=document.getElementById('basicFieldCardsSection');
       if(basicFieldCardsSection){
         basicFieldCardsSection.hidden = plus;
