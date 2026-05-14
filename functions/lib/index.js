@@ -412,12 +412,21 @@ exports.stripeWebhook = (0, https_1.onRequest)({
                 if (DC_PLUS_PRICE_IDS.has(priceId)) {
                     const campSnap = await db.collection("camps").doc(campId).get();
                     const camp = campSnap.exists ? campSnap.data() || {} : {};
-                    await recordAdminSubscriptionNotification({
-                        eventId: String(event.id || ""),
-                        campId,
-                        campName: String(camp.name || camp.campName || campId),
-                        priceId,
-                    });
+                    try {
+                        await recordAdminSubscriptionNotification({
+                            eventId: String(event.id || ""),
+                            campId,
+                            campName: String(camp.name || camp.campName || campId),
+                            priceId,
+                        });
+                    }
+                    catch (notificationError) {
+                        firebase_functions_1.logger.error("Admin subscription notification failed.", {
+                            error: notificationError instanceof Error ? notificationError.message : String(notificationError),
+                            campId,
+                            eventId: String(event.id || ""),
+                        });
+                    }
                 }
             }
         }
