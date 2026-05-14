@@ -1159,18 +1159,59 @@
 
     function ensureBuilderDraftMembers(extraSources = []) {
       if (!Array.isArray(state.members)) state.members = [];
+
+      const stewardNames = new Set([
+        state.stewardName,
+        setupParamStewardName,
+        setupSeedStewardName,
+        campData.stewardName,
+        campData.campSteward,
+        campData.campStewardName,
+        campData.steward,
+        savedDashboard.stewardName,
+        savedDashboard.campSteward,
+        savedDashboard.steward
+      ].map(value => String(value || "").trim().toLowerCase()).filter(Boolean));
+
+      const stewardEmails = new Set([
+        state.stewardEmail,
+        setupSeedStewardEmail,
+        campData.stewardEmail,
+        campData.campStewardEmail,
+        savedDashboard.stewardEmail,
+        savedDashboard.campStewardEmail
+      ].map(value => String(value || "").trim().toLowerCase()).filter(Boolean));
+
+      state.members = state.members.filter(member => {
+        const role = String(member.role || "").trim().toLowerCase();
+        if (role === "camp steward") return true;
+
+        const name = String(member.name || "").trim().toLowerCase();
+        const email = String(member.email || "").trim().toLowerCase();
+
+        if (name && stewardNames.has(name)) return false;
+        if (email && stewardEmails.has(email)) return false;
+
+        return true;
+      });
+
       const existingKeys = new Set(state.members.map(member => {
         const role = String(member.role || "").trim().toLowerCase();
         const email = String(member.email || "").trim().toLowerCase();
         const name = String(member.name || "").trim().toLowerCase();
         return role === "camp steward" ? "role:camp steward" : (email || name);
       }).filter(Boolean));
+
       collectBuilderDraftMemberNames(extraSources).forEach(name => {
-        const key = String(name || "").trim().toLowerCase();
+        const cleanName = String(name || "").trim();
+        const key = cleanName.toLowerCase();
+
         if (!key || existingKeys.has(key)) return;
+        if (stewardNames.has(key)) return;
+
         existingKeys.add(key);
         state.members.push({
-          name,
+          name: cleanName,
           email: "",
           note: "",
           role: "Camp Member",
@@ -1242,6 +1283,23 @@
     if (!Array.isArray(state.members)) state.members = [];
     state.members = dedupeMembers(state.members);
     ensureStewardMember();
+
+    state.members = state.members.filter(member => {
+      const role = String(member.role || "").trim().toLowerCase();
+      const name = String(member.name || "").trim().toLowerCase();
+      const email = String(member.email || "").trim().toLowerCase();
+
+      if (role === "camp steward") return true;
+
+      const stewardName = String(state.stewardName || "").trim().toLowerCase();
+      const stewardEmail = String(state.stewardEmail || "").trim().toLowerCase();
+
+      if (name && stewardName && name === stewardName) return false;
+      if (email && stewardEmail && email === stewardEmail) return false;
+
+      return true;
+    });
+
     ensureBuilderDraftMembers();
     syncCampData();
 
