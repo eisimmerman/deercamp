@@ -607,36 +607,89 @@
     const scopedDashboardSlim = activeCampId ? safeParse(campScopeKey(activeCampId, "dashboardSlim"), {}) : {};
 
     const campData = Object.keys(scopedCampData).length ? scopedCampData : legacyCampData;
+
+    function buildDraftMemberRecordFromName(name = "") {
+      const clean = String(name || "").trim();
+      if (!clean) return null;
+      return {
+        name: clean,
+        email: "",
+        note: "",
+        role: "Camp Member",
+        status: "Draft",
+        pendingInvite: false,
+        inviteToken: "",
+        inviteSentAt: "",
+        inviteError: ""
+      };
+    }
+
+    function mergeUrlPrefillMembersIntoCampData(source = {}, prefill = {}) {
+      const names = Array.isArray(prefill.members) ? prefill.members.map(item => String(item || "").trim()).filter(Boolean) : [];
+      if (!names.length) return source;
+
+      const existingMemberNames = Array.isArray(source.members) ? source.members.map(item => String(item || "").trim()).filter(Boolean) : [];
+      const existingCampMembers = Array.isArray(source.campMembers) ? source.campMembers.map(item => String(item || "").trim()).filter(Boolean) : existingMemberNames.slice();
+      const existingProfiles = Array.isArray(source.memberProfiles) ? source.memberProfiles.slice() : [];
+      const existingKeys = new Set([
+        ...existingMemberNames,
+        ...existingCampMembers,
+        ...existingProfiles.map(member => String(member?.name || "").trim())
+      ].map(name => name.toLowerCase()).filter(Boolean));
+
+      const nextNames = existingMemberNames.slice();
+      const nextCampMembers = existingCampMembers.slice();
+      const nextProfiles = existingProfiles.slice();
+
+      names.forEach(name => {
+        const key = name.toLowerCase();
+        if (!key || existingKeys.has(key)) return;
+        existingKeys.add(key);
+        nextNames.push(name);
+        nextCampMembers.push(name);
+        const record = buildDraftMemberRecordFromName(name);
+        if (record) nextProfiles.push(record);
+      });
+
+      return {
+        ...source,
+        members: nextNames,
+        campMembers: nextCampMembers,
+        memberProfiles: nextProfiles
+      };
+    }
+
+    const hydrationCampData = mergeUrlPrefillMembersIntoCampData(campData, urlPrefill);
     const matchingLegacyDashboardSlim = Object.keys(legacyDashboardSlim).length && String(legacyDashboardSlim.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardSlim : {};
     const matchingLegacyDashboardData = Object.keys(legacyDashboardData).length && String(legacyDashboardData.camp?.campId || legacyDashboardData.campId || "").trim() === String(activeCampId || "").trim() ? legacyDashboardData : {};
     const rawDashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(matchingLegacyDashboardSlim).length ? matchingLegacyDashboardSlim : matchingLegacyDashboardData);
-    const dashboardData = hydrateDashboardSnapshot(activeCampId, campData, rawDashboardData);
+    const dashboardData = hydrateDashboardSnapshot(activeCampId, hydrationCampData, rawDashboardData);
 
-    const campName = firstNonEmpty(urlPrefill.campName, campData.name, campData.campName, dashboardData.camp?.name, "Your DeerCamp");
-    const city = firstNonEmpty(urlPrefill.city, campData.city, dashboardData.camp?.city);
-    const state = firstNonEmpty(urlPrefill.state, campData.state, dashboardData.camp?.state);
-    const zip = firstNonEmpty(urlPrefill.zip, campData.zip, dashboardData.camp?.zip);
-    const established = firstNonEmpty(urlPrefill.established, campData.established, dashboardData.camp?.established);
+    const campName = firstNonEmpty(urlPrefill.campName, hydrationCampData.name, hydrationCampData.campName, dashboardData.camp?.name, "Your DeerCamp");
+    const city = firstNonEmpty(urlPrefill.city, hydrationCampData.city, dashboardData.camp?.city);
+    const state = firstNonEmpty(urlPrefill.state, hydrationCampData.state, dashboardData.camp?.state);
+    const zip = firstNonEmpty(urlPrefill.zip, hydrationCampData.zip, dashboardData.camp?.zip);
+    const established = firstNonEmpty(urlPrefill.established, hydrationCampData.established, dashboardData.camp?.established);
     const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members : (Array.isArray(dashboardData.people) ? dashboardData.people : []);
-    const stewardName = firstNonEmpty(urlPrefill.stewardName, campData.stewardName, campData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
-    const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, campData.stewardEmail, dashboardData.stewardEmail);
+    const stewardName = firstNonEmpty(urlPrefill.stewardName, hydrationCampData.stewardName, hydrationCampData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
+    const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, hydrationCampData.stewardEmail, dashboardData.stewardEmail);
     const memberNames = (
       Array.isArray(urlPrefill.members) && urlPrefill.members.length
         ? urlPrefill.members
-        : (Array.isArray(campData.members)
-            ? campData.members
-            : (Array.isArray(campData.campMembers)
-                ? campData.campMembers
+        : (Array.isArray(hydrationCampData.members)
+            ? hydrationCampData.members
+            : (Array.isArray(hydrationCampData.campMembers)
+                ? hydrationCampData.campMembers
                 : dashboardMembers.filter(person => String(person.role || '').toLowerCase() !== 'camp steward').map(person => person.name)))
     ).filter(Boolean);
     const heroPath = normalizeBuilderImagePath(firstNonEmpty(
       urlPrefill.hero,
       urlPrefill.brand,
-      campData.hero,
+      hydrationCampData.hero,
       dashboardData.camp?.hero,
       dashboardData.camp?.brandImage,
-      campData.brandImage,
-      campData.brandingImage
+      hydrationCampData.brandImage,
+      hydrationCampData.brandingImage
     ));
 
     const firstName = stewardName.split(/\s+/).filter(Boolean)[0] || stewardName;
