@@ -1448,6 +1448,13 @@
         stewardRoleLine: String(nextCampData.stewardRoleLine || "").trim(),
         profileUpdatedAt: nextCampData.profileUpdatedAt || new Date().toISOString(),
         stewardProfileUpdatedAt: nextCampData.stewardProfileUpdatedAt || nextCampData.profileUpdatedAt || new Date().toISOString(),
+        tier: nextCampData.tier || nextCampData.membershipTier || "dcf",
+        membershipTier: nextCampData.membershipTier || nextCampData.tier || "dcf",
+        billingStatus: nextCampData.billingStatus || nextCampData.subscriptionStatus || "free",
+        subscriptionStatus: nextCampData.subscriptionStatus || nextCampData.billingStatus || "free",
+        stripeCustomerId: nextCampData.stripeCustomerId || "",
+        stripeSubscriptionId: nextCampData.stripeSubscriptionId || "",
+        billing: nextCampData.billing && typeof nextCampData.billing === "object" ? Object.assign({}, nextCampData.billing) : {},
         storageMode: "profile-only"
       };
       profileOnly.deerDrivePosts = Array.isArray(nextCampData.deerDrivePosts) ? nextCampData.deerDrivePosts.slice(0, 12) : [];
@@ -1680,6 +1687,13 @@
         dashboardPeople: nextDashboard.people.map(member => ({ ...member })),
         dashboardSlim: nextDashboard,
         profileUpdatedAt,
+        tier: campData.tier || campData.membershipTier || "dcf",
+        membershipTier: campData.membershipTier || campData.tier || "dcf",
+        billingStatus: campData.billingStatus || campData.subscriptionStatus || "free",
+        subscriptionStatus: campData.subscriptionStatus || campData.billingStatus || "free",
+        stripeCustomerId: campData.stripeCustomerId || "",
+        stripeSubscriptionId: campData.stripeSubscriptionId || "",
+        billing: campData.billing && typeof campData.billing === "object" ? Object.assign({}, campData.billing) : {},
         deerDrivePosts: preservedDeerDrivePosts,
         deerDrives: preservedDeerDrivePosts.slice(),
         savedDeerDrives: preservedDeerDrivePosts.slice(),
@@ -2841,8 +2855,57 @@
     function getDashboardBillingSource(){
       try{
         const scoped = safeParse(localStorage.getItem(scopedCampDataKey), {});
-        return Object.assign({}, campData || {}, scoped || {});
+        const generic = safeParse(localStorage.getItem(CAMP_DATA_KEY), {});
+        const profile = safeParse(localStorage.getItem(scopedProfileDataKey), {});
+        const dashboard = safeParse(localStorage.getItem(scopedDashboardKey), {});
+        return mergeDashboardBillingSources(campData || {}, generic || {}, profile || {}, dashboard || {}, scoped || {});
       }catch(error){ return campData || {}; }
+    }
+
+    function isPaidDashboardBillingSource(source = {}){
+      if(!source || typeof source !== 'object') return false;
+      const billing = source.billing && typeof source.billing === 'object' ? source.billing : {};
+      const values = [
+        source.tier,
+        source.membershipTier,
+        source.billingStatus,
+        source.subscriptionStatus,
+        source.status,
+        billing.tier,
+        billing.membershipTier,
+        billing.status,
+        billing.subscriptionStatus
+      ].map(value => String(value || '').trim().toLowerCase());
+      if(values.some(value => ['dc_plus','dc+','plus','deercamp_plus','active','trialing','paid'].includes(value))) return true;
+      if(String(billing.stripeSubscriptionId || source.stripeSubscriptionId || source.subscriptionId || '').trim()) {
+        const inactive = values.some(value => ['free','dcf','canceled','cancelled','inactive','none'].includes(value));
+        return !inactive;
+      }
+      return false;
+    }
+
+    function mergeDashboardBillingSources(...sources){
+      const merged = {};
+      let paidSource = null;
+      sources.forEach(source => {
+        if(!source || typeof source !== 'object') return;
+        Object.assign(merged, source);
+        if(source.billing && typeof source.billing === 'object') {
+          merged.billing = Object.assign({}, merged.billing || {}, source.billing);
+        }
+        if(isPaidDashboardBillingSource(source)) paidSource = source;
+      });
+      if(paidSource && typeof paidSource === 'object'){
+        Object.assign(merged, paidSource);
+        if(paidSource.billing && typeof paidSource.billing === 'object') {
+          merged.billing = Object.assign({}, merged.billing || {}, paidSource.billing);
+        }
+        merged.tier = merged.tier || paidSource.tier || paidSource.membershipTier || 'dc_plus';
+        merged.membershipTier = merged.membershipTier || merged.tier || 'dc_plus';
+        merged.billingStatus = merged.billingStatus || paidSource.billingStatus || paidSource.subscriptionStatus || 'active';
+        merged.subscriptionStatus = merged.subscriptionStatus || paidSource.subscriptionStatus || paidSource.billingStatus || 'active';
+      }
+      return merged;
     }
     function formatDashboardTwoDigitDate(value){
       if(!value) return '';
@@ -2871,6 +2934,7 @@
     function dashboardHasDcPlus(){
       try{
         const source = getDashboardBillingSource();
+        if(isPaidDashboardBillingSource(source)) return true;
         if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') return window.DeerCampBilling.canUseFeature('scout_elite', source);
         return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(source) : false;
       }
@@ -3230,7 +3294,27 @@
       ensureStewardMember();
       ensureBuilderDraftMembers([cloud, slim]);
       try {
-        const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
+        const paidCloud = isPaidDashboardBillingSource(cloud) || isPaidDashboardBillingSource(slim);
+        const cloudBilling = mergeDashboardBillingSources(cloud, slim);
+        const cloudCampCache = Object.assign({}, cloud, cloudBilling, {
+          campId: state.campId,
+          name: state.camp.name,
+          campName: state.camp.name,
+          city: state.camp.city,
+          state: state.camp.state,
+          zip: state.camp.zip,
+          established: state.camp.established,
+          hero: state.camp.hero,
+          stewardName: state.stewardName,
+          stewardEmail: state.stewardEmail
+        });
+        if (paidCloud) {
+          cloudCampCache.tier = cloudCampCache.tier || "dc_plus";
+          cloudCampCache.membershipTier = cloudCampCache.membershipTier || "dc_plus";
+          cloudCampCache.billingStatus = cloudCampCache.billingStatus || "active";
+          cloudCampCache.subscriptionStatus = cloudCampCache.subscriptionStatus || "active";
+          cloudCampCache.billing = Object.assign({}, cloudCampCache.billing || {}, { tier: cloudCampCache.tier, status: cloudCampCache.billingStatus });
+        }
         Object.keys(campData).forEach(key => { delete campData[key]; });
         Object.assign(campData, cloudCampCache);
         localStorage.setItem(scopedCampDataKey, JSON.stringify(cloudCampCache));
@@ -3245,9 +3329,26 @@
         const cloud = await DeerCampCloud.getCamp(state.campId);
         if (!cloud || typeof cloud !== "object") return false;
         if (applyCloudCampToDashboard(cloud)) {
+          const cloudBilling = mergeDashboardBillingSources(cloud, cloud.dashboardSlim || {});
           syncCampData();
+          if (isPaidDashboardBillingSource(cloudBilling)) {
+            Object.assign(campData, cloudBilling, {
+              tier: cloudBilling.tier || cloudBilling.membershipTier || "dc_plus",
+              membershipTier: cloudBilling.membershipTier || cloudBilling.tier || "dc_plus",
+              billingStatus: cloudBilling.billingStatus || cloudBilling.subscriptionStatus || "active",
+              subscriptionStatus: cloudBilling.subscriptionStatus || cloudBilling.billingStatus || "active",
+              billing: Object.assign({}, campData.billing || {}, cloudBilling.billing || {}, { status: cloudBilling.billingStatus || "active", tier: cloudBilling.tier || "dc_plus" })
+            });
+            try {
+              const refreshed = safeParse(localStorage.getItem(scopedCampDataKey), {});
+              Object.assign(refreshed, campData);
+              localStorage.setItem(scopedCampDataKey, JSON.stringify(refreshed));
+              localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(refreshed));
+            } catch (error) {}
+          }
           renderPreview();
           renderDashboardBillingControls();
+          renderDashboardInventoryCounter(dashboardHasDcPlus());
           bindDashboardUpgradeButtons();
           renderMembers();
           renderSections();
@@ -3312,6 +3413,8 @@
       syncCampData();
       renderMembers();
       resetMemberForm();
+      try { renderDashboardBillingControls(); } catch (error) {}
+      try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
       try { bindDashboardUpgradeButtons(); } catch (error) {}
       maybeOpenRequestedProfileEditor();
     });
