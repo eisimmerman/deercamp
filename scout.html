@@ -80,6 +80,12 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .map-title-badge.is-empty{display:none;}
 .map-title-main{font-family:'Playfair Display',serif;font-size:1rem;font-weight:700;line-height:1.1;color:var(--cream);text-align:center;white-space:normal;word-break:break-word;}
 .map-title-sub{font-family:'IBM Plex Mono',monospace;font-size:.56rem;letter-spacing:.8px;text-transform:uppercase;color:var(--tan);text-align:center;}
+.drive-name-map-label{background:transparent;border:0;}
+.drive-name-map-label .drive-name-pill{display:inline-flex;align-items:center;justify-content:center;max-width:220px;padding:5px 10px;border-radius:999px;background:rgba(18,10,2,.86);border:1px solid rgba(240,232,216,.34);color:#fff8ef;font:800 11px 'IBM Plex Mono',monospace;line-height:1.15;text-align:center;white-space:normal;box-shadow:0 5px 14px rgba(0,0,0,.34);text-shadow:0 1px 2px rgba(0,0,0,.55);}
+.drive-showall-point-label{background:transparent;border:0;}
+.drive-showall-point-label .drive-showall-point-pill{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(255,255,255,.82);font:800 10px 'IBM Plex Mono',monospace;box-shadow:0 3px 10px rgba(0,0,0,.36);}
+.drive-showall-point-label .drive-showall-point-pill.driver{background:#2f6fa8;color:#fff;}
+.drive-showall-point-label .drive-showall-point-pill.stander{background:#f4d33d;color:#231a13;}
 
 /* MAP */
 #map{flex:1;z-index:1;position:relative;}
@@ -350,6 +356,7 @@ textarea{resize:vertical;min-height:55px;}
   .map-title-badge{display:flex!important;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.94);border:1.5px solid #444;box-shadow:none;backdrop-filter:none;}
   .map-title-main{color:#111;font-size:16px;}
   .map-title-sub{color:#444;font-size:8px;letter-spacing:1px;}
+  .drive-name-map-label .drive-name-pill{background:#fff;color:#111;border:1px solid #111;box-shadow:none;text-shadow:none;font-size:11px;}
   .leaflet-tooltip.stand-name-label{font-size:8px!important;max-width:110px!important;padding:2px 5px!important;border-radius:6px!important;line-height:1.15!important;background:rgba(24,18,12,.96)!important;color:#fff8ef!important;box-shadow:none!important;}
 }
 #print-header{display:none;padding:10px 16px 6px;font-family:'Playfair Display',serif;font-size:14px;color:#000;border-bottom:1.5px solid #333;background:#fff;}
@@ -885,7 +892,7 @@ function getSavedCampDriveSources(){
       ['deerDrivePosts','deerDrives','savedDeerDrives','scoutDeerDrives'].forEach(key => {
         (Array.isArray(data[key]) ? data[key] : []).forEach((item, idx) => {
           if(!item || typeof item !== 'object') return;
-          const title = String(item.title || item.driveName || item.savedSummary?.driveName || '').trim();
+          const title = getSavedDriveDisplayTitle(item);
           const id = String(item.id || item.driveId || item.savedSummary?.id || title || `${key}-${idx}`).trim();
           const dedupe = `${id.toLowerCase()}|${title.toLowerCase()}`;
           if(seen.has(dedupe)) return;
@@ -919,6 +926,92 @@ function getCurrentDriveMapPoints(){
     ...getBuilderVisibleDriveRoutes().flatMap(route => (route.pts || []).map(normalizeScoutLatLngPair))
   ].filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
 }
+
+let showAllDriveOverlayLayerIds = [];
+function clearShowAllDriveOverlays(){
+  showAllDriveOverlayLayerIds.forEach(id => {
+    const layer = allLayers[id];
+    if(layer){
+      try{ map.removeLayer(layer); }catch(error){}
+      delete allLayers[id];
+    }
+  });
+  showAllDriveOverlayLayerIds = [];
+}
+function getSavedDriveDisplayTitle(item = {}){
+  return String(item.title || item.driveName || item.name || item.savedSummary?.driveName || item.savedSummary?.title || 'Deer Drive').trim() || 'Deer Drive';
+}
+function getDriveGeometryRoutePoints(route = {}){
+  return (Array.isArray(route.pts) ? route.pts : (Array.isArray(route.points) ? route.points : []))
+    .map(normalizeScoutLatLngPair)
+    .filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+}
+function getDriveGeometryCenter(points = []){
+  const safe = points.filter(pt => Number.isFinite(pt[0]) && Number.isFinite(pt[1]));
+  if(!safe.length) return null;
+  try{ return L.latLngBounds(safe).getCenter(); }
+  catch(error){
+    const lat = safe.reduce((sum, pt) => sum + pt[0], 0) / safe.length;
+    const lng = safe.reduce((sum, pt) => sum + pt[1], 0) / safe.length;
+    return L.latLng(lat, lng);
+  }
+}
+function addDriveNameMapLabel(name, points = [], prefix = 'drive-label'){
+  const label = String(name || '').trim();
+  const center = getDriveGeometryCenter(points);
+  if(!label || !center) return null;
+  const id = `${prefix}-${slugifyValue(label) || 'drive'}-${showAllDriveOverlayLayerIds.length}-${Date.now()}`;
+  const safeLabel = escapeHTML(label);
+  const layer = L.marker(center, {
+    interactive:false,
+    keyboard:false,
+    icon:L.divIcon({
+      className:'drive-name-map-label',
+      html:`<span class="drive-name-pill">${safeLabel}</span>`,
+      iconSize:null,
+      iconAnchor:[60,14]
+    })
+  }).addTo(map);
+  allLayers[id] = layer;
+  showAllDriveOverlayLayerIds.push(id);
+  return layer;
+}
+function addShowAllDrivePointLabel(point, role, slot, prefix){
+  const safe = normalizeScoutLatLngPair(point);
+  if(!Number.isFinite(safe[0]) || !Number.isFinite(safe[1])) return;
+  const id = `${prefix}-${role}-${slot || showAllDriveOverlayLayerIds.length}-${Date.now()}`;
+  const display = role === 'driver' ? `D${slot || ''}` : `S${slot || ''}`;
+  const layer = L.marker(safe, {
+    interactive:false,
+    keyboard:false,
+    icon:L.divIcon({
+      className:'drive-showall-point-label',
+      html:`<span class="drive-showall-point-pill ${role === 'driver' ? 'driver' : 'stander'}">${escapeHTML(display)}</span>`,
+      iconSize:[24,24],
+      iconAnchor:[12,12]
+    })
+  }).addTo(map);
+  allLayers[id] = layer;
+  showAllDriveOverlayLayerIds.push(id);
+}
+function renderSavedDriveGeometryOverlay(item = {}, idx = 0){
+  const geometry = getDriveGeometryFromSavedCampItem(item);
+  if(!geometry.points.length) return false;
+  const title = getSavedDriveDisplayTitle(item);
+  const prefix = `showall-drive-${idx}-${slugifyValue(title) || 'drive'}`;
+  geometry.routes.forEach((route, routeIdx) => {
+    const pts = getDriveGeometryRoutePoints(route);
+    if(pts.length < 2) return;
+    const id = `${prefix}-route-${routeIdx}-${Date.now()}`;
+    const layer = L.polyline(pts, Object.assign({}, polyStyle(route.type || 'route'), {weight:3, opacity:.88})).addTo(map);
+    allLayers[id] = layer;
+    showAllDriveOverlayLayerIds.push(id);
+  });
+  geometry.drivers.forEach((driver, driverIdx) => addShowAllDrivePointLabel(driver, 'driver', driver.slot || driverIdx + 1, prefix));
+  geometry.standers.forEach((stander, standerIdx) => addShowAllDrivePointLabel(stander, 'stander', stander.slot || standerIdx + 1, prefix));
+  addDriveNameMapLabel(title, geometry.points, prefix);
+  return true;
+}
 function getShowAllDrivePoints(){
   const savedPoints = getSavedCampDriveSources().flatMap(item => getDriveGeometryFromSavedCampItem(item).points);
   const currentPoints = getCurrentDriveMapPoints();
@@ -937,15 +1030,17 @@ function getCurrentDriveDisplayName(){
 }
 function showAllDrives(){
   if(blockScoutLimitFeature('show_all_drives')) return;
+  clearShowAllDriveOverlays();
+  const savedSources = getSavedCampDriveSources();
+  let savedCount = 0;
+  savedSources.forEach((item, idx) => { if(renderSavedDriveGeometryOverlay(item, idx)) savedCount += 1; });
   const pts = getShowAllDrivePoints();
   if(!pts.length){
     document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
     return;
   }
   try{ map.fitBounds(L.latLngBounds(pts).pad(.18), {maxZoom:17, animate:false}); }catch(error){}
-  const savedCount = getSavedCampDriveSources().filter(item => getDriveGeometryFromSavedCampItem(item).points.length).length;
-  const currentDriveName = getCurrentDriveDisplayName();
-  activeScoutMapTitleOverride = currentDriveName || (savedCount > 1 ? 'All Deer Drives' : 'Deer Drive Map');
+  activeScoutMapTitleOverride = '';
   revealMapTitleBadge('show-all-drives');
   document.getElementById('status-bar').innerHTML=`Showing all saved drive points/routes (${pts.length}).`;
   showScoutToast(savedCount > 1 ? `Showing ${savedCount} saved drives.` : 'Showing saved drive.', 2800);
@@ -1064,14 +1159,15 @@ function revealMapTitleBadge(reason=''){
 }
 
 function updatePrintableCampBranding(options = {}){
-  const driveTitle = activeScoutMapTitleOverride || (isScoutDriveBuilder() ? getCurrentDriveDisplayName() : '');
-  const campName = driveTitle || getActiveCampDisplayName();
+  const campName = getActiveCampDisplayName();
   const badge = document.getElementById('map-title-badge');
   const mapEl = document.getElementById('map');
   if(badge && mapEl && badge.parentElement !== mapEl) mapEl.appendChild(badge);
   const titleMain = document.getElementById('map-title-main');
   const printCampName = document.getElementById('print-camp-name');
   if(titleMain) titleMain.textContent = campName;
+  const titleSub = document.getElementById('map-title-sub');
+  if(titleSub) titleSub.textContent = 'Hunt Property Map';
   if(printCampName) printCampName.textContent = campName;
   const hasContent = getScoutValidMapPoints().length > 0;
   const shouldShow = Boolean(campName) && (Boolean(options.forceVisible) || mapHasCampContext || hasContent);
@@ -2646,7 +2742,7 @@ function saveDeerDriveBuilder(){
   saveLocal();
   renderPanel();
   setMode('view');
-  activeScoutMapTitleOverride = driveName;
+  activeScoutMapTitleOverride = '';
   updatePrintableCampBranding({forceVisible:true});
   document.getElementById('status-bar').innerHTML='DeerDrive Builder completed. Drag the blue and yellow circles into position, then tap 2. Set Drive.';
 }
@@ -3420,6 +3516,7 @@ function findSavedDriveForDeepLink(driveKey){
   return getSavedCampDriveSources().find(item => itemMatchesDeepLink(item, key) || itemMatchesDeepLink(item.savedSummary || {}, key)) || null;
 }
 function clearCurrentDriveMapLayers(){
+  clearShowAllDriveOverlays();
   [...drivers, ...standers].forEach(item=>{ if(allLayers[item.id]){ try{ map.removeLayer(allLayers[item.id]); }catch(e){} delete allLayers[item.id]; } });
   getBuilderVisibleDriveRoutes().forEach(route=>{ if(allLayers[route.id]){ try{ map.removeLayer(allLayers[route.id]); }catch(e){} delete allLayers[route.id]; } });
   drivers = [];
@@ -3429,7 +3526,7 @@ function clearCurrentDriveMapLayers(){
 function hydrateScoutDriveFromCampItem(item = {}){
   const geometry = getDriveGeometryFromSavedCampItem(item);
   const title = String(item.title || item.driveName || item.savedSummary?.driveName || 'Deer Drive').trim() || 'Deer Drive';
-  activeScoutMapTitleOverride = title;
+  activeScoutMapTitleOverride = '';
   deerDrivePlan = Object.assign(blankDeerDrivePlan(), deerDrivePlan || {}, {
     driveName: title,
     windLabel: item.windLabel || item.savedSummary?.windLabel || '',
@@ -3449,6 +3546,8 @@ function hydrateScoutDriveFromCampItem(item = {}){
   drivers.forEach(addRoleMarkerRecord);
   standers.forEach(addRoleMarkerRecord);
   hydratedRoutes.forEach(route => { allLayers[route.id]=L.polyline(route.pts, polyStyle(route.type || 'route')).addTo(map).bindPopup(polyPopupHTML(route)); });
+  clearShowAllDriveOverlays();
+  addDriveNameMapLabel(title, geometry.points, 'active-drive-label');
   updatePrintableCampBranding({forceVisible:true});
   saveLocal();
   renderPanel();
@@ -3590,7 +3689,7 @@ async function openDeepLinkedScoutEdit(){
       if(match){
         return hydrateScoutDriveFromCampItem(match);
       }
-      activeScoutMapTitleOverride = getCurrentDriveDisplayName();
+      activeScoutMapTitleOverride = '';
       updatePrintableCampBranding({forceVisible:true});
       document.getElementById('status-bar').innerHTML = 'Drive link opened Scout, but that saved drive ID was not found in local camp data.';
       return false;
