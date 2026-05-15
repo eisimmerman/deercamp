@@ -857,6 +857,28 @@ let data = {};
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
 
+function hasCheckoutSuccessParam(){
+  try{
+    const params = new URLSearchParams(window.location.search || "");
+    const checkout = String(params.get("checkout") || params.get("checkout_status") || params.get("billing") || "").trim().toLowerCase();
+    const sessionId = String(params.get("session_id") || params.get("stripe_session_id") || "").trim();
+    return checkout === "success" || checkout === "complete" || checkout === "completed" || Boolean(sessionId);
+  }catch(error){ return false; }
+}
+function getCheckoutPlanKeyFromUrl(){
+  try{
+    const params = new URLSearchParams(window.location.search || "");
+    return String(params.get("planKey") || params.get("plan") || params.get("priceKey") || "dc_plus").trim() || "dc_plus";
+  }catch(error){ return "dc_plus"; }
+}
+function localCampSourceLooksDcPlusActive(source = {}){
+  const billing = source && typeof source.billing === "object" ? source.billing : {};
+  const tier = String(billing.tier || source.tier || source.membershipTier || "").trim().toLowerCase();
+  const status = String(billing.status || billing.subscriptionStatus || source.billingStatus || source.subscriptionStatus || "").trim().toLowerCase();
+  const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus","dcp","premium","deercamp_premium"].includes(tier);
+  return dcPlusTier && (["active","trialing"].includes(status) || Boolean(source.checkoutLastSyncedAt || billing.checkoutLastSyncedAt));
+}
+
 function markLocalDcPlusActiveFromCheckout(source = {}){
   try{
     if(!activeCampId) return;
@@ -912,6 +934,9 @@ const postHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp
 let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
 data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
+if(hasCheckoutSuccessParam()){
+  markLocalDcPlusActiveFromCheckout(Object.assign({}, data || {}, { planKey: getCheckoutPlanKeyFromUrl() }));
+}
 
 const campLoadSources = [
   preHydrateScoped,
@@ -1260,6 +1285,24 @@ function getCampBillingInfo(){
     try{
       const state = window.DeerCampBilling.getBillingState(data || {});
       const normalizedActiveUntilLabel = formatBillingDate(state.activeUntilDate || state.currentPeriodEnd || state.cancelAt) || state.activeUntilLabel || "";
+      if(!state.active && localCampSourceLooksDcPlusActive(data || {})){
+        const billing = data && typeof data.billing === "object" ? data.billing : {};
+        return {
+          tier: String(billing.tier || data.tier || data.membershipTier || "dc_plus").trim().toLowerCase() || "dc_plus",
+          status: String(billing.status || billing.subscriptionStatus || data.billingStatus || data.subscriptionStatus || "active").trim().toLowerCase() || "active",
+          dcPlusTier: true,
+          active: true,
+          scheduledCancel: false,
+          pastDue: false,
+          ended: false,
+          currentPeriodEnd: billing.currentPeriodEnd || data.currentPeriodEnd || null,
+          cancelAt: billing.cancelAt || data.cancelAt || null,
+          activeUntilDate: parseBillingDate(billing.currentPeriodEnd || data.currentPeriodEnd || billing.cancelAt || data.cancelAt),
+          activeUntilLabel: formatBillingDate(billing.currentPeriodEnd || data.currentPeriodEnd || billing.cancelAt || data.cancelAt),
+          stripeSubscriptionId: String(billing.stripeSubscriptionId || billing.subscriptionId || "").trim(),
+          effectiveTier: "dc_plus"
+        };
+      }
       return {
         tier: state.tier,
         status: state.status,

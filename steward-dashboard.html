@@ -1265,6 +1265,52 @@
     const activeCampId = inferredCampId || "ourdeercamp";
     localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 
+    function hasDashboardCheckoutSuccessParam(){
+      try{
+        const params = new URLSearchParams(window.location.search || "");
+        const checkout = String(params.get("checkout") || params.get("checkout_status") || params.get("billing") || "").trim().toLowerCase();
+        const sessionId = String(params.get("session_id") || params.get("stripe_session_id") || "").trim();
+        return checkout === "success" || checkout === "complete" || checkout === "completed" || Boolean(sessionId);
+      }catch(error){ return false; }
+    }
+    function getDashboardCheckoutPlanKey(){
+      try{
+        const params = new URLSearchParams(window.location.search || "");
+        return String(params.get("planKey") || params.get("plan") || params.get("priceKey") || "dc_plus").trim() || "dc_plus";
+      }catch(error){ return "dc_plus"; }
+    }
+    function dashboardSourceLooksDcPlusActive(source = {}){
+      const billing = source && typeof source.billing === "object" ? source.billing : {};
+      const tier = String(billing.tier || source.tier || source.membershipTier || "").trim().toLowerCase();
+      const status = String(billing.status || billing.subscriptionStatus || source.billingStatus || source.subscriptionStatus || "").trim().toLowerCase();
+      const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus","dcp","premium","deercamp_premium"].includes(tier);
+      return dcPlusTier && (["active","trialing"].includes(status) || Boolean(source.checkoutLastSyncedAt || billing.checkoutLastSyncedAt));
+    }
+    function markDashboardLocalDcPlusActiveFromCheckout(source = {}){
+      try{
+        const now = new Date().toISOString();
+        const billingPatch = {
+          tier: "dc_plus",
+          membershipTier: "dc_plus",
+          billingStatus: "active",
+          subscriptionStatus: "active",
+          checkoutLastSyncedAt: now,
+          billing: Object.assign({}, source.billing || {}, {
+            tier: "dc_plus",
+            status: "active",
+            subscriptionStatus: "active",
+            planKey: source.planKey || source.billing?.planKey || getDashboardCheckoutPlanKey()
+          })
+        };
+        [CAMP_DATA_KEY, campScopeKey(activeCampId,"campData"), campScopeKey(activeCampId,"profileData"), campScopeKey(activeCampId,"dashboardSlim"), DASHBOARD_SLIM_KEY].filter(Boolean).forEach(key=>{
+          const existing = safeParse(localStorage.getItem(key), {});
+          const merged = Object.assign({}, existing || {}, source || {}, billingPatch, { campId: activeCampId });
+          merged.billing = Object.assign({}, existing.billing || {}, source.billing || {}, billingPatch.billing || {});
+          localStorage.setItem(key, JSON.stringify(merged));
+        });
+      }catch(error){ console.warn("Could not cache dashboard checkout billing status locally.", error); }
+    }
+
     const scopedCampDataKey = campScopeKey(activeCampId, "campData");
     const scopedDashboardKey = campScopeKey(activeCampId, "dashboardSlim");
     const scopedProfileDataKey = campScopeKey(activeCampId, "profileData");
@@ -1278,6 +1324,9 @@
 
     const campData = Object.keys(scopedCampData).length ? scopedCampData : (useGenericCampData ? genericCampData : {});
     const savedDashboard = Object.keys(scopedDashboard).length ? scopedDashboard : (useGenericDashboard ? genericDashboard : {});
+    if(hasDashboardCheckoutSuccessParam()){
+      markDashboardLocalDcPlusActiveFromCheckout(Object.assign({}, campData || {}, savedDashboard || {}, { planKey: getDashboardCheckoutPlanKey() }));
+    }
 
     const defaultSections = {
       campfeed: true,
@@ -2924,7 +2973,10 @@
     function getDashboardBillingSource(){
       try{
         const scoped = safeParse(localStorage.getItem(scopedCampDataKey), {});
-        return Object.assign({}, campData || {}, scoped || {});
+        const profile = safeParse(localStorage.getItem(scopedProfileDataKey), {});
+        const scopedDashboardLatest = safeParse(localStorage.getItem(scopedDashboardKey), {});
+        const genericDashboardLatest = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
+        return Object.assign({}, campData || {}, savedDashboard || {}, genericDashboardLatest || {}, scopedDashboardLatest || {}, profile || {}, scoped || {});
       }catch(error){ return campData || {}; }
     }
     function formatDashboardTwoDigitDate(value){
@@ -2944,8 +2996,22 @@
     function getDashboardTierState(){
       try{
         if(window.DeerCampBilling && typeof window.DeerCampBilling.getBillingState === 'function') {
-          const state = window.DeerCampBilling.getBillingState(getDashboardBillingSource());
+          const source = getDashboardBillingSource();
+          const state = window.DeerCampBilling.getBillingState(source);
           const normalizedActiveUntilLabel = formatDashboardTwoDigitDate(state.activeUntilDate || state.currentPeriodEnd || state.cancelAt) || state.activeUntilLabel || '';
+          if(!state.active && dashboardSourceLooksDcPlusActive(source)){
+            return Object.assign({}, state, {
+              tier: 'dc_plus',
+              effectiveTier: 'dc_plus',
+              status: 'active',
+              dcPlusTier: true,
+              active: true,
+              scheduledCancel: false,
+              pastDue: false,
+              ended: false,
+              activeUntilLabel: normalizedActiveUntilLabel
+            });
+          }
           return Object.assign({}, state, { activeUntilLabel: normalizedActiveUntilLabel });
         }
       }catch(error){}
@@ -2954,10 +3020,13 @@
     function dashboardHasDcPlus(){
       try{
         const source = getDashboardBillingSource();
-        if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') return window.DeerCampBilling.canUseFeature('scout_elite', source);
-        return window.DeerCampBilling ? window.DeerCampBilling.hasDcPlus(source) : false;
+        if(window.DeerCampBilling && typeof window.DeerCampBilling.canUseFeature === 'function') {
+          const helperAllows = window.DeerCampBilling.canUseFeature('scout_elite', source);
+          return Boolean(helperAllows || dashboardSourceLooksDcPlusActive(source));
+        }
+        return window.DeerCampBilling ? Boolean(window.DeerCampBilling.hasDcPlus(source) || dashboardSourceLooksDcPlusActive(source)) : dashboardSourceLooksDcPlusActive(source);
       }
-      catch(error){ return false; }
+      catch(error){ return dashboardSourceLooksDcPlusActive(getDashboardBillingSource()); }
     }
 
 
@@ -3177,7 +3246,13 @@
           if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
           status.textContent='Opening secure Stripe checkout...';
           status.classList.remove('error');
-          await window.DeerCampBilling.startCheckout({campId:state.campId, planKey, email:state.stewardEmail||''});
+          await window.DeerCampBilling.startCheckout({
+            campId:state.campId,
+            planKey,
+            email:state.stewardEmail||'',
+            successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(state.campId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+            cancelUrl:window.location.href
+          });
         }catch(error){
           console.error('Dashboard billing checkout failed', error);
           status.textContent=error?.message || 'Could not start checkout.';
