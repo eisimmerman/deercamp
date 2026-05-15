@@ -1500,10 +1500,65 @@ function renderCampBillingButton(){
   try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role !== 'member'); }catch(error){}
   renderBillingNotice(billingInfo);
 }
+function ensureCampBillingChoiceStyles(){
+  if(document.getElementById('campBillingChoiceStyles')) return;
+  const style=document.createElement('style');
+  style.id='campBillingChoiceStyles';
+  style.textContent=`.camp-billing-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.36);backdrop-filter:blur(2px);z-index:3000}.camp-billing-modal-backdrop.open{display:block}.camp-billing-modal{display:none;position:fixed;inset:0;z-index:3001;align-items:center;justify-content:center;padding:18px}.camp-billing-modal.open{display:flex}.camp-billing-card{position:relative;width:min(760px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;border-radius:26px;background:#f7f0e4;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:22px;border:1px solid rgba(69,42,22,.12)}.camp-billing-card h2{margin:0 48px 8px 0;color:#452a16}.camp-billing-card p{margin:0;color:#6b5644;line-height:1.55}.camp-billing-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(69,42,22,.08);font-size:1.3rem;font-weight:900;cursor:pointer}.camp-billing-plans{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.camp-billing-plan{display:grid;gap:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.62);border:1px solid rgba(69,42,22,.10)}.camp-billing-plan.featured{border-color:rgba(177,121,45,.55);box-shadow:0 8px 26px rgba(177,121,45,.14)}.camp-billing-price{font-size:2rem;font-weight:900;color:#452a16}.camp-billing-price small{font-size:.9rem;color:#6b5644}.camp-billing-status{margin-top:12px;color:#6b5644;font-weight:800}.camp-billing-status.error{color:#8b2d1d}@media(max-width:720px){.camp-billing-plans{grid-template-columns:1fr}.camp-billing-plan .btn{width:100%}}`;
+  document.head.appendChild(style);
+}
+function ensureCampBillingChoiceModal(){
+  ensureCampBillingChoiceStyles();
+  if(document.getElementById('campBillingChoiceModal')) return;
+  const backdrop=document.createElement('div');
+  backdrop.id='campBillingChoiceBackdrop';
+  backdrop.className='camp-billing-modal-backdrop';
+  const modal=document.createElement('div');
+  modal.id='campBillingChoiceModal';
+  modal.className='camp-billing-modal';
+  modal.innerHTML=`<div class="camp-billing-card"><button class="camp-billing-close" id="campBillingChoiceClose" type="button">×</button><h2>Unlock DeerCamp Plus</h2><p>Choose monthly or annual DC+. Your camp unlocks Scout Elite planning tools, Stand Builder, Drive Builder, show-all maps, saved stand/drive plans, and printable camp maps.</p><div class="camp-billing-plans"><div class="camp-billing-plan"><h3>DC+ Monthly</h3><div class="camp-billing-price">$9.99 <small>/ month</small></div><button class="btn btn-primary" id="campBillingMonthly" type="button">Start Monthly</button></div><div class="camp-billing-plan featured"><h3>DC+ Annual</h3><div class="camp-billing-price">$79 <small>/ year</small></div><button class="btn btn-primary" id="campBillingAnnual" type="button">Start Annual</button></div></div><div id="campBillingChoiceStatus" class="camp-billing-status"></div></div>`;
+  document.body.appendChild(backdrop);
+  document.body.appendChild(modal);
+  const close=()=>{backdrop.classList.remove('open'); modal.classList.remove('open');};
+  backdrop.addEventListener('click', close);
+  document.getElementById('campBillingChoiceClose')?.addEventListener('click', close);
+  document.getElementById('campBillingMonthly')?.addEventListener('click',()=>startCampBillingCheckout('dcPlusMonthly'));
+  document.getElementById('campBillingAnnual')?.addEventListener('click',()=>startCampBillingCheckout('dcPlusAnnual'));
+}
+function openCampBillingChoiceModal(){
+  ensureCampBillingChoiceModal();
+  const status=document.getElementById('campBillingChoiceStatus');
+  if(status){ status.textContent=''; status.classList.remove('error'); }
+  document.getElementById('campBillingChoiceBackdrop')?.classList.add('open');
+  document.getElementById('campBillingChoiceModal')?.classList.add('open');
+}
+async function startCampBillingCheckout(planKey){
+  const status=document.getElementById('campBillingChoiceStatus');
+  try{
+    if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
+    if(status){ status.textContent='Opening secure Stripe checkout...'; status.classList.remove('error'); }
+    await window.DeerCampBilling.startCheckout({
+      campId:activeCampId,
+      planKey,
+      email:String(data?.stewardEmail || data?.campStewardEmail || '').trim(),
+      successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+      cancelUrl:window.location.href
+    });
+  }catch(error){
+    console.warn('Camp billing checkout failed.', error);
+    if(status){ status.textContent=error?.message || 'Could not start checkout.'; status.classList.add('error'); }
+    else{ try{showToast(error?.message || 'Could not start checkout.');}catch(toastError){} }
+  }
+}
 async function handleCampBillingClick(event){
   if(getCurrentSecurityRole() === 'member'){ try{showToast('Members can view camp content, comment on CampFeed, and add calendar events. Only the Steward manages DC+.');}catch(error){} return; }
   const btn=(event && event.currentTarget) || document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn') || document.getElementById('mobileBillingStickyBtn');
   if(!btn) return;
+  const billingInfo=getCampBillingInfo();
+  if(!(billingInfo.active || billingInfo.pastDue)){
+    openCampBillingChoiceModal();
+    return;
+  }
   const original=btn.textContent;
   if(!window.DeerCampBilling){
     btn.textContent='Billing unavailable';
@@ -1512,13 +1567,8 @@ async function handleCampBillingClick(event){
   }
   btn.disabled=true;
   try{
-    if(getCampBillingInfo().active || getCampBillingInfo().pastDue){
-      btn.textContent='Opening billing...';
-      await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
-    }else{
-      btn.textContent='Opening checkout...';
-      await window.DeerCampBilling.startCheckout({campId:activeCampId, planKey:'dcPlusMonthly', successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success&planKey=dcPlusMonthly`, cancelUrl:window.location.href});
-    }
+    btn.textContent='Opening billing...';
+    await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
   }catch(error){
     console.warn('Camp billing action failed.', error);
     btn.textContent=error?.message || 'Billing unavailable';
