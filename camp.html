@@ -2853,9 +2853,16 @@ function hasScoutMapData(type, item = {}){
     return Number.isFinite(lat) && Number.isFinite(lng);
   }
   const source = String(item.source || "").toLowerCase();
-  if(source.includes("scout")) return true;
-  const geometryArrays = [item.routes, item.routePaths, item.driveRoutes, item.accessRoutes, item.boundaryPoints, item.points, item.markers].filter(Array.isArray);
-  return geometryArrays.some(list => list.length > 0) || Boolean(item.mapState || item.geometry || item.scoutMapData);
+  const tags = Array.isArray(item.tags) ? item.tags.join(" ").toLowerCase() : "";
+  if(source.includes("scout") || tags.includes("scout")) return true;
+  const summary = item && item.savedSummary && typeof item.savedSummary === "object" ? item.savedSummary : {};
+  const geometry = item.driveGeometry || item.mapGeometry || item.scoutGeometry || summary.driveGeometry || summary.mapGeometry || {};
+  const geometryArrays = [
+    item.routes, item.routePaths, item.driveRoutes, item.accessRoutes, item.boundaryPoints, item.points, item.markers,
+    geometry.routes, geometry.drivers, geometry.standers,
+    item.routeSummaries, summary.routeSummaries
+  ].filter(Array.isArray);
+  return geometryArrays.some(list => list.length > 0) || Boolean(item.mapState || item.geometry || item.scoutMapData || item.driveGeometry || item.mapGeometry || item.scoutGeometry || summary.driveGeometry || summary.mapGeometry);
 }
 function canOpenScoutForDeerItem(type, item = {}){
   return isCurrentSteward() && hasScoutMapData(type, item);
