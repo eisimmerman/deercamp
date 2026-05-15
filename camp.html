@@ -817,52 +817,6 @@ function getCampIdFromUrl(){try{return String(new URLSearchParams(window.locatio
 function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?`${CAMP_SCOPE_PREFIX}${c}.${suffix}`:""}
 function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
-async function hydrateBillingStateFromCloud(campId, options = {}){
-  const cleanCampId = String(campId || "").trim();
-  if (!cleanCampId || !window.DeerCampCloud) return null;
-  try {
-    const cloud = window.DeerCampBilling && typeof window.DeerCampBilling.hydrateBillingForCamp === "function"
-      ? await window.DeerCampBilling.hydrateBillingForCamp(cleanCampId)
-      : await window.DeerCampCloud.hydrateCampToLocal(cleanCampId);
-    if (cloud && typeof cloud === "object") {
-      data = Object.assign({}, data || {}, cloud, { campId: cleanCampId });
-      if (cloud.billing && typeof cloud.billing === "object") data.billing = Object.assign({}, data.billing || {}, cloud.billing);
-      try {
-        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(data));
-        localStorage.setItem(campScopeKey(cleanCampId, "campData"), JSON.stringify(data));
-      } catch(error) {}
-    }
-    return cloud || null;
-  } catch (error) {
-    console.warn("Billing hydration skipped.", error);
-    return null;
-  }
-}
-async function handleCheckoutReturnHydration(){
-  try {
-    const params = new URLSearchParams(window.location.search || "");
-    const checkoutState = String(params.get("checkout") || params.get("billing") || "").toLowerCase();
-    if (checkoutState !== "success" && checkoutState !== "returned") return;
-    const notice = document.getElementById("billingNotice");
-    if (notice) {
-      notice.hidden = false;
-      notice.classList.remove("is-error", "is-warning");
-      notice.textContent = "Refreshing your DeerCamp Plus access...";
-    }
-    await hydrateBillingStateFromCloud(activeCampId, { reason: checkoutState });
-    try { renderBillingControls(); } catch(error) {}
-    try { renderScoutControls(); } catch(error) {}
-    try { renderMenu(); } catch(error) {}
-    if (notice) {
-      const plus = window.DeerCampBilling && window.DeerCampBilling.hasDcPlus(data || {});
-      notice.textContent = plus ? "DC+ is active for this camp." : "Checkout completed. If DC+ does not appear yet, refresh once more in a few seconds.";
-      notice.classList.toggle("is-warning", !plus);
-    }
-  } catch (error) {
-    console.warn("Checkout return hydration failed.", error);
-  }
-}
-
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
@@ -903,6 +857,44 @@ let data = {};
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
 
+function markLocalDcPlusActiveFromCheckout(source = {}){
+  try{
+    if(!activeCampId) return;
+    const now = new Date().toISOString();
+    const billingPatch = {
+      tier: "dc_plus",
+      membershipTier: "dc_plus",
+      billingStatus: "active",
+      subscriptionStatus: "active",
+      checkoutLastSyncedAt: now,
+      billing: Object.assign({}, source.billing || {}, {
+        tier: "dc_plus",
+        status: "active",
+        subscriptionStatus: "active",
+        planKey: source.planKey || source.billing?.planKey || source.priceKey || source.billing?.priceKey || "dc_plus"
+      })
+    };
+    data = Object.assign({}, data || {}, source || {}, billingPatch, { campId: activeCampId });
+    [CAMP_DATA_KEY, campScopeKey(activeCampId,"campData"), campScopeKey(activeCampId,"profileData")].filter(Boolean).forEach(key=>{
+      const existing = safeParseJson(localStorage.getItem(key), {});
+      const merged = Object.assign({}, existing || {}, data || {}, billingPatch, { campId: activeCampId });
+      merged.billing = Object.assign({}, existing.billing || {}, data.billing || {}, billingPatch.billing || {});
+      localStorage.setItem(key, JSON.stringify(merged));
+    });
+    [campScopeKey(activeCampId,"dashboardSlim"), "deercamp.stewardDashboardSlim", "deerCampStewardDashboard"].filter(Boolean).forEach(key=>{
+      const existing = safeParseJson(localStorage.getItem(key), {});
+      const merged = Object.assign({}, existing || {}, billingPatch, { campId: activeCampId });
+      merged.billing = Object.assign({}, existing.billing || {}, billingPatch.billing || {});
+      localStorage.setItem(key, JSON.stringify(merged));
+    });
+  }catch(error){ console.warn("Could not cache checkout billing status locally.", error); }
+}
+
+
+
+
+
+
 (async function(){
 localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
 const preHydrateLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY), {});
@@ -911,7 +903,6 @@ const preHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(acti
 const preHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
 const preHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
 await hydrateCampFromCloud(activeCampId);
-await hydrateBillingStateFromCloud(activeCampId, { reason: "page-load" });
 
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campData")), {});
@@ -1406,6 +1397,7 @@ function renderCampBillingButton(){
   if(!buttons.length) return;
   const billingInfo=getCampBillingInfo();
   const isPlus=billingInfo.active;
+  if(isPlus) markLocalDcPlusActiveFromCheckout(data || {});
   const role = getCurrentSecurityRole();
   const label=getCampBillingButtonLabel(billingInfo);
   buttons.forEach(btn=>{
@@ -1429,79 +1421,6 @@ function renderCampBillingButton(){
   try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role !== 'member'); }catch(error){}
   renderBillingNotice(billingInfo);
 }
-
-function ensureCampBillingPlanModal(){
-  if(document.getElementById('campBillingPlanModal')) return;
-  const style=document.createElement('style');
-  style.id='campBillingPlanStyles';
-  style.textContent=`.camp-billing-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.36);backdrop-filter:blur(2px);z-index:3000}.camp-billing-modal-backdrop.open{display:block}.camp-billing-modal{display:none;position:fixed;inset:0;z-index:3001;align-items:center;justify-content:center;padding:18px}.camp-billing-modal.open{display:flex}.camp-billing-card{position:relative;width:min(760px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;border-radius:26px;background:#f7f0e4;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:22px;border:1px solid rgba(69,42,22,.12)}.camp-billing-card h2{margin:0 48px 8px 0;color:#452a16}.camp-billing-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(69,42,22,.08);font-size:1.3rem;font-weight:900;cursor:pointer}.camp-billing-plans{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.camp-billing-plan{display:grid;gap:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.62);border:1px solid rgba(69,42,22,.10)}.camp-billing-plan.featured{border-color:rgba(177,121,45,.55);box-shadow:0 8px 26px rgba(177,121,45,.14)}.camp-billing-price{font-size:2rem;font-weight:900;color:#452a16}.camp-billing-price small{font-size:.9rem;color:#6b5644}.camp-billing-status{margin-top:12px;color:#6b5644;font-weight:800}.camp-billing-status.error{color:#8b2d1d}@media(max-width:720px){.camp-billing-plans{grid-template-columns:1fr}.camp-billing-modal{align-items:flex-end}.camp-billing-card{border-radius:24px 24px 0 0}}`;
-  document.head.appendChild(style);
-
-  const backdrop=document.createElement('div');
-  backdrop.id='campBillingPlanBackdrop';
-  backdrop.className='camp-billing-modal-backdrop';
-
-  const modal=document.createElement('div');
-  modal.id='campBillingPlanModal';
-  modal.className='camp-billing-modal';
-  modal.setAttribute('aria-hidden','true');
-  modal.innerHTML=`<div class="camp-billing-card" role="dialog" aria-modal="true" aria-label="Choose DeerCamp Plus plan">
-    <button class="camp-billing-close" id="campBillingPlanClose" type="button" aria-label="Close billing options">×</button>
-    <h2>Choose DeerCamp Plus</h2>
-    <p>Unlock Scout Elite, Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p>
-    <div class="camp-billing-plans">
-      <div class="camp-billing-plan">
-        <h3>DC+ Monthly</h3>
-        <div class="camp-billing-price">$9.99 <small>/ month</small></div>
-        <button class="btn" id="campBillingMonthly" type="button">Start Monthly</button>
-      </div>
-      <div class="camp-billing-plan featured">
-        <h3>DC+ Annual</h3>
-        <div class="camp-billing-price">$79 <small>/ year</small></div>
-        <button class="btn" id="campBillingAnnual" type="button">Start Annual</button>
-      </div>
-    </div>
-    <div id="campBillingPlanStatus" class="camp-billing-status" aria-live="polite"></div>
-  </div>`;
-  document.body.appendChild(backdrop);
-  document.body.appendChild(modal);
-
-  const close=()=>{
-    backdrop.classList.remove('open');
-    modal.classList.remove('open');
-    modal.setAttribute('aria-hidden','true');
-  };
-  backdrop.addEventListener('click', close);
-  document.getElementById('campBillingPlanClose')?.addEventListener('click', close);
-
-  const start=async(planKey)=>{
-    const status=document.getElementById('campBillingPlanStatus');
-    try{
-      if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
-      if(status){ status.textContent='Opening secure Stripe checkout...'; status.classList.remove('error'); }
-      await window.DeerCampBilling.startCheckout({
-        campId:activeCampId,
-        planKey,
-        successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success`,
-        cancelUrl:window.location.href
-      });
-    }catch(error){
-      console.error('Camp billing checkout failed', error);
-      if(status){ status.textContent=error?.message || 'Could not start checkout.'; status.classList.add('error'); }
-    }
-  };
-  document.getElementById('campBillingMonthly')?.addEventListener('click',()=>start('dcPlusMonthly'));
-  document.getElementById('campBillingAnnual')?.addEventListener('click',()=>start('dcPlusAnnual'));
-}
-function openCampBillingPlanModal(){
-  ensureCampBillingPlanModal();
-  const backdrop=document.getElementById('campBillingPlanBackdrop');
-  const modal=document.getElementById('campBillingPlanModal');
-  backdrop?.classList.add('open');
-  modal?.classList.add('open');
-  modal?.setAttribute('aria-hidden','false');
-}
-
 async function handleCampBillingClick(event){
   if(getCurrentSecurityRole() === 'member'){ try{showToast('Members can view camp content, comment on CampFeed, and add calendar events. Only the Steward manages DC+.');}catch(error){} return; }
   const btn=(event && event.currentTarget) || document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn') || document.getElementById('mobileBillingStickyBtn');
@@ -1518,11 +1437,8 @@ async function handleCampBillingClick(event){
       btn.textContent='Opening billing...';
       await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
     }else{
-      btn.textContent='Choose plan...';
-      openCampBillingPlanModal();
-      btn.textContent=original;
-      btn.disabled=false;
-      return;
+      btn.textContent='Opening checkout...';
+      await window.DeerCampBilling.startCheckout({campId:activeCampId, planKey:'dcPlusMonthly', successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success`, cancelUrl:window.location.href});
     }
   }catch(error){
     console.warn('Camp billing action failed.', error);
@@ -1532,7 +1448,13 @@ async function handleCampBillingClick(event){
   }
   btn.disabled=false;
 }
-function buildStewardDashboardUrl(){return buildCampScopedUrl("steward-dashboard.html")}
+function buildStewardDashboardUrl(){
+  const u=new URL("steward-dashboard.html", window.location.href);
+  if(activeCampId) u.searchParams.set("campId", activeCampId);
+  u.searchParams.set("role", "steward");
+  u.searchParams.set("view", "steward");
+  return `${u.pathname}?${u.searchParams.toString()}`;
+}
 function hasStewardDashboardAccess(){
   if(shouldUseMemberLockedView()) return false;
   try{
@@ -3594,8 +3516,6 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
 ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
-
-try { await handleCheckoutReturnHydration(); } catch(error) { console.warn('Checkout hydration final pass skipped.', error); }
 })();
 </script>
 </body>
