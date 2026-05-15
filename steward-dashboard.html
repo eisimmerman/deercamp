@@ -3109,19 +3109,39 @@
         const status=document.getElementById('dashboardBillingStatus');
         try{
           if(!window.DeerCampBilling || typeof window.DeerCampBilling.startCheckout!=='function') throw new Error('Billing is not loaded. Refresh and try again.');
+          const cleanPlanKey = String(planKey || '').trim();
+          const normalizedPlanKey = cleanPlanKey === 'monthly' ? 'dcPlusMonthly' : (cleanPlanKey === 'annual' ? 'dcPlusAnnual' : cleanPlanKey);
+          const origin = window.location.origin;
           status.textContent='Opening secure Stripe checkout...';
           status.classList.remove('error');
-          await window.DeerCampBilling.startCheckout({campId:state.campId, planKey, email:state.stewardEmail||''});
+          await window.DeerCampBilling.startCheckout({
+            campId:state.campId,
+            planKey:normalizedPlanKey,
+            email:state.stewardEmail||'',
+            successUrl:`${origin}/camp.html?campId=${encodeURIComponent(state.campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+            cancelUrl:`${origin}/steward-dashboard.html?campId=${encodeURIComponent(state.campId)}&role=steward&view=steward`
+          });
         }catch(error){
           console.error('Dashboard billing checkout failed', error);
-          status.textContent=error?.message || 'Could not start checkout.';
-          status.classList.add('error');
+          if(status){
+            status.textContent=error?.message || 'Could not start checkout.';
+            status.classList.add('error');
+          }
+          showToast('Could not open Stripe checkout. Try View Live Camp > Upgrade to DC+.');
         }
       };
       document.getElementById('dashboardBillingMonthly')?.addEventListener('click',()=>start('dcPlusMonthly'));
       document.getElementById('dashboardBillingAnnual')?.addEventListener('click',()=>start('dcPlusAnnual'));
     }
-    function openDashboardBillingModal(){ ensureDashboardBillingModal(); document.getElementById('dashboardBillingBackdrop')?.classList.add('open'); document.getElementById('dashboardBillingModal')?.classList.add('open'); }
+    function openDashboardBillingModal(){
+      ensureDashboardBillingModal();
+      const backdrop = document.getElementById('dashboardBillingBackdrop');
+      const modal = document.getElementById('dashboardBillingModal');
+      if (backdrop) backdrop.classList.add('open');
+      if (modal) modal.classList.add('open');
+      setTimeout(() => document.getElementById('dashboardBillingMonthly')?.focus?.(), 50);
+    }
+    window.openDashboardBillingModal = openDashboardBillingModal;
     async function openDashboardBillingPortal(){
       try{ await window.DeerCampBilling.manageBilling({campId:state.campId, returnUrl:window.location.href}); }
       catch(error){ openDashboardBillingModal(); const status=document.getElementById('dashboardBillingStatus'); if(status){ status.textContent=error?.message||'Billing portal is available after checkout.'; status.classList.add('error'); } }
@@ -3228,6 +3248,7 @@
           syncCampData();
           renderPreview();
           renderDashboardBillingControls();
+          bindDashboardUpgradeButtons();
           renderMembers();
           renderSections();
           updateInviteButton();
@@ -3237,6 +3258,45 @@
       return false;
     }
 
+
+    function bindDashboardUpgradeButtons(){
+      const handleUpgradeClick = (event) => {
+        const target = event.target && event.target.closest ? event.target.closest('#tierStatusPrimaryBtn,#dashboardBillingBtn') : null;
+        if (!target) return;
+        const plus = dashboardHasDcPlus();
+        event.preventDefault();
+        event.stopPropagation();
+        if (plus) {
+          openDashboardBillingPortal();
+        } else {
+          openDashboardBillingModal();
+        }
+      };
+      document.removeEventListener('click', window.__deerCampDashboardUpgradeClickHandler || (()=>{}), true);
+      window.__deerCampDashboardUpgradeClickHandler = handleUpgradeClick;
+      document.addEventListener('click', handleUpgradeClick, true);
+
+      const tierBtn = document.getElementById('tierStatusPrimaryBtn');
+      if (tierBtn) {
+        tierBtn.type = 'button';
+        tierBtn.onclick = (event) => {
+          event.preventDefault();
+          if (dashboardHasDcPlus()) openDashboardBillingPortal();
+          else openDashboardBillingModal();
+        };
+      }
+
+      const headerBtn = document.getElementById('dashboardBillingBtn');
+      if (headerBtn) {
+        headerBtn.type = 'button';
+        headerBtn.onclick = (event) => {
+          event.preventDefault();
+          if (dashboardHasDcPlus()) openDashboardBillingPortal();
+          else openDashboardBillingModal();
+        };
+      }
+    }
+
     syncCampData();
     renderMembers();
     resetMemberForm();
@@ -3244,6 +3304,7 @@
     renderSections();
     updateInviteButton();
     try { renderDashboardBillingControls(); } catch (error) { console.warn("Dashboard billing controls skipped.", error); }
+    try { bindDashboardUpgradeButtons(); } catch (error) { console.warn("Dashboard upgrade buttons skipped.", error); }
     try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) { console.warn("Dashboard inventory counter skipped.", error); }
     maybeOpenRequestedProfileEditor();
     hydrateDashboardFromCloud().then(() => {
@@ -3251,6 +3312,7 @@
       syncCampData();
       renderMembers();
       resetMemberForm();
+      try { bindDashboardUpgradeButtons(); } catch (error) {}
       maybeOpenRequestedProfileEditor();
     });
   </script>
