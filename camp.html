@@ -909,7 +909,38 @@ function markLocalDcPlusActiveFromCheckout(source = {}){
       merged.billing = Object.assign({}, existing.billing || {}, billingPatch.billing || {});
       localStorage.setItem(key, JSON.stringify(merged));
     });
+    localStorage.setItem(campScopeKey(activeCampId,"billingOverride"), JSON.stringify(Object.assign({}, billingPatch, { campId: activeCampId })));
   }catch(error){ console.warn("Could not cache checkout billing status locally.", error); }
+}
+
+function applyLocalDcPlusBillingOverride(target = {}, source = {}){
+  if(!target || typeof target !== "object") return target;
+  const billing = source && typeof source.billing === "object" ? source.billing : {};
+  target.tier = "dc_plus";
+  target.membershipTier = "dc_plus";
+  target.billingStatus = "active";
+  target.subscriptionStatus = "active";
+  target.checkoutLastSyncedAt = source.checkoutLastSyncedAt || billing.checkoutLastSyncedAt || target.checkoutLastSyncedAt || new Date().toISOString();
+  target.billing = Object.assign({}, target.billing || {}, billing || {}, {
+    tier: "dc_plus",
+    status: "active",
+    subscriptionStatus: "active",
+    checkoutLastSyncedAt: target.checkoutLastSyncedAt,
+    planKey: billing.planKey || source.planKey || target.billing?.planKey || "dc_plus"
+  });
+  return target;
+}
+function preserveLocalDcPlusBillingState(target = {}, sources = []){
+  try{
+    const override = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
+    const activeSource = [override].concat(Array.isArray(sources) ? sources : [], [target]).find(localCampSourceLooksDcPlusActive);
+    if(activeSource){
+      applyLocalDcPlusBillingOverride(target, activeSource);
+      markLocalDcPlusActiveFromCheckout(Object.assign({}, target, activeSource));
+      return true;
+    }
+  }catch(error){}
+  return false;
 }
 
 
@@ -924,6 +955,7 @@ const preHydrateScoped = safeParseJson(localStorage.getItem(campScopeKey(activeC
 const preHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
 const preHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
 const preHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
+const preHydrateBillingOverride = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
 await hydrateCampFromCloud(activeCampId);
 
 let legacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
@@ -931,12 +963,14 @@ let scoped = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"campD
 const postHydrateProfileData = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"profileData")), {});
 const postHydrateDashboard = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"dashboardSlim")), {});
 const postHydrateGenericDashboard = safeParseJson(localStorage.getItem("deercamp.stewardDashboardSlim"), {});
+const postHydrateBillingOverride = safeParseJson(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
 let useGenericCampData = !Object.keys(scoped).length && (!legacy.campId || String(legacy.campId).trim() === activeCampId);
 data = Object.keys(scoped).length ? scoped : (useGenericCampData ? legacy : {});
 data.campId = activeCampId;
 if(hasCheckoutSuccessParam()){
   markLocalDcPlusActiveFromCheckout(Object.assign({}, data || {}, { planKey: getCheckoutPlanKeyFromUrl() }));
 }
+preserveLocalDcPlusBillingState(data, [preHydrateBillingOverride, postHydrateBillingOverride, preHydrateScoped, preHydrateLegacy, preHydrateProfileData, preHydrateDashboard, preHydrateGenericDashboard, scoped, legacy, postHydrateProfileData, postHydrateDashboard, postHydrateGenericDashboard]);
 
 const campLoadSources = [
   preHydrateScoped,
@@ -944,11 +978,13 @@ const campLoadSources = [
   preHydrateProfileData,
   preHydrateDashboard,
   preHydrateGenericDashboard,
+  preHydrateBillingOverride,
   scoped,
   legacy,
   postHydrateProfileData,
   postHydrateDashboard,
   postHydrateGenericDashboard,
+  postHydrateBillingOverride,
   data
 ];
 const preservedLoadDeerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], campLoadSources);
@@ -1481,7 +1517,7 @@ async function handleCampBillingClick(event){
       await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
     }else{
       btn.textContent='Opening checkout...';
-      await window.DeerCampBilling.startCheckout({campId:activeCampId, planKey:'dcPlusMonthly', successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success`, cancelUrl:window.location.href});
+      await window.DeerCampBilling.startCheckout({campId:activeCampId, planKey:'dcPlusMonthly', successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success&planKey=dcPlusMonthly`, cancelUrl:window.location.href});
     }
   }catch(error){
     console.warn('Camp billing action failed.', error);
@@ -3442,6 +3478,7 @@ async function pullLatestCampDataSilently(){
     const nextData = Object.keys(nextScoped).length ? nextScoped : nextLegacy;
     if(!nextData || typeof nextData !== "object") return;
 
+    preserveLocalDcPlusBillingState(nextData, [data]);
     const nextSnapshot = buildCampRefreshSnapshot(nextData);
     if(nextSnapshot === lastCampRefreshSnapshot) return;
 
@@ -3537,9 +3574,11 @@ try{
   if(window.DeerCampCloud && typeof DeerCampCloud.subscribeToCamp === "function") {
     DeerCampCloud.subscribeToCamp(activeCampId, payload => {
       if(!payload || typeof payload !== "object") return;
+      const nextPayload = Object.assign({}, payload);
+      preserveLocalDcPlusBillingState(nextPayload, [data]);
       try{
-        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(payload));
-        localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(payload));
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(nextPayload));
+        localStorage.setItem(campScopeKey(activeCampId, "campData"), JSON.stringify(nextPayload));
         localStorage.setItem(campScopeKey(activeCampId, "refreshTick"), String(Date.now()));
       }catch(error){
         console.warn("Realtime camp cache update skipped.", error);

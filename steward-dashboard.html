@@ -1308,7 +1308,38 @@
           merged.billing = Object.assign({}, existing.billing || {}, source.billing || {}, billingPatch.billing || {});
           localStorage.setItem(key, JSON.stringify(merged));
         });
+        localStorage.setItem(campScopeKey(activeCampId,"billingOverride"), JSON.stringify(Object.assign({}, billingPatch, { campId: activeCampId })));
       }catch(error){ console.warn("Could not cache dashboard checkout billing status locally.", error); }
+    }
+
+    function applyDashboardDcPlusBillingOverride(target = {}, source = {}){
+      if(!target || typeof target !== "object") return target;
+      const billing = source && typeof source.billing === "object" ? source.billing : {};
+      target.tier = "dc_plus";
+      target.membershipTier = "dc_plus";
+      target.billingStatus = "active";
+      target.subscriptionStatus = "active";
+      target.checkoutLastSyncedAt = source.checkoutLastSyncedAt || billing.checkoutLastSyncedAt || target.checkoutLastSyncedAt || new Date().toISOString();
+      target.billing = Object.assign({}, target.billing || {}, billing || {}, {
+        tier: "dc_plus",
+        status: "active",
+        subscriptionStatus: "active",
+        checkoutLastSyncedAt: target.checkoutLastSyncedAt,
+        planKey: billing.planKey || source.planKey || target.billing?.planKey || "dc_plus"
+      });
+      return target;
+    }
+    function preserveDashboardDcPlusBillingState(target = {}, sources = []){
+      try{
+        const override = safeParse(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
+        const activeSource = [override].concat(Array.isArray(sources) ? sources : [], [target]).find(dashboardSourceLooksDcPlusActive);
+        if(activeSource){
+          applyDashboardDcPlusBillingOverride(target, activeSource);
+          markDashboardLocalDcPlusActiveFromCheckout(Object.assign({}, target, activeSource));
+          return true;
+        }
+      }catch(error){}
+      return false;
     }
 
     const scopedCampDataKey = campScopeKey(activeCampId, "campData");
@@ -1318,15 +1349,17 @@
     const scopedCampData = safeParse(localStorage.getItem(scopedCampDataKey), {});
     const genericDashboard = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
     const scopedDashboard = safeParse(localStorage.getItem(scopedDashboardKey), {});
+const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
 
     const useGenericCampData = !Object.keys(scopedCampData).length && (!genericCampData.campId || String(genericCampData.campId).trim() === activeCampId);
     const useGenericDashboard = !Object.keys(scopedDashboard).length && (!genericDashboard.campId || String(genericDashboard.campId).trim() === activeCampId);
 
-    const campData = Object.keys(scopedCampData).length ? scopedCampData : (useGenericCampData ? genericCampData : {});
+    let campData = Object.keys(scopedCampData).length ? scopedCampData : (useGenericCampData ? genericCampData : {});
     const savedDashboard = Object.keys(scopedDashboard).length ? scopedDashboard : (useGenericDashboard ? genericDashboard : {});
     if(hasDashboardCheckoutSuccessParam()){
       markDashboardLocalDcPlusActiveFromCheckout(Object.assign({}, campData || {}, savedDashboard || {}, { planKey: getDashboardCheckoutPlanKey() }));
     }
+    preserveDashboardDcPlusBillingState(campData, [scopedBillingOverride, scopedCampData, genericCampData, scopedDashboard, genericDashboard, savedDashboard]);
 
     const defaultSections = {
       campfeed: true,
@@ -2976,7 +3009,10 @@
         const profile = safeParse(localStorage.getItem(scopedProfileDataKey), {});
         const scopedDashboardLatest = safeParse(localStorage.getItem(scopedDashboardKey), {});
         const genericDashboardLatest = safeParse(localStorage.getItem(DASHBOARD_SLIM_KEY), {});
-        return Object.assign({}, campData || {}, savedDashboard || {}, genericDashboardLatest || {}, scopedDashboardLatest || {}, profile || {}, scoped || {});
+        const billingOverride = safeParse(localStorage.getItem(campScopeKey(activeCampId,"billingOverride")), {});
+        const source = Object.assign({}, campData || {}, savedDashboard || {}, genericDashboardLatest || {}, scopedDashboardLatest || {}, profile || {}, scoped || {}, billingOverride || {});
+        preserveDashboardDcPlusBillingState(source, [campData, savedDashboard, genericDashboardLatest, scopedDashboardLatest, profile, scoped, billingOverride]);
+        return source;
       }catch(error){ return campData || {}; }
     }
     function formatDashboardTwoDigitDate(value){
