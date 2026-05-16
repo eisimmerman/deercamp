@@ -27,8 +27,8 @@ const ADMIN_NOTIFICATION_EMAIL = (0, params_1.defineSecret)("ADMIN_NOTIFICATION_
 const db = (0, firestore_1.getFirestore)();
 const bucket = (0, storage_1.getStorage)().bucket();
 
-const DC_PLUS_MONTHLY_PRICE_ID = "price_1TXd6SRcr1GduppU9Cf2Qtln";
-const DC_PLUS_ANNUAL_PRICE_ID = "price_1TXd6RRcr1GduppUgXKo2qk9";
+const DC_PLUS_MONTHLY_PRICE_ID = "price_1TRsjcDOIUbMFzLxNCO58x3n";
+const DC_PLUS_ANNUAL_PRICE_ID = "price_1TRsjcDOIUbMFzLxmw4bEOuM";
 const DC_PLUS_PRICE_IDS = new Set([DC_PLUS_MONTHLY_PRICE_ID, DC_PLUS_ANNUAL_PRICE_ID]);
 async function recordAdminSubscriptionNotification({ eventId, campId, campName, priceId }) {
     if (!eventId)
@@ -393,6 +393,13 @@ exports.stripeWebhook = (0, https_1.onRequest)({
     catch (error) {
         firebase_functions_1.logger.warn("Stripe webhook signature verification failed.", { error: error instanceof Error ? error.message : String(error) });
         return res.status(400).send("Webhook signature verification failed.");
+    }
+    if (!event.livemode) {
+        firebase_functions_1.logger.info("Ignoring non-live Stripe event.", {
+            eventId: String(event.id || ""),
+            type: event.type,
+        });
+        return res.status(200).send("Ignored test event.");
     }
     try {
         if (event.type === "checkout.session.completed") {
