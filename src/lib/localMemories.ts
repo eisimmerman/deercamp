@@ -20,6 +20,16 @@ export type LocalMemoryItem = {
   publishedAt?: number;
   publishError?: string;
   campId?: string;
+
+  // Cloud-generated metadata fields
+  transcript?: string;
+  transcriptPreview?: string;
+  transcriptionStatus?: "pending" | "complete" | "failed";
+  transcriptionError?: string;
+  generatedTitle?: string;
+  generatedCaption?: string;
+  titleSource?: "manual" | "generated" | "fallback";
+  captionSource?: "manual" | "generated" | "fallback";
 };
 
 const STORAGE_KEY = "deercamp.localMemories.v1";
@@ -29,6 +39,7 @@ function normalizeMemory(item: any): LocalMemoryItem {
   return {
     ...item,
     syncStatus: item?.syncStatus ?? "pending",
+    transcriptionStatus: item?.transcriptionStatus ?? undefined,
   };
 }
 
@@ -120,23 +131,23 @@ export async function markMemoryPublishing(id: string) {
 
 export async function markMemoryPublished(
   id: string,
-  payload: {
+  data: {
     feedDocId: string;
     campId?: string;
   }
 ) {
   await updateLocalMemory(id, {
     syncStatus: "synced",
-    feedDocId: payload.feedDocId,
-    campId: payload.campId,
+    feedDocId: data.feedDocId,
+    campId: data.campId,
     publishedAt: Date.now(),
     publishError: undefined,
   });
 }
 
-export async function markMemoryPublishFailed(id: string, error: string) {
+export async function markMemoryPublishFailed(id: string, message: string) {
   await updateLocalMemory(id, {
     syncStatus: "failed",
-    publishError: error,
+    publishError: String(message || "Publish failed.").trim() || "Publish failed.",
   });
 }

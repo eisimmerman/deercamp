@@ -11,7 +11,9 @@ export type PublishableMemory = {
   voiceUri?: string | null;
   title?: string | null;
   caption?: string | null;
+  details?: string | null;
   createdAt?: string | number | Date | null;
+  campId?: string | null;
 };
 
 function requireSignedInUser() {
@@ -114,6 +116,11 @@ async function uriToBlob(uri: string): Promise<Blob> {
   return await response.blob();
 }
 
+function trimOrFallback(value: string | null | undefined, fallback: string) {
+  const clean = String(value || "").trim();
+  return clean || fallback;
+}
+
 export async function publishMemoryToFeed(
   memory: PublishableMemory,
   options?: {
@@ -124,10 +131,18 @@ export async function publishMemoryToFeed(
 ) {
   const user = requireSignedInUser();
 
-  const campId = options?.campId || "ourdeercamp";
-  const defaultTitle = options?.defaultTitle || "Field Memory";
-  const defaultCaption =
-    options?.defaultCaption || "Captured in DeerCamp Field Mode.";
+  const campId = String(options?.campId || memory.campId || "ourdeercamp").trim() || "ourdeercamp";
+  const defaultTitle = trimOrFallback(options?.defaultTitle, "Field Memory");
+  const defaultCaption = trimOrFallback(
+    options?.defaultCaption || memory.details,
+    "Captured in DeerCamp Field Mode."
+  );
+
+  const manualTitle = String(memory.title || "").trim();
+  const manualCaption = String(memory.caption || "").trim();
+
+  const baseTitle = manualTitle || defaultTitle;
+  const baseCaption = manualCaption || defaultCaption;
 
   const imageUri = pickImageUri(memory);
   const audioUri = pickAudioUri(memory);
@@ -174,24 +189,38 @@ export async function publishMemoryToFeed(
     campId,
     authorId: user.uid,
     authorName: getCleanAuthorName(user),
-    title: memory.title?.trim() || defaultTitle,
-    caption: memory.caption?.trim() || defaultCaption,
+    title: baseTitle,
+    caption: baseCaption,
+    titleSource: manualTitle ? "manual" : "fallback",
+    captionSource: manualCaption ? "manual" : "fallback",
+    transcript: "",
+    transcriptPreview: "",
+    transcriptionStatus: "pending",
+    transcriptionError: "",
+    generatedTitle: "",
+    generatedCaption: "",
     imageUrl,
     audioUrl,
     imagePath,
     audioPath,
+    mediaType: "photo",
+    category: "field-note",
     published: true,
     source: "app",
     localMemoryId: memory.id,
     createdAt: serverTimestamp(),
+    clientCreatedAt:
+      typeof memory.createdAt === "number"
+        ? memory.createdAt
+        : Date.now(),
+    aiRequestedAt: serverTimestamp(),
   });
 
   return {
-    ok: true,
     feedDocId: docRef.id,
     imageUrl,
     audioUrl,
-    imagePath,
-    audioPath,
+    title: baseTitle,
+    caption: baseCaption,
   };
 }
