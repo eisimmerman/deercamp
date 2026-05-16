@@ -27,8 +27,8 @@ const ADMIN_NOTIFICATION_EMAIL = (0, params_1.defineSecret)("ADMIN_NOTIFICATION_
 const db = (0, firestore_1.getFirestore)();
 const bucket = (0, storage_1.getStorage)().bucket();
 
-const DC_PLUS_MONTHLY_PRICE_ID = "price_1TRsjcDOIUbMFzLxNCO58x3n";
-const DC_PLUS_ANNUAL_PRICE_ID = "price_1TRsjcDOIUbMFzLxmw4bEOuM";
+const DC_PLUS_MONTHLY_PRICE_ID = "price_1TXd6SRcr1GduppU9Cf2Qtln";
+const DC_PLUS_ANNUAL_PRICE_ID = "price_1TXd6RRcr1GduppUgXKo2qk9";
 const DC_PLUS_PRICE_IDS = new Set([DC_PLUS_MONTHLY_PRICE_ID, DC_PLUS_ANNUAL_PRICE_ID]);
 async function recordAdminSubscriptionNotification({ eventId, campId, campName, priceId }) {
     if (!eventId)
