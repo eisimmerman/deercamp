@@ -307,6 +307,11 @@
       }
     }
   </style>
+
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
+<script src="firebase-web.js"></script>
 </head>
 <body>
   <div class="page-shell">
@@ -320,14 +325,14 @@
           <p>Steward continuation</p>
         </div>
       </div>
-      <div id="emailStatusPill" class="status-pill">Camp created — finish setup next</div>
+      <div id="emailStatusPill" class="status-pill">Camp return link</div>
     </header>
 
     <section class="hero-panel">
       <div class="hero-copy">
         <span class="eyebrow">Your DeerCamp is ready for setup</span>
         <h2 id="welcomeHeadline">Welcome</h2>
-        <p id="heroMessage">Your camp has been created. Finish setup before viewing or sharing the camp page.</p>
+        <p id="heroMessage">Your camp has been created. If this camp is already live, DeerCamp will open it automatically. Otherwise, finish setup before viewing or sharing the camp page.</p>
         <div class="hero-actions">
           <a id="finishSetupBtn" class="btn btn-primary" href="steward-dashboard.html">Finish Setting Up Your Camp</a>
         </div>
@@ -481,6 +486,86 @@
       }
     }
 
+
+    function campHasLiveReturnSignal(campData = {}, dashboardData = {}) {
+      const dashboardSlim = campData && typeof campData.dashboardSlim === "object" ? campData.dashboardSlim : {};
+      const dashboardCamp = dashboardData && typeof dashboardData.camp === "object" ? dashboardData.camp : {};
+      const slimCamp = dashboardSlim && typeof dashboardSlim.camp === "object" ? dashboardSlim.camp : {};
+      const publishState = String(
+        campData.publishState || campData.visibility || dashboardCamp.publishState || slimCamp.publishState || ""
+      ).trim().toLowerCase();
+      if (publishState === "public" || campData.isPublic === true || dashboardCamp.isPublic === true || slimCamp.isPublic === true) return true;
+
+      const savedSignals = [
+        campData.profileUpdatedAt,
+        campData.stewardProfileUpdatedAt,
+        campData.lastDashboardSaveAt,
+        campData.dashboardSavedAt,
+        campData.lastSavedAt,
+        dashboardData.profileUpdatedAt,
+        dashboardData.dashboardSavedAt,
+        dashboardData.lastSavedAt,
+        dashboardSlim.profileUpdatedAt,
+        dashboardSlim.dashboardSavedAt,
+        dashboardSlim.lastSavedAt
+      ];
+      if (savedSignals.some(value => String(value || "").trim())) return true;
+
+      const liveArrays = [
+        campData.feedEntries,
+        campData.campPhotoGallery,
+        campData.contentSubmissions,
+        campData.calendarEvents,
+        campData.traditions,
+        campData.recipeObjects,
+        campData.deerDrivePosts,
+        campData.deerDrives,
+        campData.savedDeerDrives,
+        campData.scoutDeerDrives,
+        campData.deerStandPosts,
+        campData.deerStands,
+        campData.savedDeerStands,
+        campData.scoutDeerStands,
+        campData.stands
+      ];
+      if (liveArrays.some(list => Array.isArray(list) && list.filter(Boolean).length)) return true;
+
+      const activeProfiles = [campData.memberProfiles, campData.dashboardMembers, campData.dashboardPeople, dashboardData.members, dashboardData.people]
+        .filter(Array.isArray)
+        .flat()
+        .filter(person => {
+          const role = String(person?.role || "").trim().toLowerCase();
+          const status = String(person?.status || "").trim().toLowerCase();
+          return role !== "camp steward" && (status === "active" || status === "accepted" || person?.accepted === true);
+        });
+      return activeProfiles.length > 0;
+    }
+
+    function openLiveCampForReturningSteward(campId) {
+      const cleanCampId = String(campId || "").trim();
+      if (!cleanCampId) return false;
+      forceStewardSession(cleanCampId);
+      const liveCampUrl = buildCampUrl("camp.html", cleanCampId, { role: "steward", view: "steward" });
+      window.location.replace(liveCampUrl);
+      return true;
+    }
+
+    async function redirectIfCloudCampAlreadyLive(campId) {
+      const cleanCampId = String(campId || "").trim();
+      if (!cleanCampId || !window.DeerCampCloud || typeof DeerCampCloud.getCamp !== "function") return;
+      try {
+        const cloudCamp = await DeerCampCloud.getCamp(cleanCampId);
+        if (!cloudCamp || typeof cloudCamp !== "object") return;
+        const cloudDashboard = cloudCamp.dashboardSlim && typeof cloudCamp.dashboardSlim === "object" ? cloudCamp.dashboardSlim : {};
+        if (campHasLiveReturnSignal(cloudCamp, cloudDashboard)) {
+          try { await DeerCampCloud.hydrateCampToLocal(cleanCampId); } catch (error) {}
+          openLiveCampForReturningSteward(cleanCampId);
+        }
+      } catch (error) {
+        console.warn("Could not check whether this Steward return link should open the live camp.", error);
+      }
+    }
+
     function cloneMember(person = {}) {
       return {
         name: String(person.name || "").trim(),
@@ -601,6 +686,7 @@
 
     if (activeCampId) {
       forceStewardSession(activeCampId);
+      redirectIfCloudCampAlreadyLive(activeCampId);
     }
 
     const scopedCampData = activeCampId ? safeParse(campScopeKey(activeCampId, "campData"), {}) : {};
@@ -665,6 +751,11 @@
     const rawDashboardData = Object.keys(scopedDashboardSlim).length ? scopedDashboardSlim : (Object.keys(matchingLegacyDashboardSlim).length ? matchingLegacyDashboardSlim : matchingLegacyDashboardData);
     const dashboardData = hydrateDashboardSnapshot(activeCampId, hydrationCampData, rawDashboardData);
 
+    if (activeCampId && campHasLiveReturnSignal(hydrationCampData, dashboardData)) {
+      openLiveCampForReturningSteward(activeCampId);
+      throw new Error("Returning Steward opened live camp.");
+    }
+
     const campName = firstNonEmpty(urlPrefill.campName, hydrationCampData.name, hydrationCampData.campName, dashboardData.camp?.name, "Your DeerCamp");
     const city = firstNonEmpty(urlPrefill.city, hydrationCampData.city, dashboardData.camp?.city);
     const state = firstNonEmpty(urlPrefill.state, hydrationCampData.state, dashboardData.camp?.state);
@@ -701,7 +792,7 @@
       : 'No members yet';
 
     document.getElementById('welcomeHeadline').textContent = `Welcome, ${firstName}`;
-    document.getElementById('heroMessage').textContent = `${campName} has been created. Finish setup before viewing or sharing the camp page.`;
+    document.getElementById('heroMessage').textContent = `${campName} has been created. If it is already live, DeerCamp will open it automatically. Otherwise, finish setup before viewing or sharing the camp page.`;
     document.getElementById('heroMetaName').textContent = campName;
     document.getElementById('heroMetaDetails').textContent = [locationLine, establishedLine, memberLine].filter(Boolean).join(' • ');
 
