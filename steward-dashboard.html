@@ -537,6 +537,10 @@
             </div>
           </div>
         </form>
+        <div class="section-complete-actions">
+          <button id="campEssentialsCompleteBtn" class="section-complete-btn" type="button" data-section-complete="identity">Camp Essentials Complete</button>
+          <span id="campEssentialsCompleteNote" class="section-complete-note">Confirm this section, then return to the Camp Launch Checklist.</span>
+        </div>
       </section>
 
       <section class="section-card">
@@ -572,6 +576,10 @@
           </div>
           <div id="memberFormNote" class="field span-2 member-form-note" aria-live="polite"></div>
         </form>
+        <div class="section-complete-actions">
+          <button id="membersCompleteBtn" class="section-complete-btn" type="button" data-section-complete="members">Members Complete</button>
+          <span id="membersCompleteNote" class="section-complete-note">Return to the Camp Launch Checklist for the next step.</span>
+        </div>
       </section>
     </div>
 
@@ -586,6 +594,10 @@
           <strong>CampRecipes starter titles</strong>
           <p>When CampRecipes is on, check the starter recipe titles you want visible on the camp page. All 8 are unchecked by default. Add more with the CampUpdate form.</p>
           <div id="recipeGrid" class="recipe-grid"></div>
+        </div>
+        <div class="section-complete-actions">
+          <button id="sectionsCompleteBtn" class="section-complete-btn" type="button" data-section-complete="sections">Camp Sections Complete</button>
+          <span id="sectionsCompleteNote" class="section-complete-note">Return to the Camp Launch Checklist for the next step.</span>
         </div>
       </section>
 
@@ -627,6 +639,10 @@
         <div class="later-list">
           <div class="later-row"><strong>DC+ Scout Elite</strong><p>Upgrade to DC+ for map-based Stand Builder, Drive Builder, show-all maps, and printable camp maps.</p></div>
           <div class="later-row"><strong>CampUpdate - Field Event Capture</strong><p>Future enhancement to add pictures and/or voice clips via mobile phone.</p></div>
+        </div>
+        <div class="section-complete-actions">
+          <button id="fieldCardsCompleteBtn" class="section-complete-btn" type="button" data-section-complete="field">Field Cards Complete</button>
+          <span id="fieldCardsCompleteNote" class="section-complete-note">Return to the Camp Launch Checklist for the next step.</span>
         </div>
       </section>
     </div>
@@ -1990,30 +2006,50 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
       } catch (error) {}
       return [
-        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean(String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim()), target:"#campName" },
-        { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList" },
-        { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload" },
-        { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName" },
-        { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList" },
-        { key:"field", label:"Add 1 or more Stand/Drive", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection" },
-        { key:"share", label:"Copy share link", note:"Ready when the Steward wants to invite others.", done:shareCopied, target:"#shareCampBtn" }
+        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean((getLaunchChecklistState().identityConfirmed === true) || (String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim())), target:"#campName", completeLabel:"Camp Essentials Complete" },
+        { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList", completeLabel:"Steward Email Complete" },
+        { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload", completeLabel:"Camp Sign Complete" },
+        { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName", completeLabel:"Members Complete" },
+        { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
+        { key:"field", label:"Add 1 or more Stand/Drive", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
+        { key:"share", label:"Copy share link", note:"Ready when the Steward wants to invite others.", done:shareCopied, target:"#shareCampBtn", completeLabel:"Share Link Complete" }
       ];
+    }
+
+    function navigateToLaunchTarget(selector = "") {
+      const cleanSelector = String(selector || "").trim();
+      if (!cleanSelector) return false;
+      if (cleanSelector === "#viewLiveCampBtn") {
+        const live = document.getElementById("viewLiveCampBtn");
+        if (live && live.href) { window.location.href = live.href; return true; }
+      }
+      if (!cleanSelector.startsWith("#")) return false;
+      const el = document.querySelector(cleanSelector);
+      if (!el) return false;
+      el.scrollIntoView({ behavior:"smooth", block:"center" });
+      el.classList.add("launch-focus-ring");
+      window.setTimeout(() => el.classList.remove("launch-focus-ring"), 4800);
+      if (typeof el.focus === "function" && /INPUT|TEXTAREA|SELECT|BUTTON|A/.test(el.tagName)) {
+        window.setTimeout(() => el.focus({ preventScroll:true }), 360);
+      }
+      return true;
     }
 
     function setLaunchNextAction(target = "#campName") {
       const action = document.getElementById("launchNextAction");
       if (!action) return;
+      const liveBtn = document.getElementById("viewLiveCampBtn");
+      if (target === "#viewLiveCampBtn" && liveBtn) {
+        action.href = liveBtn.getAttribute("href") || "camp.html";
+        action.onclick = null;
+        return;
+      }
       action.href = target || "#campName";
       action.onclick = (event) => {
         const selector = action.getAttribute("href") || "";
         if (!selector.startsWith("#")) return;
-        const el = document.querySelector(selector);
-        if (!el) return;
         event.preventDefault();
-        el.scrollIntoView({ behavior:"smooth", block:"center" });
-        if (typeof el.focus === "function" && /INPUT|TEXTAREA|SELECT|BUTTON|A/.test(el.tagName)) {
-          window.setTimeout(() => el.focus({ preventScroll:true }), 320);
-        }
+        navigateToLaunchTarget(selector);
       };
     }
 
@@ -2034,7 +2070,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           </span>
         ` : "";
         return `
-        <div class="launch-step ${step.done ? "is-complete" : ""} ${isNext ? "is-next" : ""}" data-launch-step="${step.key}">
+        <div class="launch-step ${step.done ? "is-complete" : ""} ${isNext ? "is-next" : ""}" data-launch-step="${step.key}" data-launch-target="${step.target || "#campName"}">
           <span class="launch-step-icon">${step.done ? "✓" : (isNext ? "→" : "•")}</span>
           <span class="launch-step-content"><span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>${heroActions}</span>
         </div>`;
@@ -2048,40 +2084,96 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       if (pct) pct.textContent = `${percent}%`;
       if (body) body.textContent = complete === total ? "Your camp launch basics are complete. Review the live camp and keep adding memories over time." : `Next best step: ${firstOpen.label}.`;
       const action = document.getElementById("launchNextAction");
-      if (action) action.textContent = complete === total ? "Review live camp" : `Next: ${firstOpen.label}`;
+      if (action) action.textContent = complete === total ? "View Live Camp" : `Next: ${firstOpen.label}`;
       setLaunchNextAction(complete === total ? "#viewLiveCampBtn" : (firstOpen?.target || "#campName"));
+      updateSectionCompleteButtons(steps, firstOpen, complete === total);
     }
 
 
     function focusLaunchTarget(selector = "") {
-      const cleanSelector = String(selector || "").trim();
-      if (!cleanSelector || !cleanSelector.startsWith("#")) return;
-      const el = document.querySelector(cleanSelector);
-      if (!el) return;
-      el.scrollIntoView({ behavior:"smooth", block:"center" });
-      el.classList.add("launch-focus-ring");
-      window.setTimeout(() => el.classList.remove("launch-focus-ring"), 4800);
-      if (typeof el.focus === "function" && /INPUT|TEXTAREA|SELECT|BUTTON|A/.test(el.tagName)) {
-        window.setTimeout(() => el.focus({ preventScroll:true }), 360);
+      navigateToLaunchTarget(selector);
+    }
+
+    function getSectionButtonStepMap() {
+      return {
+        campEssentialsCompleteBtn: "identity",
+        membersCompleteBtn: "members",
+        sectionsCompleteBtn: "sections",
+        fieldCardsCompleteBtn: "field"
+      };
+    }
+
+    function updateSectionCompleteButtons(steps = [], firstOpen = null, allComplete = false) {
+      const stepByKey = Object.fromEntries((Array.isArray(steps) ? steps : []).map(step => [step.key, step]));
+      Object.entries(getSectionButtonStepMap()).forEach(([buttonId, stepKey]) => {
+        const btn = document.getElementById(buttonId);
+        if (!btn) return;
+        const note = document.getElementById(buttonId.replace("Btn", "Note"));
+        const step = stepByKey[stepKey] || {};
+        btn.classList.remove("is-next", "is-live");
+        if (allComplete) {
+          btn.textContent = "View Live Camp";
+          btn.classList.add("is-live");
+          if (note) note.textContent = "Camp launch checklist is complete.";
+          return;
+        }
+        if (firstOpen && firstOpen.key === stepKey) {
+          btn.textContent = step.completeLabel || `${step.label || "Section"} Complete`;
+          btn.classList.add("is-next");
+          if (note) note.textContent = "Tap when this section is complete. DeerCamp returns you to the checklist and highlights the next step.";
+          return;
+        }
+        btn.textContent = firstOpen ? `Back to Checklist: Next is ${firstOpen.label}` : "Back to Camp Launch Checklist";
+        if (note) note.textContent = "Return to the checklist to see the next highlighted step.";
+      });
+    }
+
+    function markLaunchStepComplete(stepKey = "") {
+      const key = String(stepKey || "").trim();
+      if (key === "identity") {
+        syncCampStateFromForm();
+        saveLaunchChecklistPatch({ identityConfirmed:true, identityConfirmedAt:new Date().toISOString() });
+        try { syncCampData(); } catch (error) {}
+        renderPreview();
+        showToast("Camp essentials confirmed. Returning to the launch checklist.");
+        focusLaunchTarget("#launchChecklistCard");
+        return;
       }
+      if (key === "sections") {
+        syncCampStateFromForm();
+        saveLaunchChecklistPatch({ sectionsReviewed:true, sectionsReviewedAt:new Date().toISOString() });
+        try { syncCampData(); } catch (error) {}
+        renderPreview();
+        showToast("Camp sections reviewed. Returning to the launch checklist.");
+        focusLaunchTarget("#launchChecklistCard");
+        return;
+      }
+      renderLaunchChecklist();
+      focusLaunchTarget("#launchChecklistCard");
     }
 
     function handleLaunchChecklistClick(event) {
       const actionButton = event.target?.closest?.("[data-launch-action]");
-      if (!actionButton) return;
-      const actionType = actionButton.getAttribute("data-launch-action");
-      if (actionType === "accept-hero") {
-        event.preventDefault();
-        saveLaunchChecklistPatch({ heroAccepted:true, heroAcceptedAt:new Date().toISOString(), heroAcceptedValue:String(state.camp.hero || "") });
-        renderLaunchChecklist();
-        showToast("Camp sign accepted. Moving to the next launch step.");
-        return;
+      if (actionButton) {
+        const actionType = actionButton.getAttribute("data-launch-action");
+        if (actionType === "accept-hero") {
+          event.preventDefault();
+          saveLaunchChecklistPatch({ heroAccepted:true, heroAcceptedAt:new Date().toISOString(), heroAcceptedValue:String(state.camp.hero || "") });
+          renderLaunchChecklist();
+          showToast("Camp sign accepted. Moving to the next launch step.");
+          return;
+        }
+        if (actionType === "choose-hero") {
+          event.preventDefault();
+          focusLaunchTarget("#campHeroUpload");
+          showToast("Choose a new camp sign or picture, then save dashboard changes.");
+          return;
+        }
       }
-      if (actionType === "choose-hero") {
-        event.preventDefault();
-        focusLaunchTarget("#campHeroUpload");
-        showToast("Choose a new camp sign or picture, then save dashboard changes.");
-      }
+      const stepCard = event.target?.closest?.(".launch-step[data-launch-target]");
+      if (!stepCard) return;
+      event.preventDefault();
+      navigateToLaunchTarget(stepCard.getAttribute("data-launch-target") || "#campName");
     }
 
     function renderPreview() {
@@ -3157,6 +3249,20 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
     });
 
     document.getElementById("launchChecklistGrid")?.addEventListener("click", handleLaunchChecklistClick);
+    document.querySelectorAll("[data-section-complete]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const steps = getLaunchChecklistSteps();
+        const complete = steps.filter(step => step.done).length;
+        const allComplete = steps.length && complete === steps.length;
+        if (allComplete) {
+          const live = document.getElementById("viewLiveCampBtn");
+          if (live && live.href) window.location.href = live.href;
+          return;
+        }
+        const stepKey = button.getAttribute("data-section-complete") || "";
+        markLaunchStepComplete(stepKey);
+      });
+    });
 
     document.getElementById("shareCampBtn").addEventListener("click", async (event) => {
       event.preventDefault();
