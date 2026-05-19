@@ -494,51 +494,37 @@
       const publishState = String(
         campData.publishState || campData.visibility || dashboardCamp.publishState || slimCamp.publishState || ""
       ).trim().toLowerCase();
+
+      // Public/live camps should open directly for a returning Steward.
       if (publishState === "public" || campData.isPublic === true || dashboardCamp.isPublic === true || slimCamp.isPublic === true) return true;
 
+      // Only treat a camp as ready to bypass this continuation page after the Steward has
+      // actually saved from the dashboard or profile workflow. Initial builder-created
+      // starter data such as recipes, feed examples, calendar openers, or draft members
+      // should not redirect the first setup session away from the Steward Dashboard.
       const savedSignals = [
         campData.profileUpdatedAt,
         campData.stewardProfileUpdatedAt,
         campData.lastDashboardSaveAt,
         campData.dashboardSavedAt,
         campData.lastSavedAt,
+        campData.dashboardSlim?.profileUpdatedAt,
+        campData.dashboardSlim?.stewardProfileUpdatedAt,
+        campData.dashboardSlim?.lastDashboardSaveAt,
+        campData.dashboardSlim?.dashboardSavedAt,
+        campData.dashboardSlim?.lastSavedAt,
         dashboardData.profileUpdatedAt,
+        dashboardData.stewardProfileUpdatedAt,
+        dashboardData.lastDashboardSaveAt,
         dashboardData.dashboardSavedAt,
         dashboardData.lastSavedAt,
         dashboardSlim.profileUpdatedAt,
+        dashboardSlim.stewardProfileUpdatedAt,
+        dashboardSlim.lastDashboardSaveAt,
         dashboardSlim.dashboardSavedAt,
         dashboardSlim.lastSavedAt
       ];
-      if (savedSignals.some(value => String(value || "").trim())) return true;
-
-      const liveArrays = [
-        campData.feedEntries,
-        campData.campPhotoGallery,
-        campData.contentSubmissions,
-        campData.calendarEvents,
-        campData.traditions,
-        campData.recipeObjects,
-        campData.deerDrivePosts,
-        campData.deerDrives,
-        campData.savedDeerDrives,
-        campData.scoutDeerDrives,
-        campData.deerStandPosts,
-        campData.deerStands,
-        campData.savedDeerStands,
-        campData.scoutDeerStands,
-        campData.stands
-      ];
-      if (liveArrays.some(list => Array.isArray(list) && list.filter(Boolean).length)) return true;
-
-      const activeProfiles = [campData.memberProfiles, campData.dashboardMembers, campData.dashboardPeople, dashboardData.members, dashboardData.people]
-        .filter(Array.isArray)
-        .flat()
-        .filter(person => {
-          const role = String(person?.role || "").trim().toLowerCase();
-          const status = String(person?.status || "").trim().toLowerCase();
-          return role !== "camp steward" && (status === "active" || status === "accepted" || person?.accepted === true);
-        });
-      return activeProfiles.length > 0;
+      return savedSignals.some(value => String(value || "").trim());
     }
 
     function openLiveCampForReturningSteward(campId) {
