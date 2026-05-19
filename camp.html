@@ -155,8 +155,8 @@
   .steward-photo-preview-text{color:#5b3d1e;font-size:.84rem;font-weight:700;line-height:1.4}
   @media (max-width:720px){.member-edit-form{grid-template-columns:1fr}.member-edit-actions .btn{width:100%}}
   .calendar-shell{display:grid;grid-template-columns:minmax(0,1.16fr) minmax(0,1fr);gap:18px}
-  .calendar-main,.calendar-side{background:rgba(252,246,236,.72);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(0,0,0,.08)}
-  .calendar-side{display:grid;grid-template-columns:minmax(250px,.72fr) minmax(520px,1.28fr);gap:18px}
+  .calendar-main,.calendar-side{background:rgba(252,246,236,.72);border-radius:20px;padding:16px;box-shadow:0 8px 22px rgba(0,0,0,.08);min-width:0}
+.calendar-side{display:grid;grid-template-columns:minmax(0,.72fr) minmax(0,1.28fr);gap:18px;min-width:0;overflow:hidden}"
   .calendar-header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
   .calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
   .weekday{text-align:center;font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;opacity:.66;padding-bottom:4px}
@@ -245,6 +245,14 @@
   .deerstand-meta{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
   .deerstand-tag{display:inline-flex;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.78rem;font-weight:800}
   .deerstand-location{margin:0;color:#6b5644;font-size:.86rem;font-weight:700}
+  #standModal .deerdrive-modal-card{width:min(980px,calc(100vw - 28px));}
+  #standModalContent.stand-detail-layout{display:grid;grid-template-columns:minmax(260px,420px) minmax(0,1fr);gap:18px;align-items:start;min-width:0}
+  .stand-modal-summary{display:grid;gap:10px;min-width:0}
+  .stand-modal-image{border-radius:18px;overflow:hidden;background:#e9decf;border:1px solid rgba(69,42,22,.12)}
+  .stand-modal-image img{display:block;width:100%;height:auto;max-height:min(52vh,520px);object-fit:contain;background:#fff}
+  .stand-modal-details{display:grid;gap:10px;min-width:0}
+  @media (max-width:1100px){.calendar-shell{grid-template-columns:1fr}.calendar-side{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+  @media (max-width:820px){#standModalContent.stand-detail-layout{grid-template-columns:1fr}.stand-modal-image img{max-height:34vh}.calendar-side{grid-template-columns:1fr}.calendar-member-event-form,.calendar-main .form-grid{grid-template-columns:1fr}}
   .deer-card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
   .deer-card-actions .btn{min-height:38px;padding:0 14px;font-size:.9rem}
   .deer-edit-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
@@ -1634,6 +1642,8 @@ function getDashboardProfileSources() {
     if(Array.isArray(source.people)) sources.push(...source.people);
     if(Array.isArray(source.dashboardMembers)) sources.push(...source.dashboardMembers);
     if(Array.isArray(source.dashboardPeople)) sources.push(...source.dashboardPeople);
+    if(Array.isArray(source.pendingInvites)) sources.push(...source.pendingInvites);
+    if(source.dashboardSlim && typeof source.dashboardSlim === "object" && Array.isArray(source.dashboardSlim.pendingInvites)) sources.push(...source.dashboardSlim.pendingInvites);
     if(source.stewardProfile && typeof source.stewardProfile === "object") sources.push(source.stewardProfile);
     if(source.campStewardProfile && typeof source.campStewardProfile === "object") sources.push(source.campStewardProfile);
     const sourceStewardPhoto = String(source.stewardPhoto || source.stewardProfilePhoto || source.stewardAvatar || source.profilePhoto || "").trim();
@@ -1714,12 +1724,14 @@ const memberProfiles = getDashboardProfileSources().filter(m => {
   return status !== "removed";
 }).sort((a,b) => profileValueScore(a) - profileValueScore(b));
 
-const publicMemberProfiles = memberProfiles.filter(m => {
+function isPublicActiveCampMemberProfile(m = {}) {
   const status = String(m && m.status || "Active").trim().toLowerCase();
   const role = String(m && m.role || "").trim().toLowerCase();
   if (role === "camp steward") return true;
-  return status === "active" || status === "accepted";
-});
+  if (status === "removed" || status === "invite sent" || status === "invited" || status === "ready" || status === "draft" || status === "failed") return false;
+  return status === "active" || status === "accepted" || status === "joined" || m.accepted === true || (m.pendingInvite === false && Boolean(m.acceptedAt));
+}
+const publicMemberProfiles = memberProfiles.filter(isPublicActiveCampMemberProfile);
 function normalizeRoster(members = []) {
   const seen = new Map();
   (Array.isArray(members) ? members : []).forEach(member => {
@@ -3140,13 +3152,18 @@ function openStandModal(index){
   ];
   const content = document.getElementById("standModalContent");
   if(content){
+    content.className = "stand-detail-layout";
     content.innerHTML = `
-      <p class="feed-kicker">Deer Stand</p>
-      <h3 id="standModalTitle" style="margin:0">${esc(item.title || item.name || 'Saved Stand')}</h3>
-      <p class="feed-meta">${esc(item.author || item.member || 'Camp Steward')}</p>
-      ${image ? `<div class="deerdrive-modal-image"><img src="${esc(image)}" alt="${esc(item.title || item.name || 'Deer stand')} stand photo"></div>` : ''}
-      <div class="deerdrive-route-list">${details.map(([label,value]) => `<div class="deerdrive-route-item"><p class="deerdrive-route-name">${esc(label)}</p><p class="deerdrive-route-meta">${esc(value)}</p></div>`).join("")}</div>
-      <div class="deerdrive-detail-notes"><strong>Stand Notes</strong><p style="margin:8px 0 0">${esc(item.body || item.notes || item.description || 'Stand details available.')}</p></div>`;
+      <div class="stand-modal-summary">
+        <p class="feed-kicker">Deer Stand</p>
+        <h3 id="standModalTitle" style="margin:0">${esc(item.title || item.name || 'Saved Stand')}</h3>
+        <p class="feed-meta">${esc(item.author || item.member || 'Camp Steward')}</p>
+        ${image ? `<div class="stand-modal-image"><img src="${esc(image)}" alt="${esc(item.title || item.name || 'Deer stand')} stand photo"></div>` : ''}
+      </div>
+      <div class="stand-modal-details">
+        <div class="deerdrive-route-list">${details.map(([label,value]) => `<div class="deerdrive-route-item"><p class="deerdrive-route-name">${esc(label)}</p><p class="deerdrive-route-meta">${esc(value)}</p></div>`).join("")}</div>
+        <div class="deerdrive-detail-notes"><strong>Stand Notes</strong><p style="margin:8px 0 0">${esc(item.body || item.notes || item.description || 'Stand details available.')}</p></div>
+      </div>`;
   }
   document.getElementById("standModalBackdrop")?.classList.add("open");
   document.getElementById("standModal")?.classList.add("open");

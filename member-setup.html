@@ -1717,7 +1717,17 @@
       const cloudCampData = await withTimeout(hydrateCampFromCloud(invite.campId), 9000, null);
       const campData = cloudCampData && typeof cloudCampData === 'object' ? cloudCampData : getCampData();
       const dashboard = getDashboardData();
-      const member = { ...state.member };
+      const acceptedAt = new Date().toISOString();
+      const member = {
+        ...state.member,
+        role: 'Camp Member',
+        roleLine: state.member.roleLine || 'Camp Member',
+        status: 'Active',
+        pendingInvite: false,
+        accepted: true,
+        acceptedAt,
+        campId: invite.campId || campData.campId || ''
+      };
       const memberEmailLower = String(member.email || '').trim().toLowerCase();
       const memberNameLower = String(member.name || '').trim().toLowerCase();
 
@@ -1730,7 +1740,7 @@
       });
 
       if (existingMemberIndex >= 0) {
-        memberProfiles[existingMemberIndex] = { ...memberProfiles[existingMemberIndex], ...member, role: 'Camp Member', roleLine: member.roleLine || 'Camp Member', status: 'Active' };
+        memberProfiles[existingMemberIndex] = { ...memberProfiles[existingMemberIndex], ...member, role: 'Camp Member', roleLine: member.roleLine || 'Camp Member', status: 'Active', pendingInvite: false, accepted: true, acceptedAt };
       } else {
         memberProfiles.push(member);
       }
@@ -1741,9 +1751,6 @@
         campMembers: members,
         memberProfiles
       };
-      safeSetJson(CAMP_DATA_KEY, updatedCampData, { leanFallback: true });
-      const scopedCampKey = campScopeKey(invite.campId || updatedCampData.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
-      if (scopedCampKey) safeSetJson(scopedCampKey, updatedCampData, { leanFallback: true });
 
       const people = Array.isArray(dashboard.people) ? [...dashboard.people] : [];
       const existingPersonIndex = people.findIndex(person => {
@@ -1759,6 +1766,9 @@
         roleLine: member.roleLine || 'Camp Member',
         status: 'Active',
         pendingInvite: false,
+        accepted: true,
+        acceptedAt,
+        campId: invite.campId || campData.campId || '',
         inviteToken: String(invite.inviteToken || '').trim(),
         email: member.email,
         phone: member.phone,
@@ -1805,17 +1815,38 @@
       const updatedDashboard = {
         ...dashboard,
         people,
-        members: Array.isArray(dashboard.members) ? dashboard.members.map(item => {
-          const itemEmail = String(item?.email || '').trim().toLowerCase();
-          const itemName = String(item?.name || '').trim().toLowerCase();
-          if ((memberEmailLower && itemEmail === memberEmailLower) || (memberNameLower && itemName === memberNameLower)) {
-            return { ...item, ...personPayload, status: 'Active', pendingInvite: false };
-          }
-          return item;
-        }) : Array.isArray(dashboard.people) ? people : [],
+        members: (() => {
+          const dashboardMembers = Array.isArray(dashboard.members) ? dashboard.members.map(item => {
+            const itemEmail = String(item?.email || '').trim().toLowerCase();
+            const itemName = String(item?.name || '').trim().toLowerCase();
+            if ((memberEmailLower && itemEmail === memberEmailLower) || (memberNameLower && itemName === memberNameLower)) {
+              return { ...item, ...personPayload, status: 'Active', pendingInvite: false, accepted: true, acceptedAt };
+            }
+            return item;
+          }) : [];
+          const hasMember = dashboardMembers.some(item => {
+            const itemEmail = String(item?.email || '').trim().toLowerCase();
+            const itemName = String(item?.name || '').trim().toLowerCase();
+            return (memberEmailLower && itemEmail === memberEmailLower) || (memberNameLower && itemName === memberNameLower);
+          });
+          if (!hasMember) dashboardMembers.push(personPayload);
+          return dashboardMembers;
+        })(),
         pendingInvites: updatedPendingInvites,
         lastSaved: currentTimestampLabel()
       };
+      Object.assign(updatedCampData, {
+        memberProfiles,
+        dashboardMembers: Array.isArray(updatedDashboard.members) ? updatedDashboard.members.map(item => ({ ...item })) : [],
+        dashboardPeople: Array.isArray(updatedDashboard.people) ? updatedDashboard.people.map(item => ({ ...item })) : [],
+        people: Array.isArray(updatedDashboard.people) ? updatedDashboard.people.map(item => ({ ...item })) : [],
+        pendingInvites: updatedPendingInvites.map(item => ({ ...item })),
+        dashboardSlim: updatedDashboard,
+        profileUpdatedAt: acceptedAt
+      });
+      safeSetJson(CAMP_DATA_KEY, updatedCampData, { leanFallback: true });
+      const scopedCampKey = campScopeKey(invite.campId || updatedCampData.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'campData');
+      if (scopedCampKey) safeSetJson(scopedCampKey, updatedCampData, { leanFallback: true });
       safeSetJson(DASHBOARD_KEY, updatedDashboard, { leanFallback: true });
       safeSetJson(DASHBOARD_SLIM_KEY, updatedDashboard, { leanFallback: true });
       const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
