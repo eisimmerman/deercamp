@@ -66,15 +66,25 @@
     .launch-progress-bar{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#496647,#6a4427);transition:width .22s ease}
     .launch-progress-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--brown-deep);font-size:.86rem;font-weight:900}
     .launch-checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
-    .launch-step{display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08)}
+    .launch-step{display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08);position:relative;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease}
     .launch-step-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-width:26px;border-radius:999px;background:rgba(69,42,22,.10);color:var(--brown-deep);font-size:.82rem;font-weight:900;line-height:1}
     .launch-step.is-complete{background:rgba(73,102,71,.10);border-color:rgba(73,102,71,.18)}
     .launch-step.is-complete .launch-step-icon{background:var(--green);color:#fff}
+    .launch-step.is-next{background:linear-gradient(180deg,rgba(255,249,236,.98),rgba(255,241,208,.96));border-color:rgba(177,121,45,.54);box-shadow:0 0 0 4px rgba(177,121,45,.15),0 14px 30px rgba(106,68,39,.14);animation:launchNextPulse 1.45s ease-in-out infinite}
+    .launch-step.is-next .launch-step-icon{background:#b1792d;color:#fff;box-shadow:0 0 0 5px rgba(177,121,45,.16)}
+    .launch-step.is-next .launch-step-title::after{content:"Next";display:inline-flex;align-items:center;margin-left:8px;min-height:18px;padding:2px 7px;border-radius:999px;background:rgba(177,121,45,.18);color:#6a4427;font-size:.62rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;vertical-align:2px}
+    @keyframes launchNextPulse{0%,100%{transform:translateY(0);box-shadow:0 0 0 4px rgba(177,121,45,.13),0 12px 28px rgba(106,68,39,.10)}50%{transform:translateY(-2px);box-shadow:0 0 0 7px rgba(177,121,45,.22),0 18px 34px rgba(106,68,39,.18)}}
     .launch-step-title{display:block;color:var(--brown-deep);font-size:.92rem;font-weight:900;line-height:1.15}
     .launch-step-note{display:block;margin-top:3px;color:var(--muted);font-size:.78rem;line-height:1.35}
+    .launch-step-content{display:grid;gap:7px;min-width:0}
+    .launch-step-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+    .launch-mini-cta{display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:5px 9px;border-radius:999px;border:1px solid rgba(69,42,22,.12);background:#fff;color:var(--brown-deep);font-size:.72rem;font-weight:900;cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,.06)}
+    .launch-mini-cta.primary{background:var(--brown);color:#fff;border-color:rgba(69,42,22,.2)}
     .launch-next-action{display:inline-flex;align-items:center;justify-content:center;min-height:38px;width:max-content;padding:8px 13px;border-radius:999px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12);font-size:.82rem;font-weight:900;text-decoration:none;box-shadow:0 6px 14px rgba(0,0,0,.06)}
+    .launch-focus-ring{animation:launchFieldPulse 1.5s ease-in-out 3;box-shadow:0 0 0 5px rgba(177,121,45,.22)!important;border-color:rgba(177,121,45,.88)!important}
+    @keyframes launchFieldPulse{0%,100%{box-shadow:0 0 0 0 rgba(177,121,45,.0)}50%{box-shadow:0 0 0 7px rgba(177,121,45,.24)}}
     @media (max-width:980px){.launch-checklist-card{grid-template-columns:1fr}.launch-checklist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-    @media (max-width:720px){.launch-checklist-card{padding:18px;border-radius:22px}.launch-checklist-grid{grid-template-columns:1fr}.launch-next-action{width:100%}}
+    @media (max-width:720px){.launch-checklist-card{padding:18px;border-radius:22px}.launch-checklist-grid{grid-template-columns:1fr}.launch-next-action{width:100%}.launch-step-actions{display:grid;grid-template-columns:1fr 1fr}.launch-mini-cta{width:100%}}
     .hero-preview{display:grid;gap:14px;padding:18px;border-radius:24px;background:linear-gradient(180deg, rgba(106,68,39,.12), rgba(69,42,22,.06));border:1px solid rgba(69,42,22,.08)}
     .preview-frame{min-height:280px;border-radius:20px;overflow:hidden;background:linear-gradient(180deg, rgba(69,42,22,.22), rgba(69,42,22,.30)), linear-gradient(180deg, #836144 0%, #5a3e27 100%);display:grid;place-items:center;color:#fff;text-align:center;background-size:cover;background-position:center center;position:relative}
     .preview-badge{position:absolute;top:14px;left:14px;display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border-radius:999px;background:rgba(29,19,10,.62);color:#fff6e9;font-size:.78rem;font-weight:700;letter-spacing:.03em}
@@ -1949,9 +1959,22 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
 
 
 
+    function getLaunchChecklistState() {
+      return safeParse(localStorage.getItem(campScopeKey(state.campId, "launchChecklist")), {});
+    }
+
+    function saveLaunchChecklistPatch(patch = {}) {
+      const current = getLaunchChecklistState();
+      const next = Object.assign({}, current, patch, { updatedAt: new Date().toISOString() });
+      try { localStorage.setItem(campScopeKey(state.campId, "launchChecklist"), JSON.stringify(next)); } catch (error) {}
+      return next;
+    }
+
     function hasMeaningfulHeroImage() {
       const hero = String(state.camp.hero || "").trim();
       if (!hero) return false;
+      const checklist = getLaunchChecklistState();
+      if (checklist.heroAccepted === true) return true;
       return !/midwest-deer-camp-sign\.png$/i.test(hero) || Boolean(state.camp.heroStoragePath || state.camp.heroThumbUrl);
     }
 
@@ -1961,7 +1984,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         const status = String(member.status || "Active").trim().toLowerCase();
         return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
       });
-      const shareCopied = safeParse(localStorage.getItem(campScopeKey(state.campId, "launchChecklist")), {}).shareCopied === true;
+      const shareCopied = getLaunchChecklistState().shareCopied === true;
       let fieldCardCount = 0;
       try {
         fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
@@ -1972,7 +1995,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload" },
         { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName" },
         { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList" },
-        { key:"field", label:"Add a field card", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection" },
+        { key:"field", label:"Add 1 or more Stand/Drive", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection" },
         { key:"share", label:"Copy share link", note:"Ready when the Steward wants to invite others.", done:shareCopied, target:"#shareCampBtn" }
       ];
     }
@@ -2002,12 +2025,20 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const total = steps.length || 1;
       const percent = Math.round((complete / total) * 100);
       const firstOpen = steps.find(step => !step.done) || steps[steps.length - 1];
-      grid.innerHTML = steps.map(step => `
-        <div class="launch-step ${step.done ? "is-complete" : ""}">
-          <span class="launch-step-icon">${step.done ? "✓" : "•"}</span>
-          <span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>
-        </div>
-      `).join("");
+      grid.innerHTML = steps.map(step => {
+        const isNext = firstOpen && step.key === firstOpen.key && !step.done;
+        const heroActions = isNext && step.key === "hero" ? `
+          <span class="launch-step-actions">
+            <button class="launch-mini-cta primary" type="button" data-launch-action="accept-hero">Accept Camp Sign</button>
+            <button class="launch-mini-cta" type="button" data-launch-action="choose-hero">Choose Camp Sign</button>
+          </span>
+        ` : "";
+        return `
+        <div class="launch-step ${step.done ? "is-complete" : ""} ${isNext ? "is-next" : ""}" data-launch-step="${step.key}">
+          <span class="launch-step-icon">${step.done ? "✓" : (isNext ? "→" : "•")}</span>
+          <span class="launch-step-content"><span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>${heroActions}</span>
+        </div>`;
+      }).join("");
       const bar = document.getElementById("launchProgressBar");
       const text = document.getElementById("launchProgressText");
       const pct = document.getElementById("launchProgressPercent");
@@ -2016,7 +2047,41 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       if (text) text.textContent = `${complete} of ${total} complete`;
       if (pct) pct.textContent = `${percent}%`;
       if (body) body.textContent = complete === total ? "Your camp launch basics are complete. Review the live camp and keep adding memories over time." : `Next best step: ${firstOpen.label}.`;
-      setLaunchNextAction(firstOpen?.target || "#campName");
+      const action = document.getElementById("launchNextAction");
+      if (action) action.textContent = complete === total ? "Review live camp" : `Next: ${firstOpen.label}`;
+      setLaunchNextAction(complete === total ? "#viewLiveCampBtn" : (firstOpen?.target || "#campName"));
+    }
+
+
+    function focusLaunchTarget(selector = "") {
+      const cleanSelector = String(selector || "").trim();
+      if (!cleanSelector || !cleanSelector.startsWith("#")) return;
+      const el = document.querySelector(cleanSelector);
+      if (!el) return;
+      el.scrollIntoView({ behavior:"smooth", block:"center" });
+      el.classList.add("launch-focus-ring");
+      window.setTimeout(() => el.classList.remove("launch-focus-ring"), 4800);
+      if (typeof el.focus === "function" && /INPUT|TEXTAREA|SELECT|BUTTON|A/.test(el.tagName)) {
+        window.setTimeout(() => el.focus({ preventScroll:true }), 360);
+      }
+    }
+
+    function handleLaunchChecklistClick(event) {
+      const actionButton = event.target?.closest?.("[data-launch-action]");
+      if (!actionButton) return;
+      const actionType = actionButton.getAttribute("data-launch-action");
+      if (actionType === "accept-hero") {
+        event.preventDefault();
+        saveLaunchChecklistPatch({ heroAccepted:true, heroAcceptedAt:new Date().toISOString(), heroAcceptedValue:String(state.camp.hero || "") });
+        renderLaunchChecklist();
+        showToast("Camp sign accepted. Moving to the next launch step.");
+        return;
+      }
+      if (actionType === "choose-hero") {
+        event.preventDefault();
+        focusLaunchTarget("#campHeroUpload");
+        showToast("Choose a new camp sign or picture, then save dashboard changes.");
+      }
     }
 
     function renderPreview() {
@@ -3091,13 +3156,15 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       showToast(`${member.name || "Member"} removed.`);
     });
 
+    document.getElementById("launchChecklistGrid")?.addEventListener("click", handleLaunchChecklistClick);
+
     document.getElementById("shareCampBtn").addEventListener("click", async (event) => {
       event.preventDefault();
       const url = currentShareUrl();
       try {
         await navigator.clipboard.writeText(url);
         try {
-          localStorage.setItem(campScopeKey(state.campId, "launchChecklist"), JSON.stringify({ shareCopied: true, copiedAt: new Date().toISOString(), url }));
+          saveLaunchChecklistPatch({ shareCopied: true, copiedAt: new Date().toISOString(), url });
           renderLaunchChecklist();
         } catch (storageError) {}
         showToast("Share link copied.");
