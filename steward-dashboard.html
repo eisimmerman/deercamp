@@ -56,6 +56,25 @@
     .hero-copy p{margin:0;color:var(--muted);font-size:1.02rem;line-height:1.62;max-width:650px}
     .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px}
     .hero-subnote{margin-top:14px;color:var(--muted);font-size:.92rem;line-height:1.55}
+
+    .launch-checklist-card{max-width:1180px;width:100%;margin:0 auto;display:grid;grid-template-columns:minmax(0,0.92fr) minmax(320px,1.08fr);gap:18px;align-items:stretch;padding:20px 22px;border-radius:var(--radius);background:linear-gradient(180deg,rgba(247,241,231,.96),rgba(239,230,214,.92));border:1px solid rgba(69,42,22,.12);box-shadow:var(--shadow)}
+    .launch-checklist-copy{display:grid;gap:10px;align-content:start;min-width:0}
+    .launch-checklist-eyebrow{display:inline-flex;width:max-content;align-items:center;min-height:28px;padding:5px 10px;border-radius:999px;background:rgba(73,102,71,.12);color:var(--green);font-size:.76rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+    .launch-checklist-title{margin:0;color:var(--brown-deep);font-size:1.42rem;line-height:1.1}
+    .launch-checklist-body{margin:0;color:var(--muted);line-height:1.55;font-size:.96rem}
+    .launch-progress-track{height:12px;border-radius:999px;background:rgba(69,42,22,.10);overflow:hidden;border:1px solid rgba(69,42,22,.08)}
+    .launch-progress-bar{display:block;height:100%;width:0%;border-radius:999px;background:linear-gradient(90deg,#496647,#6a4427);transition:width .22s ease}
+    .launch-progress-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;color:var(--brown-deep);font-size:.86rem;font-weight:900}
+    .launch-checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start}
+    .launch-step{display:flex;gap:10px;align-items:flex-start;padding:12px 13px;border-radius:16px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.08)}
+    .launch-step-icon{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;min-width:26px;border-radius:999px;background:rgba(69,42,22,.10);color:var(--brown-deep);font-size:.82rem;font-weight:900;line-height:1}
+    .launch-step.is-complete{background:rgba(73,102,71,.10);border-color:rgba(73,102,71,.18)}
+    .launch-step.is-complete .launch-step-icon{background:var(--green);color:#fff}
+    .launch-step-title{display:block;color:var(--brown-deep);font-size:.92rem;font-weight:900;line-height:1.15}
+    .launch-step-note{display:block;margin-top:3px;color:var(--muted);font-size:.78rem;line-height:1.35}
+    .launch-next-action{display:inline-flex;align-items:center;justify-content:center;min-height:38px;width:max-content;padding:8px 13px;border-radius:999px;background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12);font-size:.82rem;font-weight:900;text-decoration:none;box-shadow:0 6px 14px rgba(0,0,0,.06)}
+    @media (max-width:980px){.launch-checklist-card{grid-template-columns:1fr}.launch-checklist-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width:720px){.launch-checklist-card{padding:18px;border-radius:22px}.launch-checklist-grid{grid-template-columns:1fr}.launch-next-action{width:100%}}
     .hero-preview{display:grid;gap:14px;padding:18px;border-radius:24px;background:linear-gradient(180deg, rgba(106,68,39,.12), rgba(69,42,22,.06));border:1px solid rgba(69,42,22,.08)}
     .preview-frame{min-height:280px;border-radius:20px;overflow:hidden;background:linear-gradient(180deg, rgba(69,42,22,.22), rgba(69,42,22,.30)), linear-gradient(180deg, #836144 0%, #5a3e27 100%);display:grid;place-items:center;color:#fff;text-align:center;background-size:cover;background-position:center center;position:relative}
     .preview-badge{position:absolute;top:14px;left:14px;display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border-radius:999px;background:rgba(29,19,10,.62);color:#fff6e9;font-size:.78rem;font-weight:700;letter-spacing:.03em}
@@ -419,6 +438,18 @@
           <span id="previewCampMeta">Camp details appear here.</span>
         </div>
       </div>
+    </section>
+
+    <section id="launchChecklistCard" class="launch-checklist-card" aria-live="polite">
+      <div class="launch-checklist-copy">
+        <span class="launch-checklist-eyebrow">Camp Launch Checklist</span>
+        <h3 class="launch-checklist-title">Bring your DeerCamp to life.</h3>
+        <p id="launchChecklistBody" class="launch-checklist-body">Finish the simple setup steps that make a new camp feel useful right away.</p>
+        <div class="launch-progress-track" aria-hidden="true"><span id="launchProgressBar" class="launch-progress-bar"></span></div>
+        <div class="launch-progress-meta"><span id="launchProgressText">0 of 7 complete</span><span id="launchProgressPercent">0%</span></div>
+        <a id="launchNextAction" class="launch-next-action" href="#">Continue setup</a>
+      </div>
+      <div id="launchChecklistGrid" class="launch-checklist-grid"></div>
     </section>
 
     <section id="tierStatusCard" class="tier-status-card is-free" aria-live="polite">
@@ -1734,82 +1765,6 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       return [];
     }
 
-
-    // DeerCamp 163: before any dashboard save, pull forward live camp content
-    // that may have been added from a member/steward camp page in another browser.
-    // This prevents dashboard-only saves, such as replacing the hero image, from
-    // overwriting CampFeed photos or other active camp content with stale arrays.
-    const DASHBOARD_PRESERVED_CONTENT_KEYS = [
-      "feedEntries", "campPhotoGallery", "feedComments",
-      "contentSubmissions", "calendarEvents", "events",
-      "recipeObjects", "traditions"
-    ];
-
-    function genericCampContentIdentity(item = {}, fallback = "") {
-      if (item == null) return String(fallback || "");
-      if (typeof item !== "object") return String(item || fallback || "").trim().toLowerCase();
-      const id = String(item.id || item.imageRef || item.linkedItemId || item.inviteToken || "").trim();
-      if (id) return id.toLowerCase();
-      const title = String(item.title || item.label || item.name || item.date || "").trim().toLowerCase();
-      const created = String(item.createdAt || item.createdAtMs || item.date || "").trim().toLowerCase();
-      const type = String(item.type || item.mediaType || item.source || "").trim().toLowerCase();
-      return [type, title, created, fallback].filter(Boolean).join("|");
-    }
-
-    function mergeGenericCampContentArrays(...arrays) {
-      const map = new Map();
-      const order = [];
-      arrays.forEach(source => {
-        (Array.isArray(source) ? source : []).forEach((item, index) => {
-          if (!item) return;
-          const key = genericCampContentIdentity(item, `item-${order.length}-${index}`);
-          if (!key) return;
-          if (!map.has(key)) order.push(key);
-          map.set(key, (item && typeof item === "object") ? { ...item } : item);
-        });
-      });
-      return order.map(key => map.get(key)).filter(Boolean);
-    }
-
-    function collectPreservedCampContentFromSources(key, sources = []) {
-      const arrays = [];
-      sources.forEach(source => {
-        if (!source || typeof source !== "object") return;
-        if (Array.isArray(source[key])) arrays.push(source[key]);
-      });
-      return mergeGenericCampContentArrays(...arrays);
-    }
-
-    function mergeLatestCampContentIntoMemory(latestCamp = {}) {
-      if (!latestCamp || typeof latestCamp !== "object") return false;
-      const sources = getCurrentLocalCampSnapshots().concat([campData, latestCamp]);
-      DASHBOARD_PRESERVED_CONTENT_KEYS.forEach(key => {
-        if (key === "feedComments") {
-          const mergedComments = Object.assign({},
-            ...(sources.map(source => (source && typeof source.feedComments === "object" && !Array.isArray(source.feedComments)) ? source.feedComments : {}))
-          );
-          if (Object.keys(mergedComments).length) campData.feedComments = mergedComments;
-          return;
-        }
-        const merged = collectPreservedCampContentFromSources(key, sources);
-        if (merged.length) campData[key] = merged;
-      });
-      return true;
-    }
-
-    async function refreshLatestCampContentBeforeDashboardSave() {
-      try {
-        if (!window.DeerCampCloud || typeof DeerCampCloud.getCamp !== "function") return null;
-        const latestCamp = await DeerCampCloud.getCamp(state.campId);
-        if (!latestCamp || typeof latestCamp !== "object") return null;
-        mergeLatestCampContentIntoMemory(latestCamp);
-        return latestCamp;
-      } catch (error) {
-        console.warn("Could not refresh latest camp content before dashboard save.", error);
-        return null;
-      }
-    }
-
     function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
       const profilePayload = buildProfileOnlyCampPayload(nextCampData, nextDashboard);
       safeSetJson(scopedProfileDataKey, profilePayload);
@@ -1992,6 +1947,78 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       return savedCampData;
     }
 
+
+
+    function hasMeaningfulHeroImage() {
+      const hero = String(state.camp.hero || "").trim();
+      if (!hero) return false;
+      return !/midwest-deer-camp-sign\.png$/i.test(hero) || Boolean(state.camp.heroStoragePath || state.camp.heroThumbUrl);
+    }
+
+    function getLaunchChecklistSteps() {
+      const nonStewardMembers = state.members.filter(member => {
+        const role = String(member.role || "").trim().toLowerCase();
+        const status = String(member.status || "Active").trim().toLowerCase();
+        return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
+      });
+      const shareCopied = safeParse(localStorage.getItem(campScopeKey(state.campId, "launchChecklist")), {}).shareCopied === true;
+      let fieldCardCount = 0;
+      try {
+        fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
+      } catch (error) {}
+      return [
+        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean(String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim()), target:"#campName" },
+        { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList" },
+        { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload" },
+        { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName" },
+        { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList" },
+        { key:"field", label:"Add a field card", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection" },
+        { key:"share", label:"Copy share link", note:"Ready when the Steward wants to invite others.", done:shareCopied, target:"#shareCampBtn" }
+      ];
+    }
+
+    function setLaunchNextAction(target = "#campName") {
+      const action = document.getElementById("launchNextAction");
+      if (!action) return;
+      action.href = target || "#campName";
+      action.onclick = (event) => {
+        const selector = action.getAttribute("href") || "";
+        if (!selector.startsWith("#")) return;
+        const el = document.querySelector(selector);
+        if (!el) return;
+        event.preventDefault();
+        el.scrollIntoView({ behavior:"smooth", block:"center" });
+        if (typeof el.focus === "function" && /INPUT|TEXTAREA|SELECT|BUTTON|A/.test(el.tagName)) {
+          window.setTimeout(() => el.focus({ preventScroll:true }), 320);
+        }
+      };
+    }
+
+    function renderLaunchChecklist() {
+      const grid = document.getElementById("launchChecklistGrid");
+      if (!grid) return;
+      const steps = getLaunchChecklistSteps();
+      const complete = steps.filter(step => step.done).length;
+      const total = steps.length || 1;
+      const percent = Math.round((complete / total) * 100);
+      const firstOpen = steps.find(step => !step.done) || steps[steps.length - 1];
+      grid.innerHTML = steps.map(step => `
+        <div class="launch-step ${step.done ? "is-complete" : ""}">
+          <span class="launch-step-icon">${step.done ? "✓" : "•"}</span>
+          <span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>
+        </div>
+      `).join("");
+      const bar = document.getElementById("launchProgressBar");
+      const text = document.getElementById("launchProgressText");
+      const pct = document.getElementById("launchProgressPercent");
+      const body = document.getElementById("launchChecklistBody");
+      if (bar) bar.style.width = `${percent}%`;
+      if (text) text.textContent = `${complete} of ${total} complete`;
+      if (pct) pct.textContent = `${percent}%`;
+      if (body) body.textContent = complete === total ? "Your camp launch basics are complete. Review the live camp and keep adding memories over time." : `Next best step: ${firstOpen.label}.`;
+      setLaunchNextAction(firstOpen?.target || "#campName");
+    }
+
     function renderPreview() {
       document.getElementById("welcomeHeadline").textContent = `Welcome, ${state.stewardName}`;
       document.getElementById("previewCampName").textContent = state.camp.name || "Your DeerCamp";
@@ -2014,7 +2041,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const frame = document.getElementById("heroPreview");
       const empty = document.getElementById("heroPreviewEmpty");
       if (heroPath) {
-        frame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,.18), rgba(69,42,22,.32)), url("${heroPath.replace(/"/g, '\\"')}")`;
+        frame.style.backgroundImage = `linear-gradient(180deg, rgba(69,42,22,.18), rgba(69,42,22,.32)), url("${heroPath.replace(/"/g, '\"')}")`;
         frame.style.backgroundSize = "cover";
         frame.style.backgroundPosition = "center center";
         empty.style.display = "none";
@@ -2037,6 +2064,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       }
       document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
       document.getElementById("privacyNote").textContent = "Private camps share only the DeerCamp home until the Steward is ready to make this camp public.";
+      renderLaunchChecklist();
       updateInviteButton();
     }
 
@@ -2497,7 +2525,6 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
 
     async function persistBasicFieldItem(kind, item) {
       item.campId = state.campId;
-      await refreshLatestCampContentBeforeDashboardSave();
       const savedCampData = syncCampData();
       const driveKeys = ["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"];
       const standKeys = ["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"];
@@ -2828,7 +2855,6 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         if (btn) { btn.disabled = true; btn.textContent = "Saving..."; }
         syncCampStateFromForm();
         await uploadPendingCampHeroIfNeeded();
-        await refreshLatestCampContentBeforeDashboardSave();
         state.camp.summary = sanitizeSummary(state.camp.summary);
         const savedCampData = syncCampData();
         renderPreview();
@@ -3070,6 +3096,10 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const url = currentShareUrl();
       try {
         await navigator.clipboard.writeText(url);
+        try {
+          localStorage.setItem(campScopeKey(state.campId, "launchChecklist"), JSON.stringify({ shareCopied: true, copiedAt: new Date().toISOString(), url }));
+          renderLaunchChecklist();
+        } catch (storageError) {}
         showToast("Share link copied.");
       } catch (error) {
         showToast("Could not copy the share link.");
