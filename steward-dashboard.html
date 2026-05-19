@@ -2000,7 +2000,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         const status = String(member.status || "Active").trim().toLowerCase();
         return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
       });
-      const shareCopied = getLaunchChecklistState().shareCopied === true;
+      const membersHaveEmails = nonStewardMembers.length > 0 && nonStewardMembers.every(member => isLikelyEmail(member.email || "") && String(member.email || "").trim());
       let fieldCardCount = 0;
       try {
         fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
@@ -2012,7 +2012,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName", completeLabel:"Members Complete" },
         { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
         { key:"field", label:"Add 1 or more Stand/Drive", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
-        { key:"share", label:"Copy share link", note:"Ready when the Steward wants to invite others.", done:shareCopied, target:"#shareCampBtn", completeLabel:"Share Link Complete" }
+        { key:"memberEmails", label:"Edit Member Email(s)", note:"Add valid emails so invites can be sent.", done:membersHaveEmails, target:"#memberList", completeLabel:"Member Emails Complete" }
       ];
     }
 
@@ -2096,20 +2096,23 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
 
     function getSectionButtonStepMap() {
       return {
-        campEssentialsCompleteBtn: "identity",
-        membersCompleteBtn: "members",
-        sectionsCompleteBtn: "sections",
-        fieldCardsCompleteBtn: "field"
+        campEssentialsCompleteBtn: ["identity"],
+        membersCompleteBtn: ["members", "memberEmails", "steward"],
+        sectionsCompleteBtn: ["sections"],
+        fieldCardsCompleteBtn: ["field"]
       };
     }
 
     function updateSectionCompleteButtons(steps = [], firstOpen = null, allComplete = false) {
       const stepByKey = Object.fromEntries((Array.isArray(steps) ? steps : []).map(step => [step.key, step]));
-      Object.entries(getSectionButtonStepMap()).forEach(([buttonId, stepKey]) => {
+      Object.entries(getSectionButtonStepMap()).forEach(([buttonId, stepKeys]) => {
         const btn = document.getElementById(buttonId);
         if (!btn) return;
         const note = document.getElementById(buttonId.replace("Btn", "Note"));
-        const step = stepByKey[stepKey] || {};
+        const keys = Array.isArray(stepKeys) ? stepKeys : [stepKeys];
+        const activeKey = firstOpen && keys.includes(firstOpen.key) ? firstOpen.key : keys[0];
+        const step = stepByKey[activeKey] || {};
+        btn.dataset.sectionComplete = activeKey || "";
         btn.classList.remove("is-next", "is-live");
         if (allComplete) {
           btn.textContent = "View Live Camp";
@@ -2117,7 +2120,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           if (note) note.textContent = "Camp launch checklist is complete.";
           return;
         }
-        if (firstOpen && firstOpen.key === stepKey) {
+        if (firstOpen && keys.includes(firstOpen.key)) {
           btn.textContent = step.completeLabel || `${step.label || "Section"} Complete`;
           btn.classList.add("is-next");
           if (note) note.textContent = "Tap when this section is complete. DeerCamp returns you to the checklist and highlights the next step.";
@@ -2145,6 +2148,24 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         try { syncCampData(); } catch (error) {}
         renderPreview();
         showToast("Camp sections reviewed. Returning to the launch checklist.");
+        focusLaunchTarget("#launchChecklistCard");
+        return;
+      }
+      if (key === "memberEmails") {
+        try { syncCampData(); } catch (error) {}
+        renderMembers();
+        renderPreview();
+        const missingEmailMember = state.members.find(member => {
+          const role = String(member.role || "").trim().toLowerCase();
+          const status = String(member.status || "Active").trim().toLowerCase();
+          return role !== "camp steward" && status !== "removed" && String(member.name || "").trim() && !(isLikelyEmail(member.email || "") && String(member.email || "").trim());
+        });
+        if (missingEmailMember) {
+          showToast("Add valid email addresses for each camp member before this step is complete.");
+          focusLaunchTarget("#memberList");
+          return;
+        }
+        showToast("Member emails complete. Returning to the launch checklist.");
         focusLaunchTarget("#launchChecklistCard");
         return;
       }
