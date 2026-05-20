@@ -1,5 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type LocalMemorySegment = {
+  id: string;
+  memoryId: string;
+  index: number;
+  uri: string;
+  mediaType: "audio" | "video";
+  durationMs?: number;
+  sizeBytes?: number;
+  createdAt: number;
+  syncStatus?: "pending" | "uploading" | "uploaded" | "failed";
+  uploadUrl?: string;
+  uploadError?: string;
+  transcript?: string;
+  transcriptionStatus?: "pending" | "complete" | "failed";
+};
+
 export type LocalMemoryItem = {
   id: string;
   title?: string;
@@ -7,13 +23,26 @@ export type LocalMemoryItem = {
   clientCreatedAt: number;
   authorId: string;
   authorName?: string;
+
   photoUri?: string;
   photoUrl?: string;
   audioUri?: string;
   voiceUri?: string;
   voiceUrl?: string;
+  videoUri?: string;
+  videoUrl?: string;
+
+  type?: "photo" | "text" | "voice" | "video" | "fieldMemory";
+
   syncStatus?: "pending" | "publishing" | "synced" | "failed";
-  type?: "photo" | "text" | "voice";
+
+  // Capture Engine V2
+  captureVersion?: 1 | 2;
+  isSegmented?: boolean;
+  segmentCount?: number;
+  totalDurationMs?: number;
+  segments?: LocalMemorySegment[];
+  parentMemoryTitle?: string;
 
   // Feed publish fields
   feedDocId?: string;
@@ -39,6 +68,12 @@ function normalizeMemory(item: any): LocalMemoryItem {
   return {
     ...item,
     syncStatus: item?.syncStatus ?? "pending",
+    captureVersion: item?.captureVersion ?? 1,
+    isSegmented: item?.isSegmented ?? false,
+    segments: Array.isArray(item?.segments) ? item.segments : undefined,
+    segmentCount:
+      item?.segmentCount ??
+      (Array.isArray(item?.segments) ? item.segments.length : undefined),
     transcriptionStatus: item?.transcriptionStatus ?? undefined,
   };
 }
@@ -74,6 +109,11 @@ export async function saveLocalMemory(item: LocalMemoryItem) {
   const normalized: LocalMemoryItem = {
     ...item,
     syncStatus: item.syncStatus ?? "pending",
+    captureVersion: item.captureVersion ?? 1,
+    isSegmented: item.isSegmented ?? false,
+    segmentCount:
+      item.segmentCount ??
+      (Array.isArray(item.segments) ? item.segments.length : undefined),
   };
 
   const items = await readAll();
