@@ -33,6 +33,7 @@ import {
   getSegmentSummary,
   type SegmentManagerState,
 } from "@/lib/capture/segmentManager";
+import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
@@ -377,7 +378,7 @@ export default function FieldVoiceScreen() {
         title: "Field Memory",
         details: `Photo + voice captured in Field Mode. ${segments.length} audio segment${
           segments.length === 1 ? "" : "s"
-        } saved locally.`,
+        } saved locally and queued for upload.`,
         clientCreatedAt: now,
         authorId,
         authorName,
@@ -399,6 +400,22 @@ export default function FieldVoiceScreen() {
       }
 
       await saveLocalMemory(payload);
+
+      const uploadItems = segments.map((segment) => ({
+        id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
+        memoryId,
+        segmentId: segment.id,
+        segmentIndex: segment.index,
+        uri: segment.uri,
+        mediaType: "audio" as const,
+        campId: undefined,
+        authorId,
+      }));
+
+      if (uploadItems.length > 0) {
+        await enqueueUploadItems(uploadItems);
+      }
+
       router.replace("/(tabs)/memories");
     } catch (error: any) {
       console.error("save local voice memory failed:", error);
@@ -679,19 +696,9 @@ export default function FieldVoiceScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-
-  camera: {
-    flex: 1,
-  },
-
-  captureAnywhere: {
-    ...StyleSheet.absoluteFillObject,
-  },
-
+  screen: { flex: 1, backgroundColor: "#000" },
+  camera: { flex: 1 },
+  captureAnywhere: { ...StyleSheet.absoluteFillObject },
   overlayTop: {
     position: "absolute",
     top: 16,
@@ -702,12 +709,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
-
-  topRightStack: {
-    alignItems: "flex-end",
-    gap: 8,
-  },
-
+  topRightStack: { alignItems: "flex-end", gap: 8 },
   thumbWrap: {
     position: "absolute",
     top: 92,
@@ -718,12 +720,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.75)",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
-
-  thumb: {
-    width: 84,
-    height: 112,
-  },
-
+  thumb: { width: 84, height: 112 },
   overlayBottom: {
     position: "absolute",
     left: 18,
@@ -735,7 +732,6 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 18,
   },
-
   backPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -745,12 +741,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
-
-  backPillText: {
-    color: "white",
-    fontWeight: "900",
-  },
-
+  backPillText: { color: "white", fontWeight: "900" },
   livePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -760,20 +751,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
   },
-
-  liveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "white",
-  },
-
-  livePillText: {
-    color: "white",
-    fontWeight: "900",
-    fontSize: 13,
-  },
-
+  liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "white" },
+  livePillText: { color: "white", fontWeight: "900", fontSize: 13 },
   segmentPill: {
     backgroundColor: "rgba(11,14,18,0.8)",
     borderWidth: 1,
@@ -782,13 +761,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 999,
   },
-
-  segmentPillText: {
-    color: "white",
-    fontWeight: "900",
-    fontSize: 12,
-  },
-
+  segmentPillText: { color: "white", fontWeight: "900", fontSize: 12 },
   photoTakenPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -800,20 +773,8 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
   },
-
-  photoTakenPillText: {
-    color: "white",
-    fontWeight: "900",
-    fontSize: 13,
-  },
-
-  captureTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "900",
-    marginBottom: 6,
-  },
-
+  photoTakenPillText: { color: "white", fontWeight: "900", fontSize: 13 },
+  captureTitle: { color: "white", fontSize: 24, fontWeight: "900", marginBottom: 6 },
   captureText: {
     color: "rgba(255,255,255,0.84)",
     fontSize: 15,
@@ -821,7 +782,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 18,
   },
-
   captureTextMuted: {
     color: "rgba(255,255,255,0.62)",
     fontSize: 15,
@@ -829,14 +789,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 0,
   },
-
   cameraActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
-
   flipBtn: {
     width: 52,
     height: 52,
@@ -845,7 +803,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   shutterOuter: {
     width: 84,
     height: 84,
@@ -856,7 +813,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.08)",
   },
-
   shutterInner: {
     width: 62,
     height: 62,
@@ -865,7 +821,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   stopPill: {
     minWidth: 168,
     height: 52,
@@ -877,20 +832,8 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
   },
-
-  stopSquare: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: "white",
-  },
-
-  stopPillText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
+  stopSquare: { width: 12, height: 12, borderRadius: 2, backgroundColor: "white" },
+  stopPillText: { color: "white", fontSize: 18, fontWeight: "900" },
   previewOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.72)",
@@ -898,7 +841,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 20,
   },
-
   previewCard: {
     width: "100%",
     maxWidth: 420,
@@ -908,7 +850,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
     padding: 16,
   },
-
   previewTitle: {
     color: "white",
     fontSize: 24,
@@ -916,7 +857,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     textAlign: "center",
   },
-
   previewMeta: {
     color: "rgba(255,255,255,0.6)",
     fontSize: 13,
@@ -924,7 +864,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: "center",
   },
-
   previewImage: {
     width: "100%",
     aspectRatio: 3 / 4,
@@ -932,18 +871,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.04)",
     marginBottom: 14,
   },
-
-  previewUtilityRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 10,
-  },
-
-  previewPrimaryRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-
+  previewUtilityRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
+  previewPrimaryRow: { flexDirection: "row", gap: 10 },
   previewSecondaryBtn: {
     flex: 1,
     backgroundColor: "rgba(255,255,255,0.08)",
@@ -954,16 +883,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  previewSecondaryBtnEmpty: {
-    flex: 1,
-  },
-
-  previewSecondaryBtnText: {
-    color: "white",
-    fontWeight: "900",
-  },
-
+  previewSecondaryBtnEmpty: { flex: 1 },
+  previewSecondaryBtnText: { color: "white", fontWeight: "900" },
   previewPrimaryBtn: {
     flex: 1,
     backgroundColor: "white",
@@ -972,12 +893,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  previewPrimaryBtnText: {
-    color: "#0B0E12",
-    fontWeight: "900",
-  },
-
+  previewPrimaryBtnText: { color: "#0B0E12", fontWeight: "900" },
   previewDangerBtn: {
     flex: 1,
     backgroundColor: "#C62828",
@@ -986,20 +902,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
-  previewDangerBtnText: {
-    color: "white",
-    fontWeight: "900",
-  },
-
-  previewBtnPressed: {
-    opacity: 0.9,
-  },
-
-  btnDisabled: {
-    opacity: 0.45,
-  },
-
+  previewDangerBtnText: { color: "white", fontWeight: "900" },
+  previewBtnPressed: { opacity: 0.9 },
+  btnDisabled: { opacity: 0.45 },
   centerWrap: {
     flex: 1,
     backgroundColor: "#0B0E12",
@@ -1007,7 +912,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-
   gateTitle: {
     color: "white",
     fontSize: 22,
@@ -1015,7 +919,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
   },
-
   gateText: {
     color: "rgba(255,255,255,0.7)",
     textAlign: "center",
@@ -1023,7 +926,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 20,
   },
-
   primaryBtn: {
     backgroundColor: "white",
     paddingVertical: 14,
@@ -1032,15 +934,6 @@ const styles = StyleSheet.create({
     minWidth: 220,
     alignItems: "center",
   },
-
-  primaryBtnText: {
-    color: "#0B0E12",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  secondaryText: {
-    color: "rgba(255,255,255,0.6)",
-    fontWeight: "700",
-  },
+  primaryBtnText: { color: "#0B0E12", fontSize: 16, fontWeight: "900" },
+  secondaryText: { color: "rgba(255,255,255,0.6)", fontWeight: "700" },
 });
