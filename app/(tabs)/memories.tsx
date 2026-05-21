@@ -1,5 +1,12 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -47,12 +54,15 @@ const emptyUploadTotals: UploadQueueTotals = {
 
 export default function MemoriesScreen() {
   const router = useRouter();
+  const user = auth.currentUser;
+
+  const processingUploadsRef = useRef(false);
+
   const [localItems, setLocalItems] = useState<EntryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadTotals, setUploadTotals] = useState<UploadQueueTotals>(emptyUploadTotals);
+  const [uploadTotals, setUploadTotals] =
+    useState<UploadQueueTotals>(emptyUploadTotals);
   const [retryingUploads, setRetryingUploads] = useState(false);
-
-  const user = auth.currentUser;
 
   const goAdd = useCallback(() => {
     router.push("/field");
@@ -61,56 +71,109 @@ export default function MemoriesScreen() {
   const refreshUploadTotals = useCallback(async () => {
     const totals = await getUploadQueueTotals();
     setUploadTotals(totals);
+    return totals;
   }, []);
 
-  const loadLocal = useCallback(async () => {
-    if (!user?.uid) {
-      setLocalItems([]);
-      setUploadTotals(emptyUploadTotals);
-      setLoading(false);
-      return;
-    }
+  const loadLocal = useCallback(
+    async (showLoading = true) => {
+      if (!user?.uid) {
+        setLocalItems([]);
+        setUploadTotals(emptyUploadTotals);
+        setLoading(false);
+        return;
+      }
 
-    try {
-      setLoading(true);
+      try {
+        if (showLoading) setLoading(true);
 
-      const next = await getLocalMemories(user.uid);
-      const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
-        ...item,
-        isLocal: true,
-      }));
+        const next = await getLocalMemories(user.uid);
+        const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
+          ...item,
+          isLocal: true,
+        }));
 
-      mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
-      setLocalItems(mapped);
+        mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
+        setLocalItems(mapped);
 
-      await refreshUploadTotals();
-    } catch (error) {
-      console.error("loadLocal memories failed:", error);
-      setLocalItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [refreshUploadTotals, user?.uid]);
+        await refreshUploadTotals();
+      } catch (error) {
+        console.error("loadLocal memories failed:", error);
+        setLocalItems([]);
+      } finally {
+        if (showLoading) setLoading(false);
+      }
+    },
+    [refreshUploadTotals, user?.uid]
+  );
+
+  const runUploadPass = useCallback(
+    async (mode: "auto" | "manual" = "auto") => {
+      if (processingUploadsRef.current) return;
+
+      try {
+        processingUploadsRef.current = true;
+
+        const before = await refreshUploadTotals();
+
+        const shouldProcess =
+          before.pending > 0 || (mode === "manual" && before.failed > 0);
+
+        if (!shouldProcess) return;
+
+        await processUploadQueueOnce(10);
+
+        const after = await refreshUploadTotals();
+
+        if (
+          after.pending === 0 &&
+          after.uploading === 0 &&
+          after.failed === 0
+        ) {
+          await loadLocal(false);
+        }
+      } catch (error) {
+        console.error("field upload pass failed:", error);
+        await refreshUploadTotals();
+      } finally {
+        processingUploadsRef.current = false;
+      }
+    },
+    [loadLocal, refreshUploadTotals]
+  );
 
   const retryUploads = useCallback(async () => {
     if (retryingUploads) return;
 
     try {
       setRetryingUploads(true);
-      await processUploadQueueOnce(10);
-      await refreshUploadTotals();
-    } catch (error) {
-      console.error("retry field uploads failed:", error);
-      await refreshUploadTotals();
+      await runUploadPass("manual");
     } finally {
       setRetryingUploads(false);
     }
-  }, [refreshUploadTotals, retryingUploads]);
+  }, [retryingUploads, runUploadPass]);
 
   useFocusEffect(
     useCallback(() => {
-      loadLocal();
-    }, [loadLocal])
+      let active = true;
+
+      void (async () => {
+        await loadLocal(true);
+        if (active) {
+          void runUploadPass("auto");
+        }
+      })();
+
+      const interval = setInterval(() => {
+        if (active) {
+          void runUploadPass("auto");
+        }
+      }, 5000);
+
+      return () => {
+        active = false;
+        clearInterval(interval);
+      };
+    }, [loadLocal, runUploadPass])
   );
 
   const items = useMemo(() => {
@@ -119,9 +182,14 @@ export default function MemoriesScreen() {
     return merged;
   }, [localItems]);
 
-  const showEmpty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
+  const showEmpty = useMemo(
+    () => !loading && items.length === 0,
+    [loading, items.length]
+  );
+
   const uploadStatusLabel = getUploadQueueStatusLabel(uploadTotals);
   const hasRetryableUploads = uploadTotals.failed > 0 || uploadTotals.pending > 0;
+  const uploadBusy = uploadTotals.uploading > 0 || uploadTotals.pending > 0;
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "(Untitled)";
@@ -180,25 +248,37 @@ export default function MemoriesScreen() {
         <View style={styles.uploadHeaderRow}>
           <Text style={styles.uploadTitle}>Field Uploads</Text>
 
-          <View
-            style={[
-              styles.uploadStatusDot,
-              uploadTotals.failed > 0
-                ? styles.uploadDotFailed
-                : uploadTotals.uploading > 0 || uploadTotals.pending > 0
-                ? styles.uploadDotUploading
-                : styles.uploadDotGood,
-            ]}
-          />
+          <View style={styles.uploadHeaderRight}>
+            {uploadBusy ? <ActivityIndicator size="small" color="#F9A825" /> : null}
+
+            <View
+              style={[
+                styles.uploadStatusDot,
+                uploadTotals.failed > 0
+                  ? styles.uploadDotFailed
+                  : uploadTotals.uploading > 0 || uploadTotals.pending > 0
+                  ? styles.uploadDotUploading
+                  : styles.uploadDotGood,
+              ]}
+            />
+          </View>
         </View>
 
         <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
         <View style={styles.uploadStatsRow}>
           <Text style={styles.uploadStat}>Queued: {uploadTotals.pending}</Text>
-          <Text style={styles.uploadStat}>Uploading: {uploadTotals.uploading}</Text>
+          <Text style={styles.uploadStat}>
+            Uploading: {uploadTotals.uploading}
+          </Text>
           <Text style={styles.uploadStat}>Failed: {uploadTotals.failed}</Text>
         </View>
+
+        {uploadBusy ? (
+          <Text style={styles.uploadHelperText}>
+            DeerCamp is finishing uploads in the background.
+          </Text>
+        ) : null}
 
         {hasRetryableUploads ? (
           <Pressable
@@ -209,7 +289,9 @@ export default function MemoriesScreen() {
             {retryingUploads ? (
               <ActivityIndicator color="#0B0E12" />
             ) : (
-              <Text style={styles.retryBtnText}>Retry Uploads</Text>
+              <Text style={styles.retryBtnText}>
+                {uploadTotals.failed > 0 ? "Retry Uploads" : "Upload Now"}
+              </Text>
             )}
           </Pressable>
         ) : null}
@@ -272,6 +354,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
+  uploadHeaderRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
   uploadTitle: {
     color: "white",
     fontSize: 16,
@@ -295,6 +383,14 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
     fontSize: 12,
     fontWeight: "800",
+  },
+
+  uploadHelperText: {
+    marginTop: 10,
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 18,
   },
 
   uploadStatusDot: {
@@ -334,8 +430,20 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 
-  emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40 },
-  emptyTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 8 },
+  emptyWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: 40,
+  },
+
+  emptyTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
+
   emptyText: {
     color: "rgba(255,255,255,0.7)",
     textAlign: "center",
@@ -370,9 +478,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  cardTopRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
-  cardTitle: { color: "white", fontSize: 16, fontWeight: "900", flex: 1 },
-  cardMeta: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "700" },
+  cardTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  cardTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "900",
+    flex: 1,
+  },
+
+  cardMeta: {
+    color: "rgba(255,255,255,0.5)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
 
   cardBody: {
     color: "rgba(255,255,255,0.8)",
