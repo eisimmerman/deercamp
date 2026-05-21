@@ -34,6 +34,7 @@ import {
   type SegmentManagerState,
 } from "@/lib/capture/segmentManager";
 import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
+import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
@@ -414,6 +415,11 @@ export default function FieldVoiceScreen() {
 
       if (uploadItems.length > 0) {
         await enqueueUploadItems(uploadItems);
+
+        // Try immediate upload, but never block saving the memory.
+        void processUploadQueueOnce().catch((error) => {
+          console.error("process upload queue after save failed:", error);
+        });
       }
 
       router.replace("/(tabs)/memories");
