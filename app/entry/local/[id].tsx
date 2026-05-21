@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+// app/entry/local/[id].tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -14,15 +14,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 import {
-  getActiveCampId,
   getLocalMemoryById,
-  markMemoryPublished,
-  markMemoryPublishFailed,
-  markMemoryPublishing,
-  setActiveCampId,
   type LocalMemoryItem,
+  type LocalMemorySegment,
 } from "@/lib/localMemories";
-import { publishMemoryToFeed } from "@/lib/publishMemory";
 
 function formatWhen(ms?: number) {
   if (!ms) return "";
@@ -37,25 +32,35 @@ function formatDuration(ms?: number) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function VoicePlayer({ uri, durationMs }: { uri: string; durationMs?: number }) {
-  const router = useRouter();
+function VoicePlayer({
+  uri,
+  durationMs,
+  label,
+}: {
+  uri: string;
+  durationMs?: number;
+  label?: string;
+}) {
   const player = useAudioPlayer(uri, { downloadFirst: false });
   const status = useAudioPlayerStatus(player);
 
-  const label = useMemo(() => {
+  const buttonLabel = useMemo(() => {
     if (!status.isLoaded) return "Loading…";
-    return status.playing ? "Pause Voice" : "Play Voice";
-  }, [status.isLoaded, status.playing]);
+    if (status.playing) return label ? `Pause ${label}` : "Pause Voice";
+    return label ? `Play ${label}` : "Play Voice";
+  }, [label, status.isLoaded, status.playing]);
 
   const meta = useMemo(() => {
     const durStr = formatDuration(durationMs);
-
     if (!status.isLoaded) return durStr ? `(${durStr})` : "";
 
     const curSec = Math.floor(status.currentTime ?? 0);
     const durSec = Math.floor(status.duration ?? 0);
 
-    if (durSec > 0) return `${curSec}s / ${durSec}s${durStr ? ` (${durStr})` : ""}`;
+    if (durSec > 0) {
+      return `${curSec}s / ${durSec}s${durStr ? ` (${durStr})` : ""}`;
+    }
+
     return durStr ? `(${durStr})` : "";
   }, [status.isLoaded, status.currentTime, status.duration, durationMs]);
 
@@ -76,28 +81,67 @@ function VoicePlayer({ uri, durationMs }: { uri: string; durationMs?: number }) 
 
   return (
     <View style={styles.voiceWrap}>
-      <View style={styles.voiceButtonRow}>
-        <Pressable
-          onPress={onPress}
-          disabled={!status.isLoaded}
-          style={({ pressed }: { pressed: boolean }) => [
-            styles.voiceBtn,
-            pressed && styles.voiceBtnPressed,
-            !status.isLoaded && styles.voiceBtnDisabled,
-          ]}
-        >
-          <Text style={styles.voiceBtnText}>{label}</Text>
-        </Pressable>
-
-        <Pressable
-          onPress={() => router.replace("/")}
-          style={({ pressed }: { pressed: boolean }) => [styles.homeBtn, pressed && styles.voiceBtnPressed]}
-        >
-          <Text style={styles.homeBtnText}>Home</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        onPress={onPress}
+        disabled={!status.isLoaded}
+        style={({ pressed }) => [
+          styles.voiceBtn,
+          pressed && styles.voiceBtnPressed,
+          !status.isLoaded && styles.voiceBtnDisabled,
+        ]}
+      >
+        <Text style={styles.voiceBtnText}>{buttonLabel}</Text>
+      </Pressable>
 
       {!!meta && <Text style={styles.voiceMeta}>{meta}</Text>}
+    </View>
+  );
+}
+
+function SegmentVoiceList({
+  segments,
+  totalDurationMs,
+}: {
+  segments: LocalMemorySegment[];
+  totalDurationMs?: number;
+}) {
+  const playableSegments = segments
+    .filter((segment) => segment.uri?.trim())
+    .sort((a, b) => a.index - b.index);
+
+  if (playableSegments.length === 0) return null;
+
+  return (
+    <View style={styles.segmentCard}>
+      <View style={styles.segmentHeader}>
+        <Text style={styles.segmentTitle}>Voice Recording</Text>
+        <Text style={styles.segmentMeta}>
+          {playableSegments.length} part
+          {playableSegments.length === 1 ? "" : "s"}
+          {totalDurationMs ? ` • ${formatDuration(totalDurationMs)}` : ""}
+        </Text>
+      </View>
+
+      <Text style={styles.segmentHelp}>
+        DeerCamp saved this recording in upload-safe parts. Play each part below.
+      </Text>
+
+      <View style={styles.segmentList}>
+        {playableSegments.map((segment, displayIndex) => {
+          const partNumber = displayIndex + 1;
+
+          return (
+            <View key={segment.id} style={styles.segmentItem}>
+              <Text style={styles.segmentLabel}>Part {partNumber}</Text>
+              <VoicePlayer
+                uri={segment.uri}
+                durationMs={segment.durationMs}
+                label={`Part ${partNumber}`}
+              />
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -110,71 +154,40 @@ export default function LocalEntryDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [entry, setEntry] = useState<LocalMemoryItem | null>(null);
 
-  const loadEntry = useCallback(async () => {
-    try {
-      if (!id) {
-        setEntry(null);
-        setLoading(false);
-        return;
-      }
-
-      const next = await getLocalMemoryById(id);
-      setEntry(next);
-      setLoading(false);
-    } catch (error) {
-      console.error("Local entry detail load error:", error);
-      setEntry(null);
-      setLoading(false);
-    }
-  }, [id]);
-
   useEffect(() => {
-    void loadEntry();
-  }, [loadEntry]);
+    let alive = true;
 
-  async function onPublish() {
-    if (!entry) return;
+    async function run() {
+      try {
+        if (!id) {
+          if (alive) {
+            setEntry(null);
+            setLoading(false);
+          }
+          return;
+        }
 
-    try {
-      await markMemoryPublishing(entry.id);
-      setEntry((current: LocalMemoryItem | null) =>
-        current ? { ...current, syncStatus: "publishing", publishError: undefined } : current
-      );
+        const next = await getLocalMemoryById(id);
 
-      const resolvedCampId =
-        String(entry.campId || "").trim() ||
-        String((await getActiveCampId()) || "").trim() ||
-        "ourdeercamp";
+        if (!alive) return;
 
-      const result = await publishMemoryToFeed(entry, {
-        campId: resolvedCampId,
-        defaultTitle: entry.title?.trim() || "Field Memory",
-        defaultCaption: entry.details?.trim() || "Captured in DeerCamp Field Mode.",
-      });
-
-      await setActiveCampId(resolvedCampId);
-
-      await markMemoryPublished(entry.id, {
-        feedDocId: result.feedDocId,
-        campId: resolvedCampId,
-      });
-
-      await loadEntry();
-      Alert.alert("Published", "This memory is now live in Feed.");
-    } catch (error: any) {
-      const message =
-        error?.message?.trim() || "This memory stayed on your device. Please try again.";
-
-      console.error("Publish memory failed:", error);
-
-      await markMemoryPublishFailed(entry.id, message);
-      setEntry((current: LocalMemoryItem | null) =>
-        current ? { ...current, syncStatus: "failed", publishError: message } : current
-      );
-
-      Alert.alert("Publish failed", message);
+        setEntry(next);
+        setLoading(false);
+      } catch (error) {
+        console.error("Local entry detail load error:", error);
+        if (alive) {
+          setEntry(null);
+          setLoading(false);
+        }
+      }
     }
-  }
+
+    run();
+
+    return () => {
+      alive = false;
+    };
+  }, [id]);
 
   if (loading) {
     return (
@@ -189,50 +202,49 @@ export default function LocalEntryDetailScreen() {
     return (
       <View style={styles.center}>
         <Text style={styles.title}>Not found</Text>
-        <Text style={styles.muted}>This local memory could not be found on this device.</Text>
+        <Text style={styles.muted}>
+          This local memory could not be found on this device.
+        </Text>
       </View>
     );
   }
 
   const photoUri = entry.photoUri?.trim() || entry.photoUrl?.trim() || "";
-  const voiceUri =
-    entry.voiceUri?.trim() || entry.audioUri?.trim() || entry.voiceUrl?.trim() || "";
+  const fallbackVoiceUri =
+    entry.voiceUri?.trim() ||
+    entry.audioUri?.trim() ||
+    entry.voiceUrl?.trim() ||
+    "";
+
+  const segments = Array.isArray(entry.segments) ? entry.segments : [];
+  const playableSegments = segments.filter((segment) => segment.uri?.trim());
+  const hasSegmentedVoice = playableSegments.length > 0;
+  const hasFallbackVoice = fallbackVoiceUri.length > 0;
   const hasPhoto = photoUri.length > 0;
-  const hasVoice = voiceUri.length > 0;
-  const title = entry.title?.trim() || "Local Memory";
-  const details = entry.details?.trim() || "";
+  const hasVoice = hasSegmentedVoice || hasFallbackVoice;
+
+  const title =
+    entry.title?.trim() || entry.generatedTitle?.trim() || "Local Memory";
+  const details =
+    entry.details?.trim() || entry.generatedCaption?.trim() || "";
 
   const statusLabel =
-    entry.syncStatus === "publishing"
-      ? "Publishing..."
-      : entry.syncStatus === "failed"
-      ? "Publish failed"
+    entry.syncStatus === "failed"
+      ? "Upload failed"
       : entry.syncStatus === "synced"
-      ? "Published to Feed"
+      ? "Uploaded"
+      : entry.syncStatus === "publishing"
+      ? "Uploading"
       : "Saved locally";
 
   const statusText =
-    entry.syncStatus === "publishing"
-      ? "Your memory is being sent to Feed right now."
-      : entry.syncStatus === "failed"
-      ? entry.publishError?.trim() ||
-        "This memory stayed on your device because publishing did not finish."
+    entry.syncStatus === "failed"
+      ? "This memory stayed on your device because upload did not finish."
       : entry.syncStatus === "synced"
-      ? "This memory has been published to Feed."
-      : "This memory is on your device and ready to publish to Feed.";
-
-  const canPublish =
-    entry.syncStatus !== "publishing" &&
-    entry.syncStatus !== "synced" &&
-    hasPhoto &&
-    hasVoice;
-
-  const publishLabel =
-    entry.syncStatus === "publishing"
-      ? "Publishing..."
-      : entry.syncStatus === "synced"
-      ? "Published to Feed ✓"
-      : "Publish to Feed";
+      ? "This memory has already been uploaded."
+      : entry.syncStatus === "publishing"
+      ? "This memory is currently being prepared for upload."
+      : "This memory is on your device and ready for later upload.";
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
@@ -256,33 +268,20 @@ export default function LocalEntryDetailScreen() {
         <Text style={styles.statusText}>{statusText}</Text>
       </View>
 
-      <Pressable
-        onPress={onPublish}
-        disabled={!canPublish}
-        style={({ pressed }: { pressed: boolean }) => [
-          styles.publishBtn,
-          pressed && canPublish && styles.publishBtnPressed,
-          !canPublish && styles.publishBtnDisabled,
-        ]}
-      >
-        <Text style={styles.publishBtnText}>{publishLabel}</Text>
-      </Pressable>
-
-      {!hasPhoto || !hasVoice ? (
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardText}>
-            Publish to Feed requires both a photo and a voice recording.
-          </Text>
-        </View>
-      ) : null}
-
       <Text style={styles.entryTitle}>{title}</Text>
 
       {hasPhoto && <Image source={{ uri: photoUri }} style={styles.photo} />}
 
       {!!details && <Text style={styles.body}>{details}</Text>}
 
-      {hasVoice && <VoicePlayer uri={voiceUri} />}
+      {hasSegmentedVoice ? (
+        <SegmentVoiceList
+          segments={playableSegments}
+          totalDurationMs={entry.totalDurationMs}
+        />
+      ) : hasFallbackVoice ? (
+        <VoicePlayer uri={fallbackVoiceUri} durationMs={entry.totalDurationMs} />
+      ) : null}
 
       {!hasPhoto && !hasVoice ? (
         <View style={styles.emptyCard}>
@@ -401,43 +400,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  publishBtn: {
-    backgroundColor: "white",
-    borderRadius: 18,
-    paddingVertical: 16,
-    paddingHorizontal: 18,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  publishBtnPressed: {
-    opacity: 0.92,
-  },
-
-  publishBtnDisabled: {
-    opacity: 0.55,
-  },
-
-  publishBtnText: {
-    color: "#0B0E12",
-    fontSize: 18,
-    fontWeight: "900",
-  },
-
-  infoCard: {
-    backgroundColor: "rgba(255,255,255,0.05)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    borderRadius: 18,
-    padding: 14,
-  },
-
-  infoCardText: {
-    color: "rgba(255,255,255,0.72)",
-    fontWeight: "700",
-    lineHeight: 20,
-  },
-
   entryTitle: {
     color: "white",
     fontSize: 24,
@@ -458,31 +420,57 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  segmentCard: {
+    backgroundColor: "rgba(255,255,255,0.05)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 18,
+    padding: 14,
+    gap: 12,
+  },
+
+  segmentHeader: {
+    gap: 4,
+  },
+
+  segmentTitle: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  segmentMeta: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  segmentHelp: {
+    color: "rgba(255,255,255,0.68)",
+    lineHeight: 20,
+    fontWeight: "700",
+  },
+
+  segmentList: {
+    gap: 12,
+  },
+
+  segmentItem: {
+    gap: 8,
+  },
+
+  segmentLabel: {
+    color: "rgba(255,255,255,0.78)",
+    fontWeight: "900",
+  },
+
   voiceWrap: {
     gap: 8,
     marginTop: 4,
   },
 
-  voiceButtonRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-
   voiceBtn: {
-    flex: 1,
     backgroundColor: "white",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  homeBtn: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -500,12 +488,6 @@ const styles = StyleSheet.create({
 
   voiceBtnText: {
     color: "#0B0E12",
-    fontSize: 16,
-    fontWeight: "900",
-  },
-
-  homeBtnText: {
-    color: "white",
     fontSize: 16,
     fontWeight: "900",
   },
