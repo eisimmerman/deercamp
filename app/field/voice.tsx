@@ -25,6 +25,14 @@ import {
 
 import { auth } from "@/lib/firebase";
 import { saveLocalMemory } from "@/lib/localMemories";
+import {
+  createAudioSegment,
+  createInitialSegmentState,
+  createSegmentMemoryId,
+  DEFAULT_AUDIO_SEGMENT_MS,
+  getSegmentSummary,
+  type SegmentManagerState,
+} from "@/lib/capture/segmentManager";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
@@ -82,6 +90,11 @@ export default function FieldVoiceScreen() {
 
   const cameraRef = useRef<CameraView | null>(null);
   const autoStartedRef = useRef(false);
+  const segmentTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const segmentStateRef = useRef<SegmentManagerState | null>(null);
+  const currentSegmentStartedAtRef = useRef(0);
+  const finalizingSegmentRef = useRef(false);
+  const recordingCompleteRef = useRef(false);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
@@ -96,16 +109,77 @@ export default function FieldVoiceScreen() {
   const [showPreview, setShowPreview] = useState(false);
   const [helperCount, setHelperCount] = useState(0);
   const [stoppedDurationMs, setStoppedDurationMs] = useState(0);
+  const [segmentCount, setSegmentCount] = useState(0);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
 
   const elapsed = useMemo(
-    () => formatDuration(recorderState.durationMillis || stoppedDurationMs || 0),
-    [recorderState.durationMillis, stoppedDurationMs]
+    () => formatDuration(recorderState.durationMillis || 0),
+    [recorderState.durationMillis]
   );
 
   const shouldShowHelper = helperCount < 5 && !recordingComplete;
+
+  const clearSegmentTimer = useCallback(() => {
+    if (segmentTimerRef.current) {
+      clearInterval(segmentTimerRef.current);
+      segmentTimerRef.current = null;
+    }
+  }, []);
+
+  const addCurrentRecordingAsSegment = useCallback(
+    (uri: string, durationMs?: number) => {
+      if (!segmentStateRef.current || !uri.trim()) return;
+
+      const result = createAudioSegment({
+        state: segmentStateRef.current,
+        uri: uri.trim(),
+        durationMs,
+      });
+
+      segmentStateRef.current = result.nextState;
+      setSegmentCount(result.nextState.segments.length);
+    },
+    []
+  );
+
+  const rotateSegment = useCallback(async () => {
+    if (finalizingSegmentRef.current || recordingCompleteRef.current) return;
+    if (!recorder.isRecording) return;
+
+    try {
+      finalizingSegmentRef.current = true;
+
+      const segmentDurationMs =
+        currentSegmentStartedAtRef.current > 0
+          ? Date.now() - currentSegmentStartedAtRef.current
+          : DEFAULT_AUDIO_SEGMENT_MS;
+
+      await recorder.stop();
+
+      const completedUri = recorder.uri?.trim() || "";
+      addCurrentRecordingAsSegment(completedUri, segmentDurationMs);
+
+      if (recordingCompleteRef.current) return;
+
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      currentSegmentStartedAtRef.current = Date.now();
+    } catch (error) {
+      console.error("rotate audio segment failed:", error);
+    } finally {
+      finalizingSegmentRef.current = false;
+    }
+  }, [addCurrentRecordingAsSegment, recorder]);
+
+  const startSegmentTimer = useCallback(() => {
+    clearSegmentTimer();
+
+    segmentTimerRef.current = setInterval(() => {
+      void rotateSegment();
+    }, DEFAULT_AUDIO_SEGMENT_MS);
+  }, [clearSegmentTimer, rotateSegment]);
 
   useEffect(() => {
     void (async () => {
@@ -131,9 +205,17 @@ export default function FieldVoiceScreen() {
 
   const startAutoRecording = useCallback(async () => {
     try {
+      clearSegmentTimer();
+
       setBootingAudio(true);
       setMicDenied(false);
       setStoppedDurationMs(0);
+      setSegmentCount(0);
+      recordingCompleteRef.current = false;
+      finalizingSegmentRef.current = false;
+
+      const memoryId = createSegmentMemoryId(authorId);
+      segmentStateRef.current = createInitialSegmentState(memoryId);
 
       const mic = await requestRecordingPermissionsAsync();
       if (!mic.granted) {
@@ -148,6 +230,9 @@ export default function FieldVoiceScreen() {
 
       await recorder.prepareToRecordAsync();
       recorder.record();
+
+      currentSegmentStartedAtRef.current = Date.now();
+      startSegmentTimer();
     } catch (error: any) {
       console.error("auto start recording failed:", error);
       Alert.alert(
@@ -158,7 +243,7 @@ export default function FieldVoiceScreen() {
     } finally {
       setBootingAudio(false);
     }
-  }, [recorder]);
+  }, [authorId, clearSegmentTimer, recorder, startSegmentTimer]);
 
   useEffect(() => {
     if (!user || user.isAnonymous) return;
@@ -171,6 +256,8 @@ export default function FieldVoiceScreen() {
 
   useEffect(() => {
     return () => {
+      clearSegmentTimer();
+
       void (async () => {
         try {
           if (recorder.isRecording) {
@@ -185,7 +272,7 @@ export default function FieldVoiceScreen() {
         } catch {}
       })();
     };
-  }, [recorder]);
+  }, [clearSegmentTimer, recorder]);
 
   async function onRetryAudio() {
     autoStartedRef.current = true;
@@ -219,7 +306,7 @@ export default function FieldVoiceScreen() {
   }
 
   async function onStopRecording() {
-    if (saving || recordingComplete) return;
+    if (saving || recordingCompleteRef.current) return;
 
     if (!capturedUri.trim()) {
       Alert.alert(
@@ -230,17 +317,28 @@ export default function FieldVoiceScreen() {
     }
 
     try {
-      const finalDurationMs = recorderState.durationMillis || 0;
-      setStoppedDurationMs(finalDurationMs);
+      clearSegmentTimer();
+      recordingCompleteRef.current = true;
+      setRecordingComplete(true);
 
       if (recorder.isRecording) {
+        const finalDurationMs =
+          currentSegmentStartedAtRef.current > 0
+            ? Date.now() - currentSegmentStartedAtRef.current
+            : recorderState.durationMillis || 0;
+
         await recorder.stop();
+
+        const finalUri = recorder.uri?.trim() || "";
+        addCurrentRecordingAsSegment(finalUri, finalDurationMs);
       }
 
-      const audioUri = recorder.uri?.trim() || "";
+      const state = segmentStateRef.current;
+      const firstSegmentUri = state?.segments?.[0]?.uri?.trim() || "";
+      const summary = state ? getSegmentSummary(state) : null;
 
-      setPreviewAudioUri(audioUri);
-      setRecordingComplete(true);
+      setPreviewAudioUri(firstSegmentUri);
+      setStoppedDurationMs(summary?.totalDurationMs || 0);
       setShowPreview(true);
 
       try {
@@ -251,6 +349,8 @@ export default function FieldVoiceScreen() {
     } catch (error: any) {
       console.error("stop recording failed:", error);
       Alert.alert("Stop failed", error?.message ?? "Please try again.");
+      recordingCompleteRef.current = false;
+      setRecordingComplete(false);
     }
   }
 
@@ -265,14 +365,19 @@ export default function FieldVoiceScreen() {
         return;
       }
 
+      const state = segmentStateRef.current;
+      const summary = state ? getSegmentSummary(state) : null;
+      const segments = summary?.segments || [];
+      const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
       const now = Date.now();
-      const memoryId = `local-${authorId}-${now}`;
-      const cleanAudioUri = previewAudioUri.trim();
+      const firstAudioUri = segments[0]?.uri?.trim() || "";
 
       const payload: any = {
         id: memoryId,
         title: "Field Memory",
-        details: "Photo + voice captured in Field Mode.",
+        details: `Photo + voice captured in Field Mode. ${segments.length} audio segment${
+          segments.length === 1 ? "" : "s"
+        } saved locally.`,
         clientCreatedAt: now,
         authorId,
         authorName,
@@ -280,30 +385,17 @@ export default function FieldVoiceScreen() {
         type: "fieldMemory",
         photoUri: capturedUri,
 
-        // Capture Engine V2 bridge
         captureVersion: 2,
-        isSegmented: !!cleanAudioUri,
-        segmentCount: cleanAudioUri ? 1 : 0,
-        totalDurationMs: stoppedDurationMs || recorderState.durationMillis || undefined,
+        isSegmented: segments.length > 0,
+        segmentCount: segments.length,
+        totalDurationMs: summary?.totalDurationMs || stoppedDurationMs || undefined,
         parentMemoryTitle: "Field Memory",
+        segments,
       };
 
-      if (cleanAudioUri) {
-        payload.audioUri = cleanAudioUri;
-        payload.voiceUri = cleanAudioUri;
-        payload.segments = [
-          {
-            id: `${memoryId}-segment-001`,
-            memoryId,
-            index: 1,
-            uri: cleanAudioUri,
-            mediaType: "audio",
-            durationMs: stoppedDurationMs || recorderState.durationMillis || undefined,
-            createdAt: now,
-            syncStatus: "pending",
-            transcriptionStatus: "pending",
-          },
-        ];
+      if (firstAudioUri) {
+        payload.audioUri = firstAudioUri;
+        payload.voiceUri = firstAudioUri;
       }
 
       await saveLocalMemory(payload);
@@ -318,11 +410,16 @@ export default function FieldVoiceScreen() {
 
   async function onRetake() {
     try {
+      clearSegmentTimer();
+
       setShowPreview(false);
       setRecordingComplete(false);
       setCapturedUri("");
       setPreviewAudioUri("");
       setStoppedDurationMs(0);
+      setSegmentCount(0);
+      recordingCompleteRef.current = false;
+      segmentStateRef.current = null;
 
       await startAutoRecording();
     } catch (error: any) {
@@ -332,6 +429,7 @@ export default function FieldVoiceScreen() {
   }
 
   function onGoHome() {
+    clearSegmentTimer();
     setShowPreview(false);
     router.replace("/");
   }
@@ -458,6 +556,12 @@ export default function FieldVoiceScreen() {
             </Text>
           </View>
 
+          {segmentCount > 0 && !recordingComplete ? (
+            <View style={styles.segmentPill}>
+              <Text style={styles.segmentPillText}>Saved {segmentCount}</Text>
+            </View>
+          ) : null}
+
           {capturedUri ? (
             <View style={styles.photoTakenPill}>
               <Ionicons name="checkmark-circle" size={16} color="#fff" />
@@ -482,7 +586,7 @@ export default function FieldVoiceScreen() {
           </Text>
         ) : (
           <Text style={styles.captureTextMuted}>
-            Photo and audio will be saved locally.
+            Audio is being saved in upload-safe segments behind the curtain.
           </Text>
         )}
 
@@ -528,6 +632,9 @@ export default function FieldVoiceScreen() {
         <View style={styles.previewOverlay}>
           <View style={styles.previewCard}>
             <Text style={styles.previewTitle}>Field Memory Preview</Text>
+            <Text style={styles.previewMeta}>
+              {segmentCount} audio segment{segmentCount === 1 ? "" : "s"} saved
+            </Text>
 
             <Image source={{ uri: capturedUri }} style={styles.previewImage} />
 
@@ -667,6 +774,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
+  segmentPill: {
+    backgroundColor: "rgba(11,14,18,0.8)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+
+  segmentPillText: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 12,
+  },
+
   photoTakenPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -791,6 +913,14 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 24,
     fontWeight: "900",
+    marginBottom: 4,
+    textAlign: "center",
+  },
+
+  previewMeta: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 13,
+    fontWeight: "800",
     marginBottom: 12,
     textAlign: "center",
   },
