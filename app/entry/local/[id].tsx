@@ -109,7 +109,13 @@ function SegmentVoiceList({
     .filter((segment) => segment.uri?.trim())
     .sort((a, b) => a.index - b.index);
 
+  const [selectedIndex, setSelectedIndex] = useState(0);
+
   if (playableSegments.length === 0) return null;
+
+  const safeSelectedIndex = Math.min(selectedIndex, playableSegments.length - 1);
+  const selectedSegment = playableSegments[safeSelectedIndex];
+  const selectedPartNumber = safeSelectedIndex + 1;
 
   return (
     <View style={styles.segmentCard}>
@@ -123,25 +129,54 @@ function SegmentVoiceList({
       </View>
 
       <Text style={styles.segmentHelp}>
-        DeerCamp saved this recording in upload-safe parts. Play each part below.
+        DeerCamp saved this recording in upload-safe parts. Tap a part, then
+        play it below.
       </Text>
 
-      <View style={styles.segmentList}>
+      <View style={styles.segmentPickerList}>
         {playableSegments.map((segment, displayIndex) => {
           const partNumber = displayIndex + 1;
+          const isSelected = displayIndex === safeSelectedIndex;
 
           return (
-            <View key={segment.id} style={styles.segmentItem}>
-              <Text style={styles.segmentLabel}>Part {partNumber}</Text>
-              <VoicePlayer
-                uri={segment.uri}
-                durationMs={segment.durationMs}
-                label={`Part ${partNumber}`}
-              />
-            </View>
+            <Pressable
+              key={segment.id}
+              style={[
+                styles.segmentPickerBtn,
+                isSelected && styles.segmentPickerBtnActive,
+              ]}
+              onPress={() => setSelectedIndex(displayIndex)}
+            >
+              <Text
+                style={[
+                  styles.segmentPickerText,
+                  isSelected && styles.segmentPickerTextActive,
+                ]}
+              >
+                Part {partNumber}
+              </Text>
+
+              <Text style={styles.segmentPickerMeta}>
+                {formatDuration(segment.durationMs)}
+              </Text>
+            </Pressable>
           );
         })}
       </View>
+
+      {selectedSegment ? (
+        <View style={styles.segmentItem}>
+          <Text style={styles.segmentLabel}>
+            Selected: Part {selectedPartNumber}
+          </Text>
+          <VoicePlayer
+            key={selectedSegment.id}
+            uri={selectedSegment.uri}
+            durationMs={selectedSegment.durationMs}
+            label={`Part ${selectedPartNumber}`}
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -451,8 +486,39 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  segmentList: {
-    gap: 12,
+  segmentPickerList: {
+    gap: 8,
+  },
+
+  segmentPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+
+  segmentPickerBtnActive: {
+    backgroundColor: "rgba(208,177,122,0.18)",
+    borderColor: "rgba(208,177,122,0.42)",
+  },
+
+  segmentPickerText: {
+    color: "rgba(255,255,255,0.78)",
+    fontWeight: "900",
+  },
+
+  segmentPickerTextActive: {
+    color: "white",
+  },
+
+  segmentPickerMeta: {
+    color: "rgba(255,255,255,0.5)",
+    fontWeight: "800",
   },
 
   segmentItem: {
