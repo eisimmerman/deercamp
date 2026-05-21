@@ -8,6 +8,8 @@ import {
   markUploadItemUploading,
 } from "@/lib/capture/uploadQueue";
 
+let uploadWorkerRunning = false;
+
 async function uriToBlob(uri: string): Promise<Blob> {
   const response = await fetch(uri);
 
@@ -36,65 +38,75 @@ function getStoragePath(params: {
 }
 
 export async function processUploadQueueOnce(limit = 3) {
-  const pending = await getPendingUploadQueueItems();
-  const items = pending.slice(0, limit);
-
-  const results = [];
-
-  for (const item of items) {
-    try {
-      await markUploadItemUploading(item.id);
-
-      const blob = await uriToBlob(item.uri);
-
-      const storagePath = getStoragePath({
-        authorId: item.authorId,
-        memoryId: item.memoryId,
-        segmentId: item.segmentId,
-        mediaType: item.mediaType,
-      });
-
-      const storageRef = ref(storage, storagePath);
-
-      await uploadBytes(storageRef, blob, {
-        contentType:
-          item.mediaType === "photo"
-            ? "image/jpeg"
-            : item.mediaType === "video"
-              ? "video/mp4"
-              : "audio/mp4",
-        customMetadata: {
-          memoryId: item.memoryId,
-          segmentId: item.segmentId,
-          segmentIndex: String(item.segmentIndex),
-          authorId: item.authorId || "",
-        },
-      });
-
-      const uploadedUrl = await getDownloadURL(storageRef);
-
-      await markUploadItemUploaded(item.id, uploadedUrl);
-
-      results.push({
-        id: item.id,
-        status: "uploaded",
-        uploadedUrl,
-      });
-    } catch (error: any) {
-      const message =
-        error?.message || error?.code || "Segment upload failed.";
-
-      console.error("upload queue item failed:", item.id, message);
-
-      await markUploadItemFailed(item.id, message);
-
-      results.push({
-        id: item.id,
-        status: "failed",
-        error: message,
-      });
-    }
+  if (uploadWorkerRunning) {
+    return [];
   }
 
-  return results;
+  uploadWorkerRunning = true;
+
+  try {
+    const pending = await getPendingUploadQueueItems();
+    const items = pending.slice(0, limit);
+
+    const results = [];
+
+    for (const item of items) {
+      try {
+        await markUploadItemUploading(item.id);
+
+        const blob = await uriToBlob(item.uri);
+
+        const storagePath = getStoragePath({
+          authorId: item.authorId,
+          memoryId: item.memoryId,
+          segmentId: item.segmentId,
+          mediaType: item.mediaType,
+        });
+
+        const storageRef = ref(storage, storagePath);
+
+        await uploadBytes(storageRef, blob, {
+          contentType:
+            item.mediaType === "photo"
+              ? "image/jpeg"
+              : item.mediaType === "video"
+                ? "video/mp4"
+                : "audio/mp4",
+          customMetadata: {
+            memoryId: item.memoryId,
+            segmentId: item.segmentId,
+            segmentIndex: String(item.segmentIndex),
+            authorId: item.authorId || "",
+          },
+        });
+
+        const uploadedUrl = await getDownloadURL(storageRef);
+
+        await markUploadItemUploaded(item.id, uploadedUrl);
+
+        results.push({
+          id: item.id,
+          status: "uploaded",
+          uploadedUrl,
+        });
+      } catch (error: any) {
+        const message =
+          error?.message || error?.code || "Segment upload failed.";
+
+        console.error("upload queue item failed:", item.id, message);
+
+        await markUploadItemFailed(item.id, message);
+
+        results.push({
+          id: item.id,
+          status: "failed",
+          error: message,
+        });
+      }
+    }
+
+    return results;
+  } finally {
+    uploadWorkerRunning = false;
+  }
 }
