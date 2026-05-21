@@ -402,22 +402,34 @@ export default function FieldVoiceScreen() {
 
       await saveLocalMemory(payload);
 
-      const uploadItems = segments.map((segment) => ({
-        id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
-        memoryId,
-        segmentId: segment.id,
-        segmentIndex: segment.index,
-        uri: segment.uri,
-        mediaType: "audio" as const,
-        campId: undefined,
-        authorId,
-      }));
+      const uploadItems = [
+        {
+          id: `${memoryId}-upload-photo-main`,
+          memoryId,
+          segmentId: "photo-main",
+          segmentIndex: -1,
+          uri: capturedUri,
+          mediaType: "photo" as const,
+          campId: undefined,
+          authorId,
+        },
+        ...segments.map((segment) => ({
+          id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
+          memoryId,
+          segmentId: segment.id,
+          segmentIndex: segment.index,
+          uri: segment.uri,
+          mediaType: "audio" as const,
+          campId: undefined,
+          authorId,
+        })),
+      ];
 
       if (uploadItems.length > 0) {
         await enqueueUploadItems(uploadItems);
 
         // Try immediate upload, but never block saving the memory.
-        void processUploadQueueOnce().catch((error) => {
+        void processUploadQueueOnce(3, memoryId).catch((error) => {
           console.error("process upload queue after save failed:", error);
         });
       }

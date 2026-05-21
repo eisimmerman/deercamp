@@ -31,7 +31,10 @@ function normalizeQueueItem(item: any): UploadQueueItem {
     segmentId: String(item?.segmentId || ""),
     segmentIndex: Number(item?.segmentIndex || 0),
     uri: String(item?.uri || ""),
-    mediaType: item?.mediaType === "video" || item?.mediaType === "photo" ? item.mediaType : "audio",
+    mediaType:
+      item?.mediaType === "video" || item?.mediaType === "photo"
+        ? item.mediaType
+        : "audio",
     status:
       item?.status === "uploading" ||
       item?.status === "uploaded" ||
@@ -69,9 +72,29 @@ export async function getUploadQueue() {
   return readQueue();
 }
 
-export async function getPendingUploadQueueItems() {
+export async function getUploadQueueItemsForMemory(memoryId: string) {
+  const cleanMemoryId = String(memoryId || "").trim();
+  if (!cleanMemoryId) return [];
+
   const items = await readQueue();
-  return items.filter((item) => item.status === "pending" || item.status === "failed");
+  return items
+    .filter((item) => item.memoryId === cleanMemoryId)
+    .sort((a, b) => {
+      if (a.mediaType === "photo" && b.mediaType !== "photo") return -1;
+      if (a.mediaType !== "photo" && b.mediaType === "photo") return 1;
+      return a.segmentIndex - b.segmentIndex;
+    });
+}
+
+export async function getPendingUploadQueueItems(memoryId?: string) {
+  const items = await readQueue();
+  const cleanMemoryId = String(memoryId || "").trim();
+
+  return items.filter((item) => {
+    const statusMatches = item.status === "pending" || item.status === "failed";
+    const memoryMatches = cleanMemoryId ? item.memoryId === cleanMemoryId : true;
+    return statusMatches && memoryMatches;
+  });
 }
 
 export async function enqueueUploadItem(
@@ -98,7 +121,9 @@ export async function enqueueUploadItem(
 }
 
 export async function enqueueUploadItems(
-  items: Array<Omit<UploadQueueItem, "status" | "createdAt" | "updatedAt" | "retryCount">>
+  items: Array<
+    Omit<UploadQueueItem, "status" | "createdAt" | "updatedAt" | "retryCount">
+  >
 ) {
   const now = Date.now();
 

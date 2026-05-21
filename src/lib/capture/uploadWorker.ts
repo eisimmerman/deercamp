@@ -3,10 +3,17 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import {
   getPendingUploadQueueItems,
+  getUploadQueueItemsForMemory,
   markUploadItemFailed,
   markUploadItemUploaded,
   markUploadItemUploading,
+  type UploadQueueItem,
 } from "@/lib/capture/uploadQueue";
+import {
+  getLocalMemoryById,
+  updateLocalMemory,
+  type LocalMemorySegment,
+} from "@/lib/localMemories";
 
 let uploadWorkerRunning = false;
 
@@ -27,17 +34,143 @@ function getStoragePath(params: {
   mediaType: "audio" | "video" | "photo";
 }) {
   const authorId = params.authorId || "unknown-author";
-  const extension =
-    params.mediaType === "photo"
-      ? "jpg"
-      : params.mediaType === "video"
-        ? "mp4"
-        : "m4a";
 
+  if (params.mediaType === "photo") {
+    return `fieldMemories/${authorId}/${params.memoryId}/photos/${params.segmentId}.jpg`;
+  }
+
+  const extension = params.mediaType === "video" ? "mp4" : "m4a";
   return `fieldMemories/${authorId}/${params.memoryId}/segments/${params.segmentId}.${extension}`;
 }
 
-export async function processUploadQueueOnce(limit = 3) {
+function getContentType(mediaType: "audio" | "video" | "photo") {
+  if (mediaType === "photo") return "image/jpeg";
+  if (mediaType === "video") return "video/mp4";
+  return "audio/mp4";
+}
+
+async function updateMemoryUploadState(memoryId: string) {
+  const items = await getUploadQueueItemsForMemory(memoryId);
+  if (items.length === 0) return;
+
+  const failedItems = items.filter((item) => item.status === "failed");
+  const activeItems = items.filter(
+    (item) => item.status === "pending" || item.status === "uploading"
+  );
+  const allUploaded = items.every((item) => item.status === "uploaded");
+
+  if (allUploaded) {
+    await updateLocalMemory(memoryId, {
+      syncStatus: "synced",
+      publishError: undefined,
+      publishedAt: Date.now(),
+    });
+    return;
+  }
+
+  if (failedItems.length > 0 && activeItems.length === 0) {
+    await updateLocalMemory(memoryId, {
+      syncStatus: "failed",
+      publishError:
+        failedItems[0]?.lastError ||
+        `${failedItems.length} upload${failedItems.length === 1 ? "" : "s"} failed.`,
+    });
+    return;
+  }
+
+  await updateLocalMemory(memoryId, {
+    syncStatus: "publishing",
+    publishError: undefined,
+  });
+}
+
+async function patchMemoryAfterUpload(
+  item: UploadQueueItem,
+  uploadedUrl: string
+) {
+  const memory = await getLocalMemoryById(item.memoryId);
+  if (!memory) return;
+
+  if (item.mediaType === "photo") {
+    await updateLocalMemory(item.memoryId, {
+      photoUrl: uploadedUrl,
+      publishError: undefined,
+    });
+    return;
+  }
+
+  const segments = Array.isArray(memory.segments)
+    ? memory.segments.map((segment: LocalMemorySegment) =>
+        segment.id === item.segmentId
+          ? {
+              ...segment,
+              syncStatus: "uploaded" as const,
+              uploadUrl: uploadedUrl,
+              uploadError: undefined,
+            }
+          : segment
+      )
+    : memory.segments;
+
+  await updateLocalMemory(item.memoryId, {
+    segments,
+    publishError: undefined,
+  });
+}
+
+async function patchMemoryAfterFailure(item: UploadQueueItem, message: string) {
+  const memory = await getLocalMemoryById(item.memoryId);
+  if (!memory) return;
+
+  if (item.mediaType === "photo") {
+    await updateLocalMemory(item.memoryId, {
+      publishError: message,
+    });
+    return;
+  }
+
+  const segments = Array.isArray(memory.segments)
+    ? memory.segments.map((segment: LocalMemorySegment) =>
+        segment.id === item.segmentId
+          ? {
+              ...segment,
+              syncStatus: "failed" as const,
+              uploadError: message,
+            }
+          : segment
+      )
+    : memory.segments;
+
+  await updateLocalMemory(item.memoryId, {
+    segments,
+    publishError: message,
+  });
+}
+
+async function patchMemoryUploading(item: UploadQueueItem) {
+  const memory = await getLocalMemoryById(item.memoryId);
+  if (!memory || item.mediaType === "photo") return;
+
+  const segments = Array.isArray(memory.segments)
+    ? memory.segments.map((segment: LocalMemorySegment) =>
+        segment.id === item.segmentId
+          ? {
+              ...segment,
+              syncStatus: "uploading" as const,
+              uploadError: undefined,
+            }
+          : segment
+      )
+    : memory.segments;
+
+  await updateLocalMemory(item.memoryId, {
+    syncStatus: "publishing",
+    segments,
+    publishError: undefined,
+  });
+}
+
+export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
   if (uploadWorkerRunning) {
     return [];
   }
@@ -45,7 +178,7 @@ export async function processUploadQueueOnce(limit = 3) {
   uploadWorkerRunning = true;
 
   try {
-    const pending = await getPendingUploadQueueItems();
+    const pending = await getPendingUploadQueueItems(memoryId);
     const items = pending.slice(0, limit);
 
     const results = [];
@@ -53,6 +186,8 @@ export async function processUploadQueueOnce(limit = 3) {
     for (const item of items) {
       try {
         await markUploadItemUploading(item.id);
+        await patchMemoryUploading(item);
+        await updateMemoryUploadState(item.memoryId);
 
         const blob = await uriToBlob(item.uri);
 
@@ -66,16 +201,12 @@ export async function processUploadQueueOnce(limit = 3) {
         const storageRef = ref(storage, storagePath);
 
         await uploadBytes(storageRef, blob, {
-          contentType:
-            item.mediaType === "photo"
-              ? "image/jpeg"
-              : item.mediaType === "video"
-                ? "video/mp4"
-                : "audio/mp4",
+          contentType: getContentType(item.mediaType),
           customMetadata: {
             memoryId: item.memoryId,
             segmentId: item.segmentId,
             segmentIndex: String(item.segmentIndex),
+            mediaType: item.mediaType,
             authorId: item.authorId || "",
           },
         });
@@ -83,6 +214,8 @@ export async function processUploadQueueOnce(limit = 3) {
         const uploadedUrl = await getDownloadURL(storageRef);
 
         await markUploadItemUploaded(item.id, uploadedUrl);
+        await patchMemoryAfterUpload(item, uploadedUrl);
+        await updateMemoryUploadState(item.memoryId);
 
         results.push({
           id: item.id,
@@ -96,6 +229,8 @@ export async function processUploadQueueOnce(limit = 3) {
         console.error("upload queue item failed:", item.id, message);
 
         await markUploadItemFailed(item.id, message);
+        await patchMemoryAfterFailure(item, message);
+        await updateMemoryUploadState(item.memoryId);
 
         results.push({
           id: item.id,
