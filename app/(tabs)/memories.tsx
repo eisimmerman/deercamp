@@ -6,6 +6,11 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import { auth } from "@/lib/firebase";
 import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
+import {
+  getUploadQueueTotals,
+  getUploadQueueStatusLabel,
+  type UploadQueueTotals,
+} from "@/lib/capture/uploadQueueState";
 
 type EntryItem = {
   id: string;
@@ -35,6 +40,13 @@ export default function MemoriesScreen() {
   const router = useRouter();
   const [localItems, setLocalItems] = useState<EntryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploadTotals, setUploadTotals] = useState<UploadQueueTotals>({
+    total: 0,
+    pending: 0,
+    uploading: 0,
+    uploaded: 0,
+    failed: 0,
+  });
 
   const user = auth.currentUser;
 
@@ -45,6 +57,13 @@ export default function MemoriesScreen() {
   const loadLocal = useCallback(async () => {
     if (!user?.uid) {
       setLocalItems([]);
+      setUploadTotals({
+        total: 0,
+        pending: 0,
+        uploading: 0,
+        uploaded: 0,
+        failed: 0,
+      });
       setLoading(false);
       return;
     }
@@ -60,6 +79,9 @@ export default function MemoriesScreen() {
 
       mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
       setLocalItems(mapped);
+
+      const totals = await getUploadQueueTotals();
+      setUploadTotals(totals);
     } catch (error) {
       console.error("loadLocal memories failed:", error);
       setLocalItems([]);
@@ -81,6 +103,7 @@ export default function MemoriesScreen() {
   }, [localItems]);
 
   const showEmpty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
+  const uploadStatusLabel = getUploadQueueStatusLabel(uploadTotals);
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "(Untitled)";
@@ -135,6 +158,31 @@ export default function MemoriesScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Memories</Text>
 
+      <View style={styles.uploadCard}>
+        <View style={styles.uploadHeaderRow}>
+          <Text style={styles.uploadTitle}>Field Uploads</Text>
+
+          <View
+            style={[
+              styles.uploadStatusDot,
+              uploadTotals.failed > 0
+                ? styles.uploadDotFailed
+                : uploadTotals.uploading > 0 || uploadTotals.pending > 0
+                ? styles.uploadDotUploading
+                : styles.uploadDotGood,
+            ]}
+          />
+        </View>
+
+        <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
+
+        <View style={styles.uploadStatsRow}>
+          <Text style={styles.uploadStat}>Queued: {uploadTotals.pending}</Text>
+          <Text style={styles.uploadStat}>Uploading: {uploadTotals.uploading}</Text>
+          <Text style={styles.uploadStat}>Failed: {uploadTotals.failed}</Text>
+        </View>
+      </View>
+
       {showEmpty ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No memories yet</Text>
@@ -176,6 +224,65 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
 
+  uploadCard: {
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    borderRadius: 18,
+    padding: 14,
+    marginBottom: 12,
+  },
+
+  uploadHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+
+  uploadTitle: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  uploadStatusText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+
+  uploadStatsRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+
+  uploadStat: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  uploadStatusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+
+  uploadDotGood: {
+    backgroundColor: "#2E7D32",
+  },
+
+  uploadDotUploading: {
+    backgroundColor: "#F9A825",
+  },
+
+  uploadDotFailed: {
+    backgroundColor: "#C62828",
+  },
+
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40 },
   emptyTitle: { color: "white", fontSize: 18, fontWeight: "900", marginBottom: 8 },
   emptyText: {
@@ -215,28 +322,31 @@ const styles = StyleSheet.create({
   cardTopRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   cardTitle: { color: "white", fontSize: 16, fontWeight: "900", flex: 1 },
   cardMeta: { color: "rgba(255,255,255,0.5)", fontSize: 12, fontWeight: "700" },
+
   cardBody: {
     color: "rgba(255,255,255,0.8)",
     marginTop: 6,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: "700",
   },
-  cardBodyMuted: { color: "rgba(255,255,255,0.45)", marginTop: 6, fontWeight: "700" },
+
+  cardBodyMuted: {
+    color: "rgba(255,255,255,0.45)",
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: "700",
+  },
 
   fab: {
     position: "absolute",
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    right: 18,
+    bottom: 24,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: "white",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
   },
 });
