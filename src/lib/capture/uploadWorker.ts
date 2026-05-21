@@ -17,7 +17,37 @@ import {
 
 let uploadWorkerRunning = false;
 
-async function uriToBlob(uri: string): Promise<Blob> {
+async function uriToBlobWithXhr(uri: string): Promise<Blob> {
+  return await new Promise<Blob>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+
+    xhr.onload = () => {
+      const blob = xhr.response;
+
+      if (!blob) {
+        reject(new Error("Could not read local file: empty blob response."));
+        return;
+      }
+
+      resolve(blob);
+    };
+
+    xhr.onerror = () => {
+      reject(new Error("Could not read local file with XMLHttpRequest."));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error("Timed out while reading local file."));
+    };
+
+    xhr.responseType = "blob";
+    xhr.timeout = 30000;
+    xhr.open("GET", uri, true);
+    xhr.send(null);
+  });
+}
+
+async function uriToBlobWithFetch(uri: string): Promise<Blob> {
   const response = await fetch(uri);
 
   if (!response.ok) {
@@ -25,6 +55,34 @@ async function uriToBlob(uri: string): Promise<Blob> {
   }
 
   return response.blob();
+}
+
+async function uriToBlob(uri: string): Promise<Blob> {
+  const cleanUri = String(uri || "").trim();
+
+  if (!cleanUri) {
+    throw new Error("Could not read local file for upload: missing URI.");
+  }
+
+  try {
+    return await uriToBlobWithXhr(cleanUri);
+  } catch (xhrError: any) {
+    console.warn(
+      "local file XMLHttpRequest read failed; trying fetch fallback:",
+      xhrError?.message || xhrError
+    );
+
+    try {
+      return await uriToBlobWithFetch(cleanUri);
+    } catch (fetchError: any) {
+      const xhrMessage = xhrError?.message || "XMLHttpRequest read failed.";
+      const fetchMessage = fetchError?.message || "Fetch read failed.";
+
+      throw new Error(
+        `Could not read local file for upload. XHR: ${xhrMessage} Fetch: ${fetchMessage}`
+      );
+    }
+  }
 }
 
 function getStoragePath(params: {
@@ -149,7 +207,16 @@ async function patchMemoryAfterFailure(item: UploadQueueItem, message: string) {
 
 async function patchMemoryUploading(item: UploadQueueItem) {
   const memory = await getLocalMemoryById(item.memoryId);
-  if (!memory || item.mediaType === "photo") return;
+
+  if (!memory) return;
+
+  if (item.mediaType === "photo") {
+    await updateLocalMemory(item.memoryId, {
+      syncStatus: "publishing",
+      publishError: undefined,
+    });
+    return;
+  }
 
   const segments = Array.isArray(memory.segments)
     ? memory.segments.map((segment: LocalMemorySegment) =>
