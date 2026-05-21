@@ -116,11 +116,17 @@ export default function MemoriesScreen() {
         const before = await refreshUploadTotals();
 
         const shouldProcess =
-          before.pending > 0 || (mode === "manual" && before.failed > 0);
+          before.pending > 0 || before.failed > 0 || before.uploading > 0;
 
         if (!shouldProcess) return;
 
-        await processUploadQueueOnce(10);
+        // If Firebase/Storage is already actively uploading and there are no queued
+        // or failed items yet, let that active attempt finish before starting another pass.
+        if (before.uploading > 0 && before.pending === 0 && before.failed === 0) {
+          return;
+        }
+
+        await processUploadQueueOnce(mode === "manual" ? 10 : 10);
 
         const after = await refreshUploadTotals();
 
