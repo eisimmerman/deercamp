@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -11,6 +11,7 @@ import {
   getUploadQueueStatusLabel,
   type UploadQueueTotals,
 } from "@/lib/capture/uploadQueueState";
+import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
 type EntryItem = {
   id: string;
@@ -36,17 +37,20 @@ function formatWhen(item: EntryItem) {
   return "";
 }
 
+const emptyUploadTotals: UploadQueueTotals = {
+  total: 0,
+  pending: 0,
+  uploading: 0,
+  uploaded: 0,
+  failed: 0,
+};
+
 export default function MemoriesScreen() {
   const router = useRouter();
   const [localItems, setLocalItems] = useState<EntryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploadTotals, setUploadTotals] = useState<UploadQueueTotals>({
-    total: 0,
-    pending: 0,
-    uploading: 0,
-    uploaded: 0,
-    failed: 0,
-  });
+  const [uploadTotals, setUploadTotals] = useState<UploadQueueTotals>(emptyUploadTotals);
+  const [retryingUploads, setRetryingUploads] = useState(false);
 
   const user = auth.currentUser;
 
@@ -54,16 +58,15 @@ export default function MemoriesScreen() {
     router.push("/field");
   }, [router]);
 
+  const refreshUploadTotals = useCallback(async () => {
+    const totals = await getUploadQueueTotals();
+    setUploadTotals(totals);
+  }, []);
+
   const loadLocal = useCallback(async () => {
     if (!user?.uid) {
       setLocalItems([]);
-      setUploadTotals({
-        total: 0,
-        pending: 0,
-        uploading: 0,
-        uploaded: 0,
-        failed: 0,
-      });
+      setUploadTotals(emptyUploadTotals);
       setLoading(false);
       return;
     }
@@ -80,15 +83,29 @@ export default function MemoriesScreen() {
       mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
       setLocalItems(mapped);
 
-      const totals = await getUploadQueueTotals();
-      setUploadTotals(totals);
+      await refreshUploadTotals();
     } catch (error) {
       console.error("loadLocal memories failed:", error);
       setLocalItems([]);
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [refreshUploadTotals, user?.uid]);
+
+  const retryUploads = useCallback(async () => {
+    if (retryingUploads) return;
+
+    try {
+      setRetryingUploads(true);
+      await processUploadQueueOnce(10);
+      await refreshUploadTotals();
+    } catch (error) {
+      console.error("retry field uploads failed:", error);
+      await refreshUploadTotals();
+    } finally {
+      setRetryingUploads(false);
+    }
+  }, [refreshUploadTotals, retryingUploads]);
 
   useFocusEffect(
     useCallback(() => {
@@ -104,6 +121,7 @@ export default function MemoriesScreen() {
 
   const showEmpty = useMemo(() => !loading && items.length === 0, [loading, items.length]);
   const uploadStatusLabel = getUploadQueueStatusLabel(uploadTotals);
+  const hasRetryableUploads = uploadTotals.failed > 0 || uploadTotals.pending > 0;
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "(Untitled)";
@@ -181,6 +199,20 @@ export default function MemoriesScreen() {
           <Text style={styles.uploadStat}>Uploading: {uploadTotals.uploading}</Text>
           <Text style={styles.uploadStat}>Failed: {uploadTotals.failed}</Text>
         </View>
+
+        {hasRetryableUploads ? (
+          <Pressable
+            style={[styles.retryBtn, retryingUploads && styles.retryBtnDisabled]}
+            onPress={retryUploads}
+            disabled={retryingUploads}
+          >
+            {retryingUploads ? (
+              <ActivityIndicator color="#0B0E12" />
+            ) : (
+              <Text style={styles.retryBtnText}>Retry Uploads</Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
 
       {showEmpty ? (
@@ -281,6 +313,25 @@ const styles = StyleSheet.create({
 
   uploadDotFailed: {
     backgroundColor: "#C62828",
+  },
+
+  retryBtn: {
+    backgroundColor: "white",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 12,
+  },
+
+  retryBtnDisabled: {
+    opacity: 0.55,
+  },
+
+  retryBtnText: {
+    color: "#0B0E12",
+    fontSize: 15,
+    fontWeight: "900",
   },
 
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 40 },
