@@ -174,15 +174,24 @@ export default function MemoriesScreen() {
           }
 
           await runUploadPass();
-          await new Promise((resolve) => setTimeout(resolve, source === "auto" ? 1200 : 900));
+          await new Promise((resolve) =>
+            setTimeout(resolve, source === "auto" ? 1200 : 900)
+          );
           await loadLocal(false);
         }
 
         await refreshUploadTotals();
+
+        // Give AsyncStorage/local status patches one beat to settle after
+        // the final CampFeed doc write, then reload the visible list.
+        await new Promise((resolve) => setTimeout(resolve, 650));
         await loadLocal(false);
       } finally {
         silentPublishRef.current = false;
         setUploadingFieldMemories(false);
+
+        await refreshUploadTotals();
+        await loadLocal(false);
       }
     },
     [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]
@@ -211,9 +220,10 @@ export default function MemoriesScreen() {
               totals.uploading > 0
             ) {
               await uploadFieldMemories("auto");
-            } else {
-              await loadLocal(false);
+              return;
             }
+
+            await loadLocal(false);
           })();
         }
       }, 5000);
@@ -236,18 +246,29 @@ export default function MemoriesScreen() {
     [loading, items.length]
   );
 
+  const hasLocalPublishing = items.some(
+    (item) => item.syncStatus === "publishing"
+  );
+  const hasLocalUnpublished = items.some(
+    (item) =>
+      item.syncStatus === "pending" ||
+      item.syncStatus === "publishing" ||
+      item.syncStatus === "failed"
+  );
   const hasPendingWork = uploadTotals.pending > 0 || uploadTotals.uploading > 0;
-  const hasFailedWork = uploadTotals.failed > 0;
-  const hasWorkToUpload = hasPendingWork || hasFailedWork;
-  const uploadBusy = uploadingFieldMemories || hasPendingWork;
+  const hasFailedWork = uploadTotals.failed > 0 || items.some((item) => item.syncStatus === "failed");
+  const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
+  const uploadBusy = uploadingFieldMemories || hasPendingWork || hasLocalPublishing;
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
     : hasFailedWork
       ? "Some field memories need retry."
-      : uploadTotals.uploaded > 0
-        ? "All field memories published to CampFeed."
-        : "No field memories waiting.";
+      : hasLocalUnpublished
+        ? "Finishing field memories behind the curtain…"
+        : uploadTotals.uploaded > 0 || items.some((item) => item.syncStatus === "synced")
+          ? "All field memories published to CampFeed."
+          : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
