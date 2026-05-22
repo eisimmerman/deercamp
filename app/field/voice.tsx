@@ -35,6 +35,18 @@ import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
+function isKeepAwakeActivationError(error: unknown) {
+  const message = String(
+    (error as any)?.message ||
+      (error as any)?.reason?.message ||
+      error ||
+      ""
+  );
+
+  return message.toLowerCase().includes("unable to activate keep awake");
+}
+
+
 function formatDuration(ms: number) {
   const totalSeconds = Math.max(0, Math.floor((ms || 0) / 1000));
   const minutes = Math.floor(totalSeconds / 60);
@@ -78,6 +90,57 @@ export default function FieldVoiceScreen() {
     () => formatDuration(recorderState.durationMillis || 0),
     [recorderState.durationMillis]
   );
+
+  useEffect(() => {
+    const errorUtils = (globalThis as any)?.ErrorUtils;
+    const previousHandler =
+      typeof errorUtils?.getGlobalHandler === "function"
+        ? errorUtils.getGlobalHandler()
+        : null;
+
+    if (typeof errorUtils?.setGlobalHandler === "function") {
+      errorUtils.setGlobalHandler((error: unknown, isFatal?: boolean) => {
+        if (isKeepAwakeActivationError(error)) {
+          console.warn("Keep awake activation failed; continuing capture.", error);
+          return;
+        }
+
+        if (typeof previousHandler === "function") {
+          previousHandler(error, isFatal);
+        }
+      });
+    }
+
+    const previousUnhandledRejection = (globalThis as any).onunhandledrejection;
+
+    (globalThis as any).onunhandledrejection = (event: any) => {
+      if (isKeepAwakeActivationError(event?.reason || event)) {
+        console.warn(
+          "Keep awake activation failed in promise; continuing capture.",
+          event?.reason || event
+        );
+        event?.preventDefault?.();
+        return true;
+      }
+
+      if (typeof previousUnhandledRejection === "function") {
+        return previousUnhandledRejection(event);
+      }
+
+      return false;
+    };
+
+    return () => {
+      if (
+        typeof errorUtils?.setGlobalHandler === "function" &&
+        typeof previousHandler === "function"
+      ) {
+        errorUtils.setGlobalHandler(previousHandler);
+      }
+
+      (globalThis as any).onunhandledrejection = previousUnhandledRejection;
+    };
+  }, []);
 
   const clearSegmentTimer = useCallback(() => {
     if (segmentTimerRef.current) {
