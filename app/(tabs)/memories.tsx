@@ -256,19 +256,27 @@ export default function MemoriesScreen() {
       item.syncStatus === "failed"
   );
   const hasPendingWork = uploadTotals.pending > 0 || uploadTotals.uploading > 0;
-  const hasFailedWork = uploadTotals.failed > 0 || items.some((item) => item.syncStatus === "failed");
+  const hasFailedWork =
+    uploadTotals.failed > 0 || items.some((item) => item.syncStatus === "failed");
   const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
-  const uploadBusy = uploadingFieldMemories || hasPendingWork || hasLocalPublishing;
+
+  // Keep the status visually stable while the silent publisher is still
+  // working through queue/local-memory state. This avoids flashing between
+  // "Published" and "Retry" during refresh cycles.
+  const uploadBusy =
+    uploadingFieldMemories ||
+    hasPendingWork ||
+    hasLocalPublishing ||
+    hasLocalUnpublished;
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
     : hasFailedWork
       ? "Some field memories need retry."
-      : hasLocalUnpublished
-        ? "Finishing field memories behind the curtain…"
-        : uploadTotals.uploaded > 0 || items.some((item) => item.syncStatus === "synced")
-          ? "All field memories published to CampFeed."
-          : "No field memories waiting.";
+      : uploadTotals.uploaded > 0 ||
+          items.some((item) => item.syncStatus === "synced")
+        ? "All field memories published to CampFeed."
+        : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
