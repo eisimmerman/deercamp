@@ -246,36 +246,43 @@ export default function MemoriesScreen() {
     (item) => item.type === "photo" || item.type === "fieldMemory"
   );
 
+  const latestFieldMemory = visibleFieldMemories[0] ?? null;
+  const latestFieldMemoryPublished = latestFieldMemory?.syncStatus === "synced";
+  const latestFieldMemoryFailed = latestFieldMemory?.syncStatus === "failed";
+  const latestFieldMemoryPending =
+    latestFieldMemory?.syncStatus === "pending" ||
+    latestFieldMemory?.syncStatus === "publishing";
+
   const allVisibleFieldMemoriesPublished =
     visibleFieldMemories.length > 0 &&
     visibleFieldMemories.every((item) => item.syncStatus === "synced");
 
-  const hasLocalPublishing = visibleFieldMemories.some(
-    (item) => item.syncStatus === "publishing"
-  );
-  const hasLocalPending = visibleFieldMemories.some(
-    (item) => item.syncStatus === "pending"
-  );
-  const hasFailedWork = visibleFieldMemories.some(
-    (item) => item.syncStatus === "failed"
-  );
+  const hasLocalPublishing = latestFieldMemory?.syncStatus === "publishing";
+  const hasLocalPending = latestFieldMemory?.syncStatus === "pending";
+  const hasFailedWork = latestFieldMemoryFailed;
 
-  // Once every visible field memory is published, ignore stale queue totals from older builds.
+  // The header represents the current/latest capture. Older local test debris
+  // should not keep "Working behind the curtain" cycling after the latest
+  // memory is already Published to CampFeed.
   const hasPendingWork =
-    !allVisibleFieldMemoriesPublished &&
+    !latestFieldMemoryPublished &&
+    latestFieldMemoryPending &&
     (uploadTotals.pending > 0 || uploadTotals.uploading > 0);
 
-  const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalPending || hasLocalPublishing;
+  const hasWorkToUpload =
+    !latestFieldMemoryPublished &&
+    (hasPendingWork || hasFailedWork || hasLocalPending || hasLocalPublishing);
 
   const uploadBusy =
-    !allVisibleFieldMemoriesPublished &&
+    !latestFieldMemoryPublished &&
     (uploadingFieldMemories || hasPendingWork || hasLocalPublishing || hasLocalPending);
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
     : hasFailedWork
       ? "Some field memories need retry."
-      : allVisibleFieldMemoriesPublished ||
+      : latestFieldMemoryPublished ||
+          allVisibleFieldMemoriesPublished ||
           uploadTotals.uploaded > 0 ||
           visibleFieldMemories.some((item) => item.syncStatus === "synced")
         ? "All field memories published to CampFeed."
@@ -332,10 +339,12 @@ export default function MemoriesScreen() {
           <View
             style={[
               styles.uploadStatusDot,
-              hasWorkToUpload
-                ? styles.uploadDotUploading
-                : uploadTotals.uploaded > 0
-                  ? styles.uploadDotGood
+              latestFieldMemoryPublished ||
+              allVisibleFieldMemoriesPublished ||
+              uploadTotals.uploaded > 0
+                ? styles.uploadDotGood
+                : hasWorkToUpload
+                  ? styles.uploadDotUploading
                   : styles.uploadDotIdle,
             ]}
           />
