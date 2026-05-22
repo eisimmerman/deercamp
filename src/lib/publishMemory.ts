@@ -2,18 +2,37 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, db, storage } from "./firebase";
+import type { LocalMemoryItem, LocalMemorySegment } from "./localMemories";
 
 export type PublishableMemory = {
   id: string;
   imageUri?: string | null;
   photoUri?: string | null;
+  photoUrl?: string | null;
   audioUri?: string | null;
   voiceUri?: string | null;
+  voiceUrl?: string | null;
+  audioUrl?: string | null;
   title?: string | null;
   caption?: string | null;
   details?: string | null;
   createdAt?: string | number | Date | null;
+  clientCreatedAt?: number | null;
   campId?: string | null;
+  authorId?: string | null;
+  authorName?: string | null;
+  type?: string | null;
+  segments?: LocalMemorySegment[] | null;
+  totalDurationMs?: number | null;
+};
+
+export type PublishedFeedResult = {
+  feedDocId: string;
+  campId: string;
+  imageUrl: string;
+  audioUrl?: string;
+  title: string;
+  caption: string;
 };
 
 function requireSignedInUser() {
@@ -32,6 +51,22 @@ function pickImageUri(memory: PublishableMemory) {
 
 function pickAudioUri(memory: PublishableMemory) {
   return memory.audioUri || memory.voiceUri || null;
+}
+
+function pickUploadedImageUrl(memory: PublishableMemory) {
+  return String(memory.photoUrl || "").trim();
+}
+
+function pickUploadedAudioUrl(memory: PublishableMemory) {
+  const direct = String(memory.voiceUrl || memory.audioUrl || "").trim();
+  if (direct) return direct;
+
+  const segments = Array.isArray(memory.segments) ? memory.segments : [];
+  const uploadedAudio = segments
+    .filter((segment) => String(segment?.uploadUrl || "").trim())
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))[0];
+
+  return String(uploadedAudio?.uploadUrl || "").trim();
 }
 
 function getFileExtension(uri: string, fallback: string) {
@@ -121,6 +156,147 @@ function trimOrFallback(value: string | null | undefined, fallback: string) {
   return clean || fallback;
 }
 
+function getMemoryTitle(memory: PublishableMemory) {
+  const explicit = String(memory.title || "").trim();
+  if (explicit) return explicit;
+  return memory.type === "photo" ? "Field Photo" : "Field Memory";
+}
+
+function getMemoryCaption(memory: PublishableMemory) {
+  const explicit = String(memory.caption || memory.details || "").trim();
+  if (explicit) return explicit;
+
+  return memory.type === "photo"
+    ? "Photo captured in DeerCamp Field Mode."
+    : "Photo + voice captured in DeerCamp Field Mode.";
+}
+
+function getClientCreatedAt(memory: PublishableMemory) {
+  if (typeof memory.clientCreatedAt === "number") return memory.clientCreatedAt;
+  if (typeof memory.createdAt === "number") return memory.createdAt;
+
+  if (memory.createdAt instanceof Date) return memory.createdAt.getTime();
+
+  const parsed = memory.createdAt ? Date.parse(String(memory.createdAt)) : NaN;
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function buildFeedDoc(params: {
+  user: NonNullable<typeof auth.currentUser>;
+  memory: PublishableMemory;
+  campId: string;
+  title: string;
+  caption: string;
+  imageUrl: string;
+  audioUrl?: string;
+  imagePath?: string;
+  audioPath?: string;
+}) {
+  const mediaType = params.audioUrl ? "photo-voice" : "photo";
+  const authorName =
+    String(params.memory.authorName || "").trim() || getCleanAuthorName(params.user);
+  const clientCreatedAt = getClientCreatedAt(params.memory);
+
+  const doc: Record<string, any> = {
+    campId: params.campId,
+    authorId: params.user.uid,
+    authorName,
+    author: authorName,
+    title: params.title,
+    caption: params.caption,
+    body: params.caption,
+    titleSource: String(params.memory.title || "").trim() ? "manual" : "fallback",
+    captionSource:
+      String(params.memory.caption || params.memory.details || "").trim()
+        ? "manual"
+        : "fallback",
+    transcript: "",
+    transcriptPreview: "",
+    transcriptionStatus: params.audioUrl ? "pending" : "not_applicable",
+    transcriptionError: "",
+    generatedTitle: "",
+    generatedCaption: "",
+    imageUrl: params.imageUrl,
+    displayUrl: params.imageUrl,
+    thumbUrl: params.imageUrl,
+    thumbnailUrl: params.imageUrl,
+    mediaType,
+    type: mediaType,
+    category: "field-note",
+    tags: params.audioUrl ? ["Field Memory", "Photo", "Voice"] : ["Field Memory", "Photo"],
+    published: true,
+    source: "app",
+    localMemoryId: params.memory.id,
+    createdAt: serverTimestamp(),
+    createdAtMs: clientCreatedAt,
+    clientCreatedAt,
+    aiRequestedAt: params.audioUrl ? serverTimestamp() : null,
+  };
+
+  if (params.audioUrl) {
+    doc.audioUrl = params.audioUrl;
+    doc.voiceUrl = params.audioUrl;
+  }
+
+  if (params.imagePath) doc.imagePath = params.imagePath;
+  if (params.audioPath) doc.audioPath = params.audioPath;
+
+  return doc;
+}
+
+export async function publishUploadedMemoryToFeed(
+  memory: PublishableMemory | LocalMemoryItem,
+  options?: {
+    campId?: string;
+    defaultTitle?: string;
+    defaultCaption?: string;
+  }
+): Promise<PublishedFeedResult> {
+  const user = requireSignedInUser();
+
+  const campId =
+    String(options?.campId || memory.campId || "ourdeercamp").trim() ||
+    "ourdeercamp";
+  const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
+  const caption = trimOrFallback(
+    options?.defaultCaption || getMemoryCaption(memory),
+    "Captured in DeerCamp Field Mode."
+  );
+
+  const imageUrl = pickUploadedImageUrl(memory);
+  const audioUrl = pickUploadedAudioUrl(memory);
+
+  if (!memory?.id) {
+    throw new Error("Memory is missing an id.");
+  }
+
+  if (!imageUrl) {
+    throw new Error("Memory is missing an uploaded photo URL.");
+  }
+
+  const docRef = await addDoc(
+    collection(db, "feedItems"),
+    buildFeedDoc({
+      user,
+      memory,
+      campId,
+      title,
+      caption,
+      imageUrl,
+      audioUrl: audioUrl || undefined,
+    })
+  );
+
+  return {
+    feedDocId: docRef.id,
+    campId,
+    imageUrl,
+    audioUrl: audioUrl || undefined,
+    title,
+    caption,
+  };
+}
+
 export async function publishMemoryToFeed(
   memory: PublishableMemory,
   options?: {
@@ -131,7 +307,9 @@ export async function publishMemoryToFeed(
 ) {
   const user = requireSignedInUser();
 
-  const campId = String(options?.campId || memory.campId || "ourdeercamp").trim() || "ourdeercamp";
+  const campId =
+    String(options?.campId || memory.campId || "ourdeercamp").trim() ||
+    "ourdeercamp";
   const defaultTitle = trimOrFallback(options?.defaultTitle, "Field Memory");
   const defaultCaption = trimOrFallback(
     options?.defaultCaption || memory.details,
@@ -155,71 +333,55 @@ export async function publishMemoryToFeed(
     throw new Error("Memory is missing an image/photo file.");
   }
 
-  if (!audioUri) {
-    throw new Error("Memory is missing an audio/voice file.");
-  }
-
   const imageExt = getFileExtension(imageUri, "jpg");
-  const audioExt = getFileExtension(audioUri, "m4a");
-
   const imageContentType = getImageContentType(imageExt);
-  const audioContentType = getAudioContentType(audioExt);
-
   const imagePath = `feed/${campId}/${user.uid}/${memory.id}/photo.${imageExt}`;
-  const audioPath = `feed/${campId}/${user.uid}/${memory.id}/audio.${audioExt}`;
-
   const imageBlob = await uriToBlob(imageUri);
-  const audioBlob = await uriToBlob(audioUri);
-
   const imageRef = ref(storage, imagePath);
-  const audioRef = ref(storage, audioPath);
 
   await uploadBytes(imageRef, imageBlob, {
     contentType: imageContentType,
   });
 
-  await uploadBytes(audioRef, audioBlob, {
-    contentType: audioContentType,
-  });
-
   const imageUrl = await getDownloadURL(imageRef);
-  const audioUrl = await getDownloadURL(audioRef);
 
-  const docRef = await addDoc(collection(db, "feedItems"), {
-    campId,
-    authorId: user.uid,
-    authorName: getCleanAuthorName(user),
-    title: baseTitle,
-    caption: baseCaption,
-    titleSource: manualTitle ? "manual" : "fallback",
-    captionSource: manualCaption ? "manual" : "fallback",
-    transcript: "",
-    transcriptPreview: "",
-    transcriptionStatus: "pending",
-    transcriptionError: "",
-    generatedTitle: "",
-    generatedCaption: "",
-    imageUrl,
-    audioUrl,
-    imagePath,
-    audioPath,
-    mediaType: "photo",
-    category: "field-note",
-    published: true,
-    source: "app",
-    localMemoryId: memory.id,
-    createdAt: serverTimestamp(),
-    clientCreatedAt:
-      typeof memory.createdAt === "number"
-        ? memory.createdAt
-        : Date.now(),
-    aiRequestedAt: serverTimestamp(),
-  });
+  let audioUrl = "";
+  let audioPath = "";
+
+  if (audioUri) {
+    const audioExt = getFileExtension(audioUri, "m4a");
+    const audioContentType = getAudioContentType(audioExt);
+    audioPath = `feed/${campId}/${user.uid}/${memory.id}/audio.${audioExt}`;
+    const audioBlob = await uriToBlob(audioUri);
+    const audioRef = ref(storage, audioPath);
+
+    await uploadBytes(audioRef, audioBlob, {
+      contentType: audioContentType,
+    });
+
+    audioUrl = await getDownloadURL(audioRef);
+  }
+
+  const docRef = await addDoc(
+    collection(db, "feedItems"),
+    buildFeedDoc({
+      user,
+      memory,
+      campId,
+      title: baseTitle,
+      caption: baseCaption,
+      imageUrl,
+      audioUrl: audioUrl || undefined,
+      imagePath,
+      audioPath: audioPath || undefined,
+    })
+  );
 
   return {
     feedDocId: docRef.id,
+    campId,
     imageUrl,
-    audioUrl,
+    audioUrl: audioUrl || undefined,
     title: baseTitle,
     caption: baseCaption,
   };

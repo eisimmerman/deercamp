@@ -27,6 +27,7 @@ export type LocalMemoryItem = {
   photoUri?: string;
   photoUrl?: string;
   audioUri?: string;
+  audioUrl?: string;
   voiceUri?: string;
   voiceUrl?: string;
   videoUri?: string;
@@ -174,12 +175,18 @@ export async function markMemoryPublished(
   data: {
     feedDocId: string;
     campId?: string;
+    photoUrl?: string;
+    audioUrl?: string;
+    voiceUrl?: string;
   }
 ) {
   await updateLocalMemory(id, {
     syncStatus: "synced",
     feedDocId: data.feedDocId,
     campId: data.campId,
+    photoUrl: data.photoUrl,
+    audioUrl: data.audioUrl,
+    voiceUrl: data.voiceUrl || data.audioUrl,
     publishedAt: Date.now(),
     publishError: undefined,
   });

@@ -35,14 +35,14 @@ function formatWhen(item: EntryItem) {
 
 function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
-    if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to Feed.";
+    if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to CampFeed.";
     if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Uploading to Feed.";
     if (item.syncStatus === "failed") return "Photo captured in Field Mode. Upload needs retry.";
     return "Photo captured in Field Mode. Ready to upload.";
   }
 
   if (item.type === "fieldMemory") {
-    if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to Feed.";
+    if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to CampFeed.";
     if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Uploading to Feed.";
     if (item.syncStatus === "failed") return "Photo + voice captured in Field Mode. Upload needs retry.";
     return "Photo + voice captured in Field Mode. Ready to upload.";
@@ -212,7 +212,7 @@ export default function MemoriesScreen() {
     : hasWorkToUpload
       ? "Field memories are ready to upload."
       : uploadTotals.uploaded > 0
-        ? "All field memories uploaded."
+        ? "All field memories published to CampFeed."
         : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
@@ -223,7 +223,7 @@ export default function MemoriesScreen() {
       item.syncStatus === "publishing"
         ? "Uploading"
         : item.syncStatus === "synced"
-          ? "Published to Feed"
+          ? "Published to CampFeed"
           : item.syncStatus === "failed"
             ? "Upload needs retry"
             : "Ready to upload";
@@ -286,7 +286,7 @@ export default function MemoriesScreen() {
             {uploadBusy ? (
               <ActivityIndicator color="#0B0E12" />
             ) : (
-              <Text style={styles.uploadBtnText}>Upload Field Memories</Text>
+              <Text style={styles.uploadBtnText}>Publish to CampFeed</Text>
             )}
           </Pressable>
         ) : null}

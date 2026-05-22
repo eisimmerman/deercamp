@@ -1,6 +1,7 @@
 // src/lib/capture/uploadWorker.ts
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
+import { publishUploadedMemoryToFeed } from "@/lib/publishMemory";
 import {
   getPendingUploadQueueItems,
   getUploadQueueItemsForMemory,
@@ -10,7 +11,9 @@ import {
   type UploadQueueItem,
 } from "@/lib/capture/uploadQueue";
 import {
+  getActiveCampId,
   getLocalMemoryById,
+  markMemoryPublished,
   updateLocalMemory,
   type LocalMemorySegment,
 } from "@/lib/localMemories";
@@ -107,6 +110,51 @@ function getContentType(mediaType: "audio" | "video" | "photo") {
   return "audio/mp4";
 }
 
+async function publishMemoryToCampFeedIfReady(memoryId: string) {
+  const memory = await getLocalMemoryById(memoryId);
+  if (!memory) return;
+
+  if (memory.feedDocId) {
+    await updateLocalMemory(memoryId, {
+      syncStatus: "synced",
+      publishError: undefined,
+    });
+    return;
+  }
+
+  const activeCampId = await getActiveCampId();
+  const campId = memory.campId || activeCampId || "ourdeercamp";
+
+  await updateLocalMemory(memoryId, {
+    syncStatus: "publishing",
+    campId,
+    publishError: undefined,
+  });
+
+  const published = await publishUploadedMemoryToFeed(
+    {
+      ...memory,
+      campId,
+    },
+    {
+      campId,
+      defaultTitle: memory.type === "photo" ? "Field Photo" : "Field Memory",
+      defaultCaption:
+        memory.type === "photo"
+          ? "Photo captured in DeerCamp Field Mode."
+          : "Photo + voice captured in DeerCamp Field Mode.",
+    }
+  );
+
+  await markMemoryPublished(memoryId, {
+    feedDocId: published.feedDocId,
+    campId: published.campId,
+    photoUrl: published.imageUrl,
+    audioUrl: published.audioUrl,
+    voiceUrl: published.audioUrl,
+  });
+}
+
 async function updateMemoryUploadState(memoryId: string) {
   const items = await getUploadQueueItemsForMemory(memoryId);
   if (items.length === 0) return;
@@ -118,11 +166,19 @@ async function updateMemoryUploadState(memoryId: string) {
   const allUploaded = items.every((item) => item.status === "uploaded");
 
   if (allUploaded) {
-    await updateLocalMemory(memoryId, {
-      syncStatus: "synced",
-      publishError: undefined,
-      publishedAt: Date.now(),
-    });
+    try {
+      await publishMemoryToCampFeedIfReady(memoryId);
+    } catch (error: any) {
+      const message =
+        error?.message || error?.code || "CampFeed publish failed.";
+
+      console.error("publish uploaded memory to feed failed:", memoryId, message);
+
+      await updateLocalMemory(memoryId, {
+        syncStatus: "failed",
+        publishError: String(message || "CampFeed publish failed.").trim(),
+      });
+    }
     return;
   }
 
@@ -170,8 +226,15 @@ async function patchMemoryAfterUpload(
       )
     : memory.segments;
 
+  const isFirstAudioSegment =
+    item.mediaType === "audio" &&
+    (item.segmentIndex === 0 ||
+      !String(memory.voiceUrl || memory.audioUrl || "").trim());
+
   await updateLocalMemory(item.memoryId, {
     segments,
+    voiceUrl: isFirstAudioSegment ? uploadedUrl : memory.voiceUrl,
+    audioUrl: isFirstAudioSegment ? uploadedUrl : memory.audioUrl,
     publishError: undefined,
   });
 }
