@@ -10,15 +10,13 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
 import {
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
-  useAudioPlayer,
-  useAudioPlayerStatus,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
@@ -34,7 +32,6 @@ import {
   type SegmentManagerState,
 } from "@/lib/capture/segmentManager";
 import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
-import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
@@ -45,46 +42,11 @@ function formatDuration(ms: number) {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-function PreviewVoiceControls({ uri }: { uri: string }) {
-  const player = useAudioPlayer(uri, { downloadFirst: false });
-  const status = useAudioPlayerStatus(player);
-
-  const label = useMemo(() => {
-    if (!status.isLoaded) return "Loading Voice…";
-    return status.playing ? "Pause Voice" : "Play Voice";
-  }, [status.isLoaded, status.playing]);
-
-  const onPress = () => {
-    if (!status.isLoaded) return;
-
-    if (status.playing) {
-      player.pause();
-      return;
-    }
-
-    if (status.duration > 0 && status.currentTime >= status.duration) {
-      player.seekTo(0);
-    }
-
-    player.play();
-  };
-
-  return (
-    <Pressable
-      style={({ pressed }) => [
-        styles.previewSecondaryBtn,
-        pressed && styles.previewBtnPressed,
-        !status.isLoaded && styles.btnDisabled,
-      ]}
-      onPress={onPress}
-      disabled={!status.isLoaded}
-    >
-      <Text style={styles.previewSecondaryBtnText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 export default function FieldVoiceScreen() {
+  const params = useLocalSearchParams<{ mode?: string | string[] }>();
+  const mode = Array.isArray(params.mode) ? params.mode[0] : params.mode;
+  const photoOnly = mode === "photo";
+
   const user = auth.currentUser;
   const authorId = user?.uid || "anonymous";
   const authorName =
@@ -102,16 +64,12 @@ export default function FieldVoiceScreen() {
   const [facing, setFacing] = useState<CameraType>("back");
   const [cameraReady, setCameraReady] = useState(false);
   const [capturedUri, setCapturedUri] = useState("");
-  const [previewAudioUri, setPreviewAudioUri] = useState("");
   const [takingPhoto, setTakingPhoto] = useState(false);
-  const [bootingAudio, setBootingAudio] = useState(true);
+  const [bootingAudio, setBootingAudio] = useState(!photoOnly);
   const [micDenied, setMicDenied] = useState(false);
   const [saving, setSaving] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   const [helperCount, setHelperCount] = useState(0);
-  const [stoppedDurationMs, setStoppedDurationMs] = useState(0);
-  const [segmentCount, setSegmentCount] = useState(0);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -120,8 +78,6 @@ export default function FieldVoiceScreen() {
     () => formatDuration(recorderState.durationMillis || 0),
     [recorderState.durationMillis]
   );
-
-  const shouldShowHelper = helperCount < 5 && !recordingComplete;
 
   const clearSegmentTimer = useCallback(() => {
     if (segmentTimerRef.current) {
@@ -141,7 +97,6 @@ export default function FieldVoiceScreen() {
       });
 
       segmentStateRef.current = result.nextState;
-      setSegmentCount(result.nextState.segments.length);
     },
     []
   );
@@ -206,13 +161,13 @@ export default function FieldVoiceScreen() {
   }, [helperCount]);
 
   const startAutoRecording = useCallback(async () => {
+    if (photoOnly) return;
+
     try {
       clearSegmentTimer();
 
       setBootingAudio(true);
       setMicDenied(false);
-      setStoppedDurationMs(0);
-      setSegmentCount(0);
       recordingCompleteRef.current = false;
       finalizingSegmentRef.current = false;
 
@@ -245,16 +200,21 @@ export default function FieldVoiceScreen() {
     } finally {
       setBootingAudio(false);
     }
-  }, [authorId, clearSegmentTimer, recorder, startSegmentTimer]);
+  }, [authorId, clearSegmentTimer, photoOnly, recorder, startSegmentTimer]);
 
   useEffect(() => {
+    if (photoOnly) {
+      setBootingAudio(false);
+      return;
+    }
+
     if (!user || user.isAnonymous) return;
     if (!cameraPermission?.granted) return;
     if (autoStartedRef.current) return;
 
     autoStartedRef.current = true;
     void startAutoRecording();
-  }, [cameraPermission?.granted, startAutoRecording, user]);
+  }, [cameraPermission?.granted, photoOnly, startAutoRecording, user]);
 
   useEffect(() => {
     return () => {
@@ -281,44 +241,151 @@ export default function FieldVoiceScreen() {
     await startAutoRecording();
   }
 
-  async function onTakePhoto() {
-    if (!cameraRef.current || !cameraReady || takingPhoto || saving || recordingComplete) {
-      return;
+  async function takePhoto() {
+    if (!cameraRef.current || !cameraReady) {
+      throw new Error("Camera is still getting ready.");
     }
+
+    const result = await cameraRef.current.takePictureAsync({
+      quality: 0.75,
+    });
+
+    if (!result?.uri) {
+      throw new Error("No photo was returned by the camera.");
+    }
+
+    await incrementPhotoCount();
+    setCapturedUri(result.uri);
+    return result.uri;
+  }
+
+  async function queuePhotoOnlyMemory(photoUri: string) {
+    const memoryId = `local-photo-${authorId}-${Date.now()}`;
+    const now = Date.now();
+
+    await saveLocalMemory({
+      id: memoryId,
+      title: "Field Photo",
+      details: "Photo captured in Field Mode. Ready to upload.",
+      clientCreatedAt: now,
+      authorId,
+      authorName,
+      syncStatus: "pending",
+      type: "photo",
+      photoUri,
+      captureVersion: 2,
+      isSegmented: false,
+      segmentCount: 0,
+      parentMemoryTitle: "Field Photo",
+    });
+
+    await enqueueUploadItems([
+      {
+        id: `${memoryId}-upload-photo-main`,
+        memoryId,
+        segmentId: "photo-main",
+        segmentIndex: -1,
+        uri: photoUri,
+        mediaType: "photo" as const,
+        campId: undefined,
+        authorId,
+      },
+    ]);
+  }
+
+  async function queueVoiceMemory(photoUri: string) {
+    const state = segmentStateRef.current;
+    const summary = state ? getSegmentSummary(state) : null;
+    const segments = summary?.segments || [];
+    const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
+    const now = Date.now();
+    const firstAudioUri = segments[0]?.uri?.trim() || "";
+
+    const payload: any = {
+      id: memoryId,
+      title: "Field Memory",
+      details: "Photo + voice captured in Field Mode. Ready to upload.",
+      clientCreatedAt: now,
+      authorId,
+      authorName,
+      syncStatus: "pending",
+      type: "fieldMemory",
+      photoUri,
+      captureVersion: 2,
+      isSegmented: segments.length > 0,
+      segmentCount: segments.length,
+      totalDurationMs: summary?.totalDurationMs || undefined,
+      parentMemoryTitle: "Field Memory",
+      segments,
+    };
+
+    if (firstAudioUri) {
+      payload.audioUri = firstAudioUri;
+      payload.voiceUri = firstAudioUri;
+    }
+
+    await saveLocalMemory(payload);
+
+    const uploadItems = [
+      {
+        id: `${memoryId}-upload-photo-main`,
+        memoryId,
+        segmentId: "photo-main",
+        segmentIndex: -1,
+        uri: photoUri,
+        mediaType: "photo" as const,
+        campId: undefined,
+        authorId,
+      },
+      ...segments.map((segment) => ({
+        id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
+        memoryId,
+        segmentId: segment.id,
+        segmentIndex: segment.index,
+        uri: segment.uri,
+        mediaType: "audio" as const,
+        campId: undefined,
+        authorId,
+      })),
+    ];
+
+    await enqueueUploadItems(uploadItems);
+  }
+
+  async function onTakePhoto() {
+    if (takingPhoto || saving || recordingComplete) return;
 
     try {
       setTakingPhoto(true);
+      const photoUri = await takePhoto();
 
-      const result = await cameraRef.current.takePictureAsync({
-        quality: 0.75,
-      });
-
-      if (!result?.uri) {
-        throw new Error("No photo was returned by the camera.");
+      if (photoOnly) {
+        setSaving(true);
+        await queuePhotoOnlyMemory(photoUri);
+        router.replace("/(tabs)/memories");
       }
-
-      setCapturedUri(result.uri);
-      await incrementPhotoCount();
     } catch (error: any) {
       console.error("take photo failed:", error);
       Alert.alert("Camera failed", error?.message ?? "Please try again.");
     } finally {
       setTakingPhoto(false);
+      setSaving(false);
     }
   }
 
   async function onStopRecording() {
-    if (saving || recordingCompleteRef.current) return;
+    if (saving || recordingCompleteRef.current || photoOnly) return;
 
     if (!capturedUri.trim()) {
       Alert.alert(
         "Take a photo first",
-        "Tap the white circle button or anywhere on the screen to take a photo before stopping the recording."
+        "Tap the white circle button or anywhere on the screen before stopping."
       );
       return;
     }
 
     try {
+      setSaving(true);
       clearSegmentTimer();
       recordingCompleteRef.current = true;
       setRecordingComplete(true);
@@ -335,138 +402,27 @@ export default function FieldVoiceScreen() {
         addCurrentRecordingAsSegment(finalUri, finalDurationMs);
       }
 
-      const state = segmentStateRef.current;
-      const firstSegmentUri = state?.segments?.[0]?.uri?.trim() || "";
-      const summary = state ? getSegmentSummary(state) : null;
-
-      setPreviewAudioUri(firstSegmentUri);
-      setStoppedDurationMs(summary?.totalDurationMs || 0);
-      setShowPreview(true);
-
       try {
         await setAudioModeAsync({
           allowsRecording: false,
         });
       } catch {}
-    } catch (error: any) {
-      console.error("stop recording failed:", error);
-      Alert.alert("Stop failed", error?.message ?? "Please try again.");
-      recordingCompleteRef.current = false;
-      setRecordingComplete(false);
-    }
-  }
 
-  async function onSaveMemory() {
-    if (saving) return;
-
-    try {
-      setSaving(true);
-
-      if (!capturedUri.trim()) {
-        Alert.alert("No photo", "Take a photo before saving.");
-        return;
-      }
-
-      const state = segmentStateRef.current;
-      const summary = state ? getSegmentSummary(state) : null;
-      const segments = summary?.segments || [];
-      const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
-      const now = Date.now();
-      const firstAudioUri = segments[0]?.uri?.trim() || "";
-
-      const payload: any = {
-        id: memoryId,
-        title: "Field Memory",
-        details: `Photo + voice captured in Field Mode. ${segments.length} audio segment${
-          segments.length === 1 ? "" : "s"
-        } saved locally and queued for upload.`,
-        clientCreatedAt: now,
-        authorId,
-        authorName,
-        syncStatus: "pending",
-        type: "fieldMemory",
-        photoUri: capturedUri,
-
-        captureVersion: 2,
-        isSegmented: segments.length > 0,
-        segmentCount: segments.length,
-        totalDurationMs: summary?.totalDurationMs || stoppedDurationMs || undefined,
-        parentMemoryTitle: "Field Memory",
-        segments,
-      };
-
-      if (firstAudioUri) {
-        payload.audioUri = firstAudioUri;
-        payload.voiceUri = firstAudioUri;
-      }
-
-      await saveLocalMemory(payload);
-
-      const uploadItems = [
-        {
-          id: `${memoryId}-upload-photo-main`,
-          memoryId,
-          segmentId: "photo-main",
-          segmentIndex: -1,
-          uri: capturedUri,
-          mediaType: "photo" as const,
-          campId: undefined,
-          authorId,
-        },
-        ...segments.map((segment) => ({
-          id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
-          memoryId,
-          segmentId: segment.id,
-          segmentIndex: segment.index,
-          uri: segment.uri,
-          mediaType: "audio" as const,
-          campId: undefined,
-          authorId,
-        })),
-      ];
-
-      if (uploadItems.length > 0) {
-        await enqueueUploadItems(uploadItems);
-
-        // Try immediate upload, but never block saving the memory.
-        void processUploadQueueOnce(3, memoryId).catch((error) => {
-          console.error("process upload queue after save failed:", error);
-        });
-      }
-
+      await queueVoiceMemory(capturedUri);
       router.replace("/(tabs)/memories");
     } catch (error: any) {
-      console.error("save local voice memory failed:", error);
+      console.error("stop and save recording failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
+      recordingCompleteRef.current = false;
+      setRecordingComplete(false);
     } finally {
       setSaving(false);
     }
   }
 
-  async function onRetake() {
-    try {
-      clearSegmentTimer();
-
-      setShowPreview(false);
-      setRecordingComplete(false);
-      setCapturedUri("");
-      setPreviewAudioUri("");
-      setStoppedDurationMs(0);
-      setSegmentCount(0);
-      recordingCompleteRef.current = false;
-      segmentStateRef.current = null;
-
-      await startAutoRecording();
-    } catch (error: any) {
-      console.error("retake failed:", error);
-      Alert.alert("Retake failed", error?.message ?? "Please try again.");
-    }
-  }
-
-  function onGoHome() {
+  function onGoBack() {
     clearSegmentTimer();
-    setShowPreview(false);
-    router.replace("/");
+    router.back();
   }
 
   if (!user || user.isAnonymous) {
@@ -507,8 +463,7 @@ export default function FieldVoiceScreen() {
         />
         <Text style={styles.gateTitle}>Camera access needed</Text>
         <Text style={styles.gateText}>
-          DeerCamp needs camera permission so Record Memory can open right into
-          the camera.
+          DeerCamp needs camera permission to capture field memories.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={requestCameraPermission}>
@@ -522,7 +477,7 @@ export default function FieldVoiceScreen() {
     );
   }
 
-  if (micDenied) {
+  if (!photoOnly && micDenied) {
     return (
       <View style={styles.centerWrap}>
         <Ionicons
@@ -533,8 +488,7 @@ export default function FieldVoiceScreen() {
         />
         <Text style={styles.gateTitle}>Microphone access needed</Text>
         <Text style={styles.gateText}>
-          Record Memory is designed to start audio automatically as soon as the
-          camera opens.
+          Record Memory starts audio automatically when the camera opens.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={onRetryAudio}>
@@ -548,7 +502,7 @@ export default function FieldVoiceScreen() {
     );
   }
 
-  if (bootingAudio && !recorderState.isRecording && !recordingComplete) {
+  if (!photoOnly && bootingAudio && !recorderState.isRecording && !recordingComplete) {
     return (
       <View style={styles.centerWrap}>
         <ActivityIndicator />
@@ -569,41 +523,26 @@ export default function FieldVoiceScreen() {
         onCameraReady={() => setCameraReady(true)}
       />
 
-      {!recordingComplete ? (
-        <Pressable
-          style={styles.captureAnywhere}
-          onPress={onTakePhoto}
-          disabled={takingPhoto || saving}
-        />
-      ) : null}
+      <Pressable
+        style={styles.captureAnywhere}
+        onPress={onTakePhoto}
+        disabled={takingPhoto || saving || recordingComplete}
+      />
 
       <View style={styles.overlayTop}>
-        <Pressable style={styles.backPill} onPress={() => router.back()}>
+        <Pressable style={styles.backPill} onPress={onGoBack}>
           <Ionicons name="arrow-back" size={18} color="white" />
           <Text style={styles.backPillText}>Back</Text>
         </Pressable>
 
-        <View style={styles.topRightStack}>
+        {!photoOnly ? (
           <View style={styles.livePill}>
             <View style={styles.liveDot} />
             <Text style={styles.livePillText}>
               {recordingComplete ? "REC STOPPED" : `REC ${elapsed}`}
             </Text>
           </View>
-
-          {segmentCount > 0 && !recordingComplete ? (
-            <View style={styles.segmentPill}>
-              <Text style={styles.segmentPillText}>Saved {segmentCount}</Text>
-            </View>
-          ) : null}
-
-          {capturedUri ? (
-            <View style={styles.photoTakenPill}>
-              <Ionicons name="checkmark-circle" size={16} color="#fff" />
-              <Text style={styles.photoTakenPillText}>Photo captured</Text>
-            </View>
-          ) : null}
-        </View>
+        ) : null}
       </View>
 
       {capturedUri ? (
@@ -613,102 +552,60 @@ export default function FieldVoiceScreen() {
       ) : null}
 
       <View style={styles.overlayBottom}>
-        <Text style={styles.captureTitle}>Record Memory</Text>
+        <Text style={styles.captureTitle}>
+          {photoOnly ? "Photo Only" : "Record Memory"}
+        </Text>
 
-        {shouldShowHelper ? (
-          <Text style={styles.captureText}>
-            Tap the white circle button or anywhere on the screen to take photo.
-          </Text>
-        ) : (
-          <Text style={styles.captureTextMuted}>
-            Audio is being saved in upload-safe segments behind the curtain.
-          </Text>
-        )}
+        <Text style={styles.captureText}>
+          {photoOnly ? "Tap to take photo." : "Audio auto-recording."}
+        </Text>
 
-        {!recordingComplete ? (
-          <View style={styles.cameraActions}>
-            <Pressable
-              style={styles.flipBtn}
-              onPress={() =>
-                setFacing((current) => (current === "back" ? "front" : "back"))
-              }
-              disabled={saving}
-            >
-              <Ionicons
-                name="camera-reverse-outline"
-                size={22}
-                color="white"
-              />
-            </Pressable>
+        <View style={styles.cameraActions}>
+          <Pressable
+            style={styles.flipBtn}
+            onPress={() =>
+              setFacing((current) => (current === "back" ? "front" : "back"))
+            }
+            disabled={saving}
+          >
+            <Ionicons name="camera-reverse-outline" size={22} color="white" />
+          </Pressable>
 
-            <Pressable
-              style={[styles.shutterOuter, (takingPhoto || saving) && styles.btnDisabled]}
-              onPress={onTakePhoto}
-              disabled={takingPhoto || saving}
-            >
-              <View style={styles.shutterInner}>
-                {takingPhoto ? <ActivityIndicator color="#111" /> : null}
-              </View>
-            </Pressable>
+          <Pressable
+            style={[
+              styles.shutterOuter,
+              (takingPhoto || saving) && styles.btnDisabled,
+            ]}
+            onPress={onTakePhoto}
+            disabled={takingPhoto || saving || recordingComplete}
+          >
+            <View style={styles.shutterInner}>
+              {takingPhoto || (photoOnly && saving) ? (
+                <ActivityIndicator color="#111" />
+              ) : null}
+            </View>
+          </Pressable>
 
+          {!photoOnly ? (
             <Pressable
               style={[styles.stopPill, saving && styles.btnDisabled]}
               onPress={onStopRecording}
               disabled={saving}
             >
-              <View style={styles.stopSquare} />
-              <Text style={styles.stopPillText}>Stop Recording</Text>
-            </Pressable>
-          </View>
-        ) : null}
-      </View>
-
-      {showPreview ? (
-        <View style={styles.previewOverlay}>
-          <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>Field Memory Preview</Text>
-            <Text style={styles.previewMeta}>
-              {segmentCount} audio segment{segmentCount === 1 ? "" : "s"} saved
-            </Text>
-
-            <Image source={{ uri: capturedUri }} style={styles.previewImage} />
-
-            <View style={styles.previewUtilityRow}>
-              {previewAudioUri ? (
-                <PreviewVoiceControls uri={previewAudioUri} />
+              {saving ? (
+                <ActivityIndicator color="white" />
               ) : (
-                <View style={styles.previewSecondaryBtnEmpty} />
+                <>
+                  <View style={styles.stopSquare} />
+                  <Text style={styles.stopPillText}>Stop</Text>
+                </>
               )}
-
-              <Pressable style={styles.previewSecondaryBtn} onPress={onGoHome}>
-                <Text style={styles.previewSecondaryBtnText}>Home</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.previewPrimaryRow}>
-              <Pressable
-                style={[styles.previewPrimaryBtn, saving && styles.btnDisabled]}
-                onPress={onSaveMemory}
-                disabled={saving}
-              >
-                {saving ? (
-                  <ActivityIndicator color="#0B0E12" />
-                ) : (
-                  <Text style={styles.previewPrimaryBtnText}>Save</Text>
-                )}
-              </Pressable>
-
-              <Pressable
-                style={[styles.previewDangerBtn, saving && styles.btnDisabled]}
-                onPress={onRetake}
-                disabled={saving}
-              >
-                <Text style={styles.previewDangerBtnText}>Retake</Text>
-              </Pressable>
-            </View>
-          </View>
+            </Pressable>
+          ) : (
+            <View style={styles.stopPillPlaceholder} />
+          )}
         </View>
-      ) : null}
+      </View>
     </View>
   );
 }
@@ -717,9 +614,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   captureAnywhere: { ...StyleSheet.absoluteFillObject },
+
   overlayTop: {
     position: "absolute",
-    top: 16,
+    top: 38,
     left: 16,
     right: 16,
     flexDirection: "row",
@@ -727,10 +625,10 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: 12,
   },
-  topRightStack: { alignItems: "flex-end", gap: 8 },
+
   thumbWrap: {
     position: "absolute",
-    top: 92,
+    top: 112,
     right: 16,
     borderRadius: 16,
     overflow: "hidden",
@@ -738,18 +636,21 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.75)",
     backgroundColor: "rgba(0,0,0,0.4)",
   },
+
   thumb: { width: 84, height: 112 },
+
   overlayBottom: {
     position: "absolute",
     left: 18,
     right: 18,
-    bottom: 28,
-    backgroundColor: "rgba(11,14,18,0.78)",
+    bottom: 30,
+    backgroundColor: "rgba(11,14,18,0.66)",
     borderColor: "rgba(255,255,255,0.12)",
     borderWidth: 1,
     borderRadius: 24,
-    padding: 18,
+    padding: 16,
   },
+
   backPill: {
     flexDirection: "row",
     alignItems: "center",
@@ -759,7 +660,9 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
   },
+
   backPillText: { color: "white", fontWeight: "900" },
+
   livePill: {
     flexDirection: "row",
     alignItems: "center",
@@ -769,50 +672,32 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     borderRadius: 999,
   },
+
   liveDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "white" },
   livePillText: { color: "white", fontWeight: "900", fontSize: 13 },
-  segmentPill: {
-    backgroundColor: "rgba(11,14,18,0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+
+  captureTitle: {
+    color: "white",
+    fontSize: 24,
+    fontWeight: "900",
+    marginBottom: 6,
   },
-  segmentPillText: { color: "white", fontWeight: "900", fontSize: 12 },
-  photoTakenPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(24,24,24,0.8)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 999,
-  },
-  photoTakenPillText: { color: "white", fontWeight: "900", fontSize: 13 },
-  captureTitle: { color: "white", fontSize: 24, fontWeight: "900", marginBottom: 6 },
+
   captureText: {
-    color: "rgba(255,255,255,0.84)",
+    color: "rgba(255,255,255,0.78)",
     fontSize: 15,
     fontWeight: "800",
     lineHeight: 20,
-    marginBottom: 18,
+    marginBottom: 14,
   },
-  captureTextMuted: {
-    color: "rgba(255,255,255,0.62)",
-    fontSize: 15,
-    fontWeight: "700",
-    lineHeight: 20,
-    marginBottom: 0,
-  },
+
   cameraActions: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
   },
+
   flipBtn: {
     width: 52,
     height: 52,
@@ -821,108 +706,49 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   shutterOuter: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 4,
     borderColor: "white",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.08)",
   },
+
   shutterInner: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     backgroundColor: "white",
     alignItems: "center",
     justifyContent: "center",
   },
+
   stopPill: {
-    minWidth: 168,
+    width: 108,
     height: 52,
     borderRadius: 18,
     backgroundColor: "#C62828",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 10,
-    paddingHorizontal: 16,
+    gap: 9,
+    paddingHorizontal: 12,
   },
+
+  stopPillPlaceholder: {
+    width: 108,
+    height: 52,
+  },
+
   stopSquare: { width: 12, height: 12, borderRadius: 2, backgroundColor: "white" },
   stopPillText: { color: "white", fontSize: 18, fontWeight: "900" },
-  previewOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.72)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  previewCard: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: "#0B0E12",
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    padding: 16,
-  },
-  previewTitle: {
-    color: "white",
-    fontSize: 24,
-    fontWeight: "900",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  previewMeta: {
-    color: "rgba(255,255,255,0.6)",
-    fontSize: 13,
-    fontWeight: "800",
-    marginBottom: 12,
-    textAlign: "center",
-  },
-  previewImage: {
-    width: "100%",
-    aspectRatio: 3 / 4,
-    borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.04)",
-    marginBottom: 14,
-  },
-  previewUtilityRow: { flexDirection: "row", gap: 10, marginBottom: 10 },
-  previewPrimaryRow: { flexDirection: "row", gap: 10 },
-  previewSecondaryBtn: {
-    flex: 1,
-    backgroundColor: "rgba(255,255,255,0.08)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.16)",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  previewSecondaryBtnEmpty: { flex: 1 },
-  previewSecondaryBtnText: { color: "white", fontWeight: "900" },
-  previewPrimaryBtn: {
-    flex: 1,
-    backgroundColor: "white",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  previewPrimaryBtnText: { color: "#0B0E12", fontWeight: "900" },
-  previewDangerBtn: {
-    flex: 1,
-    backgroundColor: "#C62828",
-    borderRadius: 16,
-    paddingVertical: 14,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  previewDangerBtnText: { color: "white", fontWeight: "900" },
-  previewBtnPressed: { opacity: 0.9 },
+
   btnDisabled: { opacity: 0.45 },
+
   centerWrap: {
     flex: 1,
     backgroundColor: "#0B0E12",
@@ -930,6 +756,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
+
   gateTitle: {
     color: "white",
     fontSize: 22,
@@ -937,6 +764,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: "center",
   },
+
   gateText: {
     color: "rgba(255,255,255,0.7)",
     textAlign: "center",
@@ -944,6 +772,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     lineHeight: 20,
   },
+
   primaryBtn: {
     backgroundColor: "white",
     paddingVertical: 14,
@@ -952,6 +781,7 @@ const styles = StyleSheet.create({
     minWidth: 220,
     alignItems: "center",
   },
+
   primaryBtnText: { color: "#0B0E12", fontSize: 16, fontWeight: "900" },
   secondaryText: { color: "rgba(255,255,255,0.6)", fontWeight: "700" },
 });

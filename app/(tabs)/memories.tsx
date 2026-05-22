@@ -1,3 +1,4 @@
+// app/(tabs)/memories.tsx
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,23 +16,11 @@ import { auth } from "@/lib/firebase";
 import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
 import {
   getUploadQueueTotals,
-  getUploadQueueStatusLabel,
   type UploadQueueTotals,
 } from "@/lib/capture/uploadQueueState";
 import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
-type EntryItem = {
-  id: string;
-  title?: string;
-  details?: string;
-  clientCreatedAt?: number;
-  authorName?: string;
-  photoUrl?: string;
-  photoUri?: string;
-  voiceUrl?: string;
-  voiceUri?: string;
-  audioUri?: string;
-  syncStatus?: "pending" | "publishing" | "synced" | "failed";
+type EntryItem = LocalMemoryItem & {
   isLocal?: boolean;
 };
 
@@ -42,6 +31,24 @@ function toSortMs(item: EntryItem) {
 function formatWhen(item: EntryItem) {
   if (item.clientCreatedAt) return new Date(item.clientCreatedAt).toLocaleString();
   return "";
+}
+
+function getMemorySummary(item: EntryItem) {
+  if (item.type === "photo") {
+    if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to Feed.";
+    if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Uploading to Feed.";
+    if (item.syncStatus === "failed") return "Photo captured in Field Mode. Upload needs retry.";
+    return "Photo captured in Field Mode. Ready to upload.";
+  }
+
+  if (item.type === "fieldMemory") {
+    if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to Feed.";
+    if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Uploading to Feed.";
+    if (item.syncStatus === "failed") return "Photo + voice captured in Field Mode. Upload needs retry.";
+    return "Photo + voice captured in Field Mode. Ready to upload.";
+  }
+
+  return item.details?.trim() || "Saved on device.";
 }
 
 const emptyUploadTotals: UploadQueueTotals = {
@@ -62,10 +69,10 @@ export default function MemoriesScreen() {
   const [loading, setLoading] = useState(true);
   const [uploadTotals, setUploadTotals] =
     useState<UploadQueueTotals>(emptyUploadTotals);
-  const [retryingUploads, setRetryingUploads] = useState(false);
+  const [uploadingFieldMemories, setUploadingFieldMemories] = useState(false);
 
   const goAdd = useCallback(() => {
-    router.push("/field");
+    router.push("/");
   }, [router]);
 
   const refreshUploadTotals = useCallback(async () => {
@@ -106,57 +113,64 @@ export default function MemoriesScreen() {
     [refreshUploadTotals, user?.uid]
   );
 
-  const runUploadPass = useCallback(
-    async (mode: "auto" | "manual" = "auto") => {
-      if (processingUploadsRef.current) return;
-
-      try {
-        processingUploadsRef.current = true;
-
-        const before = await refreshUploadTotals();
-
-        const shouldProcess =
-          before.pending > 0 || before.failed > 0 || before.uploading > 0;
-
-        if (!shouldProcess) return;
-
-        // If Firebase/Storage is already actively uploading and there are no queued
-        // or failed items yet, let that active attempt finish before starting another pass.
-        if (before.uploading > 0 && before.pending === 0 && before.failed === 0) {
-          return;
-        }
-
-        await processUploadQueueOnce(mode === "manual" ? 10 : 10);
-
-        const after = await refreshUploadTotals();
-
-        if (
-          after.pending === 0 &&
-          after.uploading === 0 &&
-          after.failed === 0
-        ) {
-          await loadLocal(false);
-        }
-      } catch (error) {
-        console.error("field upload pass failed:", error);
-        await refreshUploadTotals();
-      } finally {
-        processingUploadsRef.current = false;
-      }
-    },
-    [loadLocal, refreshUploadTotals]
-  );
-
-  const retryUploads = useCallback(async () => {
-    if (retryingUploads) return;
+  const runUploadPass = useCallback(async () => {
+    if (processingUploadsRef.current) return;
 
     try {
-      setRetryingUploads(true);
-      await runUploadPass("manual");
+      processingUploadsRef.current = true;
+
+      const before = await refreshUploadTotals();
+      const shouldProcess = before.pending > 0 || before.failed > 0;
+
+      if (!shouldProcess) return;
+
+      await processUploadQueueOnce(10);
+
+      const after = await refreshUploadTotals();
+
+      if (
+        after.pending === 0 &&
+        after.uploading === 0 &&
+        after.failed === 0
+      ) {
+        await loadLocal(false);
+      }
+    } catch (error) {
+      console.error("field upload pass failed:", error);
+      await refreshUploadTotals();
     } finally {
-      setRetryingUploads(false);
+      processingUploadsRef.current = false;
     }
-  }, [retryingUploads, runUploadPass]);
+  }, [loadLocal, refreshUploadTotals]);
+
+  const uploadFieldMemories = useCallback(async () => {
+    if (uploadingFieldMemories) return;
+
+    try {
+      setUploadingFieldMemories(true);
+
+      for (let pass = 0; pass < 8; pass += 1) {
+        const before = await refreshUploadTotals();
+
+        if (before.pending === 0 && before.failed === 0 && before.uploading === 0) {
+          break;
+        }
+
+        if (before.uploading > 0 && before.pending === 0 && before.failed === 0) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          continue;
+        }
+
+        await runUploadPass();
+        await new Promise((resolve) => setTimeout(resolve, 900));
+      }
+
+      await refreshUploadTotals();
+      await loadLocal(false);
+    } finally {
+      setUploadingFieldMemories(false);
+    }
+  }, [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]);
 
   useFocusEffect(
     useCallback(() => {
@@ -164,14 +178,11 @@ export default function MemoriesScreen() {
 
       void (async () => {
         await loadLocal(true);
-        if (active) {
-          void runUploadPass("auto");
-        }
       })();
 
       const interval = setInterval(() => {
         if (active) {
-          void runUploadPass("auto");
+          void refreshUploadTotals();
         }
       }, 5000);
 
@@ -179,7 +190,7 @@ export default function MemoriesScreen() {
         active = false;
         clearInterval(interval);
       };
-    }, [loadLocal, runUploadPass])
+    }, [loadLocal, refreshUploadTotals])
   );
 
   const items = useMemo(() => {
@@ -193,29 +204,33 @@ export default function MemoriesScreen() {
     [loading, items.length]
   );
 
-  const uploadStatusLabel = getUploadQueueStatusLabel(uploadTotals);
-  const hasRetryableUploads = uploadTotals.failed > 0 || uploadTotals.pending > 0;
-  const uploadBusy = uploadTotals.uploading > 0 || uploadTotals.pending > 0;
+  const hasWorkToUpload = uploadTotals.pending > 0 || uploadTotals.failed > 0;
+  const uploadBusy = uploadingFieldMemories || uploadTotals.uploading > 0;
+
+  const uploadStatusLabel = uploadBusy
+    ? "Uploading field memories…"
+    : hasWorkToUpload
+      ? "Field memories are ready to upload."
+      : uploadTotals.uploaded > 0
+        ? "All field memories uploaded."
+        : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
-    const title = item.title?.trim() || "(Untitled)";
-    const details = (item.details || "").trim();
+    const title = item.title?.trim() || "Field Memory";
+    const details = getMemorySummary(item);
 
     const statusLabel =
       item.syncStatus === "publishing"
-        ? "Publishing"
+        ? "Uploading"
         : item.syncStatus === "synced"
-        ? "Published to Feed"
-        : item.syncStatus === "failed"
-        ? "Publish failed"
-        : "Saved locally";
+          ? "Published to Feed"
+          : item.syncStatus === "failed"
+            ? "Upload needs retry"
+            : "Ready to upload";
 
-    const metaBits = [
-      statusLabel,
-      formatWhen(item),
-      item.photoUrl || item.photoUri ? "📷" : "",
-      item.voiceUrl || item.voiceUri || item.audioUri ? "🎙️" : "",
-    ].filter(Boolean);
+    const mediaLabel = item.type === "photo" ? "Photo" : "Photo + Voice";
+
+    const metaBits = [statusLabel, formatWhen(item), mediaLabel].filter(Boolean);
 
     return (
       <Pressable
@@ -233,71 +248,45 @@ export default function MemoriesScreen() {
           </Text>
         </View>
 
-        {details.length > 0 ? (
-          <Text style={styles.cardBody} numberOfLines={2}>
-            {details}
-          </Text>
-        ) : (
-          <Text style={styles.cardBodyMuted} numberOfLines={1}>
-            Saved on device
-          </Text>
-        )}
+        <Text style={styles.cardBody} numberOfLines={2}>
+          {details}
+        </Text>
       </Pressable>
     );
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Memories</Text>
+      <Text style={styles.title}>Upload Field Memories</Text>
 
       <View style={styles.uploadCard}>
         <View style={styles.uploadHeaderRow}>
-          <Text style={styles.uploadTitle}>Field Uploads</Text>
+          <Text style={styles.uploadTitle}>Field Memories</Text>
 
-          <View style={styles.uploadHeaderRight}>
-            {uploadBusy ? <ActivityIndicator size="small" color="#F9A825" /> : null}
-
-            <View
-              style={[
-                styles.uploadStatusDot,
-                uploadTotals.failed > 0
-                  ? styles.uploadDotFailed
-                  : uploadTotals.uploading > 0 || uploadTotals.pending > 0
-                  ? styles.uploadDotUploading
-                  : styles.uploadDotGood,
-              ]}
-            />
-          </View>
+          <View
+            style={[
+              styles.uploadStatusDot,
+              hasWorkToUpload
+                ? styles.uploadDotUploading
+                : uploadTotals.uploaded > 0
+                  ? styles.uploadDotGood
+                  : styles.uploadDotIdle,
+            ]}
+          />
         </View>
 
         <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
-        <View style={styles.uploadStatsRow}>
-          <Text style={styles.uploadStat}>Queued: {uploadTotals.pending}</Text>
-          <Text style={styles.uploadStat}>
-            Uploading: {uploadTotals.uploading}
-          </Text>
-          <Text style={styles.uploadStat}>Failed: {uploadTotals.failed}</Text>
-        </View>
-
-        {uploadBusy ? (
-          <Text style={styles.uploadHelperText}>
-            DeerCamp is finishing uploads in the background.
-          </Text>
-        ) : null}
-
-        {hasRetryableUploads ? (
+        {hasWorkToUpload || uploadBusy ? (
           <Pressable
-            style={[styles.retryBtn, retryingUploads && styles.retryBtnDisabled]}
-            onPress={retryUploads}
-            disabled={retryingUploads}
+            style={[styles.uploadBtn, uploadBusy && styles.uploadBtnDisabled]}
+            onPress={uploadFieldMemories}
+            disabled={uploadBusy}
           >
-            {retryingUploads ? (
+            {uploadBusy ? (
               <ActivityIndicator color="#0B0E12" />
             ) : (
-              <Text style={styles.retryBtnText}>
-                {uploadTotals.failed > 0 ? "Retry Uploads" : "Upload Now"}
-              </Text>
+              <Text style={styles.uploadBtnText}>Upload Field Memories</Text>
             )}
           </Pressable>
         ) : null}
@@ -305,14 +294,14 @@ export default function MemoriesScreen() {
 
       {showEmpty ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No memories yet</Text>
+          <Text style={styles.emptyTitle}>No field memories yet</Text>
           <Text style={styles.emptyText}>
-            Tap Add Memory to save your first field photo or note.
+            Tap the badge on the Field Mode screen to record a memory.
           </Text>
 
           <Pressable style={styles.addBtn} onPress={goAdd}>
-            <Ionicons name="add" size={22} color="#0B0E12" />
-            <Text style={styles.addBtnText}>Add Memory</Text>
+            <Ionicons name="arrow-back" size={20} color="#0B0E12" />
+            <Text style={styles.addBtnText}>Back to Field Mode</Text>
           </Pressable>
         </View>
       ) : (
@@ -324,10 +313,6 @@ export default function MemoriesScreen() {
           ListFooterComponent={<View style={{ height: 90 }} />}
         />
       )}
-
-      <Pressable style={styles.fab} onPress={goAdd} accessibilityLabel="Add Memory">
-        <Ionicons name="add" size={28} color="#0B0E12" />
-      </Pressable>
     </View>
   );
 }
@@ -337,10 +322,10 @@ const styles = StyleSheet.create({
 
   title: {
     color: "white",
-    fontSize: 34,
+    fontSize: 32,
     fontWeight: "900",
     marginTop: 8,
-    marginBottom: 10,
+    marginBottom: 12,
     letterSpacing: -0.4,
   },
 
@@ -360,12 +345,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
 
-  uploadHeaderRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-
   uploadTitle: {
     color: "white",
     fontSize: 16,
@@ -374,29 +353,10 @@ const styles = StyleSheet.create({
 
   uploadStatusText: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: 13,
-    fontWeight: "700",
-    marginBottom: 10,
-  },
-
-  uploadStatsRow: {
-    flexDirection: "row",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-
-  uploadStat: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "800",
-  },
-
-  uploadHelperText: {
-    marginTop: 10,
-    color: "rgba(255,255,255,0.55)",
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 18,
+    lineHeight: 20,
+    marginBottom: 12,
   },
 
   uploadStatusDot: {
@@ -413,24 +373,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9A825",
   },
 
-  uploadDotFailed: {
-    backgroundColor: "#C62828",
+  uploadDotIdle: {
+    backgroundColor: "rgba(255,255,255,0.28)",
   },
 
-  retryBtn: {
+  uploadBtn: {
     backgroundColor: "white",
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 12,
+    marginTop: 4,
   },
 
-  retryBtnDisabled: {
+  uploadBtnDisabled: {
     opacity: 0.55,
   },
 
-  retryBtnText: {
+  uploadBtnText: {
     color: "#0B0E12",
     fontSize: 15,
     fontWeight: "900",
@@ -509,24 +469,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
-  },
-
-  cardBodyMuted: {
-    color: "rgba(255,255,255,0.45)",
-    marginTop: 6,
-    fontSize: 14,
-    fontWeight: "700",
-  },
-
-  fab: {
-    position: "absolute",
-    right: 18,
-    bottom: 24,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "white",
-    alignItems: "center",
-    justifyContent: "center",
   },
 });
