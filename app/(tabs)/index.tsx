@@ -29,7 +29,7 @@ export default function HomeScreen() {
       Animated.parallel([
         Animated.sequence([
           Animated.timing(pulse, {
-            toValue: 1.035,
+            toValue: 1.032,
             duration: 1100,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
@@ -43,7 +43,7 @@ export default function HomeScreen() {
         ]),
         Animated.sequence([
           Animated.timing(glow, {
-            toValue: 0.72,
+            toValue: 0.7,
             duration: 1100,
             easing: Easing.inOut(Easing.ease),
             useNativeDriver: true,
@@ -98,7 +98,7 @@ export default function HomeScreen() {
           styles.ctaWrap,
           pressed && styles.ctaWrapPressed,
         ]}
-        onPress={() => router.push("/field")}
+        onPress={() => router.push("/field/voice")}
         accessibilityLabel="Record audio and photo memory"
       >
         <Animated.View
@@ -133,25 +133,23 @@ export default function HomeScreen() {
           Tap badge to record both audio and photo.
         </Text>
 
-        <View style={styles.photoOnlyRow}>
-          <Text style={styles.instructionsText}>Tap here for</Text>
+        <Text style={styles.instructionsText}>Tap here for</Text>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.photoOnlyBtn,
-              pressed && styles.photoOnlyBtnPressed,
-            ]}
-            onPress={() =>
-              router.push({
-                pathname: "/field",
-                params: { mode: "photo" },
-              })
-            }
-            accessibilityLabel="Photo only"
-          >
-            <Text style={styles.photoOnlyBtnText}>Photo Only</Text>
-          </Pressable>
-        </View>
+        <Pressable
+          style={({ pressed }) => [
+            styles.photoOnlyBtn,
+            pressed && styles.photoOnlyBtnPressed,
+          ]}
+          onPress={() =>
+            router.push({
+              pathname: "/field/voice",
+              params: { mode: "photo" },
+            })
+          }
+          accessibilityLabel="Photo only"
+        >
+          <Text style={styles.photoOnlyBtnText}>Photo Only</Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -165,8 +163,8 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 40,
+    paddingTop: 14,
+    paddingBottom: 28,
   },
 
   centerGate: {
@@ -179,30 +177,30 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: "center",
-    marginTop: 8,
-    marginBottom: 18,
+    marginTop: 4,
+    marginBottom: 10,
   },
 
   brand: {
     color: "white",
-    fontSize: 46,
+    fontSize: 44,
     fontWeight: "900",
     letterSpacing: -0.8,
     textAlign: "center",
   },
 
   sectionLabel: {
-    marginTop: 26,
+    marginTop: 16,
     color: "rgba(255,255,255,0.45)",
     fontWeight: "900",
     letterSpacing: 4,
-    fontSize: 16,
+    fontSize: 15,
     textAlign: "center",
   },
 
   ctaWrap: {
     width: "100%",
-    minHeight: 430,
+    minHeight: 390,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 28,
@@ -218,9 +216,9 @@ const styles = StyleSheet.create({
 
   pulseGlow: {
     position: "absolute",
-    width: 330,
-    height: 330,
-    borderRadius: 165,
+    width: 310,
+    height: 310,
+    borderRadius: 155,
     backgroundColor: "rgba(208,177,122,0.22)",
     shadowColor: "#D0B17A",
     shadowOpacity: 0.85,
@@ -236,30 +234,28 @@ const styles = StyleSheet.create({
 
   ctaImage: {
     width: "100%",
-    height: 410,
+    height: 370,
   },
 
   instructionsCard: {
-    marginTop: 22,
+    marginTop: 14,
     backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
     borderRadius: 22,
-    padding: 18,
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 16,
+    gap: 10,
+    alignItems: "center",
   },
 
   instructionsText: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
-    lineHeight: 26,
+    lineHeight: 24,
     textAlign: "center",
-  },
-
-  photoOnlyRow: {
-    alignItems: "center",
-    gap: 10,
   },
 
   photoOnlyBtn: {
@@ -267,7 +263,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 22,
     paddingVertical: 12,
-    minWidth: 180,
+    minWidth: 190,
     alignItems: "center",
   },
 
