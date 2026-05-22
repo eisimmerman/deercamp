@@ -36,14 +36,14 @@ function formatWhen(item: EntryItem) {
 function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
     if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Uploading to Feed.";
+    if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Publishing to CampFeed.";
     if (item.syncStatus === "failed") return "Photo captured in Field Mode. Upload needs retry.";
     return "Photo captured in Field Mode. Ready to upload.";
   }
 
   if (item.type === "fieldMemory") {
     if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Uploading to Feed.";
+    if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Publishing to CampFeed.";
     if (item.syncStatus === "failed") return "Photo + voice captured in Field Mode. Upload needs retry.";
     return "Photo + voice captured in Field Mode. Ready to upload.";
   }
@@ -70,6 +70,7 @@ export default function MemoriesScreen() {
   const [uploadTotals, setUploadTotals] =
     useState<UploadQueueTotals>(emptyUploadTotals);
   const [uploadingFieldMemories, setUploadingFieldMemories] = useState(false);
+  const silentPublishRef = useRef(false);
 
   const goAdd = useCallback(() => {
     router.push("/");
@@ -143,34 +144,49 @@ export default function MemoriesScreen() {
     }
   }, [loadLocal, refreshUploadTotals]);
 
-  const uploadFieldMemories = useCallback(async () => {
-    if (uploadingFieldMemories) return;
+  const uploadFieldMemories = useCallback(
+    async (source: "auto" | "manual" = "manual") => {
+      if (uploadingFieldMemories || silentPublishRef.current) return;
 
-    try {
-      setUploadingFieldMemories(true);
+      try {
+        silentPublishRef.current = true;
+        setUploadingFieldMemories(true);
 
-      for (let pass = 0; pass < 8; pass += 1) {
-        const before = await refreshUploadTotals();
+        for (let pass = 0; pass < 8; pass += 1) {
+          const before = await refreshUploadTotals();
 
-        if (before.pending === 0 && before.failed === 0 && before.uploading === 0) {
-          break;
+          if (
+            before.pending === 0 &&
+            before.failed === 0 &&
+            before.uploading === 0
+          ) {
+            break;
+          }
+
+          if (
+            before.uploading > 0 &&
+            before.pending === 0 &&
+            before.failed === 0
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            await loadLocal(false);
+            continue;
+          }
+
+          await runUploadPass();
+          await new Promise((resolve) => setTimeout(resolve, source === "auto" ? 1200 : 900));
+          await loadLocal(false);
         }
 
-        if (before.uploading > 0 && before.pending === 0 && before.failed === 0) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          continue;
-        }
-
-        await runUploadPass();
-        await new Promise((resolve) => setTimeout(resolve, 900));
+        await refreshUploadTotals();
+        await loadLocal(false);
+      } finally {
+        silentPublishRef.current = false;
+        setUploadingFieldMemories(false);
       }
-
-      await refreshUploadTotals();
-      await loadLocal(false);
-    } finally {
-      setUploadingFieldMemories(false);
-    }
-  }, [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]);
+    },
+    [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -178,11 +194,27 @@ export default function MemoriesScreen() {
 
       void (async () => {
         await loadLocal(true);
+
+        if (active) {
+          void uploadFieldMemories("auto");
+        }
       })();
 
       const interval = setInterval(() => {
         if (active) {
-          void refreshUploadTotals();
+          void (async () => {
+            const totals = await refreshUploadTotals();
+
+            if (
+              totals.pending > 0 ||
+              totals.failed > 0 ||
+              totals.uploading > 0
+            ) {
+              await uploadFieldMemories("auto");
+            } else {
+              await loadLocal(false);
+            }
+          })();
         }
       }, 5000);
 
@@ -190,7 +222,7 @@ export default function MemoriesScreen() {
         active = false;
         clearInterval(interval);
       };
-    }, [loadLocal, refreshUploadTotals])
+    }, [loadLocal, refreshUploadTotals, uploadFieldMemories])
   );
 
   const items = useMemo(() => {
@@ -204,13 +236,15 @@ export default function MemoriesScreen() {
     [loading, items.length]
   );
 
-  const hasWorkToUpload = uploadTotals.pending > 0 || uploadTotals.failed > 0;
-  const uploadBusy = uploadingFieldMemories || uploadTotals.uploading > 0;
+  const hasPendingWork = uploadTotals.pending > 0 || uploadTotals.uploading > 0;
+  const hasFailedWork = uploadTotals.failed > 0;
+  const hasWorkToUpload = hasPendingWork || hasFailedWork;
+  const uploadBusy = uploadingFieldMemories || hasPendingWork;
 
   const uploadStatusLabel = uploadBusy
-    ? "Uploading field memories…"
-    : hasWorkToUpload
-      ? "Field memories are ready to upload."
+    ? "Publishing field memories to CampFeed…"
+    : hasFailedWork
+      ? "Some field memories need retry."
       : uploadTotals.uploaded > 0
         ? "All field memories published to CampFeed."
         : "No field memories waiting.";
@@ -221,7 +255,7 @@ export default function MemoriesScreen() {
 
     const statusLabel =
       item.syncStatus === "publishing"
-        ? "Uploading"
+        ? "Publishing to CampFeed"
         : item.syncStatus === "synced"
           ? "Published to CampFeed"
           : item.syncStatus === "failed"
@@ -277,17 +311,19 @@ export default function MemoriesScreen() {
 
         <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
-        {hasWorkToUpload || uploadBusy ? (
+        {uploadBusy ? (
+          <View style={styles.publishingRow}>
+            <ActivityIndicator color="white" />
+            <Text style={styles.publishingText}>Working behind the curtain…</Text>
+          </View>
+        ) : null}
+
+        {hasFailedWork && !uploadBusy ? (
           <Pressable
-            style={[styles.uploadBtn, uploadBusy && styles.uploadBtnDisabled]}
-            onPress={uploadFieldMemories}
-            disabled={uploadBusy}
+            style={styles.uploadBtn}
+            onPress={() => uploadFieldMemories("manual")}
           >
-            {uploadBusy ? (
-              <ActivityIndicator color="#0B0E12" />
-            ) : (
-              <Text style={styles.uploadBtnText}>Publish to CampFeed</Text>
-            )}
+            <Text style={styles.uploadBtnText}>Retry Publish</Text>
           </Pressable>
         ) : null}
       </View>
@@ -375,6 +411,20 @@ const styles = StyleSheet.create({
 
   uploadDotIdle: {
     backgroundColor: "rgba(255,255,255,0.28)",
+  },
+
+  publishingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 4,
+    paddingVertical: 8,
+  },
+
+  publishingText: {
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 13,
+    fontWeight: "800",
   },
 
   uploadBtn: {
