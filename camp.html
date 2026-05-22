@@ -818,6 +818,60 @@ function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?
 function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function firestoreTimestampToMs(value){
+  if(!value) return Date.now();
+  if(typeof value === "number") return value;
+  if(value && typeof value.toMillis === "function") return value.toMillis();
+  if(value && typeof value.seconds === "number") return value.seconds * 1000;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+function mapAppFeedDocToCampFeedItem(doc){
+  const item = doc && typeof doc.data === "function" ? doc.data() : {};
+  const createdAtMs = Number(item.clientCreatedAt || firestoreTimestampToMs(item.createdAt));
+  const id = String((doc && doc.id) || item.id || item.localMemoryId || `app-feed-${createdAtMs}`).trim();
+  const mediaType = String(item.mediaType || item.type || "photo").trim().toLowerCase();
+  const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
+  return {
+    id,
+    title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
+    body: String(item.caption || item.details || (hasAudio ? "Photo + voice captured in DeerCamp Field Mode." : "Photo captured in DeerCamp Field Mode.")).trim(),
+    image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
+    displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
+    audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
+    author: String(item.authorName || item.member || "DeerCamp Member").trim(),
+    createdAt: new Date(createdAtMs).toISOString(),
+    createdAtMs,
+    tags: hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"],
+    mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
+    source: "app",
+    storageProvider: "firebase"
+  };
+}
+async function hydrateCampFeedItemsFromCloud(){
+  try{
+    const cleanCampId = String(activeCampId || "").trim();
+    if(!cleanCampId || !window.firebase || typeof firebase.firestore !== "function") return [];
+    const snap = await firebase.firestore()
+      .collection("feedItems")
+      .where("campId", "==", cleanCampId)
+      .where("published", "==", true)
+      .limit(50)
+      .get();
+    appCampFeedEntries = [];
+    snap.forEach(doc => {
+      const mapped = mapAppFeedDocToCampFeedItem(doc);
+      if(mapped.image) appCampFeedEntries.push(mapped);
+    });
+    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+    return appCampFeedEntries;
+  }catch(error){
+    console.warn("App CampFeed items could not load.", error);
+    appCampFeedEntries = [];
+    return [];
+  }
+}
+
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
 function campItemIdentity(item = {}, fallback = "") {
@@ -854,6 +908,7 @@ function collectCampItemsFromSources(keys = [], sources = []) {
   return mergeUniqueCampItems(...arrays);
 }
 let data = {};
+let appCampFeedEntries = [];
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
 
@@ -1504,7 +1559,7 @@ function ensureCampBillingChoiceStyles(){
   if(document.getElementById('campBillingChoiceStyles')) return;
   const style=document.createElement('style');
   style.id='campBillingChoiceStyles';
-  style.textContent=`.camp-billing-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.36);backdrop-filter:blur(2px);z-index:3000}.camp-billing-modal-backdrop.open{display:block}.camp-billing-modal{display:none;position:fixed;inset:0;z-index:3001;align-items:center;justify-content:center;padding:18px}.camp-billing-modal.open{display:flex}.camp-billing-card{position:relative;width:min(760px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;border-radius:26px;background:#f7f0e4;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:22px;border:1px solid rgba(69,42,22,.12)}.camp-billing-card h2{margin:0 48px 8px 0;color:#452a16}.camp-billing-card p{margin:0;color:#6b5644;line-height:1.55}.camp-billing-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(69,42,22,.08);font-size:1.3rem;font-weight:900;cursor:pointer}.camp-billing-plans{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.camp-billing-plan{display:grid;gap:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.62);border:1px solid rgba(69,42,22,.10)}.camp-billing-plan.featured{border-color:rgba(177,121,45,.55);box-shadow:0 8px 26px rgba(177,121,45,.14)}.camp-billing-price{font-size:2rem;font-weight:900;color:#452a16}.camp-billing-price small{font-size:.9rem;color:#6b5644}.camp-billing-benefits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0 4px}.camp-billing-benefit{padding:11px 12px;border-radius:16px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.16);color:#27411e;font-size:.88rem;font-weight:800;line-height:1.35}.camp-billing-reassurance{margin:12px 0 0!important;padding:11px 12px;border-radius:16px;background:rgba(255,255,255,.62);border:1px solid rgba(69,42,22,.08);font-size:.9rem!important;font-weight:800;color:#5b3d1e!important}.camp-billing-status{margin-top:12px;color:#6b5644;font-weight:800}.camp-billing-status.error{color:#8b2d1d}@media(max-width:720px){.camp-billing-benefits,.camp-billing-plans{grid-template-columns:1fr}.camp-billing-plan .btn{width:100%}}`;
+  style.textContent=`.camp-billing-modal-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.36);backdrop-filter:blur(2px);z-index:3000}.camp-billing-modal-backdrop.open{display:block}.camp-billing-modal{display:none;position:fixed;inset:0;z-index:3001;align-items:center;justify-content:center;padding:18px}.camp-billing-modal.open{display:flex}.camp-billing-card{position:relative;width:min(760px,calc(100vw - 28px));max-height:calc(100vh - 36px);overflow:auto;border-radius:26px;background:#f7f0e4;box-shadow:0 22px 70px rgba(0,0,0,.28);padding:22px;border:1px solid rgba(69,42,22,.12)}.camp-billing-card h2{margin:0 48px 8px 0;color:#452a16}.camp-billing-card p{margin:0;color:#6b5644;line-height:1.55}.camp-billing-close{position:absolute;right:14px;top:14px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(69,42,22,.08);font-size:1.3rem;font-weight:900;cursor:pointer}.camp-billing-plans{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px}.camp-billing-plan{display:grid;gap:10px;padding:16px;border-radius:20px;background:rgba(255,255,255,.62);border:1px solid rgba(69,42,22,.10)}.camp-billing-plan.featured{border-color:rgba(177,121,45,.55);box-shadow:0 8px 26px rgba(177,121,45,.14)}.camp-billing-price{font-size:2rem;font-weight:900;color:#452a16}.camp-billing-price small{font-size:.9rem;color:#6b5644}.camp-billing-status{margin-top:12px;color:#6b5644;font-weight:800}.camp-billing-status.error{color:#8b2d1d}@media(max-width:720px){.camp-billing-plans{grid-template-columns:1fr}.camp-billing-plan .btn{width:100%}}`;
   document.head.appendChild(style);
 }
 function ensureCampBillingChoiceModal(){
@@ -1516,7 +1571,7 @@ function ensureCampBillingChoiceModal(){
   const modal=document.createElement('div');
   modal.id='campBillingChoiceModal';
   modal.className='camp-billing-modal';
-  modal.innerHTML=`<div class="camp-billing-card"><button class="camp-billing-close" id="campBillingChoiceClose" type="button">×</button><h2>Give your camp more room to grow.</h2><p>DC+ keeps the live camp simple while unlocking the deeper planning tools serious camps need: more saved field knowledge, better maps, printable exports, and priority support.</p><div class="camp-billing-benefits"><div class="camp-billing-benefit">Save more stand and drive history</div><div class="camp-billing-benefit">Unlock Scout Elite map builders</div><div class="camp-billing-benefit">Create show-all maps and poster exports</div><div class="camp-billing-benefit">Get priority DeerCamp support</div></div><p class="camp-billing-reassurance">Your current camp data stays in place. Upgrade only adds more capability.</p><div class="camp-billing-plans"><div class="camp-billing-plan"><h3>DC+ Monthly</h3><div class="camp-billing-price">$9.99 <small>/ month</small></div><button class="btn btn-primary" id="campBillingMonthly" type="button">Start Monthly</button></div><div class="camp-billing-plan featured"><h3>DC+ Annual</h3><div class="camp-billing-price">$79 <small>/ year</small></div><button class="btn btn-primary" id="campBillingAnnual" type="button">Start Annual</button></div></div><div id="campBillingChoiceStatus" class="camp-billing-status"></div></div>`;
+  modal.innerHTML=`<div class="camp-billing-card"><button class="camp-billing-close" id="campBillingChoiceClose" type="button">×</button><h2>Unlock DeerCamp Plus</h2><p>Choose monthly or annual DC+. Your camp unlocks Scout Elite planning tools, Stand Builder, Drive Builder, show-all maps, saved stand/drive plans, and printable camp maps.</p><div class="camp-billing-plans"><div class="camp-billing-plan"><h3>DC+ Monthly</h3><div class="camp-billing-price">$9.99 <small>/ month</small></div><button class="btn btn-primary" id="campBillingMonthly" type="button">Start Monthly</button></div><div class="camp-billing-plan featured"><h3>DC+ Annual</h3><div class="camp-billing-price">$79 <small>/ year</small></div><button class="btn btn-primary" id="campBillingAnnual" type="button">Start Annual</button></div></div><div id="campBillingChoiceStatus" class="camp-billing-status"></div></div>`;
   document.body.appendChild(backdrop);
   document.body.appendChild(modal);
   const close=()=>{backdrop.classList.remove('open'); modal.classList.remove('open');};
@@ -2259,6 +2314,7 @@ function normalizePhotoEntries(){
       _order: orderIndex++
     });
   };
+  appCampFeedEntries.forEach(e=>push(e));
   feedEntries.forEach(e=>{
     const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
     const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
@@ -3568,6 +3624,7 @@ async function pullLatestCampDataSilently(){
     ensureDeerShelfSections();
     renderMenu();
     populateMemberSelects();
+    await hydrateCampFeedItemsFromCloud();
     renderFeed();
     recentUpdatesOffset = 0;
     renderRecentUpdates();
@@ -3654,7 +3711,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>

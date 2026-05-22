@@ -37,14 +37,24 @@ function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
     if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to CampFeed.";
     if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Publishing to CampFeed.";
-    if (item.syncStatus === "failed") return "Photo captured in Field Mode. Upload needs retry.";
+    if (item.syncStatus === "failed") {
+      const error = String(item.publishError || "").trim();
+      return error
+        ? `Photo captured in Field Mode. Upload needs retry. ${error}`
+        : "Photo captured in Field Mode. Upload needs retry.";
+    }
     return "Photo captured in Field Mode. Ready to upload.";
   }
 
   if (item.type === "fieldMemory") {
     if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to CampFeed.";
     if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Publishing to CampFeed.";
-    if (item.syncStatus === "failed") return "Photo + voice captured in Field Mode. Upload needs retry.";
+    if (item.syncStatus === "failed") {
+      const error = String(item.publishError || "").trim();
+      return error
+        ? `Photo + voice captured in Field Mode. Upload needs retry. ${error}`
+        : "Photo + voice captured in Field Mode. Upload needs retry.";
+    }
     return "Photo + voice captured in Field Mode. Ready to upload.";
   }
 
@@ -114,14 +124,14 @@ export default function MemoriesScreen() {
     [refreshUploadTotals, user?.uid]
   );
 
-  const runUploadPass = useCallback(async () => {
+  const runUploadPass = useCallback(async (includeFailed = false) => {
     if (processingUploadsRef.current) return;
 
     try {
       processingUploadsRef.current = true;
 
       const before = await refreshUploadTotals();
-      const shouldProcess = before.pending > 0 || before.failed > 0;
+      const shouldProcess = before.pending > 0 || (includeFailed && before.failed > 0);
 
       if (!shouldProcess) return;
 
@@ -173,7 +183,7 @@ export default function MemoriesScreen() {
             continue;
           }
 
-          await runUploadPass();
+          await runUploadPass(source === "manual");
           await new Promise((resolve) =>
             setTimeout(resolve, source === "auto" ? 1200 : 900)
           );
@@ -216,7 +226,6 @@ export default function MemoriesScreen() {
 
             if (
               totals.pending > 0 ||
-              totals.failed > 0 ||
               totals.uploading > 0
             ) {
               await uploadFieldMemories("auto");
@@ -258,23 +267,21 @@ export default function MemoriesScreen() {
   const hasPendingWork = uploadTotals.pending > 0 || uploadTotals.uploading > 0;
   const hasFailedWork =
     uploadTotals.failed > 0 || items.some((item) => item.syncStatus === "failed");
+  const hasRetriableWork = hasFailedWork;
   const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
 
-  // Stay visually stable while silent publish is completing local patches.
-  const uploadBusy =
-    uploadingFieldMemories ||
-    hasPendingWork ||
-    hasLocalPublishing ||
-    hasLocalUnpublished;
+  const uploadBusy = uploadingFieldMemories || hasPendingWork || hasLocalPublishing;
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
-    : hasFailedWork
+    : hasRetriableWork
       ? "Some field memories need retry."
-      : uploadTotals.uploaded > 0 ||
-          items.some((item) => item.syncStatus === "synced")
-        ? "All field memories published to CampFeed."
-        : "No field memories waiting.";
+      : hasLocalUnpublished
+        ? "Finishing field memories behind the curtain…"
+        : uploadTotals.uploaded > 0 ||
+            items.some((item) => item.syncStatus === "synced")
+          ? "All field memories published to CampFeed."
+          : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";

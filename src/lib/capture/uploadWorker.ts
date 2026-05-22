@@ -111,6 +111,14 @@ function getContentType(mediaType: "audio" | "video" | "photo") {
   return "audio/mp4";
 }
 
+function resolveWorkerCampId(...values: Array<string | null | undefined>) {
+  for (const value of values) {
+    const clean = String(value || "").trim();
+    if (clean && clean !== "ourdeercamp") return clean;
+  }
+  return DEFAULT_ACTIVE_CAMP_ID;
+}
+
 async function publishMemoryToCampFeedIfReady(memoryId: string) {
   const memory = await getLocalMemoryById(memoryId);
   if (!memory) return;
@@ -124,7 +132,11 @@ async function publishMemoryToCampFeedIfReady(memoryId: string) {
   }
 
   const activeCampId = await getActiveCampId();
-  const campId = memory.campId || activeCampId || DEFAULT_ACTIVE_CAMP_ID;
+  const queueItems = await getUploadQueueItemsForMemory(memoryId);
+  const queueCampId = queueItems
+    .map((item) => item.campId)
+    .find((value) => String(value || "").trim());
+  const campId = resolveWorkerCampId(memory.campId, queueCampId, activeCampId);
 
   await updateLocalMemory(memoryId, {
     syncStatus: "publishing",

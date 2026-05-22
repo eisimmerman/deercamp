@@ -21,6 +21,13 @@ export type UploadQueueItem = {
 };
 
 const UPLOAD_QUEUE_KEY = "deercamp.uploadQueue.v1";
+const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
+
+function resolveQueueCampId(value?: string | null) {
+  const clean = String(value || "").trim();
+  if (!clean || clean === "ourdeercamp") return DEFAULT_ACTIVE_CAMP_ID;
+  return clean;
+}
 
 function normalizeQueueItem(item: any): UploadQueueItem {
   const now = Date.now();
@@ -46,7 +53,7 @@ function normalizeQueueItem(item: any): UploadQueueItem {
     retryCount: Number(item?.retryCount || 0),
     lastError: item?.lastError ? String(item.lastError) : undefined,
     uploadedUrl: item?.uploadedUrl ? String(item.uploadedUrl) : undefined,
-    campId: item?.campId ? String(item.campId) : undefined,
+    campId: resolveQueueCampId(item?.campId),
     authorId: item?.authorId ? String(item.authorId) : undefined,
   };
 }
@@ -104,6 +111,7 @@ export async function enqueueUploadItem(
 
   const normalized: UploadQueueItem = {
     ...item,
+    campId: resolveQueueCampId(item.campId),
     status: "pending",
     createdAt: now,
     updatedAt: now,
@@ -129,6 +137,7 @@ export async function enqueueUploadItems(
 
   const normalizedItems: UploadQueueItem[] = items.map((item) => ({
     ...item,
+    campId: resolveQueueCampId(item.campId),
     status: "pending",
     createdAt: now,
     updatedAt: now,

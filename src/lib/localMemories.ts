@@ -66,9 +66,16 @@ const STORAGE_KEY = "deercamp.localMemories.v1";
 const ACTIVE_CAMP_ID_KEY = "deercamp.activeCampId.v1";
 export const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
 
+function resolveMemoryCampId(value?: string | null) {
+  const clean = String(value || "").trim();
+  if (!clean || clean === "ourdeercamp") return DEFAULT_ACTIVE_CAMP_ID;
+  return clean;
+}
+
 function normalizeMemory(item: any): LocalMemoryItem {
   return {
     ...item,
+    campId: resolveMemoryCampId(item?.campId),
     syncStatus: item?.syncStatus ?? "pending",
     captureVersion: item?.captureVersion ?? 1,
     isSegmented: item?.isSegmented ?? false,
@@ -110,6 +117,7 @@ export async function getLocalMemoryById(id: string) {
 export async function saveLocalMemory(item: LocalMemoryItem) {
   const normalized: LocalMemoryItem = {
     ...item,
+    campId: resolveMemoryCampId(item.campId),
     syncStatus: item.syncStatus ?? "pending",
     captureVersion: item.captureVersion ?? 1,
     isSegmented: item.isSegmented ?? false,
@@ -134,7 +142,15 @@ export async function updateLocalMemory(
   patch: Partial<LocalMemoryItem>
 ) {
   const items = await readAll();
-  const next = items.map((item) => (item.id === id ? { ...item, ...patch } : item));
+  const sanitizedPatch: Partial<LocalMemoryItem> = {
+    ...patch,
+    ...(Object.prototype.hasOwnProperty.call(patch, "campId")
+      ? { campId: resolveMemoryCampId(patch.campId) }
+      : {}),
+  };
+  const next = items.map((item) =>
+    item.id === id ? { ...item, ...sanitizedPatch } : item
+  );
   await writeAll(next);
 }
 

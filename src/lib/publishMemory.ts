@@ -156,6 +156,12 @@ function trimOrFallback(value: string | null | undefined, fallback: string) {
   return clean || fallback;
 }
 
+function resolvePublishCampId(value?: string | null) {
+  const clean = String(value || "").trim();
+  if (!clean || clean === "ourdeercamp") return DEFAULT_ACTIVE_CAMP_ID;
+  return clean;
+}
+
 function getMemoryTitle(memory: PublishableMemory) {
   const explicit = String(memory.title || "").trim();
   if (explicit) return explicit;
@@ -254,9 +260,7 @@ export async function publishUploadedMemoryToFeed(
 ): Promise<PublishedFeedResult> {
   const user = requireSignedInUser();
 
-  const campId =
-    String(options?.campId || memory.campId || DEFAULT_ACTIVE_CAMP_ID).trim() ||
-    DEFAULT_ACTIVE_CAMP_ID;
+  const campId = resolvePublishCampId(options?.campId || memory.campId);
   const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
   const caption = trimOrFallback(
     options?.defaultCaption || getMemoryCaption(memory),
@@ -307,9 +311,7 @@ export async function publishMemoryToFeed(
 ) {
   const user = requireSignedInUser();
 
-  const campId =
-    String(options?.campId || memory.campId || DEFAULT_ACTIVE_CAMP_ID).trim() ||
-    DEFAULT_ACTIVE_CAMP_ID;
+  const campId = resolvePublishCampId(options?.campId || memory.campId);
   const defaultTitle = trimOrFallback(options?.defaultTitle, "Field Memory");
   const defaultCaption = trimOrFallback(
     options?.defaultCaption || memory.details,
