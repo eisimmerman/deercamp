@@ -214,10 +214,7 @@ export default function MemoriesScreen() {
           void (async () => {
             const totals = await refreshUploadTotals();
 
-            if (
-              totals.pending > 0 ||
-              totals.uploading > 0
-            ) {
+            if (totals.pending > 0 || totals.uploading > 0) {
               await uploadFieldMemories("auto");
               return;
             }
@@ -256,20 +253,23 @@ export default function MemoriesScreen() {
   const hasLocalPublishing = visibleFieldMemories.some(
     (item) => item.syncStatus === "publishing"
   );
-  const hasLocalUnpublished = visibleFieldMemories.some(
-    (item) => item.syncStatus === "pending" || item.syncStatus === "publishing"
+  const hasLocalPending = visibleFieldMemories.some(
+    (item) => item.syncStatus === "pending"
   );
-  const hasPendingWork =
-    !allVisibleFieldMemoriesPublished &&
-    (uploadTotals.pending > 0 || uploadTotals.uploading > 0);
   const hasFailedWork = visibleFieldMemories.some(
     (item) => item.syncStatus === "failed"
   );
-  const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
+
+  // Once every visible field memory is published, ignore stale queue totals from older builds.
+  const hasPendingWork =
+    !allVisibleFieldMemoriesPublished &&
+    (uploadTotals.pending > 0 || uploadTotals.uploading > 0);
+
+  const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalPending || hasLocalPublishing;
 
   const uploadBusy =
     !allVisibleFieldMemoriesPublished &&
-    (uploadingFieldMemories || hasPendingWork || hasLocalPublishing);
+    (uploadingFieldMemories || hasPendingWork || hasLocalPublishing || hasLocalPending);
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
@@ -277,11 +277,9 @@ export default function MemoriesScreen() {
       ? "Some field memories need retry."
       : allVisibleFieldMemoriesPublished ||
           uploadTotals.uploaded > 0 ||
-          items.some((item) => item.syncStatus === "synced")
+          visibleFieldMemories.some((item) => item.syncStatus === "synced")
         ? "All field memories published to CampFeed."
-        : hasLocalUnpublished
-          ? "Finishing field memories behind the curtain…"
-          : "No field memories waiting.";
+        : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
