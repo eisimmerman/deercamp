@@ -245,34 +245,43 @@ export default function MemoriesScreen() {
     [loading, items.length]
   );
 
-  const hasLocalPublishing = items.some(
+  const visibleFieldMemories = items.filter(
+    (item) => item.type === "photo" || item.type === "fieldMemory"
+  );
+
+  const allVisibleFieldMemoriesPublished =
+    visibleFieldMemories.length > 0 &&
+    visibleFieldMemories.every((item) => item.syncStatus === "synced");
+
+  const hasLocalPublishing = visibleFieldMemories.some(
     (item) => item.syncStatus === "publishing"
   );
-  const hasLocalUnpublished = items.some(
-    (item) =>
-      item.syncStatus === "pending" ||
-      item.syncStatus === "publishing" ||
-      item.syncStatus === "failed"
+  const hasLocalUnpublished = visibleFieldMemories.some(
+    (item) => item.syncStatus === "pending" || item.syncStatus === "publishing"
   );
-  const hasPendingWork = uploadTotals.pending > 0 || uploadTotals.uploading > 0;
-  const hasFailedWork = items.some((item) => item.syncStatus === "failed");
+  const hasPendingWork =
+    !allVisibleFieldMemoriesPublished &&
+    (uploadTotals.pending > 0 || uploadTotals.uploading > 0);
+  const hasFailedWork = visibleFieldMemories.some(
+    (item) => item.syncStatus === "failed"
+  );
   const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
 
-  // Stay visually stable while silent publish is completing local patches.
   const uploadBusy =
-    uploadingFieldMemories ||
-    hasPendingWork ||
-    hasLocalPublishing ||
-    hasLocalUnpublished;
+    !allVisibleFieldMemoriesPublished &&
+    (uploadingFieldMemories || hasPendingWork || hasLocalPublishing);
 
   const uploadStatusLabel = uploadBusy
     ? "Publishing field memories to CampFeed…"
     : hasFailedWork
       ? "Some field memories need retry."
-      : uploadTotals.uploaded > 0 ||
+      : allVisibleFieldMemoriesPublished ||
+          uploadTotals.uploaded > 0 ||
           items.some((item) => item.syncStatus === "synced")
         ? "All field memories published to CampFeed."
-        : "No field memories waiting.";
+        : hasLocalUnpublished
+          ? "Finishing field memories behind the curtain…"
+          : "No field memories waiting.";
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
