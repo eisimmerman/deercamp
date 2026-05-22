@@ -22,7 +22,7 @@ import {
 } from "expo-audio";
 
 import { auth } from "@/lib/firebase";
-import { saveLocalMemory } from "@/lib/localMemories";
+import { getActiveCampId, saveLocalMemory } from "@/lib/localMemories";
 import {
   createAudioSegment,
   createInitialSegmentState,
@@ -262,6 +262,7 @@ export default function FieldVoiceScreen() {
   async function queuePhotoOnlyMemory(photoUri: string) {
     const memoryId = `local-photo-${authorId}-${Date.now()}`;
     const now = Date.now();
+    const campId = await getActiveCampId();
 
     await saveLocalMemory({
       id: memoryId,
@@ -277,6 +278,7 @@ export default function FieldVoiceScreen() {
       isSegmented: false,
       segmentCount: 0,
       parentMemoryTitle: "Field Photo",
+      campId,
     });
 
     await enqueueUploadItems([
@@ -287,13 +289,14 @@ export default function FieldVoiceScreen() {
         segmentIndex: -1,
         uri: photoUri,
         mediaType: "photo" as const,
-        campId: undefined,
+        campId,
         authorId,
       },
     ]);
   }
 
   async function queueVoiceMemory(photoUri: string) {
+    const campId = await getActiveCampId();
     const state = segmentStateRef.current;
     const summary = state ? getSegmentSummary(state) : null;
     const segments = summary?.segments || [];
@@ -316,6 +319,7 @@ export default function FieldVoiceScreen() {
       segmentCount: segments.length,
       totalDurationMs: summary?.totalDurationMs || undefined,
       parentMemoryTitle: "Field Memory",
+      campId,
       segments,
     };
 
@@ -334,7 +338,7 @@ export default function FieldVoiceScreen() {
         segmentIndex: -1,
         uri: photoUri,
         mediaType: "photo" as const,
-        campId: undefined,
+        campId,
         authorId,
       },
       ...segments.map((segment) => ({
@@ -344,7 +348,7 @@ export default function FieldVoiceScreen() {
         segmentIndex: segment.index,
         uri: segment.uri,
         mediaType: "audio" as const,
-        campId: undefined,
+        campId,
         authorId,
       })),
     ];

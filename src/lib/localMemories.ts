@@ -64,6 +64,7 @@ export type LocalMemoryItem = {
 
 const STORAGE_KEY = "deercamp.localMemories.v1";
 const ACTIVE_CAMP_ID_KEY = "deercamp.activeCampId.v1";
+export const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
 
 function normalizeMemory(item: any): LocalMemoryItem {
   return {
@@ -141,10 +142,10 @@ export async function getActiveCampId() {
   try {
     const raw = await AsyncStorage.getItem(ACTIVE_CAMP_ID_KEY);
     const clean = String(raw || "").trim();
-    return clean || null;
+    return clean || DEFAULT_ACTIVE_CAMP_ID;
   } catch (error) {
     console.error("getActiveCampId failed:", error);
-    return null;
+    return DEFAULT_ACTIVE_CAMP_ID;
   }
 }
 

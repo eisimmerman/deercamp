@@ -260,9 +260,7 @@ export default function MemoriesScreen() {
     uploadTotals.failed > 0 || items.some((item) => item.syncStatus === "failed");
   const hasWorkToUpload = hasPendingWork || hasFailedWork || hasLocalUnpublished;
 
-  // Keep the status visually stable while the silent publisher is still
-  // working through queue/local-memory state. This avoids flashing between
-  // "Published" and "Retry" during refresh cycles.
+  // Stay visually stable while silent publish is completing local patches.
   const uploadBusy =
     uploadingFieldMemories ||
     hasPendingWork ||

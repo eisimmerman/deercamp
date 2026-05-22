@@ -2,7 +2,7 @@ import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, db, storage } from "./firebase";
-import type { LocalMemoryItem, LocalMemorySegment } from "./localMemories";
+import { DEFAULT_ACTIVE_CAMP_ID, type LocalMemoryItem, type LocalMemorySegment } from "./localMemories";
 
 export type PublishableMemory = {
   id: string;
@@ -255,8 +255,8 @@ export async function publishUploadedMemoryToFeed(
   const user = requireSignedInUser();
 
   const campId =
-    String(options?.campId || memory.campId || "ourdeercamp").trim() ||
-    "ourdeercamp";
+    String(options?.campId || memory.campId || DEFAULT_ACTIVE_CAMP_ID).trim() ||
+    DEFAULT_ACTIVE_CAMP_ID;
   const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
   const caption = trimOrFallback(
     options?.defaultCaption || getMemoryCaption(memory),
@@ -308,8 +308,8 @@ export async function publishMemoryToFeed(
   const user = requireSignedInUser();
 
   const campId =
-    String(options?.campId || memory.campId || "ourdeercamp").trim() ||
-    "ourdeercamp";
+    String(options?.campId || memory.campId || DEFAULT_ACTIVE_CAMP_ID).trim() ||
+    DEFAULT_ACTIVE_CAMP_ID;
   const defaultTitle = trimOrFallback(options?.defaultTitle, "Field Memory");
   const defaultCaption = trimOrFallback(
     options?.defaultCaption || memory.details,

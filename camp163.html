@@ -818,6 +818,60 @@ function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?
 function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
+function firestoreTimestampToMs(value){
+  if(!value) return Date.now();
+  if(typeof value === "number") return value;
+  if(value && typeof value.toMillis === "function") return value.toMillis();
+  if(value && typeof value.seconds === "number") return value.seconds * 1000;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+function mapAppFeedDocToCampFeedItem(doc){
+  const item = doc && typeof doc.data === "function" ? doc.data() : {};
+  const createdAtMs = Number(item.clientCreatedAt || firestoreTimestampToMs(item.createdAt));
+  const id = String((doc && doc.id) || item.id || item.localMemoryId || `app-feed-${createdAtMs}`).trim();
+  const mediaType = String(item.mediaType || item.type || "photo").trim().toLowerCase();
+  const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
+  return {
+    id,
+    title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
+    body: String(item.caption || item.details || (hasAudio ? "Photo + voice captured in DeerCamp Field Mode." : "Photo captured in DeerCamp Field Mode.")).trim(),
+    image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
+    displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
+    audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
+    author: String(item.authorName || item.member || "DeerCamp Member").trim(),
+    createdAt: new Date(createdAtMs).toISOString(),
+    createdAtMs,
+    tags: hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"],
+    mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
+    source: "app",
+    storageProvider: "firebase"
+  };
+}
+async function hydrateCampFeedItemsFromCloud(){
+  try{
+    const cleanCampId = String(activeCampId || "").trim();
+    if(!cleanCampId || !window.firebase || typeof firebase.firestore !== "function") return [];
+    const snap = await firebase.firestore()
+      .collection("feedItems")
+      .where("campId", "==", cleanCampId)
+      .where("published", "==", true)
+      .limit(50)
+      .get();
+    appCampFeedEntries = [];
+    snap.forEach(doc => {
+      const mapped = mapAppFeedDocToCampFeedItem(doc);
+      if(mapped.image) appCampFeedEntries.push(mapped);
+    });
+    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+    return appCampFeedEntries;
+  }catch(error){
+    console.warn("App CampFeed items could not load.", error);
+    appCampFeedEntries = [];
+    return [];
+  }
+}
+
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
 function campItemIdentity(item = {}, fallback = "") {
@@ -854,6 +908,7 @@ function collectCampItemsFromSources(keys = [], sources = []) {
   return mergeUniqueCampItems(...arrays);
 }
 let data = {};
+let appCampFeedEntries = [];
 const initialLegacy = safeParseJson(localStorage.getItem(CAMP_DATA_KEY),{});
 const activeCampId = String(getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || initialLegacy.campId || "ourdeercamp").trim();
 
@@ -2259,6 +2314,7 @@ function normalizePhotoEntries(){
       _order: orderIndex++
     });
   };
+  appCampFeedEntries.forEach(e=>push(e));
   feedEntries.forEach(e=>{
     const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
     const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
@@ -3568,6 +3624,7 @@ async function pullLatestCampDataSilently(){
     ensureDeerShelfSections();
     renderMenu();
     populateMemberSelects();
+    await hydrateCampFeedItemsFromCloud();
     renderFeed();
     recentUpdatesOffset = 0;
     renderRecentUpdates();
@@ -3654,7 +3711,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderMenu(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>

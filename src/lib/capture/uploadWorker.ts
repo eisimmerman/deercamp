@@ -11,6 +11,7 @@ import {
   type UploadQueueItem,
 } from "@/lib/capture/uploadQueue";
 import {
+  DEFAULT_ACTIVE_CAMP_ID,
   getActiveCampId,
   getLocalMemoryById,
   markMemoryPublished,
@@ -123,7 +124,7 @@ async function publishMemoryToCampFeedIfReady(memoryId: string) {
   }
 
   const activeCampId = await getActiveCampId();
-  const campId = memory.campId || activeCampId || "ourdeercamp";
+  const campId = memory.campId || activeCampId || DEFAULT_ACTIVE_CAMP_ID;
 
   await updateLocalMemory(memoryId, {
     syncStatus: "publishing",
