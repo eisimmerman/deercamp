@@ -872,6 +872,45 @@ async function hydrateCampFeedItemsFromCloud(){
   }
 }
 
+
+let appCampFeedUnsubscribe = null;
+function renderAppCampFeedSnapshot(snapshot){
+  try{
+    appCampFeedEntries = [];
+    if(snapshot && typeof snapshot.forEach === "function") {
+      snapshot.forEach(doc => {
+        const mapped = mapAppFeedDocToCampFeedItem(doc);
+        if(mapped.image) appCampFeedEntries.push(mapped);
+      });
+    }
+    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+    renderFeed();
+    recentUpdatesOffset = 0;
+    renderRecentUpdates();
+    syncFeedButtons();
+  }catch(error){
+    console.warn("Realtime App CampFeed render skipped.", error);
+  }
+}
+function subscribeToAppCampFeedItems(){
+  try{
+    const cleanCampId = String(activeCampId || "").trim();
+    if(!cleanCampId || !window.firebase || typeof firebase.firestore !== "function") return;
+    if(typeof appCampFeedUnsubscribe === "function") {
+      try{ appCampFeedUnsubscribe(); }catch{}
+      appCampFeedUnsubscribe = null;
+    }
+    appCampFeedUnsubscribe = firebase.firestore()
+      .collection("feedItems")
+      .where("campId", "==", cleanCampId)
+      .where("published", "==", true)
+      .onSnapshot(renderAppCampFeedSnapshot, error => {
+        console.warn("Realtime App CampFeed subscription failed.", error);
+      });
+  }catch(error){
+    console.warn("Realtime App CampFeed subscription skipped.", error);
+  }
+}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
 function campItemIdentity(item = {}, fallback = "") {
@@ -3697,8 +3736,14 @@ try{
   console.warn("Realtime camp subscription skipped.", error);
 }
 
+subscribeToAppCampFeedItems();
+
 setInterval(() => {
   requestSilentCampSectionRefresh("interval");
+  void hydrateCampFeedItemsFromCloud().then(() => {
+    renderFeed();
+    syncFeedButtons();
+  }).catch(() => {});
 }, 3500);
 
 let campShelfLastPageSize = getCampShelfPageSize();
