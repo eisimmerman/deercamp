@@ -2929,14 +2929,27 @@ async function removeCurrentFeedPost(){
     if(btn) btn.disabled = true;
     setFeedRemoveStatus("Removing post…");
 
+    let cloudRemoveFailed = false;
+
     if(item.source === "app" && appFeedDocId && window.firebase && typeof firebase.firestore === "function"){
-      await firebase.firestore().collection("feedItems").doc(appFeedDocId).set({
-        published: false,
-        removedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        removedBy: getCurrentSecurityRole(),
-        removedByLabel: "Camp Steward",
-        removedReason: "steward_removed"
-      }, { merge: true });
+      try{
+        const removalPayload = {
+          published: false,
+          removedAtClient: new Date().toISOString(),
+          removedBy: getCurrentSecurityRole(),
+          removedByLabel: "Camp Steward",
+          removedReason: "steward_removed"
+        };
+
+        if (firebase.firestore.FieldValue?.serverTimestamp) {
+          removalPayload.removedAt = firebase.firestore.FieldValue.serverTimestamp();
+        }
+
+        await firebase.firestore().collection("feedItems").doc(appFeedDocId).set(removalPayload, { merge: true });
+      }catch(cloudError){
+        cloudRemoveFailed = true;
+        console.warn("Could not soft-remove app feed item in Firestore; hiding locally instead.", cloudError);
+      }
     }
 
     if(id && !removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
@@ -2948,7 +2961,12 @@ async function removeCurrentFeedPost(){
     renderFeed();
     renderRecentUpdates();
     syncFeedButtons();
-    try{ showToast("CampFeed post removed."); }catch(error){}
+
+    if(cloudRemoveFailed){
+      try{ showToast("Post hidden from this camp. Cloud removal will retry later."); }catch(error){}
+    }else{
+      try{ showToast("CampFeed post removed."); }catch(error){}
+    }
   }catch(error){
     console.warn("Could not remove CampFeed post.", error);
     setFeedRemoveStatus("Could not remove post. Please try again.", true);
