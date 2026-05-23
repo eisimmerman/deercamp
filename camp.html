@@ -1173,6 +1173,31 @@ let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Bool
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
 let removedFeedPostIds = Array.isArray(data.removedFeedPostIds) ? data.removedFeedPostIds.map(id => String(id || "").trim()).filter(Boolean) : [];
+
+function getRemovedFeedPostStorageKey(){
+  return `deercamp.camps.${activeCampId || "ourdeercamp"}.removedFeedPostIds`;
+}
+function loadRemovedFeedPostIdsFromLocal(){
+  try{
+    const raw = localStorage.getItem(getRemovedFeedPostStorageKey()) || "";
+    const parsed = raw ? JSON.parse(raw) : [];
+    if(!Array.isArray(parsed)) return;
+    parsed.map(id => String(id || "").trim()).filter(Boolean).forEach(id => {
+      if(!removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
+    });
+  }catch(error){
+    console.warn("Could not load removed CampFeed post ids.", error);
+  }
+}
+function saveRemovedFeedPostIdsToLocal(){
+  try{
+    localStorage.setItem(getRemovedFeedPostStorageKey(), JSON.stringify(removedFeedPostIds.slice()));
+  }catch(error){
+    console.warn("Could not save removed CampFeed post ids locally.", error);
+  }
+}
+loadRemovedFeedPostIdsFromLocal();
+
 let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data]).filter(Boolean);
 let deerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], [data]).filter(Boolean);
 
@@ -1268,6 +1293,7 @@ function persist(){
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
   data.removedFeedPostIds = removedFeedPostIds.slice();
+  saveRemovedFeedPostIdsToLocal();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
     const nextEntry = Object.assign({}, entry);
     if (String(nextEntry.mediaType || "").toLowerCase() === "photo") {
@@ -2925,52 +2951,51 @@ async function removeCurrentFeedPost(){
   const appFeedDocId = String(item.appFeedDocId || item.id || "").trim();
   const btn = document.getElementById('feedRemovePost');
 
+  if(btn) btn.disabled = true;
+  setFeedRemoveStatus("Removing post…");
+
+  // User-facing action first: hide immediately and never block the steward on
+  // Firestore/Auth edge cases. Cloud persistence is best-effort below.
+  if(id && !removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
+  saveRemovedFeedPostIdsToLocal();
+
+  appCampFeedEntries = appCampFeedEntries.filter(entry => String(entry.id || "") !== id);
+  feedEntries = feedEntries.filter(entry => String(entry.id || entry.imageRef || "") !== id);
+  campPhotoGallery = campPhotoGallery.filter(entry => String(entry.id || "") !== id);
+
+  closeFeedModal();
+  renderFeed();
+  renderRecentUpdates();
+  syncFeedButtons();
+  try{ showToast("CampFeed post removed."); }catch(error){}
+
+  // Best-effort persistence to the camp document/local camp data.
   try{
-    if(btn) btn.disabled = true;
-    setFeedRemoveStatus("Removing post…");
-
-    let cloudRemoveFailed = false;
-
-    if(item.source === "app" && appFeedDocId && window.firebase && typeof firebase.firestore === "function"){
-      try{
-        const removalPayload = {
-          published: false,
-          removedAtClient: new Date().toISOString(),
-          removedBy: getCurrentSecurityRole(),
-          removedByLabel: "Camp Steward",
-          removedReason: "steward_removed"
-        };
-
-        if (firebase.firestore.FieldValue?.serverTimestamp) {
-          removalPayload.removedAt = firebase.firestore.FieldValue.serverTimestamp();
-        }
-
-        await firebase.firestore().collection("feedItems").doc(appFeedDocId).set(removalPayload, { merge: true });
-      }catch(cloudError){
-        cloudRemoveFailed = true;
-        console.warn("Could not soft-remove app feed item in Firestore; hiding locally instead.", cloudError);
-      }
-    }
-
-    if(id && !removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
-    appCampFeedEntries = appCampFeedEntries.filter(entry => String(entry.id || "") !== id);
-    feedEntries = feedEntries.filter(entry => String(entry.id || entry.imageRef || "") !== id);
-    campPhotoGallery = campPhotoGallery.filter(entry => String(entry.id || "") !== id);
     persist();
-    closeFeedModal();
-    renderFeed();
-    renderRecentUpdates();
-    syncFeedButtons();
-
-    if(cloudRemoveFailed){
-      try{ showToast("Post hidden from this camp. Cloud removal will retry later."); }catch(error){}
-    }else{
-      try{ showToast("CampFeed post removed."); }catch(error){}
-    }
   }catch(error){
-    console.warn("Could not remove CampFeed post.", error);
-    setFeedRemoveStatus("Could not remove post. Please try again.", true);
-    if(btn) btn.disabled = false;
+    console.warn("CampFeed remove persisted locally but camp save failed.", error);
+  }
+
+  // Best-effort soft-delete for app-created feedItems. If Firestore rules deny it,
+  // the local/camp hidden list still keeps the post out of this camp view.
+  if(item.source === "app" && appFeedDocId && window.firebase && typeof firebase.firestore === "function"){
+    try{
+      const removalPayload = {
+        published: false,
+        removedAtClient: new Date().toISOString(),
+        removedBy: getCurrentSecurityRole(),
+        removedByLabel: "Camp Steward",
+        removedReason: "steward_removed"
+      };
+
+      if (firebase.firestore.FieldValue?.serverTimestamp) {
+        removalPayload.removedAt = firebase.firestore.FieldValue.serverTimestamp();
+      }
+
+      await firebase.firestore().collection("feedItems").doc(appFeedDocId).set(removalPayload, { merge: true });
+    }catch(cloudError){
+      console.warn("Cloud soft-remove was denied; post remains hidden by camp/local removed list.", cloudError);
+    }
   }
 }
 
