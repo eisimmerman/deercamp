@@ -115,6 +115,9 @@
   .feed-audio-title{margin:0;color:#452a16;font-size:.82rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
   .feed-audio audio{display:block;width:100%;max-width:100%}
   .feed-card-audio{margin-top:2px;color:#5b3d1e;font-size:.86rem;font-weight:900}
+  .feed-steward-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 4px;padding:10px 0;border-top:1px solid rgba(69,42,22,.10);border-bottom:1px solid rgba(69,42,22,.10)}
+  .feed-remove-status{color:#6b5644;font-size:.88rem;font-weight:700;line-height:1.35}
+  .btn-danger{background:#8b2d1d;color:#fff8ef}
   .feed-tags{display:flex;flex-wrap:wrap;gap:8px}
   .tag{display:inline-flex;align-items:center;min-height:30px;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.6);color:#5b3d1e;font-size:.82rem;font-weight:700}
   .arrow{width:42px;height:42px;border:0;border-radius:999px;background:rgba(109,77,42,.12);color:#4b3116;font-size:1.1rem;font-weight:800;cursor:pointer}
@@ -544,6 +547,10 @@
       <p id="feedModalBody" class="feed-body"></p>
       <div id="feedModalTags" class="feed-tags"></div>
       <div id="feedModalAudio" class="feed-audio" hidden></div>
+      <div id="feedStewardActions" class="feed-steward-actions" hidden>
+        <button type="button" id="feedRemovePost" class="btn btn-danger">Remove Post</button>
+        <span id="feedRemoveStatus" class="feed-remove-status"></span>
+      </div>
       <div class="feed-comments">
         <h4>Comments</h4>
         <div id="feedCommentsList" class="feed-comments-list"></div>
@@ -853,7 +860,9 @@ function mapAppFeedDocToCampFeedItem(doc){
     tags: hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"],
     mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
     source: "app",
-    storageProvider: "firebase"
+    appFeedDocId: id,
+    storageProvider: "firebase",
+    published: item.published !== false
   };
 }
 async function hydrateCampFeedItemsFromCloud(){
@@ -869,7 +878,7 @@ async function hydrateCampFeedItemsFromCloud(){
     appCampFeedEntries = [];
     snap.forEach(doc => {
       const mapped = mapAppFeedDocToCampFeedItem(doc);
-      if(mapped.image) appCampFeedEntries.push(mapped);
+      if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
     });
     appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
     return appCampFeedEntries;
@@ -889,7 +898,7 @@ function renderAppCampFeedSnapshot(snapshot){
     if(snapshot && typeof snapshot.forEach === "function"){
       snapshot.forEach(doc => {
         const mapped = mapAppFeedDocToCampFeedItem(doc);
-        if(mapped.image) appCampFeedEntries.push(mapped);
+        if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
       });
     }
     appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
@@ -1163,6 +1172,7 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
+let removedFeedPostIds = Array.isArray(data.removedFeedPostIds) ? data.removedFeedPostIds.map(id => String(id || "").trim()).filter(Boolean) : [];
 let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data]).filter(Boolean);
 let deerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], [data]).filter(Boolean);
 
@@ -1257,6 +1267,7 @@ function persist(){
   data.recipeObjects = customRecipes.slice();
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
+  data.removedFeedPostIds = removedFeedPostIds.slice();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
     const nextEntry = Object.assign({}, entry);
     if (String(nextEntry.mediaType || "").toLowerCase() === "photo") {
@@ -2346,6 +2357,7 @@ function normalizePhotoEntries(){
     if(!image && !displayImage) return;
     const fallbackId = slugify(`${item.title || 'camp-picture'}-${orderIndex + 1}`) || `photo-${orderIndex + 1}`;
     const stableId = String(item.id || item.imageRef || fallbackId).trim();
+    if (removedFeedPostIds.includes(stableId)) return;
     const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
     const comments = getCommentsForPost(stableId);
     const rawCreatedAtMs = Number(item.createdAtMs);
@@ -2367,6 +2379,9 @@ function normalizePhotoEntries(){
       audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
       voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
       audioPath: String(item.audioPath || "").trim(),
+      source: String(item.source || "").trim(),
+      appFeedDocId: String(item.appFeedDocId || item.feedDocId || "").trim(),
+      storageProvider: String(item.storageProvider || "").trim(),
       _order: orderIndex++
     });
   };
@@ -2879,6 +2894,68 @@ function goFeed(nextIndex){
   syncFeedButtons();
 }
 
+
+function setFeedRemoveStatus(message = "", isError = false){
+  const el = document.getElementById('feedRemoveStatus');
+  if(!el) return;
+  el.textContent = message;
+  el.classList.toggle('is-error', Boolean(isError));
+}
+
+function syncFeedStewardActions(item){
+  const wrap = document.getElementById('feedStewardActions');
+  const btn = document.getElementById('feedRemovePost');
+  if(!wrap || !btn) return;
+
+  const canRemove = Boolean(item && item.id && isCurrentSteward());
+  wrap.hidden = !canRemove;
+  btn.disabled = !canRemove;
+  setFeedRemoveStatus("");
+}
+
+async function removeCurrentFeedPost(){
+  const item = feedItems[modalFeedIndex];
+  if(!item) return;
+  if(!requireCurrentSteward("Only the Camp Steward can remove CampFeed posts.")) return;
+
+  const ok = confirm("Remove this CampFeed post?\n\nThis will hide it from Camp Swede. The original upload may remain stored for audit/recovery.");
+  if(!ok) return;
+
+  const id = String(item.id || "").trim();
+  const appFeedDocId = String(item.appFeedDocId || item.id || "").trim();
+  const btn = document.getElementById('feedRemovePost');
+
+  try{
+    if(btn) btn.disabled = true;
+    setFeedRemoveStatus("Removing post…");
+
+    if(item.source === "app" && appFeedDocId && window.firebase && typeof firebase.firestore === "function"){
+      await firebase.firestore().collection("feedItems").doc(appFeedDocId).set({
+        published: false,
+        removedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        removedBy: getCurrentSecurityRole(),
+        removedByLabel: "Camp Steward",
+        removedReason: "steward_removed"
+      }, { merge: true });
+    }
+
+    if(id && !removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
+    appCampFeedEntries = appCampFeedEntries.filter(entry => String(entry.id || "") !== id);
+    feedEntries = feedEntries.filter(entry => String(entry.id || entry.imageRef || "") !== id);
+    campPhotoGallery = campPhotoGallery.filter(entry => String(entry.id || "") !== id);
+    persist();
+    closeFeedModal();
+    renderFeed();
+    renderRecentUpdates();
+    syncFeedButtons();
+    try{ showToast("CampFeed post removed."); }catch(error){}
+  }catch(error){
+    console.warn("Could not remove CampFeed post.", error);
+    setFeedRemoveStatus("Could not remove post. Please try again.", true);
+    if(btn) btn.disabled = false;
+  }
+}
+
 function renderFeedAudioControl(item){
   const audioWrap = document.getElementById('feedModalAudio');
   if(!audioWrap) return;
@@ -2906,6 +2983,7 @@ function openFeedModal(idx){
   document.getElementById('feedModalBody').textContent=item.body;
   document.getElementById('feedModalTags').innerHTML=item.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('');
   renderFeedAudioControl(item);
+  syncFeedStewardActions(item);
   renderFeedComments(item.id);
   setFeedCommentFeedback('Comments stay with this camp post.');
   document.getElementById('feedModalBackdrop').classList.add('open');
@@ -2913,10 +2991,11 @@ function openFeedModal(idx){
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
-function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); modalFeedIndex=-1}
+function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
 document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedIndex-1));
 document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
+document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
 document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
 window.addEventListener('resize', ()=>{renderFeed(); syncFeedButtons();});
 document.addEventListener('click', event=>{
