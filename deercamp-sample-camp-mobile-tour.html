@@ -44,9 +44,9 @@
     .tour-top{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:18px 18px 10px;flex-wrap:wrap}
     .tour-title{margin:0;font-size:1.2rem;color:var(--brown-deep)}
     .tour-progress{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:rgba(107,67,37,.10);color:#6b4325;font-weight:800;font-size:.9rem}
-    .tour-tabs{display:flex;gap:10px;overflow:auto;padding:0 18px 16px;scrollbar-width:none}
+    .tour-tabs{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:6px;overflow:visible;padding:0 18px 16px;scrollbar-width:none}
     .tour-tabs::-webkit-scrollbar{display:none}
-    .tab{white-space:nowrap;border:1px solid rgba(69,42,22,.12);background:#fff;border-radius:999px;padding:10px 14px;color:var(--brown-deep);font-weight:800;cursor:pointer}
+    .tab{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border:1px solid rgba(69,42,22,.12);background:#fff;border-radius:999px;padding:8px 8px;color:var(--brown-deep);font-weight:800;font-size:clamp(.68rem,.74vw,.86rem);letter-spacing:-.02em;cursor:pointer}
     .tab.active{background:var(--brown);color:#fff7f0;border-color:transparent}
     .slides{position:relative;min-height:560px;padding:0 18px 20px}
     .slide{display:none;animation:fade .25s ease}
@@ -112,6 +112,8 @@
       .desktop-note{display:block}
     }
     @media (max-width: 820px){
+      .tour-tabs{grid-template-columns:repeat(9,minmax(0,1fr));gap:3px;padding:0 8px 12px}
+      .tab{font-size:clamp(.48rem,1.8vw,.62rem);padding:7px 2px;letter-spacing:-.05em}
       .slides{padding-bottom:8px}
       .full-sample{display:none}
       .desktop-note{display:none}
@@ -285,11 +287,11 @@
                 <h3>CampCalendar</h3>
                 <p class="muted">Track opener dates, setup weekends, meals, work days, and other camp events.</p>
                 <div class="calendar-strip">
-                  <div class="day">7</div><div class="day">8</div><div class="day">9</div><div class="day active">10</div><div class="day">11</div><div class="day">12</div><div class="day">13</div>
+                  <div class="day">5</div><div class="day">6</div><div class="day">7</div><div class="day">8</div><div class="day">9</div><div class="day">10</div><div class="day active">12</div>
                 </div>
                 <div class="stack-list">
-                  <article class="event-card"><h4>Archery / Bow Opener</h4><p class="meta">Sat, Sep 10 • DeerCamp</p><p class="muted">Wisconsin statewide archery / bow opener.</p></article>
-                  <article class="event-card"><h4>Final Setup</h4><p class="meta">Eric Simmerman</p><p class="muted">Last stand checks, meal prep, and cabin cleanup before opener.</p></article>
+                  <article class="event-card"><h4>Final Setup</h4><p class="meta">Sat, Sep 5 • DeerCamp</p><p class="muted">Last stand checks, meal prep, and cabin cleanup before opener.</p></article>
+                  <article class="event-card"><h4>Archery / Bow Opener</h4><p class="meta">Sat, Sep 12 • DeerCamp</p><p class="muted">Wisconsin statewide archery / bow opener.</p></article>
                 </div>
               </div>
             </div>
@@ -472,26 +474,35 @@
     const nextBtn = document.getElementById('nextBtn');
     const startTourBtn = document.getElementById('startTourBtn');
     let current = 0;
+    const navButtons = [];
 
     slides.forEach((slide, idx) => {
+      const title = slide.dataset.title || `Section ${idx + 1}`;
+      if (title === 'Welcome') return;
+
       const btn = document.createElement('button');
-      btn.className = 'tab' + (idx === 0 ? ' active' : '');
+      btn.className = 'tab';
       btn.type = 'button';
-      btn.textContent = slide.dataset.title || `Section ${idx + 1}`;
+      btn.textContent = title;
+      btn.dataset.slideIndex = String(idx);
       btn.addEventListener('click', () => setSlide(idx));
       tabsWrap.appendChild(btn);
+      navButtons.push({ button: btn, slideIndex: idx });
     });
-    const tabs = Array.from(tabsWrap.querySelectorAll('.tab'));
 
     function setSlide(index){
       current = Math.max(0, Math.min(index, slides.length - 1));
       slides.forEach((slide, idx) => slide.classList.toggle('active', idx === current));
-      tabs.forEach((tab, idx) => tab.classList.toggle('active', idx === current));
+      navButtons.forEach(({ button, slideIndex }) => button.classList.toggle('active', slideIndex === current));
       progress.textContent = `${current + 1} of ${slides.length}`;
       label.textContent = slides[current].dataset.title || '';
       prevBtn.disabled = current === 0;
       nextBtn.textContent = current === slides.length - 1 ? 'Start Again' : 'Next';
-      tabs[current].scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+
+      const activeNav = navButtons.find(({ slideIndex }) => slideIndex === current);
+      if (activeNav) {
+        activeNav.button.scrollIntoView({behavior:'smooth', inline:'nearest', block:'nearest'});
+      }
       if (window.innerWidth < 821) {
         document.getElementById('tour').scrollIntoView({behavior:'smooth', block:'start'});
       }
