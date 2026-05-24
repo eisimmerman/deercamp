@@ -102,22 +102,15 @@
   .feed-header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
   .pill{display:inline-flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.82rem;font-weight:800}
   .carousel{overflow:hidden}
-  .carousel-track{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(220px, calc((100% - 64px)/5));gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
+  .carousel-track{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 64px)/5);gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;scrollbar-width:none}
   .carousel-track::-webkit-scrollbar{display:none}
   .feed-card{scroll-snap-align:start;overflow:hidden;padding:0}
   .feed-card-media img{display:block;width:100%;aspect-ratio:16/11;object-fit:cover;background:#e9decf}
   .feed-card-copy{display:grid;gap:10px;padding:16px}
-  .feed-kicker{margin:0;color:#7b5a33;font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;line-height:1.25;white-space:normal;overflow-wrap:anywhere;word-break:normal}
+  .feed-kicker{margin:0;color:#7b5a33;font-size:.78rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
   .feed-title{margin:0;font-size:1.12rem}
-  .feed-meta{margin:0;color:#5b3d1e;font-size:.88rem;font-weight:700;opacity:.82;line-height:1.28;white-space:normal;overflow-wrap:anywhere}
+  .feed-meta{margin:0;color:#5b3d1e;font-size:.94rem;font-weight:700;opacity:.82}
   .feed-body{margin:0;line-height:1.55;opacity:.92}
-  .feed-audio{display:grid;gap:8px;margin:10px 0 4px;padding:12px;border-radius:16px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.10)}
-  .feed-audio-title{margin:0;color:#452a16;font-size:.82rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
-  .feed-audio audio{display:block;width:100%;max-width:100%}
-  .feed-card-audio{margin-top:2px;color:#5b3d1e;font-size:.86rem;font-weight:900}
-  .feed-steward-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 4px;padding:10px 0;border-top:1px solid rgba(69,42,22,.10);border-bottom:1px solid rgba(69,42,22,.10)}
-  .feed-remove-status{color:#6b5644;font-size:.88rem;font-weight:700;line-height:1.35}
-  .btn-danger{background:#8b2d1d;color:#fff8ef}
   .feed-tags{display:flex;flex-wrap:wrap;gap:8px}
   .tag{display:inline-flex;align-items:center;min-height:30px;padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.6);color:#5b3d1e;font-size:.82rem;font-weight:700}
   .arrow{width:42px;height:42px;border:0;border-radius:999px;background:rgba(109,77,42,.12);color:#4b3116;font-size:1.1rem;font-weight:800;cursor:pointer}
@@ -450,9 +443,6 @@
       padding-top:42px;
     }
   }
-  @media (max-width:720px){
-    .carousel-track{grid-auto-columns:minmax(220px,82vw)}
-  }
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -546,11 +536,6 @@
       <p id="feedModalMeta" class="feed-meta"></p>
       <p id="feedModalBody" class="feed-body"></p>
       <div id="feedModalTags" class="feed-tags"></div>
-      <div id="feedModalAudio" class="feed-audio" hidden></div>
-      <div id="feedStewardActions" class="feed-steward-actions" hidden>
-        <button type="button" id="feedRemovePost" class="btn btn-danger">Remove Post</button>
-        <span id="feedRemoveStatus" class="feed-remove-status"></span>
-      </div>
       <div class="feed-comments">
         <h4>Comments</h4>
         <div id="feedCommentsList" class="feed-comments-list"></div>
@@ -846,23 +831,40 @@ function mapAppFeedDocToCampFeedItem(doc){
   const createdAtMs = Number(item.clientCreatedAt || firestoreTimestampToMs(item.createdAt));
   const id = String((doc && doc.id) || item.id || item.localMemoryId || `app-feed-${createdAtMs}`).trim();
   const mediaType = String(item.mediaType || item.type || "photo").trim().toLowerCase();
-  const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
+  const audioUrl = firstNonEmptyString(item.audioUrl, item.voiceUrl, item.audio?.url, item.voice?.url);
+  const imageUrl = firstNonEmptyString(
+    item.imageUrl,
+    item.photoUrl,
+    item.displayUrl,
+    item.thumbUrl,
+    item.thumbnailUrl,
+    item.downloadUrl,
+    item.downloadURL,
+    item.storageUrl,
+    item.firebaseUrl,
+    item.mediaUrl,
+    item.publicUrl,
+    item.image && typeof item.image === "object" ? item.image.url : item.image,
+    item.photo && typeof item.photo === "object" ? item.photo.url : item.photo,
+    Array.isArray(item.photos) && item.photos[0] ? (item.photos[0].url || item.photos[0].imageUrl || item.photos[0].photoUrl) : "",
+    Array.isArray(item.media) && item.media[0] ? (item.media[0].url || item.media[0].imageUrl || item.media[0].photoUrl) : "",
+    Array.isArray(item.attachments) && item.attachments[0] ? (item.attachments[0].url || item.attachments[0].imageUrl || item.attachments[0].photoUrl) : ""
+  );
+  const hasAudio = Boolean(audioUrl);
   return {
     id,
     title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
     body: String(item.caption || item.details || (hasAudio ? "Photo + voice captured in DeerCamp Field Mode." : "Photo captured in DeerCamp Field Mode.")).trim(),
-    image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
-    displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
-    audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
-    author: String(item.authorName || item.member || "DeerCamp Member").trim(),
+    image: imageUrl,
+    displayUrl: imageUrl,
+    audioUrl,
+    author: String(item.authorName || item.member || item.author || "DeerCamp Member").trim(),
     createdAt: new Date(createdAtMs).toISOString(),
     createdAtMs,
     tags: hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"],
     mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
     source: "app",
-    appFeedDocId: id,
-    storageProvider: "firebase",
-    published: item.published !== false
+    storageProvider: "firebase"
   };
 }
 async function hydrateCampFeedItemsFromCloud(){
@@ -878,7 +880,7 @@ async function hydrateCampFeedItemsFromCloud(){
     appCampFeedEntries = [];
     snap.forEach(doc => {
       const mapped = mapAppFeedDocToCampFeedItem(doc);
-      if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
+      if(mapped.image) appCampFeedEntries.push(mapped);
     });
     appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
     return appCampFeedEntries;
@@ -889,51 +891,6 @@ async function hydrateCampFeedItemsFromCloud(){
   }
 }
 
-
-let appCampFeedUnsubscribe = null;
-
-function renderAppCampFeedSnapshot(snapshot){
-  try{
-    appCampFeedEntries = [];
-    if(snapshot && typeof snapshot.forEach === "function"){
-      snapshot.forEach(doc => {
-        const mapped = mapAppFeedDocToCampFeedItem(doc);
-        if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
-      });
-    }
-    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
-    renderFeed();
-    if(typeof renderRecentUpdates === "function") renderRecentUpdates();
-    if(typeof syncFeedButtons === "function") syncFeedButtons();
-  }catch(error){
-    console.warn("Realtime App CampFeed render skipped.", error);
-  }
-}
-
-function subscribeToAppCampFeedItems(){
-  try{
-    const cleanCampId = String(activeCampId || "").trim();
-    if(!cleanCampId || !window.firebase || typeof firebase.firestore !== "function") return false;
-
-    if(typeof appCampFeedUnsubscribe === "function"){
-      try{ appCampFeedUnsubscribe(); }catch{}
-      appCampFeedUnsubscribe = null;
-    }
-
-    appCampFeedUnsubscribe = firebase.firestore()
-      .collection("feedItems")
-      .where("campId", "==", cleanCampId)
-      .where("published", "==", true)
-      .onSnapshot(renderAppCampFeedSnapshot, error => {
-        console.warn("Realtime App CampFeed subscription failed.", error);
-      });
-
-    return true;
-  }catch(error){
-    console.warn("Realtime App CampFeed subscription skipped.", error);
-    return false;
-  }
-}
 function slugify(value=""){return String(value||"").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")}
 function initials(name=""){const p=String(name||"").trim().split(/\s+/).filter(Boolean); if(!p.length) return "DC"; return (p[0][0]+(p.length>1?p[p.length-1][0]:p[0].slice(1,2))).toUpperCase()}
 function campItemIdentity(item = {}, fallback = "") {
@@ -1172,32 +1129,6 @@ let customRecipes = (Array.isArray(data.recipeObjects)?data.recipeObjects:[]).fi
 let traditions = (Array.isArray(data.traditions)?data.traditions:[]).filter(Boolean);
 let feedEntries = Array.isArray(data.feedEntries) ? data.feedEntries.filter(Boolean) : [];
 let campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
-let removedFeedPostIds = Array.isArray(data.removedFeedPostIds) ? data.removedFeedPostIds.map(id => String(id || "").trim()).filter(Boolean) : [];
-
-function getRemovedFeedPostStorageKey(){
-  return `deercamp.camps.${activeCampId || "ourdeercamp"}.removedFeedPostIds`;
-}
-function loadRemovedFeedPostIdsFromLocal(){
-  try{
-    const raw = localStorage.getItem(getRemovedFeedPostStorageKey()) || "";
-    const parsed = raw ? JSON.parse(raw) : [];
-    if(!Array.isArray(parsed)) return;
-    parsed.map(id => String(id || "").trim()).filter(Boolean).forEach(id => {
-      if(!removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
-    });
-  }catch(error){
-    console.warn("Could not load removed CampFeed post ids.", error);
-  }
-}
-function saveRemovedFeedPostIdsToLocal(){
-  try{
-    localStorage.setItem(getRemovedFeedPostStorageKey(), JSON.stringify(removedFeedPostIds.slice()));
-  }catch(error){
-    console.warn("Could not save removed CampFeed post ids locally.", error);
-  }
-}
-loadRemovedFeedPostIdsFromLocal();
-
 let deerDrivePosts = collectCampItemsFromSources(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"], [data]).filter(Boolean);
 let deerStandPosts = collectCampItemsFromSources(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"], [data]).filter(Boolean);
 
@@ -1292,8 +1223,6 @@ function persist(){
   data.recipeObjects = customRecipes.slice();
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
-  data.removedFeedPostIds = removedFeedPostIds.slice();
-  saveRemovedFeedPostIdsToLocal();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
     const nextEntry = Object.assign({}, entry);
     if (String(nextEntry.mediaType || "").toLowerCase() === "photo") {
@@ -2371,6 +2300,29 @@ function getCommentsForPost(postId = "") {
   const items = key && Array.isArray(feedComments[key]) ? feedComments[key] : [];
   return items.slice().sort((a,b)=>Number(a.createdAtMs||0)-Number(b.createdAtMs||0));
 }
+function getCampFeedImageSrc(item = {}){
+  return firstNonEmptyString(
+    item.thumbUrl,
+    item.thumbnailUrl,
+    item.thumbnail,
+    item.displayUrl,
+    item.imageUrl,
+    item.photoUrl,
+    item.photoURL,
+    item.downloadUrl,
+    item.downloadURL,
+    item.storageUrl,
+    item.firebaseUrl,
+    item.mediaUrl,
+    item.publicUrl,
+    item.image && typeof item.image === "object" ? (item.image.url || item.image.imageUrl || item.image.photoUrl) : item.image,
+    item.photo && typeof item.photo === "object" ? (item.photo.url || item.photo.imageUrl || item.photo.photoUrl) : item.photo,
+    item.img,
+    Array.isArray(item.photos) && item.photos[0] ? (item.photos[0].url || item.photos[0].imageUrl || item.photos[0].photoUrl) : "",
+    Array.isArray(item.media) && item.media[0] ? (item.media[0].url || item.media[0].imageUrl || item.media[0].photoUrl) : "",
+    Array.isArray(item.attachments) && item.attachments[0] ? (item.attachments[0].url || item.attachments[0].imageUrl || item.attachments[0].photoUrl) : ""
+  );
+}
 function normalizePhotoEntries(){
   const items=[];
   const seen=new Set();
@@ -2378,12 +2330,10 @@ function normalizePhotoEntries(){
   let orderIndex = 0;
   const push=item=>{
     if (isLegacySeedFeedItem(item)) return;
-    const image=String(item.thumbUrl||item.thumbnailUrl||item.thumbnail||item.image||item.img||item.displayUrl||item.imageUrl||"").trim();
-    const displayImage=String(item.displayUrl||item.imageUrl||item.image||item.img||image||"").trim();
-    if(!image && !displayImage) return;
+    const image=getCampFeedImageSrc(item);
+    if(!image) return;
     const fallbackId = slugify(`${item.title || 'camp-picture'}-${orderIndex + 1}`) || `photo-${orderIndex + 1}`;
     const stableId = String(item.id || item.imageRef || fallbackId).trim();
-    if (removedFeedPostIds.includes(stableId)) return;
     const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
     const comments = getCommentsForPost(stableId);
     const rawCreatedAtMs = Number(item.createdAtMs);
@@ -2397,17 +2347,11 @@ function normalizePhotoEntries(){
       title:String(item.title||"Camp picture").trim(),
       body:String(item.body||item.caption||"Camp picture posted from DeerCamp.").trim(),
       image,
-      author:String(item.author||item.member||"Camp Member").trim(),
+      author:String(item.author||item.member||item.authorName||"Camp Member").trim(),
       createdAt,
       createdAtMs,
       tags:Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"],
       comments,
-      audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
-      voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
-      audioPath: String(item.audioPath || "").trim(),
-      source: String(item.source || "").trim(),
-      appFeedDocId: String(item.appFeedDocId || item.feedDocId || "").trim(),
-      storageProvider: String(item.storageProvider || "").trim(),
       _order: orderIndex++
     });
   };
@@ -2415,9 +2359,9 @@ function normalizePhotoEntries(){
   feedEntries.forEach(e=>{
     const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
     const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
-    if(media==="photo" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
+    if(media==="photo" || getCampFeedImageSrc(e) || galleryItem) push({...e,image:getCampFeedImageSrc(galleryItem || {}) || getCampFeedImageSrc(e)});
   });
-  campPhotoGallery.forEach(p=>push({id:p.id,title:p.title,caption:p.caption,image:p.image,member:p.member,createdAt:p.createdAt,createdAtMs:p.createdAtMs,tags:p.tags}));
+  campPhotoGallery.forEach(p=>push({...p,image:getCampFeedImageSrc(p)}));
   return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
 }
 function normalizeRecentUpdates(){
@@ -2840,65 +2784,38 @@ function setFeedCommentFeedback(message, isError = false){
   el.classList.toggle('is-error', !!isError);
 }
 
-function renderFeedComments(postId = ''){
-  const list = document.getElementById('feedCommentsList');
-  const empty = document.getElementById('feedCommentsEmpty');
-  const authorSelect = document.getElementById('feedCommentAuthor');
-  if(!list || !empty || !authorSelect) return;
-  const comments = getCommentsForPost(postId);
-  const names = roster.map(r=>r.name).filter(Boolean);
-  authorSelect.innerHTML = names.length ? names.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
-  list.innerHTML = comments.map(comment => `<div class="feed-comment"><p class="feed-comment-meta">${esc(comment.author || 'Camp Member')} • ${esc(new Date(comment.createdAtMs || Date.now()).toLocaleString())}</p><p class="feed-comment-body">${esc(comment.text || '')}</p></div>`).join('');
-  empty.hidden = comments.length > 0;
-}
-
-document.getElementById('feedCommentSubmit')?.addEventListener('click', () => {
-  const item = feedItems[modalFeedIndex];
-  if(!item) return;
-  const author = String(document.getElementById('feedCommentAuthor')?.value || '').trim() || 'Camp Member';
-  const text = String(document.getElementById('feedCommentText')?.value || '').trim();
-  if(!text){
-    setFeedCommentFeedback('Add a comment before posting.', true);
+function renderFeed(options = {}){
+  const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
+  const shouldReset = options && options.reset === true;
+  const previousFeedIndex = Number.isFinite(Number(feedIndex)) ? Number(feedIndex) : 0;
+  feedItems=normalizePhotoEntries(); track.innerHTML="";
+  if(!feedItems.length){
+    empty.hidden=false;
+    if(count) count.textContent='Showing 0 of 0';
+    feedIndex=0;
+    syncFeedButtons();
     return;
   }
-  const next = {
-    author,
-    text,
-    createdAt: new Date().toISOString(),
-    createdAtMs: Date.now()
-  };
-  const key = String(item.id || '').trim();
-  if(!Array.isArray(feedComments[key])) feedComments[key] = [];
-  feedComments[key].push(next);
-  try{ persist(); }catch(error){ setFeedCommentFeedback('Comment could not save. Please try again.', true); return; }
-  document.getElementById('feedCommentText').value = '';
-  setFeedCommentFeedback('Comment added.');
-  renderFeed();
-  const refreshedIndex = feedItems.findIndex(entry => String(entry.id || '') === key);
-  if (refreshedIndex >= 0) {
-    openFeedModal(refreshedIndex);
-    setFeedCommentFeedback('Comment added.');
-  } else {
-    renderFeedComments(key);
-    syncFeedButtons();
-  }
-});
-function renderFeed(){
-  const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
-  feedItems=normalizePhotoEntries(); track.innerHTML="";
-  if(!feedItems.length){empty.hidden=false; count.textContent='Showing 0 of 0'; syncFeedButtons(); return;}
   empty.hidden=true;
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
-    card.innerHTML=`<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>
-      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">Open Post</button></div>`;
-    card.addEventListener('click',()=>openFeedModal(idx));
+    card.innerHTML=`<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}" loading="lazy" referrerpolicy="no-referrer"></div>
+      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${formatDateTime(entry.createdAt)}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>${entry.comments.length?`<span class="pill">${entry.comments.length} comment${entry.comments.length>1?'s':''}</span>`:''}${entry.audioUrl?'<p class="feed-meta"><strong>Voice memory available</strong></p>':''}<button type="button" class="btn btn-secondary">Open Post</button></div>`;
+    card.querySelector('button').addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
   const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
-  count.textContent=`Showing ${Math.min(visible,feedItems.length)} of ${feedItems.length}`;
-  feedIndex=0;
-  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'}); syncFeedButtons(); });
+  const max=Math.max(0, feedItems.length - visible);
+  feedIndex = shouldReset ? 0 : Math.max(0, Math.min(previousFeedIndex, max));
+  const startIndex = feedItems.length ? feedIndex + 1 : 0;
+  const endIndex = Math.min(feedIndex + visible, feedItems.length);
+  if(count) count.textContent=`Showing ${startIndex}-${endIndex} of ${feedItems.length}`;
+  requestAnimationFrame(()=>{
+    const trackEl=document.getElementById('feedTrack');
+    const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
+    if(trackEl && target) trackEl.scrollTo({left: target.offsetLeft, behavior:'auto'});
+    syncFeedButtons();
+  });
 }
 function syncFeedButtons(){
   const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
@@ -2917,106 +2834,14 @@ function goFeed(nextIndex){
   if(track && target){
     track.scrollTo({left: target.offsetLeft, behavior:'smooth'});
   }
+  const count=document.getElementById('feedCount');
+  if(count){
+    const startIndex = feedItems.length ? feedIndex + 1 : 0;
+    const endIndex = Math.min(feedIndex + visible, feedItems.length);
+    count.textContent=`Showing ${startIndex}-${endIndex} of ${feedItems.length}`;
+  }
   syncFeedButtons();
 }
-
-
-function setFeedRemoveStatus(message = "", isError = false){
-  const el = document.getElementById('feedRemoveStatus');
-  if(!el) return;
-  el.textContent = message;
-  el.classList.toggle('is-error', Boolean(isError));
-}
-
-function syncFeedStewardActions(item){
-  const wrap = document.getElementById('feedStewardActions');
-  const btn = document.getElementById('feedRemovePost');
-  if(!wrap || !btn) return;
-
-  const canRemove = Boolean(item && item.id && isCurrentSteward());
-  wrap.hidden = !canRemove;
-  btn.disabled = !canRemove;
-  setFeedRemoveStatus("");
-}
-
-async function removeCurrentFeedPost(){
-  const item = feedItems[modalFeedIndex];
-  if(!item) return;
-  if(!requireCurrentSteward("Only the Camp Steward can remove CampFeed posts.")) return;
-
-  const ok = confirm("Remove this CampFeed post?\n\nThis will hide it from Camp Swede. The original upload may remain stored for audit/recovery.");
-  if(!ok) return;
-
-  const id = String(item.id || "").trim();
-  const appFeedDocId = String(item.appFeedDocId || item.id || "").trim();
-  const btn = document.getElementById('feedRemovePost');
-
-  if(btn) btn.disabled = true;
-  setFeedRemoveStatus("Removing post…");
-
-  // User-facing action first: hide immediately and never block the steward on
-  // Firestore/Auth edge cases. Cloud persistence is best-effort below.
-  if(id && !removedFeedPostIds.includes(id)) removedFeedPostIds.push(id);
-  saveRemovedFeedPostIdsToLocal();
-
-  appCampFeedEntries = appCampFeedEntries.filter(entry => String(entry.id || "") !== id);
-  feedEntries = feedEntries.filter(entry => String(entry.id || entry.imageRef || "") !== id);
-  campPhotoGallery = campPhotoGallery.filter(entry => String(entry.id || "") !== id);
-
-  closeFeedModal();
-  renderFeed();
-  renderRecentUpdates();
-  syncFeedButtons();
-  try{ showToast("CampFeed post removed."); }catch(error){}
-
-  // Best-effort persistence to the camp document/local camp data.
-  try{
-    persist();
-  }catch(error){
-    console.warn("CampFeed remove persisted locally but camp save failed.", error);
-  }
-
-  // Best-effort soft-delete for app-created feedItems. If Firestore rules deny it,
-  // the local/camp hidden list still keeps the post out of this camp view.
-  if(item.source === "app" && appFeedDocId && window.firebase && typeof firebase.firestore === "function"){
-    try{
-      const removalPayload = {
-        published: false,
-        removedAtClient: new Date().toISOString(),
-        removedBy: getCurrentSecurityRole(),
-        removedByLabel: "Camp Steward",
-        removedReason: "steward_removed"
-      };
-
-      if (firebase.firestore.FieldValue?.serverTimestamp) {
-        removalPayload.removedAt = firebase.firestore.FieldValue.serverTimestamp();
-      }
-
-      await firebase.firestore().collection("feedItems").doc(appFeedDocId).set(removalPayload, { merge: true });
-    }catch(cloudError){
-      console.warn("Cloud soft-remove was denied; post remains hidden by camp/local removed list.", cloudError);
-    }
-  }
-}
-
-function renderFeedAudioControl(item){
-  const audioWrap = document.getElementById('feedModalAudio');
-  if(!audioWrap) return;
-  const audioUrl = String(item && item.audioUrl ? item.audioUrl : '').trim();
-  if(!audioUrl){
-    audioWrap.hidden = true;
-    audioWrap.innerHTML = '';
-    return;
-  }
-  audioWrap.hidden = false;
-  audioWrap.innerHTML = `
-    <p class="feed-audio-title">Voice Memory</p>
-    <audio controls preload="metadata" src="${esc(audioUrl)}">
-      Your browser does not support audio playback.
-    </audio>
-  `;
-}
-
 function openFeedModal(idx){
   modalFeedIndex=idx; const item=feedItems[idx]; if(!item) return;
   document.getElementById('feedModalMedia').innerHTML=item.image?`<img src="${esc(item.image)}" alt="${esc(item.title)}">`:"";
@@ -3025,8 +2850,6 @@ function openFeedModal(idx){
   document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
   document.getElementById('feedModalBody').textContent=item.body;
   document.getElementById('feedModalTags').innerHTML=item.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('');
-  renderFeedAudioControl(item);
-  syncFeedStewardActions(item);
   renderFeedComments(item.id);
   setFeedCommentFeedback('Comments stay with this camp post.');
   document.getElementById('feedModalBackdrop').classList.add('open');
@@ -3034,11 +2857,10 @@ function openFeedModal(idx){
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
-function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
-document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedIndex-1));
-document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
+function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); modalFeedIndex=-1}
+document.getElementById('feedPrev')?.addEventListener('click',(event)=>{event.preventDefault(); goFeed(feedIndex-1);});
+document.getElementById('feedNext')?.addEventListener('click',(event)=>{event.preventDefault(); goFeed(feedIndex+1);});
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
-document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
 document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
 window.addEventListener('resize', ()=>{renderFeed(); syncFeedButtons();});
 document.addEventListener('click', event=>{
@@ -3895,16 +3717,8 @@ try{
   console.warn("Realtime camp subscription skipped.", error);
 }
 
-subscribeToAppCampFeedItems();
-
 setInterval(() => {
   requestSilentCampSectionRefresh("interval");
-  void hydrateCampFeedItemsFromCloud()
-    .then(() => {
-      renderFeed();
-      if(typeof syncFeedButtons === "function") syncFeedButtons();
-    })
-    .catch(() => {});
 }, 3500);
 
 let campShelfLastPageSize = getCampShelfPageSize();
