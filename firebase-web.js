@@ -173,6 +173,145 @@
         console.warn("Could not subscribe to Firestore camp.", error);
         return () => {};
       }
+    },
+
+    getAttributionStorageKey() { return "deercamp.metrics.attribution"; },
+    getLatestAttributionStorageKey() { return "deercamp.metrics.latestAttribution"; },
+
+    normalizeAttributionValue(value = "") {
+      return String(value || "").trim();
+    },
+
+    readAttributionFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search || "");
+        const readFirst = (...keys) => {
+          for (const key of keys) {
+            const value = this.normalizeAttributionValue(params.get(key));
+            if (value) return value;
+          }
+          return "";
+        };
+        const source = readFirst("utm_source", "source", "src", "ref", "signupSource");
+        const medium = readFirst("utm_medium", "medium", "signupMedium");
+        const campaign = readFirst("utm_campaign", "campaign", "signupCampaign");
+        const audience = readFirst("utm_audience", "audience", "signupAudience");
+        const prospectId = readFirst("prospectId", "prospect", "pid", "leadId", "businessId");
+        const channel = readFirst("channel", "signupChannel");
+        const content = readFirst("utm_content", "content");
+        const term = readFirst("utm_term", "term");
+        const hasTracking = Boolean(source || medium || campaign || audience || prospectId || channel || content || term);
+        if (!hasTracking) return null;
+        return {
+          source: source || "direct",
+          medium,
+          campaign,
+          audience,
+          prospectId,
+          channel,
+          content,
+          term,
+          landingPath: window.location.pathname || "",
+          landingUrl: window.location.href || "",
+          capturedAtClient: new Date().toISOString()
+        };
+      } catch (error) {
+        console.warn("Could not read DeerCamp attribution from URL.", error);
+        return null;
+      }
+    },
+
+    getStoredAttribution() {
+      const keys = [this.getAttributionStorageKey(), this.getLatestAttributionStorageKey()];
+      for (const key of keys) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || "{}");
+          if (parsed && typeof parsed === "object" && (parsed.source || parsed.campaign || parsed.landingUrl)) return parsed;
+        } catch (error) {}
+      }
+      return {};
+    },
+
+    captureAttribution() {
+      const fromUrl = this.readAttributionFromUrl();
+      if (!fromUrl) return this.getStoredAttribution();
+      try {
+        const firstKey = this.getAttributionStorageKey();
+        const latestKey = this.getLatestAttributionStorageKey();
+        const existingFirst = JSON.parse(localStorage.getItem(firstKey) || "{}");
+        if (!existingFirst || typeof existingFirst !== "object" || !(existingFirst.source || existingFirst.campaign || existingFirst.landingUrl)) {
+          localStorage.setItem(firstKey, JSON.stringify(fromUrl));
+        }
+        localStorage.setItem(latestKey, JSON.stringify(fromUrl));
+      } catch (error) {
+        console.warn("Could not store DeerCamp attribution locally.", error);
+      }
+      return this.buildCampAttributionFields();
+    },
+
+    buildCampAttributionFields() {
+      let first = {};
+      let latest = {};
+      try { first = JSON.parse(localStorage.getItem(this.getAttributionStorageKey()) || "{}"); } catch (error) {}
+      try { latest = JSON.parse(localStorage.getItem(this.getLatestAttributionStorageKey()) || "{}"); } catch (error) {}
+      const primary = first && typeof first === "object" && (first.source || first.campaign || first.landingUrl) ? first : (latest || {});
+      const last = latest && typeof latest === "object" ? latest : {};
+      return {
+        signupSource: this.normalizeAttributionValue(primary.source) || "direct",
+        signupMedium: this.normalizeAttributionValue(primary.medium),
+        signupCampaign: this.normalizeAttributionValue(primary.campaign),
+        signupAudience: this.normalizeAttributionValue(primary.audience),
+        signupChannel: this.normalizeAttributionValue(primary.channel),
+        signupProspectId: this.normalizeAttributionValue(primary.prospectId),
+        signupContent: this.normalizeAttributionValue(primary.content),
+        signupTerm: this.normalizeAttributionValue(primary.term),
+        firstTouchUrl: this.normalizeAttributionValue(primary.landingUrl),
+        firstTouchPath: this.normalizeAttributionValue(primary.landingPath),
+        firstTouchAtClient: this.normalizeAttributionValue(primary.capturedAtClient),
+        lastTouchSource: this.normalizeAttributionValue(last.source),
+        lastTouchMedium: this.normalizeAttributionValue(last.medium),
+        lastTouchCampaign: this.normalizeAttributionValue(last.campaign),
+        lastTouchUrl: this.normalizeAttributionValue(last.landingUrl),
+        lastTouchAtClient: this.normalizeAttributionValue(last.capturedAtClient),
+        installType: "dcf",
+        metricsSchemaVersion: 1
+      };
+    },
+
+    async listCamps(options = {}) {
+      const db = this.ensureReady();
+      if (!db) return [];
+      try {
+        let query = db.collection("camps");
+        const limit = Number(options.limit || 500);
+        if (limit && Number.isFinite(limit) && limit > 0) query = query.limit(Math.min(limit, 1000));
+        const snap = await query.get();
+        return snap.docs.map((doc) => ({ campId: doc.id, id: doc.id, ...(doc.data() || {}) }));
+      } catch (error) {
+        console.warn("Could not list DeerCamp camps for metrics.", error);
+        return [];
+      }
+    },
+
+    async saveMetricEvent(campId, eventType, payload = {}) {
+      const cleanCampId = String(campId || "").trim();
+      const cleanEventType = String(eventType || "").trim();
+      if (!cleanCampId || !cleanEventType) return false;
+      const db = this.ensureReady();
+      if (!db) return false;
+      try {
+        await db.collection("campMetricsEvents").add({
+          campId: cleanCampId,
+          eventType: cleanEventType,
+          ...payload,
+          createdAtClient: new Date().toISOString(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return true;
+      } catch (error) {
+        console.warn("Could not save DeerCamp metric event.", error);
+        return false;
+      }
     }
   };
 

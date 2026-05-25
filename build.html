@@ -1404,6 +1404,94 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
+function captureDeerCampBuildAttribution() {
+  if (window.DeerCampCloud && typeof DeerCampCloud.captureAttribution === "function") {
+    return DeerCampCloud.captureAttribution() || {};
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const readFirst = (...keys) => {
+      for (const key of keys) {
+        const value = String(params.get(key) || "").trim();
+        if (value) return value;
+      }
+      return "";
+    };
+    const source = readFirst("utm_source", "source", "src", "ref", "signupSource");
+    const medium = readFirst("utm_medium", "medium", "signupMedium");
+    const campaign = readFirst("utm_campaign", "campaign", "signupCampaign");
+    const audience = readFirst("utm_audience", "audience", "signupAudience");
+    const prospectId = readFirst("prospectId", "prospect", "pid", "leadId", "businessId");
+    const channel = readFirst("channel", "signupChannel");
+    const content = readFirst("utm_content", "content");
+    const term = readFirst("utm_term", "term");
+    const hasTracking = Boolean(source || medium || campaign || audience || prospectId || channel || content || term);
+    if (hasTracking) {
+      const payload = {
+        source: source || "direct",
+        medium,
+        campaign,
+        audience,
+        prospectId,
+        channel,
+        content,
+        term,
+        landingPath: window.location.pathname || "",
+        landingUrl: window.location.href || "",
+        capturedAtClient: new Date().toISOString()
+      };
+      const firstKey = "deercamp.metrics.attribution";
+      const latestKey = "deercamp.metrics.latestAttribution";
+      let existing = {};
+      try { existing = JSON.parse(localStorage.getItem(firstKey) || "{}"); } catch (error) {}
+      if (!existing || typeof existing !== "object" || !(existing.source || existing.campaign || existing.landingUrl)) {
+        localStorage.setItem(firstKey, JSON.stringify(payload));
+      }
+      localStorage.setItem(latestKey, JSON.stringify(payload));
+    }
+  } catch (error) {
+    console.warn("Could not capture DeerCamp attribution locally.", error);
+  }
+
+  return buildDeerCampAttributionFields();
+}
+
+function buildDeerCampAttributionFields() {
+  if (window.DeerCampCloud && typeof DeerCampCloud.buildCampAttributionFields === "function") {
+    return DeerCampCloud.buildCampAttributionFields() || {};
+  }
+
+  let first = {};
+  let latest = {};
+  try { first = JSON.parse(localStorage.getItem("deercamp.metrics.attribution") || "{}"); } catch (error) {}
+  try { latest = JSON.parse(localStorage.getItem("deercamp.metrics.latestAttribution") || "{}"); } catch (error) {}
+  const primary = first && typeof first === "object" && (first.source || first.campaign || first.landingUrl) ? first : (latest || {});
+  const last = latest && typeof latest === "object" ? latest : {};
+  return {
+    signupSource: String(primary.source || "direct").trim() || "direct",
+    signupMedium: String(primary.medium || "").trim(),
+    signupCampaign: String(primary.campaign || "").trim(),
+    signupAudience: String(primary.audience || "").trim(),
+    signupChannel: String(primary.channel || "").trim(),
+    signupProspectId: String(primary.prospectId || "").trim(),
+    signupContent: String(primary.content || "").trim(),
+    signupTerm: String(primary.term || "").trim(),
+    firstTouchUrl: String(primary.landingUrl || "").trim(),
+    firstTouchPath: String(primary.landingPath || "").trim(),
+    firstTouchAtClient: String(primary.capturedAtClient || "").trim(),
+    lastTouchSource: String(last.source || "").trim(),
+    lastTouchMedium: String(last.medium || "").trim(),
+    lastTouchCampaign: String(last.campaign || "").trim(),
+    lastTouchUrl: String(last.landingUrl || "").trim(),
+    lastTouchAtClient: String(last.capturedAtClient || "").trim(),
+    installType: "dcf",
+    metricsSchemaVersion: 1
+  };
+}
+
+captureDeerCampBuildAttribution();
+
 const WELCOME_EMAIL_ENDPOINT = "/api/send-steward-welcome";
 
 function splitFullName(value = "") {
@@ -2130,6 +2218,12 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }
   };
 
+  const metricsAttribution = {
+    ...buildDeerCampAttributionFields(),
+    campId,
+    createdAtClient: new Date().toISOString()
+  };
+
   let hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
 
   if (heroUploadInput.files.length > 0) {
@@ -2153,6 +2247,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const campData = {
     ...defaultSubscriptionFields,
+    ...metricsAttribution,
+    metrics: { ...metricsAttribution },
     campId,
     name,
     city,
@@ -2200,6 +2296,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const initialDashboardSlim = {
     ...defaultSubscriptionFields,
+    ...metricsAttribution,
+    metrics: { ...metricsAttribution },
     campId,
     camp: {
       campId,
@@ -2258,6 +2356,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const stewardSetupSeed = {
     ...defaultSubscriptionFields,
+    ...metricsAttribution,
+    metrics: { ...metricsAttribution },
     campId,
     campName: name,
     city,
@@ -2301,11 +2401,28 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     console.warn("Cloud camp save did not finish before redirect.", cloudError);
   }
 
+  try {
+    if (window.DeerCampCloud && typeof DeerCampCloud.saveMetricEvent === "function") {
+      DeerCampCloud.saveMetricEvent(campId, "camp_created", {
+        source: metricsAttribution.signupSource || "direct",
+        medium: metricsAttribution.signupMedium || "",
+        campaign: metricsAttribution.signupCampaign || "",
+        audience: metricsAttribution.signupAudience || "",
+        tier: "DCF",
+        cloudSaved
+      });
+    }
+  } catch (metricError) {
+    console.warn("Camp created metric event did not save before redirect.", metricError);
+  }
+
   incrementCreatedCampCounter(campId);
 
   const { firstName: stewardFirstName, lastName: stewardLastName } = splitFullName(stewardName);
   const welcomePayload = {
     ...defaultSubscriptionFields,
+    ...metricsAttribution,
+    metrics: { ...metricsAttribution },
     campId,
     campName: name,
     city,

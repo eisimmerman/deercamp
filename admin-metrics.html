@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DeerCamp Growth Dashboard</title>
+  <style>
+    :root{
+      --bg:#d7ccb9;--panel:#f7f1e7;--ink:#231a13;--muted:#6b5644;--brown:#6a4427;--brown-deep:#452a16;--green:#496647;--line:rgba(69,42,22,.12);--shadow:0 14px 34px rgba(0,0,0,.12);--radius:24px
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top,rgba(255,255,255,.18),transparent 35%),linear-gradient(180deg,#d8cdbd 0%,#ccbda8 100%)}
+    a{color:inherit;text-decoration:none}button,input,select{font:inherit}
+    .page{min-height:100vh;padding:22px;display:grid;gap:18px;align-content:start}
+    .topbar,.panel,.hero{max-width:1220px;width:100%;margin:0 auto;background:rgba(247,241,231,.94);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .topbar{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 20px;flex-wrap:wrap}
+    .brand{display:flex;gap:12px;align-items:center}.brand img{width:48px;height:48px;border-radius:14px}.brand h1{margin:0;font-size:1.28rem;color:var(--brown-deep)}.brand p{margin:3px 0 0;color:var(--muted)}
+    .hero{padding:22px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center}.hero h2{margin:0 0 8px;color:var(--brown-deep);font-size:clamp(1.7rem,3vw,2.6rem)}.hero p{margin:0;color:var(--muted);line-height:1.55;max-width:720px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{display:inline-flex;align-items:center;justify-content:center;min-height:42px;padding:10px 14px;border-radius:999px;border:1px solid rgba(69,42,22,.12);background:#fff;color:var(--brown-deep);font-weight:800;cursor:pointer}.btn-primary{background:var(--brown);color:#fff;border-color:rgba(69,42,22,.22)}
+    .filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.filter{display:grid;gap:6px}.filter label{font-size:.74rem;font-weight:900;color:var(--brown-deep);letter-spacing:.06em;text-transform:uppercase}.filter input,.filter select{min-height:42px;border-radius:14px;border:1px solid rgba(69,42,22,.14);background:#fff;padding:0 12px;color:var(--ink)}
+    .cards{max-width:1220px;width:100%;margin:0 auto;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}.metric-card{padding:16px;border-radius:20px;background:rgba(247,241,231,.94);border:1px solid var(--line);box-shadow:var(--shadow)}.metric-label{display:block;color:var(--muted);font-size:.78rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}.metric-value{display:block;margin-top:7px;color:var(--brown-deep);font-size:2rem;font-weight:900;line-height:1}.metric-note{margin-top:7px;color:var(--muted);font-size:.86rem;line-height:1.35}
+    .panel{padding:18px 20px;display:grid;gap:14px}.panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}.panel h3{margin:0;color:var(--brown-deep)}.helper{margin:4px 0 0;color:var(--muted);line-height:1.5}.status{color:var(--muted);font-weight:800}.status.is-error{color:#8b2d1d}.status.is-good{color:#27411e}
+    .table-wrap{overflow:auto;border-radius:18px;border:1px solid rgba(69,42,22,.10)}table{width:100%;border-collapse:collapse;background:rgba(255,255,255,.52)}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid rgba(69,42,22,.08);vertical-align:top;white-space:nowrap}th{font-size:.72rem;color:var(--brown-deep);letter-spacing:.06em;text-transform:uppercase;background:rgba(106,68,39,.07)}td{font-size:.9rem}.muted{color:var(--muted)}.pill{display:inline-flex;align-items:center;min-height:24px;padding:4px 9px;border-radius:999px;background:rgba(106,68,39,.09);color:var(--brown-deep);font-size:.75rem;font-weight:900}.pill.green{background:rgba(73,102,71,.13);color:#27411e}.pill.gold{background:rgba(177,121,45,.17);color:#6f4b1f}.score{font-weight:900;color:var(--brown-deep)}
+    .grid-2{max-width:1220px;width:100%;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px}.empty{padding:16px;border-radius:18px;background:rgba(255,255,255,.54);color:var(--muted);line-height:1.5}
+    @media(max-width:960px){.hero{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-2{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}}
+    @media(max-width:620px){.page{padding:14px}.cards{grid-template-columns:1fr}.filters{grid-template-columns:1fr}.actions .btn{width:100%}th,td{font-size:.82rem;padding:9px}.hero,.panel{border-radius:20px}}
+  </style>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+  <script src="firebase-web.js"></script>
+</head>
+<body>
+  <main class="page">
+    <header class="topbar">
+      <div class="brand"><img src="assets/images/deer-track.png" alt="DeerCamp mark"><div><h1>DeerCamp Growth Dashboard</h1><p>DCF installs, activation, and DC+ conversion pipeline</p></div></div>
+      <div class="actions"><button id="refreshBtn" class="btn btn-primary" type="button">Refresh Metrics</button><button id="exportBtn" class="btn" type="button">Export CSV</button><a class="btn" href="index.html">Open Home</a></div>
+    </header>
+
+    <section class="hero">
+      <div><h2>Measure the path from outreach to DC+ revenue.</h2><p>This starter dashboard reads camp records, groups DCF installs by source/campaign, scores camp activation, and highlights camps with the strongest DC+ upgrade potential.</p></div>
+      <div id="loadStatus" class="status">Loading...</div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>Filters</h3><p class="helper">Filter the dashboard without changing the underlying data.</p></div></div>
+      <div class="filters">
+        <div class="filter"><label for="sourceFilter">Source</label><select id="sourceFilter"><option value="">All sources</option></select></div>
+        <div class="filter"><label for="campaignFilter">Campaign</label><select id="campaignFilter"><option value="">All campaigns</option></select></div>
+        <div class="filter"><label for="tierFilter">Tier</label><select id="tierFilter"><option value="">All tiers</option><option value="dcf">DCF</option><option value="dc_plus">DC+</option><option value="dcp">DCP</option></select></div>
+        <div class="filter"><label for="searchFilter">Search</label><input id="searchFilter" placeholder="Camp, state, email, city"></div>
+      </div>
+    </section>
+
+    <section class="cards" aria-label="Growth metrics summary">
+      <div class="metric-card"><span class="metric-label">DCF Installs Created</span><span id="dcfCount" class="metric-value">0</span><div class="metric-note">All camps originally created through the free builder, including camps that later upgraded.</div></div>
+      <div class="metric-card"><span class="metric-label">DC+ Camps</span><span id="plusCount" class="metric-value">0</span><div class="metric-note">Active or paid Plus subscriptions found in camp records.</div></div>
+      <div class="metric-card"><span class="metric-label">DCF → DC+ Conversion</span><span id="conversionRate" class="metric-value">0%</span><div class="metric-note">DC+ camps divided by DCF-created camp base.</div></div>
+      <div class="metric-card"><span class="metric-label">High-Intent DCF</span><span id="highIntentCount" class="metric-value">0</span><div class="metric-note">DCF camps scoring 75+ based on setup and usage.</div></div>
+      <div class="metric-card"><span class="metric-label">With Members</span><span id="withMembersCount" class="metric-value">0</span><div class="metric-note">Camps where Steward added at least one member.</div></div>
+      <div class="metric-card"><span class="metric-label">With Field Cards</span><span id="withFieldCardsCount" class="metric-value">0</span><div class="metric-note">Camps with at least one stand or drive card.</div></div>
+      <div class="metric-card"><span class="metric-label">Public / Live Camps</span><span id="publicCount" class="metric-value">0</span><div class="metric-note">Camps marked public or live.</div></div>
+      <div class="metric-card"><span class="metric-label">Estimated Pipeline</span><span id="pipelineValue" class="metric-value">$0/mo</span><div class="metric-note">High-intent DCF camps × $9.99 monthly DC+ price.</div></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><div class="panel-head"><div><h3>Acquisition by Source</h3><p class="helper">Which outreach path creates the most DCF installs.</p></div></div><div id="sourceTableWrap" class="table-wrap"></div></div>
+      <div class="panel"><div class="panel-head"><div><h3>Activation Breakdown</h3><p class="helper">Setup actions that indicate stronger DC+ potential.</p></div></div><div id="activationTableWrap" class="table-wrap"></div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>High-Intent DCF Camps</h3><p class="helper">Prioritized list for follow-up, nurture emails, or DC+ upgrade prompts.</p></div><span id="highIntentStatus" class="status"></span></div>
+      <div id="highIntentTableWrap" class="table-wrap"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>Recent Camps</h3><p class="helper">Newest camps with tier, source, activation score, and quick links.</p></div><span id="recentStatus" class="status"></span></div>
+      <div id="recentTableWrap" class="table-wrap"></div>
+    </section>
+  </main>
+
+  <script>
+    const DC_PLUS_MONTHLY = 9.99;
+    let allRows = [];
+    let filteredRows = [];
+
+    const $ = (id) => document.getElementById(id);
+    const clean = (value = "") => String(value || "").trim();
+    const lower = (value = "") => clean(value).toLowerCase();
+    const fmtInt = (value) => new Intl.NumberFormat().format(Number(value || 0));
+    const fmtPct = (value) => `${Number(value || 0).toFixed(1).replace(/\.0$/, "")}%`;
+    const fmtMoney = (value) => `$${Number(value || 0).toLocaleString(undefined,{maximumFractionDigits:0})}/mo`;
+    const fmtDate = (value) => {
+      const raw = clean(value && typeof value.toDate === "function" ? value.toDate().toISOString() : value);
+      if (!raw) return "—";
+      const date = new Date(raw);
+      return Number.isNaN(date.getTime()) ? raw.slice(0, 10) : date.toLocaleDateString();
+    };
+
+    function tierOf(camp = {}) {
+      const billing = camp.billing && typeof camp.billing === "object" ? camp.billing : {};
+      const raw = lower(camp.tier || camp.membershipTier || camp.subscriptionTier || billing.tier || camp.planName || billing.planName || "dcf");
+      if (raw.includes("plus") || raw === "dc+" || raw === "dc_plus") return "dc_plus";
+      if (raw.includes("premium") || raw === "dcp") return "dcp";
+      return "dcf";
+    }
+
+    function isPlus(camp = {}) {
+      const tier = tierOf(camp);
+      const billing = camp.billing && typeof camp.billing === "object" ? camp.billing : {};
+      const status = lower(camp.subscriptionStatus || camp.billingStatus || billing.status || "");
+      return tier === "dc_plus" || tier === "dcp" || ["active", "trialing", "paid"].includes(status);
+    }
+
+    function sourceOf(camp = {}) {
+      const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
+      return clean(camp.signupSource || metrics.signupSource || camp.source || metrics.source || "direct") || "direct";
+    }
+
+    function campaignOf(camp = {}) {
+      const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
+      return clean(camp.signupCampaign || metrics.signupCampaign || camp.campaign || metrics.campaign || "uncampaign") || "uncampaign";
+    }
+
+    function audienceOf(camp = {}) {
+      const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
+      return clean(camp.signupAudience || metrics.signupAudience || camp.audience || metrics.audience || "");
+    }
+
+    function createdAtOf(camp = {}) {
+      return clean(camp.siteCreatedAt || camp.createdAtClient || camp.createdAt || camp.metrics?.createdAtClient || camp.subscribedAt || camp.billing?.subscribedAt || camp.updatedAtClient || "");
+    }
+
+    function membersOf(camp = {}) {
+      const candidates = [camp.dashboardMembers, camp.memberProfiles, camp.dashboardPeople, camp.members, camp.campMembers];
+      for (const item of candidates) {
+        if (Array.isArray(item)) return item;
+      }
+      return [];
+    }
+
+    function fieldCardCount(camp = {}) {
+      const keys = ["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands", "deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"];
+      return keys.reduce((total, key) => total + (Array.isArray(camp[key]) ? camp[key].length : 0), 0);
+    }
+
+    function enabledSectionCount(camp = {}) {
+      const sections = camp.enabledSections || camp.sections || camp.dashboardSlim?.sections || {};
+      if (!sections || typeof sections !== "object") return 0;
+      return Object.values(sections).filter(Boolean).length;
+    }
+
+    function feedCount(camp = {}) {
+      return (Array.isArray(camp.feedEntries) ? camp.feedEntries.length : 0) + (Array.isArray(camp.campFeedPosts) ? camp.campFeedPosts.length : 0);
+    }
+
+    function scoreCamp(camp = {}) {
+      let score = 10;
+      const members = membersOf(camp);
+      const nonStewardMembers = members.filter((m) => lower(m && m.role) !== "camp steward");
+      const fieldCards = fieldCardCount(camp);
+      const sections = enabledSectionCount(camp);
+      const publicLive = lower(camp.publishState || camp.visibility) === "public" || camp.isPublic === true;
+      if (clean(camp.stewardEmail)) score += 10;
+      if (nonStewardMembers.length > 0 || (Array.isArray(camp.campMembers) && camp.campMembers.length > 0)) score += 15;
+      if (members.some((m) => lower(m && m.status).includes("invite")) || (Array.isArray(camp.pendingInvites) && camp.pendingInvites.length)) score += 15;
+      if (sections >= 3 || camp.launchChecklistManual?.sections) score += 10;
+      if (publicLive) score += 15;
+      if (fieldCards > 0) score += 20;
+      if (feedCount(camp) > 3) score += 20;
+      if (clean(camp.lastDashboardSaveAt || camp.dashboardSavedAt || camp.profileUpdatedAt || camp.updatedAtClient)) score += 20;
+      return Math.min(score, 100);
+    }
+
+    function normalizeCamp(camp = {}) {
+      const campId = clean(camp.campId || camp.id || "");
+      const tier = tierOf(camp);
+      const plus = isPlus(camp);
+      const members = membersOf(camp);
+      const fieldCards = fieldCardCount(camp);
+      const score = scoreCamp(camp);
+      const createdAt = createdAtOf(camp);
+      return {
+        campId,
+        name: clean(camp.name || camp.campName || camp.dashboardSlim?.camp?.name || campId || "Unknown Camp"),
+        city: clean(camp.city || camp.dashboardSlim?.camp?.city || ""),
+        state: clean(camp.state || camp.dashboardSlim?.camp?.state || ""),
+        stewardEmail: clean(camp.stewardEmail || camp.campStewardEmail || ""),
+        source: sourceOf(camp),
+        campaign: campaignOf(camp),
+        audience: audienceOf(camp),
+        tier: plus ? "dc_plus" : tier,
+        plus,
+        createdAt,
+        createdSort: new Date(createdAt || 0).getTime() || 0,
+        members: members.length,
+        fieldCards,
+        sections: enabledSectionCount(camp),
+        feed: feedCount(camp),
+        isPublic: lower(camp.publishState || camp.visibility) === "public" || camp.isPublic === true,
+        score,
+        raw: camp
+      };
+    }
+
+    function applyFilters() {
+      const source = lower($("sourceFilter").value);
+      const campaign = lower($("campaignFilter").value);
+      const tier = lower($("tierFilter").value);
+      const search = lower($("searchFilter").value);
+      filteredRows = allRows.filter((row) => {
+        if (source && lower(row.source) !== source) return false;
+        if (campaign && lower(row.campaign) !== campaign) return false;
+        if (tier && lower(row.tier) !== tier) return false;
+        if (search) {
+          const haystack = lower([row.name, row.city, row.state, row.stewardEmail, row.campId, row.source, row.campaign].join(" "));
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+      renderDashboard();
+    }
+
+    function fillSelect(id, values, label) {
+      const select = $(id);
+      const current = select.value;
+      select.innerHTML = `<option value="">${label}</option>` + values.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join("");
+      select.value = values.includes(current) ? current : "";
+    }
+
+    function escapeHtml(value = "") {
+      return String(value || "").replace(/[&<>'"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;","'":"&#39;","\"":"&quot;"}[char]));
+    }
+
+    function table(headers, rows) {
+      if (!rows.length) return '<div class="empty">No matching data yet.</div>';
+      return `<table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`;
+    }
+
+    function renderDashboard() {
+      const rows = filteredRows;
+      const dcfRows = rows.filter((r) => !r.plus);
+      const plusRows = rows.filter((r) => r.plus);
+      const highIntentRows = dcfRows.filter((r) => r.score >= 75);
+      $("dcfCount").textContent = fmtInt(rows.length);
+      $("plusCount").textContent = fmtInt(plusRows.length);
+      $("conversionRate").textContent = rows.length ? fmtPct((plusRows.length / Math.max(1, rows.length)) * 100) : "0%";
+      $("highIntentCount").textContent = fmtInt(highIntentRows.length);
+      $("withMembersCount").textContent = fmtInt(rows.filter((r) => r.members > 1).length);
+      $("withFieldCardsCount").textContent = fmtInt(rows.filter((r) => r.fieldCards > 0).length);
+      $("publicCount").textContent = fmtInt(rows.filter((r) => r.isPublic).length);
+      $("pipelineValue").textContent = fmtMoney(highIntentRows.length * DC_PLUS_MONTHLY);
+      renderSourceTable(rows);
+      renderActivationTable(rows);
+      renderHighIntent(highIntentRows);
+      renderRecent(rows);
+    }
+
+    function renderSourceTable(rows) {
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const key = `${row.source}||${row.campaign}`;
+        if (!grouped.has(key)) grouped.set(key, { source: row.source, campaign: row.campaign, total: 0, dcf: 0, plus: 0, high: 0 });
+        const item = grouped.get(key);
+        item.total += 1; if (row.plus) item.plus += 1; else item.dcf += 1; if (!row.plus && row.score >= 75) item.high += 1;
+      });
+      const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total).map((item) => `<tr><td><span class="pill">${escapeHtml(item.source)}</span></td><td>${escapeHtml(item.campaign)}</td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
+      $("sourceTableWrap").innerHTML = table(["Source", "Campaign", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
+    }
+
+    function renderActivationTable(rows) {
+      const metrics = [
+        ["Camp records", rows.length],
+        ["Steward email present", rows.filter((r)=>r.stewardEmail).length],
+        ["1+ member added", rows.filter((r)=>r.members > 1).length],
+        ["Sections configured", rows.filter((r)=>r.sections >= 3).length],
+        ["1+ stand/drive card", rows.filter((r)=>r.fieldCards > 0).length],
+        ["CampFeed activity", rows.filter((r)=>r.feed > 3).length],
+        ["Public/live", rows.filter((r)=>r.isPublic).length],
+        ["High-intent DCF", rows.filter((r)=>!r.plus && r.score >= 75).length]
+      ];
+      const body = metrics.map(([label, count]) => `<tr><td>${escapeHtml(label)}</td><td>${fmtInt(count)}</td><td>${fmtPct((count/Math.max(1,rows.length))*100)}</td></tr>`);
+      $("activationTableWrap").innerHTML = table(["Signal", "Camps", "% of Filtered"], body);
+    }
+
+    function rowTierPill(row) {
+      return row.plus ? '<span class="pill green">DC+</span>' : '<span class="pill gold">DCF</span>';
+    }
+
+    function campLink(row) {
+      return row.campId ? `<a class="btn" href="camp.html?campId=${encodeURIComponent(row.campId)}&role=steward&view=steward">Open</a>` : "—";
+    }
+
+    function renderHighIntent(rows) {
+      $("highIntentStatus").textContent = `${fmtInt(rows.length)} high-intent DCF camps`;
+      const body = rows.sort((a,b)=>b.score-a.score || b.createdSort-a.createdSort).slice(0,50).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</div></td><td><span class="score">${row.score}</span></td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td>${fmtInt(row.members)}</td><td>${fmtInt(row.fieldCards)}</td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
+      $("highIntentTableWrap").innerHTML = table(["Camp", "Score", "Source", "Campaign", "Members", "Field Cards", "Created", "Link"], body);
+    }
+
+    function renderRecent(rows) {
+      $("recentStatus").textContent = `${fmtInt(rows.length)} matching camps`;
+      const body = rows.sort((a,b)=>b.createdSort-a.createdSort).slice(0,80).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.campId)}</div></td><td>${rowTierPill(row)}</td><td>${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td><span class="score">${row.score}</span></td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
+      $("recentTableWrap").innerHTML = table(["Camp", "Tier", "Location", "Source", "Campaign", "Score", "Created", "Link"], body);
+    }
+
+    function exportCsv() {
+      const headers = ["campId","name","city","state","tier","source","campaign","audience","score","members","fieldCards","sections","feed","isPublic","createdAt","stewardEmail"];
+      const lines = [headers.join(",")].concat(filteredRows.map((row) => headers.map((key) => `"${String(row[key] ?? "").replace(/"/g,'""')}"`).join(",")));
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `deercamp-growth-dashboard-${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function loadMetrics() {
+      $("loadStatus").textContent = "Loading Firestore camp records...";
+      $("loadStatus").className = "status";
+      try {
+        const camps = await (window.DeerCampCloud && typeof DeerCampCloud.listCamps === "function" ? DeerCampCloud.listCamps({ limit: 1000 }) : []);
+        allRows = camps.map(normalizeCamp).filter((row) => row.campId);
+        fillSelect("sourceFilter", Array.from(new Set(allRows.map((r)=>r.source))).sort(), "All sources");
+        fillSelect("campaignFilter", Array.from(new Set(allRows.map((r)=>r.campaign))).sort(), "All campaigns");
+        filteredRows = allRows.slice();
+        $("loadStatus").textContent = `Loaded ${fmtInt(allRows.length)} camp records.`;
+        $("loadStatus").className = "status is-good";
+        applyFilters();
+      } catch (error) {
+        console.error(error);
+        $("loadStatus").textContent = "Could not load metrics. Check Firebase config, Firestore rules, and console errors.";
+        $("loadStatus").className = "status is-error";
+      }
+    }
+
+    ["sourceFilter","campaignFilter","tierFilter","searchFilter"].forEach((id) => $(id).addEventListener("input", applyFilters));
+    $("refreshBtn").addEventListener("click", loadMetrics);
+    $("exportBtn").addEventListener("click", exportCsv);
+    loadMetrics();
+  </script>
+</body>
+</html>
