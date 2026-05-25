@@ -2011,7 +2011,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload", completeLabel:"Camp Sign Complete" },
         { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName", completeLabel:"Members Complete" },
         { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
-        { key:"field", label:"Add 1 or more Stand/Drive", note:"Save at least one stand or drive.", done:fieldCardCount > 0, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
+        { key:"field", label:"Add 1 or more Stands/Drives", note:"Save at least one stand or drive, or choose Add Later.", done:fieldCardCount > 0 || getLaunchChecklistState().fieldCardsDeferred === true, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
         { key:"memberEmails", label:"Edit Member Email(s)", note:"Add valid emails so invites can be sent.", done:membersHaveEmails, target:"#memberList", completeLabel:"Member Emails Complete" }
       ];
     }
@@ -2069,10 +2069,16 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
             <button class="launch-mini-cta" type="button" data-launch-action="choose-hero">Choose Camp Sign</button>
           </span>
         ` : "";
+        const fieldActions = isNext && step.key === "field" ? `
+          <span class="launch-step-actions">
+            <button class="launch-mini-cta primary" type="button" data-launch-action="add-field-now">Add Now</button>
+            <button class="launch-mini-cta" type="button" data-launch-action="add-field-later">Add Later</button>
+          </span>
+        ` : "";
         return `
         <div class="launch-step ${step.done ? "is-complete" : ""} ${isNext ? "is-next" : ""}" data-launch-step="${step.key}" data-launch-target="${step.target || "#campName"}">
           <span class="launch-step-icon">${step.done ? "✓" : (isNext ? "→" : "•")}</span>
-          <span class="launch-step-content"><span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>${heroActions}</span>
+          <span class="launch-step-content"><span><span class="launch-step-title">${step.label}</span><span class="launch-step-note">${step.note}</span></span>${heroActions}${fieldActions}</span>
         </div>`;
       }).join("");
       const bar = document.getElementById("launchProgressBar");
@@ -2118,6 +2124,12 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           btn.textContent = "View Live Camp";
           btn.classList.add("is-live");
           if (note) note.textContent = "Camp launch checklist is complete.";
+          return;
+        }
+        const allKeysDone = keys.length > 0 && keys.every(key => stepByKey[key]?.done);
+        if (allKeysDone) {
+          btn.textContent = "Complete";
+          if (note) note.textContent = "This section is complete.";
           return;
         }
         if (firstOpen && keys.includes(firstOpen.key)) {
@@ -2188,6 +2200,20 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           event.preventDefault();
           focusLaunchTarget("#campHeroUpload");
           showToast("Choose a new camp sign or picture, then save dashboard changes.");
+          return;
+        }
+        if (actionType === "add-field-now") {
+          event.preventDefault();
+          focusLaunchTarget("#basicFieldCardsSection");
+          showToast("Add a basic stand or drive now. You can save one card and return to the checklist.");
+          return;
+        }
+        if (actionType === "add-field-later") {
+          event.preventDefault();
+          saveLaunchChecklistPatch({ fieldCardsDeferred:true, fieldCardsDeferredAt:new Date().toISOString() });
+          renderLaunchChecklist();
+          showToast("Field cards marked complete for now. Next step: edit member emails.");
+          focusLaunchTarget("#launchChecklistCard");
           return;
         }
       }
