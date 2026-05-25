@@ -530,33 +530,53 @@
     }
 
     async function createShortLink() {
-      const destinationUrl = updateCampaignLinkOutput();
-      let code = slugForShortCode($("shortCodeInput")?.value) || generatedShortCode();
-      if (!code) code = `dc-${Date.now().toString(36)}`;
-      $("shortCodeInput").value = code;
-      if (!window.DeerCampCloud || typeof DeerCampCloud.saveShortLink !== "function") {
-        $("campaignBuilderStatus").textContent = "Short link helper is not available. Update firebase-web.js.";
-        return;
+      const status = $("campaignBuilderStatus");
+      const output = $("shortLinkOutput");
+      const openBtn = $("openShortLinkBtn");
+
+      try {
+        const destinationUrl = updateCampaignLinkOutput();
+        let code = slugForShortCode($("shortCodeInput")?.value) || generatedShortCode();
+        if (!code) code = `dc-${Date.now().toString(36)}`;
+        $("shortCodeInput").value = code;
+
+        // Show the Steward the branded URL immediately so the button never feels frozen.
+        const pendingShortUrl = `${shortLinkBaseUrl()}${encodeURIComponent(code)}`;
+        if (output) output.value = pendingShortUrl;
+        if (openBtn) openBtn.href = pendingShortUrl;
+        refreshCampaignMessages();
+
+        if (!window.DeerCampCloud || typeof DeerCampCloud.saveShortLink !== "function") {
+          if (status) status.textContent = "Short URL shown, but it was not saved. Update firebase-web.js and redeploy staging.";
+          return;
+        }
+
+        if (status) status.textContent = "Saving short URL...";
+        const result = await DeerCampCloud.saveShortLink(code, destinationUrl, {
+          source: clean($("builderSource")?.value),
+          medium: clean($("builderMedium")?.value),
+          campaign: clean($("builderCampaign")?.value),
+          audience: clean($("builderAudience")?.value),
+          prospectId: clean($("builderProspectId")?.value),
+          ref: clean($("builderRef")?.value),
+          template: clean($("builderTemplate")?.value)
+        });
+
+        if (!result || result.ok === false) {
+          if (status) status.textContent = result && result.message ? result.message : "Short URL shown, but it could not be saved. Check Firestore rules.";
+          return;
+        }
+
+        const savedCode = slugForShortCode(result.code || code) || code;
+        const savedShortUrl = `${shortLinkBaseUrl()}${encodeURIComponent(savedCode)}`;
+        if (output) output.value = savedShortUrl;
+        if (openBtn) openBtn.href = savedShortUrl;
+        refreshCampaignMessages();
+        if (status) status.textContent = "Created and saved DeerCamp short URL.";
+      } catch (error) {
+        console.warn("Could not create DeerCamp short URL.", error);
+        if (status) status.textContent = `Short URL button error: ${error && error.message ? error.message : "check console"}`;
       }
-      $("campaignBuilderStatus").textContent = "Creating short URL...";
-      const result = await DeerCampCloud.saveShortLink(code, destinationUrl, {
-        source: clean($("builderSource")?.value),
-        medium: clean($("builderMedium")?.value),
-        campaign: clean($("builderCampaign")?.value),
-        audience: clean($("builderAudience")?.value),
-        prospectId: clean($("builderProspectId")?.value),
-        ref: clean($("builderRef")?.value),
-        template: clean($("builderTemplate")?.value)
-      });
-      if (!result || result.ok === false) {
-        $("campaignBuilderStatus").textContent = result && result.message ? result.message : "Could not create short URL.";
-        return;
-      }
-      const shortUrl = `${shortLinkBaseUrl()}${encodeURIComponent(result.code || code)}`;
-      $("shortLinkOutput").value = shortUrl;
-      $("openShortLinkBtn").href = shortUrl;
-      refreshCampaignMessages();
-      $("campaignBuilderStatus").textContent = "Created DeerCamp short URL";
     }
 
     async function copyTextToClipboard(text, fallbackElementId, successMessage) {
