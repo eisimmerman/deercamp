@@ -312,6 +312,86 @@
         console.warn("Could not save DeerCamp metric event.", error);
         return false;
       }
+    },
+
+    shortCodeSlug(value = "") {
+      return String(value || "")
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 64);
+    },
+
+    async saveShortLink(code, destinationUrl, payload = {}) {
+      const cleanCode = this.shortCodeSlug(code);
+      const cleanDestination = String(destinationUrl || "").trim();
+      if (!cleanCode || !cleanDestination) return { ok: false, message: "Short code and destination URL are required." };
+      const db = this.ensureReady();
+      if (!db) return { ok: false, message: "Firebase is not ready." };
+      try {
+        await db.collection("shortLinks").doc(cleanCode).set({
+          code: cleanCode,
+          destinationUrl: cleanDestination,
+          source: String(payload.source || "").trim(),
+          medium: String(payload.medium || "").trim(),
+          campaign: String(payload.campaign || "").trim(),
+          audience: String(payload.audience || "").trim(),
+          prospectId: String(payload.prospectId || "").trim(),
+          ref: String(payload.ref || "").trim(),
+          template: String(payload.template || "").trim(),
+          active: true,
+          clickCount: firebase.firestore.FieldValue.increment(0),
+          updatedAtClient: new Date().toISOString(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return { ok: true, code: cleanCode };
+      } catch (error) {
+        console.warn("Could not save DeerCamp short link.", error);
+        return { ok: false, message: "Could not save short URL. Check Firestore rules." };
+      }
+    },
+
+    async getShortLink(code) {
+      const cleanCode = this.shortCodeSlug(code);
+      if (!cleanCode) return null;
+      const db = this.ensureReady();
+      if (!db) return null;
+      try {
+        const snap = await db.collection("shortLinks").doc(cleanCode).get();
+        return snap.exists ? { code: snap.id, ...(snap.data() || {}) } : null;
+      } catch (error) {
+        console.warn("Could not load DeerCamp short link.", error);
+        return null;
+      }
+    },
+
+    async recordShortLinkClick(code, payload = {}) {
+      const cleanCode = this.shortCodeSlug(code);
+      if (!cleanCode) return false;
+      const db = this.ensureReady();
+      if (!db) return false;
+      try {
+        const ref = db.collection("shortLinks").doc(cleanCode);
+        await ref.set({
+          clickCount: firebase.firestore.FieldValue.increment(1),
+          lastClickedAtClient: new Date().toISOString(),
+          lastClickedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        await db.collection("shortLinkClicks").add({
+          code: cleanCode,
+          path: String(payload.path || window.location.pathname || ""),
+          referrer: String(payload.referrer || document.referrer || ""),
+          userAgent: String(payload.userAgent || navigator.userAgent || ""),
+          clickedAtClient: new Date().toISOString(),
+          clickedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        return true;
+      } catch (error) {
+        console.warn("Could not record DeerCamp short link click.", error);
+        return false;
+      }
     }
   };
 
