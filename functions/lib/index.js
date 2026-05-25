@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.enrichPublishedMemory = void 0;
+exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -13,6 +13,7 @@ const firestore_1 = require("firebase-admin/firestore");
 const storage_1 = require("firebase-admin/storage");
 const firestore_2 = require("firebase-functions/v2/firestore");
 const https_1 = require("firebase-functions/v2/https");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firebase_functions_1 = require("firebase-functions");
 const params_1 = require("firebase-functions/params");
 const openai_1 = __importDefault(require("openai"));
@@ -26,6 +27,242 @@ const STRIPE_WEBHOOK_SECRET = (0, params_1.defineSecret)("STRIPE_WEBHOOK_SECRET"
 const ADMIN_NOTIFICATION_EMAIL = (0, params_1.defineSecret)("ADMIN_NOTIFICATION_EMAIL");
 const db = (0, firestore_1.getFirestore)();
 const bucket = (0, storage_1.getStorage)().bucket();
+
+const DEFAULT_SEASON_OPENERS_URL = "https://www.ourdeercamp.com/data/us-state-deer-openers.json";
+function normalizeSeasonState(value) {
+    return String(value || "").trim().toUpperCase();
+}
+function normalizeSeasonType(value) {
+    const clean = String(value || "").trim().toLowerCase();
+    if (["gun", "guns", "rifle", "firearms", "firearm"].includes(clean))
+        return "firearm";
+    if (["blackpowder", "black powder", "black-powder", "muzzle loader", "muzzle-loader", "muzzleloader"].includes(clean))
+        return "muzzleloader";
+    if (["bow", "archery", "crossbow"].includes(clean))
+        return "archery";
+    return clean || "season";
+}
+function getSeasonYear(dateValue) {
+    const match = String(dateValue || "").match(/^(\d{4})-/);
+    return match ? match[1] : String(new Date().getFullYear());
+}
+function defaultSeasonIcon(type) {
+    if (type === "archery")
+        return "🏹";
+    if (type === "muzzleloader")
+        return "💥";
+    if (type === "firearm")
+        return "🔫";
+    return "🦌";
+}
+function normalizeSeasonRecords(payload) {
+    const records = [];
+    const statesNode = payload && payload.states && typeof payload.states === "object"
+        ? payload.states
+        : payload;
+    if (!statesNode || typeof statesNode !== "object")
+        return records;
+    Object.entries(statesNode).forEach(([stateKey, stateValue]) => {
+        const state = normalizeSeasonState(stateKey);
+        if (!state || !stateValue || typeof stateValue !== "object")
+            return;
+        const stateData = stateValue;
+        if (Array.isArray(stateData.seasons)) {
+            stateData.seasons.forEach((season) => {
+                const date = String((season && (season.date || season.opener)) || "").trim();
+                if (!date)
+                    return;
+                const type = normalizeSeasonType(season.type || season.name || season.label);
+                const year = getSeasonYear(date);
+                records.push({
+                    state,
+                    year,
+                    type,
+                    date,
+                    title: String(season.title || season.label || `${state} ${type} deer opener`).trim(),
+                    description: String(season.description || season.scopeNote || "Verified statewide deer season opener.").trim(),
+                    icon: String(season.icon || defaultSeasonIcon(type)).trim(),
+                    source: String(stateData.source || season.source || "").trim(),
+                    sourceUrl: String(stateData.sourceUrl || season.sourceUrl || "").trim(),
+                    scopeNote: String(season.scopeNote || "").trim(),
+                    verified: true,
+                });
+            });
+            return;
+        }
+        Object.entries(stateData).forEach(([yearKey, yearValue]) => {
+            if (!yearValue || typeof yearValue !== "object")
+                return;
+            const seasons = yearValue.seasons || {};
+            Object.entries(seasons).forEach(([typeKey, season]) => {
+                const date = String((season && (season.opener || season.date)) || "").trim();
+                if (!date)
+                    return;
+                const type = normalizeSeasonType(typeKey);
+                records.push({
+                    state,
+                    year: String(yearKey || getSeasonYear(date)),
+                    type,
+                    date,
+                    title: String(season.title || season.label || `${state} ${type} deer opener`).trim(),
+                    description: String(season.description || "Verified statewide deer season opener.").trim(),
+                    icon: String(season.icon || defaultSeasonIcon(type)).trim(),
+                    source: String(yearValue.source || season.source || "").trim(),
+                    sourceUrl: String(yearValue.sourceUrl || season.sourceUrl || "").trim(),
+                    scopeNote: String(season.scopeNote || "").trim(),
+                    verified: true,
+                });
+            });
+        });
+    });
+    return records;
+}
+function buildSeasonCalendarEvent(record) {
+    const id = `season-opener-${record.year}-${record.state.toLowerCase()}-${record.type}`;
+    return {
+        id,
+        title: record.title,
+        name: record.title,
+        date: record.date,
+        type: "season-opener",
+        seasonType: record.type,
+        state: record.state,
+        icon: record.icon || defaultSeasonIcon(record.type),
+        description: record.description || "Verified statewide deer season opener.",
+        source: record.source || "Official state wildlife agency season data",
+        sourceUrl: record.sourceUrl || "",
+        scopeNote: record.scopeNote || "",
+        status: "Active",
+        verified: true,
+        autoGenerated: true,
+    };
+}
+function shouldAddSeasonEvent(existingEvents, record) {
+    const targetId = `season-opener-${record.year}-${record.state.toLowerCase()}-${record.type}`;
+    return !existingEvents.some((event) => {
+        const eventId = String(event && event.id || "");
+        const eventDate = String(event && event.date || "");
+        const eventType = normalizeSeasonType(event && (event.seasonType || event.type));
+        const eventState = normalizeSeasonState(event && event.state);
+        if (eventId === targetId)
+            return true;
+        return eventDate === record.date && eventType === record.type && (!eventState || eventState === record.state);
+    });
+}
+async function backfillCampsWithSeasonOpeners(records) {
+    if (!records.length)
+        return { scanned: 0, updated: 0, addedEvents: 0 };
+    const recordsByState = records.reduce((acc, record) => {
+        if (!acc[record.state])
+            acc[record.state] = [];
+        acc[record.state].push(record);
+        return acc;
+    }, {});
+    const campsSnap = await db.collection("camps").get();
+    let updated = 0;
+    let addedEvents = 0;
+    const commits = [];
+    let batch = db.batch();
+    let writeCount = 0;
+    campsSnap.docs.forEach((doc) => {
+        const camp = doc.data() || {};
+        const state = normalizeSeasonState(camp.state || camp.campState || (camp.camp && camp.camp.state));
+        if (!state || !recordsByState[state])
+            return;
+        const existingEvents = Array.isArray(camp.calendarEvents) ? camp.calendarEvents : [];
+        const additions = recordsByState[state]
+            .filter((record) => shouldAddSeasonEvent(existingEvents, record))
+            .map(buildSeasonCalendarEvent);
+        if (!additions.length)
+            return;
+        const nextEvents = existingEvents.concat(additions).sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.title || a.name || "").localeCompare(String(b.title || b.name || "")));
+        batch.set(doc.ref, {
+            calendarEvents: nextEvents,
+            calendarMeta: Object.assign({}, camp.calendarMeta || {}, {
+                seasonOpenersBackfilledAtClient: new Date().toISOString(),
+                seasonOpenersSource: "scheduled-poll",
+            }),
+            updatedAtClient: new Date().toISOString(),
+        }, { merge: true });
+        updated += 1;
+        addedEvents += additions.length;
+        writeCount += 1;
+        if (writeCount >= 450) {
+            commits.push(batch.commit());
+            batch = db.batch();
+            writeCount = 0;
+        }
+    });
+    if (writeCount)
+        commits.push(batch.commit());
+    await Promise.all(commits);
+    return { scanned: campsSnap.size, updated, addedEvents };
+}
+async function storeSeasonOpeners(records, sourceUrl) {
+    if (!records.length)
+        return { written: 0 };
+    const metaRef = db.collection("systemStats").doc("seasonOpeners");
+    let batch = db.batch();
+    let writeCount = 0;
+    const commits = [];
+    records.forEach((record) => {
+        const docId = `${record.state}_${record.year}_${record.type}`;
+        batch.set(db.collection("seasonOpeners").doc(docId), Object.assign({}, record, {
+            id: docId,
+            sourceUrl: record.sourceUrl || sourceUrl,
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAtClient: new Date().toISOString(),
+        }), { merge: true });
+        writeCount += 1;
+        if (writeCount >= 450) {
+            commits.push(batch.commit());
+            batch = db.batch();
+            writeCount = 0;
+        }
+    });
+    batch.set(metaRef, {
+        lastPollAt: firestore_1.FieldValue.serverTimestamp(),
+        lastPollAtClient: new Date().toISOString(),
+        lastSourceUrl: sourceUrl,
+        recordCount: records.length,
+    }, { merge: true });
+    writeCount += 1;
+    if (writeCount)
+        commits.push(batch.commit());
+    await Promise.all(commits);
+    return { written: records.length };
+}
+exports.pollSeasonOpeners = (0, scheduler_1.onSchedule)({
+    region: "us-central1",
+    schedule: "0 7 1,15 * *",
+    timeZone: "America/Chicago",
+    timeoutSeconds: 300,
+    memory: "512MiB",
+}, async () => {
+    const sourceUrl = String(process.env.SEASON_OPENERS_URL || DEFAULT_SEASON_OPENERS_URL).trim();
+    firebase_functions_1.logger.info("Polling DeerCamp season opener data.", { sourceUrl });
+    const response = await fetch(sourceUrl, { headers: { "accept": "application/json" } });
+    if (!response.ok) {
+        throw new Error(`Season opener source returned ${response.status}.`);
+    }
+    const payload = await response.json();
+    const records = normalizeSeasonRecords(payload);
+    if (!records.length) {
+        firebase_functions_1.logger.warn("Season opener poll returned zero verified records.", { sourceUrl });
+        await db.collection("systemStats").doc("seasonOpeners").set({
+            lastPollAt: firestore_1.FieldValue.serverTimestamp(),
+            lastPollAtClient: new Date().toISOString(),
+            lastSourceUrl: sourceUrl,
+            recordCount: 0,
+            warning: "No verified records found.",
+        }, { merge: true });
+        return;
+    }
+    const stored = await storeSeasonOpeners(records, sourceUrl);
+    const backfilled = await backfillCampsWithSeasonOpeners(records);
+    firebase_functions_1.logger.info("Season opener polling complete.", Object.assign({ sourceUrl, recordCount: records.length }, stored, backfilled));
+});
+
 
 const DC_PLUS_MONTHLY_PRICE_ID = "price_1TRsjcDOIUbMFzLxNCO58x3n";
 const DC_PLUS_ANNUAL_PRICE_ID = "price_1TRsjcDOIUbMFzLxmw4bEOuM";
