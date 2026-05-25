@@ -580,17 +580,58 @@
     }
 
     async function copyTextToClipboard(text, fallbackElementId, successMessage) {
+      const cleanText = String(text || "").trim();
+      const status = $("campaignBuilderStatus");
+      if (!cleanText) {
+        if (status) status.textContent = "Nothing to copy yet. Create or refresh the campaign link first.";
+        return false;
+      }
+
       try {
-        await navigator.clipboard.writeText(text);
-        $("campaignBuilderStatus").textContent = successMessage;
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(cleanText);
+          if (status) status.textContent = successMessage;
+          return true;
+        }
       } catch (error) {
+        console.warn("Clipboard API copy failed; falling back to manual copy.", error);
+      }
+
+      try {
+        const fallbackTarget = $(fallbackElementId);
+        const temp = document.createElement("textarea");
+        temp.value = cleanText;
+        temp.setAttribute("readonly", "");
+        temp.style.position = "fixed";
+        temp.style.left = "-9999px";
+        temp.style.top = "0";
+        document.body.appendChild(temp);
+        temp.focus();
+        temp.select();
+        temp.setSelectionRange(0, temp.value.length);
+        const copied = document.execCommand("copy");
+        document.body.removeChild(temp);
+
+        if (fallbackTarget && typeof fallbackTarget.select === "function") {
+          fallbackTarget.focus();
+          fallbackTarget.select();
+        }
+
+        if (status) {
+          status.textContent = copied
+            ? successMessage
+            : "Copy did not complete automatically. The message is selected so you can press Ctrl+C.";
+        }
+        return copied;
+      } catch (error) {
+        console.warn("Manual copy failed.", error);
         const el = $(fallbackElementId);
-        if (el) {
+        if (el && typeof el.select === "function") {
           el.focus();
           el.select();
-          document.execCommand("copy");
         }
-        $("campaignBuilderStatus").textContent = successMessage;
+        if (status) status.textContent = "Copy did not complete automatically. The message is selected so you can press Ctrl+C.";
+        return false;
       }
     }
 
@@ -621,9 +662,11 @@
     }
 
     async function copyFacebookComment() {
-      updateCampaignLinkOutput();
-      refreshCampaignMessages();
-      await copyTextToClipboard($("facebookCommentOutput").value, "facebookCommentOutput", "Copied Facebook comment");
+      const link = currentOutreachLink();
+      const messages = buildCampaignMessages(link);
+      const output = $("facebookCommentOutput");
+      if (output) output.value = messages.facebook;
+      await copyTextToClipboard(messages.facebook, "facebookCommentOutput", "Copied Facebook comment");
     }
 
     async function loadMetrics() {
