@@ -579,18 +579,41 @@
       }
     }
 
-    async function copyTextToClipboard(text, fallbackElementId, successMessage) {
+    function flashCopyButton(buttonId, success = true) {
+      const btn = buttonId ? $(buttonId) : null;
+      if (!btn) return;
+      const originalText = btn.dataset.originalText || btn.textContent || "Copy";
+      btn.dataset.originalText = originalText;
+      btn.textContent = success ? "Copied ✓" : "Select + Ctrl+C";
+      btn.classList.toggle("copy-primary", success);
+      btn.setAttribute("aria-live", "polite");
+      clearTimeout(btn._copyResetTimer);
+      btn._copyResetTimer = setTimeout(() => {
+        btn.textContent = originalText;
+        btn.classList.remove("copy-primary");
+      }, 1800);
+    }
+
+    async function copyTextToClipboard(text, fallbackElementId, successMessage, buttonId = "") {
       const cleanText = String(text || "").trim();
       const status = $("campaignBuilderStatus");
       if (!cleanText) {
-        if (status) status.textContent = "Nothing to copy yet. Create or refresh the campaign link first.";
+        if (status) {
+          status.textContent = "Nothing to copy yet. Create or refresh the campaign link first.";
+          status.className = "status is-warning";
+        }
+        flashCopyButton(buttonId, false);
         return false;
       }
 
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(cleanText);
-          if (status) status.textContent = successMessage;
+          if (status) {
+            status.textContent = successMessage;
+            status.className = "status is-good";
+          }
+          flashCopyButton(buttonId, true);
           return true;
         }
       } catch (error) {
@@ -621,7 +644,9 @@
           status.textContent = copied
             ? successMessage
             : "Copy did not complete automatically. The message is selected so you can press Ctrl+C.";
+          status.className = copied ? "status is-good" : "status is-warning";
         }
+        flashCopyButton(buttonId, copied);
         return copied;
       } catch (error) {
         console.warn("Manual copy failed.", error);
@@ -630,14 +655,18 @@
           el.focus();
           el.select();
         }
-        if (status) status.textContent = "Copy did not complete automatically. The message is selected so you can press Ctrl+C.";
+        if (status) {
+          status.textContent = "Copy did not complete automatically. The message is selected so you can press Ctrl+C.";
+          status.className = "status is-warning";
+        }
+        flashCopyButton(buttonId, false);
         return false;
       }
     }
 
     async function copyCampaignLink() {
       const link = updateCampaignLinkOutput();
-      await copyTextToClipboard(link, "campaignLinkOutput", "Copied full link");
+      await copyTextToClipboard(link, "campaignLinkOutput", "Copied full link", "copyCampaignLinkBtn");
     }
 
     async function copyShortLink() {
@@ -646,19 +675,19 @@
         $("campaignBuilderStatus").textContent = "Create a short URL first.";
         return;
       }
-      await copyTextToClipboard(shortUrl, "shortLinkOutput", "Copied short URL");
+      await copyTextToClipboard(shortUrl, "shortLinkOutput", "Copied short URL", "copyShortLinkBtn");
     }
 
     async function copyShortMessage() {
       updateCampaignLinkOutput();
       refreshCampaignMessages();
-      await copyTextToClipboard($("shortMessageOutput").value, "shortMessageOutput", "Copied short message");
+      await copyTextToClipboard($("shortMessageOutput").value, "shortMessageOutput", "Copied short message", "copyShortMessageBtn");
     }
 
     async function copyPosterMessage() {
       updateCampaignLinkOutput();
       refreshCampaignMessages();
-      await copyTextToClipboard($("posterMessageOutput").value, "posterMessageOutput", "Copied poster/QR message");
+      await copyTextToClipboard($("posterMessageOutput").value, "posterMessageOutput", "Copied poster/QR message", "copyPosterMessageBtn");
     }
 
     async function copyFacebookComment() {
@@ -666,7 +695,7 @@
       const messages = buildCampaignMessages(link);
       const output = $("facebookCommentOutput");
       if (output) output.value = messages.facebook;
-      await copyTextToClipboard(messages.facebook, "facebookCommentOutput", "Copied Facebook comment");
+      await copyTextToClipboard(messages.facebook, "facebookCommentOutput", "Copied Facebook comment", "copyFacebookCommentBtn");
     }
 
     async function loadMetrics() {
