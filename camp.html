@@ -115,6 +115,11 @@
   .feed-audio-title{margin:0;color:#452a16;font-size:.82rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
   .feed-audio audio{display:block;width:100%;max-width:100%}
   .feed-card-audio{margin-top:2px;color:#5b3d1e;font-size:.86rem;font-weight:900}
+  .feed-memory-placeholder{display:grid;place-items:center;width:100%;aspect-ratio:4/3;max-height:240px;padding:22px;background:linear-gradient(180deg,rgba(106,68,39,.12),rgba(73,102,71,.10));color:#452a16;text-align:center;font-weight:900;line-height:1.25}
+  .feed-memory-placeholder span{display:block;font-size:2rem;line-height:1;margin-bottom:8px}
+  .story-dictation-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;border-radius:16px;background:rgba(255,255,255,.54);border:1px solid rgba(69,42,22,.10)}
+  .story-dictation-status{color:#6b5644;font-size:.9rem;font-weight:700;line-height:1.35}
+  .story-dictation-status.is-recording{color:#8b2d1d}
   .feed-steward-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 4px;padding:10px 0;border-top:1px solid rgba(69,42,22,.10);border-bottom:1px solid rgba(69,42,22,.10)}
   .feed-remove-status{color:#6b5644;font-size:.88rem;font-weight:700;line-height:1.35}
   .btn-danger{background:#8b2d1d;color:#fff8ef}
@@ -131,7 +136,10 @@
   .recipe-modal.open,.member-modal.open,.feed-modal.open,.deerdrive-modal.open,.deerdrive-image-modal.open{display:flex}
   .recipe-modal-card,.feed-modal-card{position:relative;width:min(920px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24)}
   .feed-modal-card{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
+  .feed-modal-card.is-memory{width:min(1060px,100%);grid-template-columns:1fr}
+  .feed-modal-card.is-memory .feed-modal-media{display:none}
   .feed-modal-media img{width:100%;height:100%;min-height:100%;object-fit:cover;background:#e9decf}
+  #feedModalBody{white-space:pre-line}
   .feed-modal-content,.recipe-modal-content{display:grid;gap:14px;padding:18px 18px 20px;position:relative}
   .close{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(0,0,0,.08);font-size:1.45rem;cursor:pointer}
   .recipe-modal-card{width:min(760px,100%)}
@@ -2378,10 +2386,12 @@ function normalizePhotoEntries(){
   let orderIndex = 0;
   const push=item=>{
     if (isLegacySeedFeedItem(item)) return;
+    const mediaType = String(item.mediaType || item.type || item.category || "").toLowerCase();
+    const isMemory = mediaType === "memory" || mediaType === "story" || (Array.isArray(item.tags) && item.tags.some(tag => /memory|story/i.test(String(tag || ""))));
     const image=String(item.thumbUrl||item.thumbnailUrl||item.thumbnail||item.image||item.img||item.displayUrl||item.imageUrl||"").trim();
     const displayImage=String(item.displayUrl||item.imageUrl||item.image||item.img||image||"").trim();
-    if(!image && !displayImage) return;
-    const fallbackId = slugify(`${item.title || 'camp-picture'}-${orderIndex + 1}`) || `photo-${orderIndex + 1}`;
+    if(!isMemory && !image && !displayImage) return;
+    const fallbackId = slugify(`${item.title || (isMemory ? 'memory-story' : 'camp-picture')}-${orderIndex + 1}`) || `${isMemory ? 'memory' : 'photo'}-${orderIndex + 1}`;
     const stableId = String(item.id || item.imageRef || fallbackId).trim();
     if (removedFeedPostIds.includes(stableId)) return;
     const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
@@ -2397,6 +2407,8 @@ function normalizePhotoEntries(){
       title:String(item.title||"Camp picture").trim(),
       body:String(item.body||item.caption||"Camp picture posted from DeerCamp.").trim(),
       image,
+      mediaType: isMemory ? 'memory' : (mediaType || 'photo'),
+      isMemory,
       author:String(item.author||item.member||"Camp Member").trim(),
       createdAt,
       createdAtMs,
@@ -2415,7 +2427,7 @@ function normalizePhotoEntries(){
   feedEntries.forEach(e=>{
     const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
     const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
-    if(media==="photo" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
+    if(media==="photo" || media==="memory" || media==="story" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
   });
   campPhotoGallery.forEach(p=>push({id:p.id,title:p.title,caption:p.caption,image:p.image,member:p.member,createdAt:p.createdAt,createdAtMs:p.createdAtMs,tags:p.tags}));
   return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
@@ -2595,21 +2607,30 @@ visibleSections().forEach(section=>{
   if(section.key==="campupdate"){
     container.innerHTML=`
       <h2>CampUpdate</h2>
-      <p class="section-helper">Stewards can post pictures, traditions, or recipes. Members can comment on CampFeed posts and add CampCalendar events.</p>
+      <p class="section-helper">Stewards and members can post pictures, memories/stories, traditions, or recipes. Members can also comment on CampFeed posts and add CampCalendar events.</p>
       <div class="two-col">
         <div class="panel">
           <h4>Post a CampUpdate</h4>
-          <p class="section-helper" style="margin-top:0">Stewards can post CampUpdates here. Members can participate through CampFeed comments and CampCalendar events.</p>
+          <p class="section-helper" style="margin-top:0">Post quick pictures, longer memories/stories, camp traditions, or recipes from one place.</p>
           <form id="campUpdateForm" class="form-grid">
             <div class="form-side">
               <label class="form-row"><span class="label">Submitted By</span><select id="updateMember" class="select"></select></label>
-              <label class="form-row"><span class="label">Section</span><select id="updateType" class="select"><option value="photo">Picture</option><option value="recipe">Recipe</option><option value="tradition">Tradition</option></select></label>
+              <label class="form-row"><span class="label">Section</span><select id="updateType" class="select"><option value="photo">Picture</option><option value="memory">Memory / Story</option><option value="recipe">Recipe</option><option value="tradition">Tradition</option></select></label>
             </div>
             <div class="form-main">
               <div id="panelPhoto" class="content-panel active">
                 <label class="form-row"><span class="label">Picture Title</span><input id="photoTitle" class="input" type="text" placeholder="Big buck by the road"></label>
                 <label class="form-row"><span class="label">Picture</span><input id="photoFile" class="input" type="file" accept="image/*"></label>
                 <label class="form-row"><span class="label">Caption</span><textarea id="photoCaption" class="textarea" placeholder="Quick note about what happened in this moment."></textarea></label>
+              </div>
+              <div id="panelMemory" class="content-panel">
+                <label class="form-row"><span class="label">Memory / Story Title</span><input id="memoryTitle" class="input" type="text" placeholder="Opening morning with Grandpa"></label>
+                <label class="form-row"><span class="label">Speak or Type Story</span><textarea id="memoryBody" class="textarea" placeholder="Tell the story here, or use voice-to-text to create a draft you can edit before posting."></textarea></label>
+                <div class="story-dictation-tools" aria-label="Memory Story voice to text controls">
+                  <button id="memoryDictateStart" type="button" class="btn btn-secondary">Start Voice-to-Text</button>
+                  <button id="memoryDictateStop" type="button" class="btn btn-secondary" hidden>Stop</button>
+                  <span id="memoryDictateStatus" class="story-dictation-status">Voice-to-text creates editable story text before you post.</span>
+                </div>
               </div>
               <div id="panelRecipe" class="content-panel">
                 <label class="form-row"><span class="label">Recipe Title</span><input id="recipeTitle" class="input" type="text" placeholder="Bruce's Bombastic Backstraps"></label>
@@ -2653,7 +2674,7 @@ visibleSections().forEach(section=>{
         </div>
       </div>
       <div class="carousel"><div id="feedTrack" class="carousel-track"></div></div>
-      <div id="feedEmpty" class="empty" hidden>No camp pictures yet. Add one through CampUpdate.</div>`;
+      <div id="feedEmpty" class="empty" hidden>No CampFeed posts yet. Add a picture or Memory / Story through CampUpdate.</div>`;
   } else if(section.key==="camptraditions"){
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
@@ -2743,16 +2764,84 @@ function populateMemberSelects(){
   });
 }
 function setUpdatePanel(type){
-  const ids={photo:'panelPhoto',recipe:'panelRecipe',tradition:'panelTradition'};
+  const ids={photo:'panelPhoto',memory:'panelMemory',recipe:'panelRecipe',tradition:'panelTradition'};
   Object.entries(ids).forEach(([k,id])=>{const el=document.getElementById(id); if(el) el.classList.toggle('active', k===type)});
 }
 function setUpdateFeedback(msg,err=false){const el=document.getElementById('updateFeedback'); if(el){el.textContent=msg; el.classList.toggle('is-error',!!err)}}
 function setCalendarFeedback(msg,err=false){const el=document.getElementById('calendarMemberEventFeedback'); if(el){el.textContent=msg; el.classList.toggle('is-error',!!err)}}
 
+function getMemoryRecognitionConstructor(){
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+let memoryRecognition = null;
+let memoryRecognitionActive = false;
+function setMemoryDictationStatus(message, isRecording = false){
+  const el = document.getElementById('memoryDictateStatus');
+  if(!el) return;
+  el.textContent = message;
+  el.classList.toggle('is-recording', Boolean(isRecording));
+}
+function stopMemoryDictation(){
+  try{ if(memoryRecognition && memoryRecognitionActive) memoryRecognition.stop(); }catch(error){}
+}
+function setupMemoryDictation(){
+  const startBtn = document.getElementById('memoryDictateStart');
+  const stopBtn = document.getElementById('memoryDictateStop');
+  const textarea = document.getElementById('memoryBody');
+  if(!startBtn || !stopBtn || !textarea) return;
+  const Recognition = getMemoryRecognitionConstructor();
+  if(!Recognition){
+    startBtn.disabled = true;
+    setMemoryDictationStatus('Voice-to-text is not supported in this browser. You can still type or paste the story.');
+    return;
+  }
+  startBtn.addEventListener('click', () => {
+    try{
+      if(memoryRecognitionActive) return;
+      memoryRecognition = new Recognition();
+      memoryRecognition.lang = navigator.language || 'en-US';
+      memoryRecognition.interimResults = true;
+      memoryRecognition.continuous = true;
+      const startingText = String(textarea.value || '').trim();
+      let finalTranscript = startingText ? `${startingText} ` : '';
+      memoryRecognition.onstart = () => {
+        memoryRecognitionActive = true;
+        startBtn.hidden = true;
+        stopBtn.hidden = false;
+        setMemoryDictationStatus('Listening... speak naturally, then stop and edit before posting.', true);
+      };
+      memoryRecognition.onresult = event => {
+        let interimTranscript = '';
+        for(let i = event.resultIndex; i < event.results.length; i += 1){
+          const transcript = event.results[i][0] ? event.results[i][0].transcript : '';
+          if(event.results[i].isFinal) finalTranscript += transcript.trim() + ' ';
+          else interimTranscript += transcript;
+        }
+        textarea.value = `${finalTranscript}${interimTranscript}`.trimStart();
+      };
+      memoryRecognition.onerror = event => {
+        setMemoryDictationStatus(`Voice-to-text stopped: ${event.error || 'browser error'}. You can keep editing the story.`, false);
+      };
+      memoryRecognition.onend = () => {
+        memoryRecognitionActive = false;
+        startBtn.hidden = false;
+        stopBtn.hidden = true;
+        setMemoryDictationStatus('Voice-to-text stopped. Review and edit the story before posting.');
+      };
+      memoryRecognition.start();
+    }catch(error){
+      console.warn('Memory/Story voice-to-text could not start.', error);
+      setMemoryDictationStatus('Voice-to-text could not start. You can still type or paste the story.');
+    }
+  });
+  stopBtn.addEventListener('click', stopMemoryDictation);
+}
+
 if(document.getElementById('updateType')){
   populateMemberSelects();
-  document.getElementById('updateType').addEventListener('change',e=>setUpdatePanel(e.target.value));
+  document.getElementById('updateType').addEventListener('change',e=>{ stopMemoryDictation(); setUpdatePanel(e.target.value); });
   setUpdatePanel('photo');
+  setupMemoryDictation();
   const updateRole = getCurrentSecurityRole();
   if(updateRole === 'member'){
     setUpdateFeedback('Members can add CampUpdates, comment on CampFeed posts, and add CampCalendar events.');
@@ -2807,6 +2896,32 @@ if(document.getElementById('updateType')){
       feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs});
       try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
       renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
+    }
+    if(type==='memory'){
+      stopMemoryDictation();
+      const title=String(document.getElementById('memoryTitle').value||'').trim();
+      const body=String(document.getElementById('memoryBody').value||'').trim();
+      if(!title){setUpdateFeedback('Add a Memory / Story title before posting.', true); return;}
+      if(!body){setUpdateFeedback('Add the story text before posting.', true); return;}
+      const memoryId=`memory-${createdAtMs}`;
+      const memoryEntry={
+        id:memoryId,
+        title,
+        kicker:'CampUpdate • Memory / Story',
+        meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,
+        body,
+        tags:['Memory / Story','CampUpdate'],
+        mediaType:'memory',
+        type:'memory',
+        author:member,
+        member,
+        createdAt,
+        createdAtMs
+      };
+      feedEntries.unshift(memoryEntry);
+      contentSubmissions.unshift({type:'memory',linkedItemId:memoryId,member,title:`${title} -- added to Memory / Story`,summary:body,createdAt,createdAtMs});
+      try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
+      renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed as a Memory / Story.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
     }
     if(type==='recipe'){
       const title=String(document.getElementById('recipeTitle').value||'').trim();
@@ -2890,8 +3005,13 @@ function renderFeed(){
   empty.hidden=true;
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
-    card.innerHTML=`<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>
-      <div class="feed-card-copy"><p class="feed-kicker">CampUpdate • Picture</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">Open Post</button></div>`;
+    const isMemory = entry.isMemory || String(entry.mediaType || '').toLowerCase() === 'memory';
+    const kicker = isMemory ? 'CampUpdate • Memory / Story' : 'CampUpdate • Picture';
+    const mediaMarkup = entry.image
+      ? `<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>`
+      : `<div class="feed-card-media"><div class="feed-memory-placeholder"><div><span>✍️</span>Memory / Story</div></div></div>`;
+    card.innerHTML=`${mediaMarkup}
+      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${isMemory ? 'Read Story' : 'Open Post'}</button></div>`;
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
@@ -3019,8 +3139,11 @@ function renderFeedAudioControl(item){
 
 function openFeedModal(idx){
   modalFeedIndex=idx; const item=feedItems[idx]; if(!item) return;
+  const isMemory = item.isMemory || String(item.mediaType || '').toLowerCase() === 'memory';
+  const modalCard = document.querySelector('#feedModal .feed-modal-card');
+  if(modalCard) modalCard.classList.toggle('is-memory', Boolean(isMemory && !item.image));
   document.getElementById('feedModalMedia').innerHTML=item.image?`<img src="${esc(item.image)}" alt="${esc(item.title)}">`:"";
-  document.getElementById('feedModalKicker').textContent='CampUpdate • Picture';
+  document.getElementById('feedModalKicker').textContent=isMemory ? 'CampUpdate • Memory / Story' : 'CampUpdate • Picture';
   document.getElementById('feedModalTitle').textContent=item.title;
   document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
   document.getElementById('feedModalBody').textContent=item.body;
@@ -3034,7 +3157,7 @@ function openFeedModal(idx){
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
-function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
+function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
 document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedIndex-1));
 document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
@@ -3065,7 +3188,7 @@ function renderRecentUpdates(){
   list.innerHTML = visible.length ? visible.map(item=>`
     <div class="recent-card">
       <p class="recent-title">${esc(item.title||'CampUpdate')}</p>
-      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':item.type==='deerdrive'?'Deer Drive':item.type==='deerstand'?'Deer Stand':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
+      <p class="recent-meta">${esc((item.type==='event'?'Calendar Event':item.type==='recipe'?'Recipe':item.type==='memory'?'Memory / Story':item.type==='deerdrive'?'Deer Drive':item.type==='deerstand'?'Deer Stand':'Tradition'))} • ${esc(item.member||'Camp Member')} • ${esc((item.createdAt||'').slice(0,10)||'Just now')}</p>
       <p class="recent-body">${esc(item.summary||'New update posted to camp.')}</p>
     </div>`).join('') : '<p class="empty">No CampUpdates yet. New traditions, recipes, deer stands, deer drives, and calendar events will appear here first.</p>';
   if(prevBtn && nextBtn){
