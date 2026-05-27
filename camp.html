@@ -885,6 +885,13 @@ function canOpenMemberProfile(member = {}){
 function shouldShowMemberEmail(profile = {}){
   return isCurrentSteward();
 }
+function canUseStewardTools(){
+  return isCurrentSteward();
+}
+function canUseCampUpdate(){
+  const role = getCurrentSecurityRole();
+  return role === "steward" || role === "member";
+}
 function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
   const roleTemplate = getRoleTemplate(member.role || fallbackRole);
   const photo = getMemberPhotoUrl(member);
@@ -1827,7 +1834,7 @@ function buildStewardDashboardUrl(){
   return `${u.pathname}?${u.searchParams.toString()}`;
 }
 function hasStewardDashboardAccess(){
-  if(shouldUseMemberLockedView()) return false;
+  if(!canUseStewardTools()) return false;
   try{
     const hasNamedSteward = Boolean(String(data.stewardName || data.steward || data.campSteward || "").trim());
     const rosterHasSteward = Array.isArray(roster) && roster.some(member => String(member.role || "").trim().toLowerCase() === "camp steward");
@@ -2138,7 +2145,7 @@ function renderMenu(){
   const driveBuilderUrl = buildScoutBuilderUrl('drive');
   const canUseStandBuilder = campCanUseFeature('stand_builder');
   const canUseDriveBuilder = campCanUseFeature('drive_builder');
-  const dashboardLink = (!isMemberView && hasStewardDashboardAccess()) ? `<a id="menuDashboardLink" href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>` : '';
+  const dashboardLink = (isStewardView && hasStewardDashboardAccess()) ? `<a id="menuDashboardLink" href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>` : '';
   const sectionLinks = visibleSections().slice().sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })).map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
   const scoutLinks = (isStewardView && canUseStandBuilder && canUseDriveBuilder) ? `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="assets/branding/deercamp-circle-icon.png" alt="" aria-hidden="true">Drive Builder</a>` : '';
   menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
@@ -2178,7 +2185,7 @@ function applyMemberModalProfileDisplay(profile = {}){
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
   document.getElementById("memberModalDetailEmail").textContent=shouldShowMemberEmail(profile) ? (profile.email||"—") : "Hidden for public view";
-  document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim())) ? String(profile.yearJoined).trim() : "—";
+  document.getElementById("memberModalYearJoined").textContent=/^\d{4}$/.test(String(profile.yearJoined||"").trim()) ? String(profile.yearJoined).trim() : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
   document.getElementById("memberModalGear").textContent=profile.favoriteGear||"—";
@@ -2188,10 +2195,7 @@ function applyMemberModalProfileDisplay(profile = {}){
   document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
 }
 function canEditMemberProfile(profile = {}){
-  const role = String(profile.role || '').trim().toLowerCase();
-  if(role === 'camp steward') return isCurrentSteward();
-  if(isCurrentSteward()) return true;
-  return getCurrentSecurityRole() === 'member';
+  return isCurrentSteward();
 }
 function renderMemberModalEditAction(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
@@ -2208,7 +2212,7 @@ function renderMemberModalEditAction(profile = {}){
     document.getElementById('openMemberProfileEditBtn')?.addEventListener('click', () => renderMemberProfileEditForm(profile));
     return;
   }
-  wrap.textContent = isStewardProfile ? 'Only the Camp Steward can edit the Steward profile.' : 'Member profile changes can be made by the Camp Steward or from Member View.';
+  wrap.textContent = isStewardProfile ? 'Only the Camp Steward can edit the Steward profile.' : 'Only the Camp Steward can edit member profiles. Public visitors can view only.';
 }
 function loadImageElementFromFile(file){
   return new Promise((resolve, reject) => {
@@ -2764,6 +2768,7 @@ function visibleSections(){
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
+    if (s.key === "campupdate") return canUseCampUpdate() && !!enabledSections[map[s.key]];
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
@@ -3277,7 +3282,7 @@ if(document.getElementById('updateType')){
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const submitRole = getCurrentSecurityRole();
-    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Join this camp as a member or open Steward View to add CampUpdates.', true); return; }
+    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Public visitors can view this camp, but only the Camp Steward or members can add CampUpdates.', true); return; }
     try{
     const type=document.getElementById('updateType').value;
     const member=document.getElementById('updateMember').value;
