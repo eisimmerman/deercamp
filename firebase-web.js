@@ -68,8 +68,9 @@
           console.warn("Could not read dashboard state before Firestore save.", error);
         }
 
+        const cloudSafePayload = stripInlineImagesForCloud(payload);
         const payloadToSave = {
-          ...payload,
+          ...cloudSafePayload,
           campId: cleanCampId,
           updatedAtClient: new Date().toISOString()
         };
@@ -412,6 +413,89 @@
     return { blob: new Blob([bytes], { type: contentType }), contentType };
   }
 
+
+  function dcDataUrlBytes(dataUrl = "") {
+    const value = String(dataUrl || "");
+    const commaIndex = value.indexOf(",");
+    if (commaIndex < 0) return value.length;
+    return Math.floor((value.length - commaIndex - 1) * 0.75);
+  }
+
+  function dcLoadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      if (!file) return reject(new Error("Missing image file."));
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error("Could not read that image."));
+      reader.onload = () => {
+        const img = new Image();
+        img.onerror = () => reject(new Error("Could not load that image."));
+        img.onload = () => resolve(img);
+        img.src = String(reader.result || "");
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function dcCanvasImageDataUrl(img, maxSize = 1200, quality = 0.78) {
+    const naturalWidth = img.naturalWidth || img.width || 1;
+    const naturalHeight = img.naturalHeight || img.height || 1;
+    const scale = Math.min(1, Number(maxSize || 1200) / Math.max(naturalWidth, naturalHeight));
+    const width = Math.max(1, Math.round(naturalWidth * scale));
+    const height = Math.max(1, Math.round(naturalHeight * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) throw new Error("Image canvas is not available.");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, width, height);
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", Number(quality || 0.78));
+  }
+
+  async function dcCompressImageFilePair(file, targets = {}) {
+    const img = await dcLoadImageFromFile(file);
+    const display = targets.display || {};
+    const thumb = targets.thumb || {};
+    const displayAttempts = Array.isArray(display.attempts) && display.attempts.length
+      ? display.attempts
+      : [{ maxSize: display.maxSize || 1400, quality: display.quality || 0.78 }];
+    const thumbAttempts = Array.isArray(thumb.attempts) && thumb.attempts.length
+      ? thumb.attempts
+      : [{ maxSize: thumb.maxSize || 480, quality: thumb.quality || 0.68 }];
+
+    const choose = (attempts, maxBytes) => {
+      let best = "";
+      for (const attempt of attempts) {
+        const dataUrl = dcCanvasImageDataUrl(img, attempt.maxSize || 1200, attempt.quality || 0.72);
+        best = dataUrl;
+        if (!maxBytes || dcDataUrlBytes(dataUrl) <= maxBytes) return dataUrl;
+      }
+      return best;
+    };
+
+    return {
+      displayDataUrl: choose(displayAttempts, display.maxBytes || 0),
+      thumbDataUrl: choose(thumbAttempts, thumb.maxBytes || 0)
+    };
+  }
+
+  function stripInlineImagesForCloud(value, depth = 0) {
+    if (depth > 8) return value;
+    if (typeof value === "string") return /^data:image\//i.test(value) ? "" : value;
+    if (Array.isArray(value)) return value.map((item) => stripInlineImagesForCloud(item, depth + 1));
+    if (!value || typeof value !== "object") return value;
+    const out = {};
+    Object.entries(value).forEach(([key, item]) => {
+      if (typeof item === "string" && /^data:image\//i.test(item)) {
+        out[key] = "";
+      } else {
+        out[key] = stripInlineImagesForCloud(item, depth + 1);
+      }
+    });
+    return out;
+  }
+
   const DeerCampStorage = window.DeerCampStorage || {
     ensureReady() {
       try {
@@ -441,6 +525,18 @@
       if (!this.isDataUrl(dataUrl)) return null;
       const converted = dataUrlToBlob(dataUrl);
       return this.uploadBlob(path, converted.blob, Object.assign({}, metadata, { contentType: converted.contentType }));
+    },
+    async compressImageFilePair(file, targets = {}) {
+      return dcCompressImageFilePair(file, targets);
+    },
+    stripInlineImages(value) {
+      return stripInlineImagesForCloud(value);
+    },
+    async uploadCampImageFilePair(options = {}) {
+      const file = options.file;
+      if (!file) throw new Error("Missing image file.");
+      const pair = await dcCompressImageFilePair(file, options.targets || {});
+      return this.uploadCampImagePair(Object.assign({}, options, pair));
     },
     async uploadCampImagePair(options = {}) {
       const campId = dcSlug(options.campId || "camp");
