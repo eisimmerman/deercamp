@@ -2230,9 +2230,11 @@ function canvasImageDataUrl(img, maxWidth, maxHeight, quality = 0.78){
 async function buildStewardProfilePhotoPair(file){
   if(!file) return null;
   const img = await loadImageElementFromFile(file);
+  // Profile photos are stored on the camp record when Firebase Storage is unavailable.
+  // Keep the fallback very small so member/steward edits do not exceed browser storage or Firestore limits.
   return {
-    displayDataUrl: canvasImageDataUrl(img, 640, 640, 0.78),
-    thumbDataUrl: canvasImageDataUrl(img, 160, 160, 0.70)
+    displayDataUrl: canvasImageDataUrl(img, 240, 240, 0.62),
+    thumbDataUrl: canvasImageDataUrl(img, 96, 96, 0.56)
   };
 }
 async function uploadStewardProfilePhoto(file, profile = {}){
@@ -2415,6 +2417,46 @@ function upsertMemberInArray(items = [], nextProfile = {}, previousProfile = {})
   if(idx >= 0) arr[idx] = merged; else arr.push(merged);
   return arr;
 }
+function applyMemberProfileToCampData(nextProfile = {}, previousProfile = {}){
+  data.memberProfiles = upsertMemberInArray(data.memberProfiles, nextProfile, previousProfile);
+  data.members = upsertMemberInArray(data.members, nextProfile, previousProfile);
+  data.campMembers = upsertMemberInArray(data.campMembers, nextProfile, previousProfile);
+  data.dashboardMembers = upsertMemberInArray(data.dashboardMembers, nextProfile, previousProfile);
+  data.dashboardPeople = upsertMemberInArray(data.dashboardPeople, nextProfile, previousProfile);
+  if(data.dashboardSlim && typeof data.dashboardSlim === 'object'){
+    data.dashboardSlim.members = upsertMemberInArray(data.dashboardSlim.members, nextProfile, previousProfile);
+    data.dashboardSlim.people = upsertMemberInArray(data.dashboardSlim.people, nextProfile, previousProfile);
+  }
+}
+function profilePhotoIsInline(value = ''){
+  return /^data:image\//i.test(String(value || ''));
+}
+function compactInlineProfilePhoto(profile = {}){
+  const compact = String(profile.profilePhotoThumbUrl || profile.thumbUrl || profile.photoThumbUrl || '').trim();
+  if(profilePhotoIsInline(compact)){
+    profile.photo = compact;
+    profile.profilePhoto = compact;
+    profile.avatar = compact;
+    profile.photoStorageProvider = profile.photoStorageProvider || 'inline-profile-thumb-fallback';
+    return true;
+  }
+  return false;
+}
+function restorePreviousProfilePhoto(profile = {}, previousProfile = {}){
+  const previousPhoto = String(previousProfile.photo || previousProfile.profilePhoto || previousProfile.avatar || '').trim();
+  if(previousPhoto){
+    profile.photo = previousPhoto;
+    profile.profilePhoto = previousPhoto;
+    profile.avatar = previousPhoto;
+    profile.profilePhotoThumbUrl = previousProfile.profilePhotoThumbUrl || previousProfile.thumbUrl || previousProfile.photoThumbUrl || '';
+    return true;
+  }
+  delete profile.photo;
+  delete profile.profilePhoto;
+  delete profile.avatar;
+  delete profile.profilePhotoThumbUrl;
+  return false;
+}
 function syncMemberProfileToDashboardCache(nextProfile = {}, previousProfile = {}){
   try{
     const scopedKey = campScopeKey(activeCampId, 'dashboardSlim');
@@ -2493,15 +2535,7 @@ async function saveMemberProfileFromModal(event){
     }
   }
   if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
-  data.memberProfiles = upsertMemberInArray(data.memberProfiles, nextProfile, previousProfile);
-  data.members = upsertMemberInArray(data.members, nextProfile, previousProfile);
-  data.campMembers = upsertMemberInArray(data.campMembers, nextProfile, previousProfile);
-  data.dashboardMembers = upsertMemberInArray(data.dashboardMembers, nextProfile, previousProfile);
-  data.dashboardPeople = upsertMemberInArray(data.dashboardPeople, nextProfile, previousProfile);
-  if(data.dashboardSlim && typeof data.dashboardSlim === 'object'){
-    data.dashboardSlim.members = upsertMemberInArray(data.dashboardSlim.members, nextProfile, previousProfile);
-    data.dashboardSlim.people = upsertMemberInArray(data.dashboardSlim.people, nextProfile, previousProfile);
-  }
+  applyMemberProfileToCampData(nextProfile, previousProfile);
   try{
     if(status) status.textContent = 'Saving...';
     persist();
@@ -2509,7 +2543,32 @@ async function saveMemberProfileFromModal(event){
     refreshVisibleMemberProfile(nextProfile, previousProfile);
     if(status) status.textContent = 'Saved.';
   }catch(error){
-    console.warn('Could not save member profile.', error);
+    console.warn('Could not save member profile on first attempt.', error);
+    if(photoFile && compactInlineProfilePhoto(nextProfile)){
+      try{
+        applyMemberProfileToCampData(nextProfile, previousProfile);
+        persist();
+        syncMemberProfileToDashboardCache(nextProfile, previousProfile);
+        refreshVisibleMemberProfile(nextProfile, previousProfile);
+        if(status) status.textContent = 'Saved with a smaller compressed member photo.';
+        return;
+      }catch(compactError){
+        console.warn('Could not save compact member profile photo fallback.', compactError);
+      }
+    }
+    if(photoFile){
+      try{
+        restorePreviousProfilePhoto(nextProfile, previousProfile);
+        applyMemberProfileToCampData(nextProfile, previousProfile);
+        persist();
+        syncMemberProfileToDashboardCache(nextProfile, previousProfile);
+        refreshVisibleMemberProfile(nextProfile, previousProfile);
+        if(status) status.textContent = 'Saved profile text. Photo was too large or cloud storage was unavailable.';
+        return;
+      }catch(textOnlyError){
+        console.warn('Could not save member profile without the new photo.', textOnlyError);
+      }
+    }
     if(status) status.textContent = 'Save failed. Please try again.';
   }
 }
