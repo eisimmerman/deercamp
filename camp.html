@@ -1163,6 +1163,19 @@
     .content-panel[data-section="campfeed"] .carousel-track{grid-auto-columns:100%}
   }
 
+
+  /* CampFeed carousel v3: align scroll positions to the track, not the page, so first card never gets clipped. */
+  #feedTrack{
+    grid-auto-columns:calc((100% - 64px)/5)!important;
+    gap:16px!important;
+    scroll-padding-left:0!important;
+  }
+  #feedTrack .feed-card{
+    scroll-snap-align:none!important;
+  }
+  @media (max-width:1100px){#feedTrack{grid-auto-columns:calc((100% - 32px)/3)!important}}
+  @media (max-width:720px){#feedTrack{grid-auto-columns:100%!important}}
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -4194,9 +4207,18 @@ function updateFeedCount(){
   if(!count) return;
   const visible=feedVisibleCount();
   if(!feedItems.length){ count.textContent='Showing 0 of 0'; return; }
+  const max=Math.max(0, feedItems.length - visible);
+  feedIndex=Math.max(0, Math.min(feedIndex || 0, max));
   const start=Math.min(feedIndex + 1, feedItems.length);
   const end=Math.min(feedIndex + visible, feedItems.length);
   count.textContent=`Showing ${start}-${end} of ${feedItems.length}`;
+}
+function feedScrollLeftForIndex(index = 0){
+  const track=document.getElementById('feedTrack');
+  const target=document.querySelectorAll('#feedTrack .feed-card')[index];
+  if(!track || !target) return 0;
+  const left = target.offsetLeft - track.offsetLeft;
+  return Math.max(0, left);
 }
 function renderFeed(){
   const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
@@ -4220,7 +4242,7 @@ function renderFeed(){
   const max=Math.max(0, feedItems.length - visible);
   feedIndex=Math.max(0, Math.min(priorFeedIndex, max));
   updateFeedCount();
-  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex]; if(trackEl && target) trackEl.scrollTo({left:target.offsetLeft,behavior:'auto'}); syncFeedButtons(); });
+  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:feedScrollLeftForIndex(feedIndex),behavior:'auto'}); syncFeedButtons(); });
 }
 function syncFeedButtons(){
   const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
@@ -4236,9 +4258,8 @@ function goFeed(nextIndex){
   const visible=feedVisibleCount();
   const max=Math.max(0,feedItems.length-visible);
   feedIndex=Math.max(0,Math.min(nextIndex,max));
-  const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
-  if(track && target){
-    track.scrollTo({left: target.offsetLeft, behavior:'smooth'});
+  if(track){
+    track.scrollTo({left: feedScrollLeftForIndex(feedIndex), behavior:'smooth'});
   }
   syncFeedButtons();
 }
