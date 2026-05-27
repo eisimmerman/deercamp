@@ -144,10 +144,11 @@
   .recipe-modal,.member-modal,.feed-modal,.deerdrive-modal,.deerdrive-image-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
   .recipe-modal.open,.member-modal.open,.feed-modal.open,.deerdrive-modal.open,.deerdrive-image-modal.open{display:flex}
   .recipe-modal-card,.feed-modal-card{position:relative;width:min(920px,100%);max-height:calc(100vh - var(--header-h) - 36px);overflow:auto;border-radius:22px;background:#f6efe3;box-shadow:0 20px 60px rgba(0,0,0,.24)}
-  .feed-modal-card{display:grid;grid-template-columns:minmax(260px,360px) minmax(0,1fr)}
+  .feed-modal-card{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(320px,1fr);width:min(1120px,calc(100vw - 28px))}
   .feed-modal-card.is-memory{width:min(1060px,100%);grid-template-columns:1fr}
   .feed-modal-card.is-memory .feed-modal-media{display:none}
-  .feed-modal-media img{width:100%;height:100%;min-height:100%;object-fit:cover;background:#e9decf}
+  .feed-modal-media{display:flex;align-items:center;justify-content:center;min-height:min(68vh,680px);background:#17130f;overflow:hidden}
+  .feed-modal-media img{display:block;width:100%;height:auto;max-width:100%;max-height:calc(100vh - var(--header-h) - 64px);min-height:0;object-fit:contain;background:#17130f}
   #feedModalBody{white-space:pre-line}
   .feed-modal-content,.recipe-modal-content{display:grid;gap:14px;padding:18px 18px 20px;position:relative}
   .close{position:absolute;top:12px;right:12px;width:38px;height:38px;border:0;border-radius:999px;background:rgba(0,0,0,.08);font-size:1.45rem;cursor:pointer}
@@ -383,7 +384,7 @@
     .menu.open{opacity:1;transform:translateY(0);pointer-events:auto}
   }
 
-  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
+  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.feed-modal-media{min-height:auto;max-height:58vh}.feed-modal-media img{width:auto;max-width:100%;max-height:58vh}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
   @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
   .mobile-upgrade-sticky{display:none}
   @media (max-width:720px){
@@ -884,13 +885,6 @@ function canOpenMemberProfile(member = {}){
 }
 function shouldShowMemberEmail(profile = {}){
   return isCurrentSteward();
-}
-function canUseStewardTools(){
-  return isCurrentSteward();
-}
-function canUseCampUpdate(){
-  const role = getCurrentSecurityRole();
-  return role === "steward" || role === "member";
 }
 function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
   const roleTemplate = getRoleTemplate(member.role || fallbackRole);
@@ -1729,7 +1723,7 @@ function renderCampBillingButton(){
   const role = getCurrentSecurityRole();
   const label=getCampBillingButtonLabel(billingInfo);
   buttons.forEach(btn=>{
-    const shouldHide = role === 'member';
+    const shouldHide = role !== 'steward';
     btn.hidden = shouldHide;
     btn.classList.toggle('is-plus', isPlus);
     btn.textContent=label;
@@ -1746,7 +1740,7 @@ function renderCampBillingButton(){
       btn.addEventListener('click', handleCampBillingClick);
     }
   });
-  try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role !== 'member'); }catch(error){}
+  try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role === 'steward'); }catch(error){}
   renderBillingNotice(billingInfo);
 }
 function ensureCampBillingChoiceStyles(){
@@ -1834,15 +1828,7 @@ function buildStewardDashboardUrl(){
   return `${u.pathname}?${u.searchParams.toString()}`;
 }
 function hasStewardDashboardAccess(){
-  if(!canUseStewardTools()) return false;
-  try{
-    const hasNamedSteward = Boolean(String(data.stewardName || data.steward || data.campSteward || "").trim());
-    const rosterHasSteward = Array.isArray(roster) && roster.some(member => String(member.role || "").trim().toLowerCase() === "camp steward");
-    const dashboardHasSteward = [preHydrateDashboard, preHydrateGenericDashboard, data.dashboardSlim].some(source => source && typeof source === "object" && String(source.stewardName || source.steward || source.stewardEmail || "").trim());
-    return hasNamedSteward || rosterHasSteward || dashboardHasSteward;
-  }catch(error){
-    return Boolean(String(data.stewardName || data.steward || "").trim());
-  }
+  return getCurrentSecurityRole() === 'steward' && isCurrentSteward();
 }
 function formatLocation(){
   const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
@@ -2195,7 +2181,8 @@ function applyMemberModalProfileDisplay(profile = {}){
   document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
 }
 function canEditMemberProfile(profile = {}){
-  return isCurrentSteward();
+  // Public Camp pages are view-only. Profile editing is reserved for the active Camp Steward session.
+  return getCurrentSecurityRole() === 'steward' && isCurrentSteward();
 }
 function renderMemberModalEditAction(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
@@ -2212,7 +2199,7 @@ function renderMemberModalEditAction(profile = {}){
     document.getElementById('openMemberProfileEditBtn')?.addEventListener('click', () => renderMemberProfileEditForm(profile));
     return;
   }
-  wrap.textContent = isStewardProfile ? 'Only the Camp Steward can edit the Steward profile.' : 'Only the Camp Steward can edit member profiles. Public visitors can view only.';
+  wrap.textContent = isStewardProfile ? 'Only the Camp Steward can edit the Steward profile.' : 'Member profile changes can be made by the Camp Steward or from Member View.';
 }
 function loadImageElementFromFile(file){
   return new Promise((resolve, reject) => {
@@ -2768,8 +2755,8 @@ function visibleSections(){
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
-    if (s.key === "campupdate") return canUseCampUpdate() && !!enabledSections[map[s.key]];
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    if (s.key === "campupdate") return getCurrentSecurityRole() === 'steward' && isCurrentSteward() && isSectionEnabled("campupdate");
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
     if (s.key === "campdeerdrives") return isSectionEnabled("campdeerdrives", "deerdrives");
@@ -3282,7 +3269,7 @@ if(document.getElementById('updateType')){
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
     const submitRole = getCurrentSecurityRole();
-    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Public visitors can view this camp, but only the Camp Steward or members can add CampUpdates.', true); return; }
+    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Join this camp as a member or open Steward View to add CampUpdates.', true); return; }
     try{
     const type=document.getElementById('updateType').value;
     const member=document.getElementById('updateMember').value;
