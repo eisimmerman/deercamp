@@ -11,6 +11,7 @@
       --bg:#d7ccb9;--panel:#f7f1e7;--ink:#231a13;--muted:#6b5644;--brown:#6a4427;--brown-deep:#452a16;--green:#496647;--line:rgba(69,42,22,.12);--shadow:0 14px 34px rgba(0,0,0,.12);--radius:24px
     }
     *{box-sizing:border-box}
+    [hidden]{display:none!important}
     body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top,rgba(255,255,255,.18),transparent 35%),linear-gradient(180deg,#d8cdbd 0%,#ccbda8 100%)}
     a{color:inherit;text-decoration:none}button,input,select{font:inherit}
     .page{min-height:100vh;padding:22px;display:grid;gap:18px;align-content:start}
@@ -27,16 +28,59 @@
     .grid-2{max-width:1220px;width:100%;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:18px}.empty{padding:16px;border-radius:18px;background:rgba(255,255,255,.54);color:var(--muted);line-height:1.5}
     @media(max-width:960px){.hero{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-2{grid-template-columns:1fr}.filters,.campaign-builder-grid,.campaign-copy-grid{grid-template-columns:1fr 1fr}.campaign-output-row{grid-template-columns:1fr}}
     @media(max-width:620px){.page{padding:14px}.cards{grid-template-columns:1fr}.filters,.campaign-builder-grid,.campaign-copy-grid{grid-template-columns:1fr}.actions .btn,.campaign-output-row .btn,.campaign-copy-card .btn{width:100%}th,td{font-size:.82rem;padding:9px}.hero,.panel{border-radius:20px}}
+
+
+    /* Temporary admin passcode gate */
+    .admin-gate{position:fixed;inset:0;z-index:9999;min-height:100vh;padding:22px;display:grid;place-items:center;background:radial-gradient(circle at top,rgba(255,255,255,.18),transparent 35%),linear-gradient(180deg,#d8cdbd 0%,#ccbda8 100%)}
+    .admin-gate-card{width:min(520px,100%);padding:24px;border-radius:24px;background:rgba(247,241,231,.96);border:1px solid var(--line);box-shadow:var(--shadow);display:grid;gap:14px}
+    .admin-gate-brand{display:flex;align-items:center;gap:12px}.admin-gate-brand img{width:52px;height:52px;border-radius:14px}.admin-gate-brand h1{margin:0;color:var(--brown-deep);font-size:1.28rem}.admin-gate-brand p{margin:3px 0 0;color:var(--muted);line-height:1.4}
+    .admin-gate-copy{margin:0;color:var(--muted);line-height:1.55}
+    .admin-gate-form{display:grid;gap:10px}.admin-gate-form label{font-size:.78rem;font-weight:900;color:var(--brown-deep);letter-spacing:.06em;text-transform:uppercase}.admin-gate-form input{width:100%;min-height:46px;padding:10px 54px 10px 13px;border-radius:14px;border:1px solid rgba(69,42,22,.14);background:#fff;color:var(--ink)}
+    .admin-passcode-input-row{position:relative;display:block}
+    .admin-passcode-toggle{position:absolute;right:7px;top:50%;transform:translateY(-50%);width:38px;height:34px;border:0;border-radius:999px;background:rgba(106,68,39,.10);color:var(--brown-deep);font-size:1rem;font-weight:900;cursor:pointer;display:grid;place-items:center}
+    .admin-passcode-toggle:hover{background:rgba(106,68,39,.16)}
+    .admin-passcode-hint{min-height:1.2em;margin:0;color:var(--muted);font-size:.82rem;font-weight:800;line-height:1.35}
+    .admin-gate-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.admin-gate-actions .btn{flex:0 0 auto}
+    .admin-gate-error{min-height:1.2em;margin:0;color:#8b2d1d;font-size:.9rem;font-weight:800;line-height:1.4}
+    .admin-gate-note{margin:0;color:var(--muted);font-size:.82rem;line-height:1.45}
+    .admin-lock-btn{background:rgba(255,255,255,.74);color:var(--brown-deep);border:1px solid rgba(69,42,22,.12)}
+    @media(max-width:620px){.admin-gate{padding:14px}.admin-gate-actions .btn{width:100%}}
   </style>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
   <script src="firebase-web.js"></script>
 </head>
 <body>
-  <main class="page">
+  <section id="adminPasscodeGate" class="admin-gate" aria-label="Admin passcode required">
+    <div class="admin-gate-card">
+      <div class="admin-gate-brand">
+        <img src="assets/images/deer-track.png" alt="DeerCamp mark">
+        <div>
+          <h1>DeerCamp Growth Dashboard</h1>
+          <p>Admin access required</p>
+        </div>
+      </div>
+      <p class="admin-gate-copy">Enter the admin passcode to view growth metrics, campaign links, and conversion data.</p>
+      <form id="adminPasscodeForm" class="admin-gate-form" autocomplete="off">
+        <label for="adminPasscodeInput">Admin Passcode</label>
+        <div class="admin-passcode-input-row">
+          <input id="adminPasscodeInput" class="admin-passcode-input is-masked" type="text" inputmode="text" autocomplete="new-password" autocapitalize="none" spellcheck="false" placeholder="Enter passcode" />
+          <button id="toggleAdminPasscode" class="admin-passcode-toggle" type="button" aria-label="Show passcode" title="Show passcode">👁</button>
+        </div>
+        <p id="adminPasscodeHint" class="admin-passcode-hint">Tap the eye icon to verify the passcode before unlocking.</p>
+        <div class="admin-gate-actions">
+          <button class="btn btn-primary" type="submit">Unlock Dashboard</button>
+        </div>
+        <p id="adminPasscodeError" class="admin-gate-error" aria-live="polite"></p>
+      </form>
+      <p class="admin-gate-note">Temporary access gate. This prevents casual direct viewing, but it is not a substitute for Firebase/Auth-based admin security.</p>
+    </div>
+  </section>
+
+  <main id="adminDashboardPage" class="page" hidden>
     <header class="topbar">
       <div class="brand"><img src="assets/images/deer-track.png" alt="DeerCamp mark"><div><h1>DeerCamp Growth Dashboard</h1><p>DCF installs, activation, and DC+ conversion pipeline</p></div></div>
-      <div class="actions"><button id="refreshBtn" class="btn btn-primary" type="button">Refresh Metrics</button><button id="exportBtn" class="btn" type="button">Export CSV</button><a class="btn" href="index.html">Open Home</a></div>
+      <div class="actions"><button id="refreshBtn" class="btn btn-primary" type="button">Refresh Metrics</button><button id="exportBtn" class="btn" type="button">Export CSV</button><button id="lockAdminBtn" class="btn admin-lock-btn" type="button">Lock</button><a class="btn" href="index.html">Open Home</a></div>
     </header>
 
     <section class="hero">
@@ -726,23 +770,122 @@
       }
     }
 
-    $("builderBaseUrl").value = defaultCampaignBaseUrl();
-    setCampaignBuilderPreset("processorEmail");
-    ["builderBaseUrl","builderSource","builderMedium","builderCampaign","builderAudience","builderProspectId","builderRef"].forEach((id) => $(id).addEventListener("input", () => { clearShortLinkOutput(); updateCampaignLinkOutput(); }));
-    $("builderTemplate").addEventListener("change", () => { refreshCampaignMessages(); updateCampaignLinkOutput(); });
-    $("shortCodeInput").addEventListener("input", clearShortLinkOutput);
-    document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => setCampaignBuilderPreset(button.dataset.preset)));
-    $("copyCampaignLinkBtn").addEventListener("click", copyCampaignLink);
-    $("createShortLinkBtn").addEventListener("click", createShortLink);
-    $("copyShortLinkBtn").addEventListener("click", copyShortLink);
-    $("copyShortMessageBtn").addEventListener("click", copyShortMessage);
-    $("copyPosterMessageBtn").addEventListener("click", copyPosterMessage);
-    $("copyFacebookCommentBtn").addEventListener("click", copyFacebookComment);
+    const ADMIN_PASSCODE = "DeerCampAdmin2026!";
+    const ADMIN_UNLOCK_STORAGE_KEY = "deercampAdminMetricsUnlocked";
 
-    ["sourceFilter","campaignFilter","tierFilter","searchFilter"].forEach((id) => $(id).addEventListener("input", applyFilters));
-    $("refreshBtn").addEventListener("click", loadMetrics);
-    $("exportBtn").addEventListener("click", exportCsv);
-    loadMetrics();
+    function showAdminDashboard() {
+      const gate = $("adminPasscodeGate");
+      const page = $("adminDashboardPage");
+      if (gate) {
+        gate.hidden = true;
+        gate.style.display = "none";
+      }
+      if (page) {
+        page.hidden = false;
+        page.style.display = "grid";
+      }
+      initializeDashboard();
+    }
+
+    function lockAdminDashboard() {
+      try { window.sessionStorage.removeItem(ADMIN_UNLOCK_STORAGE_KEY); } catch (error) {}
+      window.location.reload();
+    }
+
+    let dashboardInitialized = false;
+    function initializeDashboard() {
+      if (dashboardInitialized) return;
+      dashboardInitialized = true;
+
+      $("builderBaseUrl").value = defaultCampaignBaseUrl();
+      setCampaignBuilderPreset("processorEmail");
+      ["builderBaseUrl","builderSource","builderMedium","builderCampaign","builderAudience","builderProspectId","builderRef"].forEach((id) => $(id).addEventListener("input", () => { clearShortLinkOutput(); updateCampaignLinkOutput(); }));
+      $("builderTemplate").addEventListener("change", () => { refreshCampaignMessages(); updateCampaignLinkOutput(); });
+      $("shortCodeInput").addEventListener("input", clearShortLinkOutput);
+      document.querySelectorAll("[data-preset]").forEach((button) => button.addEventListener("click", () => setCampaignBuilderPreset(button.dataset.preset)));
+      $("copyCampaignLinkBtn").addEventListener("click", copyCampaignLink);
+      $("createShortLinkBtn").addEventListener("click", createShortLink);
+      $("copyShortLinkBtn").addEventListener("click", copyShortLink);
+      $("copyShortMessageBtn").addEventListener("click", copyShortMessage);
+      $("copyPosterMessageBtn").addEventListener("click", copyPosterMessage);
+      $("copyFacebookCommentBtn").addEventListener("click", copyFacebookComment);
+
+      ["sourceFilter","campaignFilter","tierFilter","searchFilter"].forEach((id) => $(id).addEventListener("input", applyFilters));
+      $("refreshBtn").addEventListener("click", loadMetrics);
+      $("exportBtn").addEventListener("click", exportCsv);
+      const lockBtn = $("lockAdminBtn");
+      if (lockBtn) lockBtn.addEventListener("click", lockAdminDashboard);
+      loadMetrics();
+    }
+
+    function initializeAdminGate() {
+      const form = $("adminPasscodeForm");
+      const input = $("adminPasscodeInput");
+      const error = $("adminPasscodeError");
+      const hint = $("adminPasscodeHint");
+      const toggle = $("toggleAdminPasscode");
+      const page = $("adminDashboardPage");
+      const gate = $("adminPasscodeGate");
+
+      if (page) {
+        page.hidden = true;
+        page.style.display = "none";
+      }
+      if (gate) {
+        gate.hidden = false;
+        gate.style.display = "grid";
+      }
+
+      try {
+        if (window.sessionStorage.getItem(ADMIN_UNLOCK_STORAGE_KEY) === "true") {
+          showAdminDashboard();
+          return;
+        }
+      } catch (storageError) {}
+
+      if (input) input.focus();
+
+      if (toggle && input) {
+        toggle.addEventListener("click", () => {
+          const shouldShow = input.classList.contains("is-masked");
+          input.classList.toggle("is-masked", !shouldShow);
+          toggle.textContent = shouldShow ? "🙈" : "👁";
+          toggle.setAttribute("aria-label", shouldShow ? "Hide passcode" : "Show passcode");
+          toggle.setAttribute("title", shouldShow ? "Hide passcode" : "Show passcode");
+          if (hint) hint.textContent = shouldShow ? "Passcode is visible. Verify it exactly, then tap Unlock Dashboard." : "Passcode is hidden. Tap the eye icon to verify before unlocking.";
+          input.focus();
+        });
+      }
+
+      if (input && hint) {
+        input.addEventListener("input", () => {
+          const length = String(input.value || "").length;
+          hint.textContent = length ? `${length} character${length === 1 ? "" : "s"} entered. Tap the eye icon to verify.` : "Tap the eye icon to verify the passcode before unlocking.";
+        });
+      }
+
+      if (!form) return;
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const submitted = String(input && input.value ? input.value : "").trim();
+        if (submitted === ADMIN_PASSCODE) {
+          try { window.sessionStorage.setItem(ADMIN_UNLOCK_STORAGE_KEY, "true"); } catch (storageError) {}
+          if (input) input.value = "";
+          if (error) error.textContent = "";
+          showAdminDashboard();
+          return;
+        }
+        if (error) error.textContent = `Incorrect passcode. Entered ${submitted.length} character${submitted.length === 1 ? "" : "s"}; expected ${ADMIN_PASSCODE.length}.`;
+        if (hint) hint.textContent = "Use the eye icon to confirm the exact capitalization, numbers, and ! at the end.";
+        if (input) {
+          input.focus();
+          input.select();
+        }
+      });
+    }
+
+    initializeAdminGate();
   </script>
 </body>
 </html>
