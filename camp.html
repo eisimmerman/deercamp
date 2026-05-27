@@ -87,6 +87,10 @@
   .btn-secondary{background:#fff;color:var(--brown-deep);border:1px solid rgba(69,42,22,.12);box-shadow:none}
   .feedback{color:var(--muted);line-height:1.55;font-size:.96rem}
   .feedback.is-error{color:#8b2d1d;font-weight:700}
+  .demo-locked-panel{display:grid;gap:8px;margin:0 0 14px;padding:12px 14px;border-radius:16px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;font-size:.94rem;line-height:1.45}
+  .demo-locked-panel strong{color:#452a16}
+  .form-grid.is-demo-locked{opacity:.72}
+  .form-grid.is-demo-locked input,.form-grid.is-demo-locked textarea,.form-grid.is-demo-locked select{cursor:not-allowed;background:rgba(255,255,255,.58)}
   .inline-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
   .content-panel{display:none;gap:14px}
   .content-panel.active{display:grid}
@@ -2740,6 +2744,11 @@ function closeMemberModal(){document.getElementById("memberModal").classList.rem
 document.getElementById("closeMemberModal").onclick=closeMemberModal; document.getElementById("memberModalBackdrop").onclick=closeMemberModal;
 document.addEventListener("keydown", event=>{ if(event.key === "Escape"){ if(document.getElementById("memberModal").classList.contains("open")) closeMemberModal(); if(membersSheet.classList.contains("open")) closeMembersSheet(); }});
 
+function canCurrentViewerPostCampUpdate(){
+  const role = getCurrentSecurityRole();
+  return (role === "steward" && isCurrentSteward()) || role === "member";
+}
+
 function visibleSections(){
   const base=[
     {key:"campfeed",title:"CampFeed"},
@@ -2756,7 +2765,7 @@ function visibleSections(){
   return base.filter(s=>{
     const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "campupdate") return getCurrentSecurityRole() === 'steward' && isCurrentSteward() && isSectionEnabled("campupdate");
+    if (s.key === "campupdate") return isSectionEnabled("campupdate");
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
     if (s.key === "campdeerdrives") return isSectionEnabled("campdeerdrives", "deerdrives");
@@ -2997,6 +3006,11 @@ visibleSections().forEach(section=>{
   const container=document.createElement("section");
   container.className="content-section"; container.id=section.key;
   if(section.key==="campupdate"){
+    const canPostCampUpdate = canCurrentViewerPostCampUpdate();
+    const campUpdateLockedClass = canPostCampUpdate ? "" : " is-demo-locked";
+    const campUpdateDisabled = canPostCampUpdate ? "" : " disabled aria-disabled=\"true\"";
+    const campUpdateDemoNotice = canPostCampUpdate ? "" : `<div class=\"demo-locked-panel\" role=\"note\"><strong>Demo view only.</strong><span>Public visitors can see how CampUpdate works, but posting is disabled. The Camp Steward and approved camp members can add pictures, memories/stories, traditions, and recipes.</span></div>`;
+    const campUpdateButtonLabel = canPostCampUpdate ? "Post to Camp" : "Demo Only — Posting Disabled";
     container.innerHTML=`
       <h2>CampUpdate</h2>
       <p class="section-helper">Stewards and members can post pictures, memories/stories, traditions, or recipes. Members can also comment on CampFeed posts and add CampCalendar events.</p>
@@ -3004,7 +3018,9 @@ visibleSections().forEach(section=>{
         <div class="panel">
           <h4>Post a CampUpdate</h4>
           <p class="section-helper" style="margin-top:0">Post quick pictures, longer memories/stories, camp traditions, or recipes from one place.</p>
-          <form id="campUpdateForm" class="form-grid">
+          ${campUpdateDemoNotice}
+          <form id="campUpdateForm" class="form-grid${campUpdateLockedClass}">
+            <fieldset${campUpdateDisabled} style="display:contents;border:0;margin:0;padding:0">
             <div class="form-side">
               <label class="form-row"><span class="label">Submitted By</span><select id="updateMember" class="select"></select></label>
               <label class="form-row"><span class="label">Section</span><select id="updateType" class="select"><option value="photo">Picture</option><option value="memory">Memory / Story</option><option value="recipe">Recipe</option><option value="tradition">Tradition</option></select></label>
@@ -3265,6 +3281,8 @@ if(document.getElementById('updateType')){
   const updateRole = getCurrentSecurityRole();
   if(updateRole === 'member'){
     setUpdateFeedback('Members can add CampUpdates, comment on CampFeed posts, and add CampCalendar events.');
+  } else if(updateRole !== 'steward') {
+    setUpdateFeedback('Demo view only. Public visitors can see CampUpdate, but only the Steward or approved members can post.');
   }
   document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
     e.preventDefault();
