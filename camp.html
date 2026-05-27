@@ -1134,6 +1134,35 @@
     }
   }
 
+
+  /* CampFeed carousel v2: show full cards, page without snap-back. */
+  #campfeed .carousel,
+  .content-panel[data-section="campfeed"] .carousel{
+    width:100%;
+    max-width:none;
+    margin:0;
+    overflow:hidden;
+  }
+  #campfeed .carousel-track,
+  .content-panel[data-section="campfeed"] .carousel-track{
+    grid-auto-columns:calc((100% - 64px)/5);
+    scroll-snap-type:none;
+    overscroll-behavior-x:contain;
+  }
+  #campfeed .feed-card,
+  .content-panel[data-section="campfeed"] .feed-card{
+    scroll-snap-align:none;
+    min-width:0;
+  }
+  @media (max-width:1100px){
+    #campfeed .carousel-track,
+    .content-panel[data-section="campfeed"] .carousel-track{grid-auto-columns:calc((100% - 32px)/3)}
+  }
+  @media (max-width:720px){
+    #campfeed .carousel-track,
+    .content-panel[data-section="campfeed"] .carousel-track{grid-auto-columns:100%}
+  }
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -4157,10 +4186,23 @@ function feedOpenLabelFor(entry = {}){
   if(media === 'tradition') return 'Open Tradition';
   return 'Open Post';
 }
+function feedVisibleCount(){
+  return window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+}
+function updateFeedCount(){
+  const count=document.getElementById('feedCount');
+  if(!count) return;
+  const visible=feedVisibleCount();
+  if(!feedItems.length){ count.textContent='Showing 0 of 0'; return; }
+  const start=Math.min(feedIndex + 1, feedItems.length);
+  const end=Math.min(feedIndex + visible, feedItems.length);
+  count.textContent=`Showing ${start}-${end} of ${feedItems.length}`;
+}
 function renderFeed(){
   const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
+  const priorFeedIndex = feedIndex || 0;
   feedItems=normalizePhotoEntries(); track.innerHTML="";
-  if(!feedItems.length){empty.hidden=false; count.textContent='Showing 0 of 0'; syncFeedButtons(); return;}
+  if(!feedItems.length){empty.hidden=false; if(count) count.textContent='Showing 0 of 0'; syncFeedButtons(); return;}
   empty.hidden=true;
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
@@ -4174,22 +4216,24 @@ function renderFeed(){
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
-  const visible = window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
-  count.textContent=`Showing ${Math.min(visible,feedItems.length)} of ${feedItems.length}`;
-  feedIndex=0;
-  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); if(trackEl) trackEl.scrollTo({left:0,behavior:'auto'}); syncFeedButtons(); });
+  const visible = feedVisibleCount();
+  const max=Math.max(0, feedItems.length - visible);
+  feedIndex=Math.max(0, Math.min(priorFeedIndex, max));
+  updateFeedCount();
+  requestAnimationFrame(()=>{ const trackEl=document.getElementById('feedTrack'); const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex]; if(trackEl && target) trackEl.scrollTo({left:target.offsetLeft,behavior:'auto'}); syncFeedButtons(); });
 }
 function syncFeedButtons(){
   const prev=document.getElementById('feedPrev'), next=document.getElementById('feedNext');
   if(!prev||!next) return;
-  const max=Math.max(0, feedItems.length - (window.innerWidth<=720?1:window.innerWidth<=1100?3:5));
+  const max=Math.max(0, feedItems.length - feedVisibleCount());
   prev.disabled=feedIndex<=0; next.disabled=feedIndex>=max;
+  updateFeedCount();
   const mp=document.getElementById('feedModalPrev'), mn=document.getElementById('feedModalNext');
   if(mp&&mn){mp.disabled=modalFeedIndex<=0; mn.disabled=modalFeedIndex>=feedItems.length-1}
 }
 function goFeed(nextIndex){
   const track=document.getElementById('feedTrack');
-  const visible=window.innerWidth<=720?1:window.innerWidth<=1100?3:5;
+  const visible=feedVisibleCount();
   const max=Math.max(0,feedItems.length-visible);
   feedIndex=Math.max(0,Math.min(nextIndex,max));
   const target=document.querySelectorAll('#feedTrack .feed-card')[feedIndex];
@@ -4197,6 +4241,10 @@ function goFeed(nextIndex){
     track.scrollTo({left: target.offsetLeft, behavior:'smooth'});
   }
   syncFeedButtons();
+}
+function feedPageStep(direction){
+  const visible=feedVisibleCount();
+  goFeed(feedIndex + (direction * visible));
 }
 
 
@@ -4317,12 +4365,16 @@ function openFeedModal(idx){
   syncFeedButtons();
 }
 function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
-document.getElementById('feedPrev')?.addEventListener('click',()=>goFeed(feedIndex-1));
-document.getElementById('feedNext')?.addEventListener('click',()=>goFeed(feedIndex+1));
+document.getElementById('feedPrev')?.addEventListener('click',()=>feedPageStep(-1));
+document.getElementById('feedNext')?.addEventListener('click',()=>feedPageStep(1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
 document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
 document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
-window.addEventListener('resize', ()=>{renderFeed(); syncFeedButtons();});
+let feedResizeTimer=null;
+window.addEventListener('resize', ()=>{
+  clearTimeout(feedResizeTimer);
+  feedResizeTimer=setTimeout(()=>{renderFeed(); syncFeedButtons();}, 120);
+});
 document.addEventListener('click', event=>{
   if(event.target && event.target.id === 'recentPrev'){
     recentUpdatesOffset = Math.max(0, recentUpdatesOffset - CURRENT_UPDATE_PAGE_SIZE);
