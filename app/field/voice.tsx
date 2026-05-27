@@ -22,7 +22,7 @@ import {
 } from "expo-audio";
 
 import { auth } from "@/lib/firebase";
-import { getActiveCampId, saveLocalMemory } from "@/lib/localMemories";
+import { getActiveCampId, getActiveCampName, saveLocalMemory } from "@/lib/localMemories";
 import {
   createAudioSegment,
   createInitialSegmentState,
@@ -82,6 +82,8 @@ export default function FieldVoiceScreen() {
   const [saving, setSaving] = useState(false);
   const [recordingComplete, setRecordingComplete] = useState(false);
   const [helperCount, setHelperCount] = useState(0);
+  const [activeCampId, setActiveCampIdState] = useState("");
+  const [activeCampName, setActiveCampNameState] = useState("Camp Swede");
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -213,6 +215,28 @@ export default function FieldVoiceScreen() {
     })();
   }, []);
 
+  useEffect(() => {
+    let alive = true;
+
+    void (async () => {
+      try {
+        const campId = await getActiveCampId();
+        const campName = await getActiveCampName(campId);
+
+        if (!alive) return;
+
+        setActiveCampIdState(campId);
+        setActiveCampNameState(campName);
+      } catch (error) {
+        console.error("read active camp target failed:", error);
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const incrementPhotoCount = useCallback(async () => {
     try {
       const next = helperCount + 1;
@@ -342,6 +366,7 @@ export default function FieldVoiceScreen() {
       segmentCount: 0,
       parentMemoryTitle: "Field Photo",
       campId,
+      targetCampName: await getActiveCampName(campId),
     });
 
     await enqueueUploadItems([
@@ -383,6 +408,7 @@ export default function FieldVoiceScreen() {
       totalDurationMs: summary?.totalDurationMs || undefined,
       parentMemoryTitle: "Field Memory",
       campId,
+      targetCampName: await getActiveCampName(campId),
       segments,
     };
 
@@ -627,6 +653,13 @@ export default function FieldVoiceScreen() {
           {photoOnly ? "Tap to take photo." : "Audio auto-recording."}
         </Text>
 
+        <View style={styles.campTargetPill}>
+          <Ionicons name="navigate-circle-outline" size={16} color="white" />
+          <Text style={styles.campTargetText}>
+            Current Camp: {activeCampName || "Camp Swede"}{activeCampId ? "" : ""}
+          </Text>
+        </View>
+
         <View style={styles.cameraActions}>
           <Pressable
             style={styles.flipBtn}
@@ -756,6 +789,26 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 20,
     marginBottom: 14,
+  },
+
+  campTargetPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 8,
+    marginBottom: 14,
+  },
+
+  campTargetText: {
+    color: "rgba(255,255,255,0.88)",
+    fontSize: 13,
+    fontWeight: "900",
   },
 
   cameraActions: {

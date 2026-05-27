@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -14,10 +15,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 import {
+  DEFAULT_ACTIVE_CAMP_ID,
   getLocalMemoryById,
+  markMemoryPublished,
+  markMemoryPublishFailed,
+  markMemoryPublishing,
   type LocalMemoryItem,
   type LocalMemorySegment,
 } from "@/lib/localMemories";
+import { publishMemoryToFeed } from "@/lib/publishMemory";
 
 function formatWhen(ms?: number) {
   if (!ms) return "";
@@ -188,6 +194,8 @@ export default function LocalEntryDetailScreen() {
 
   const [loading, setLoading] = useState(true);
   const [entry, setEntry] = useState<LocalMemoryItem | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryStatus, setRetryStatus] = useState("");
 
   useEffect(() => {
     let alive = true;
@@ -223,6 +231,61 @@ export default function LocalEntryDetailScreen() {
       alive = false;
     };
   }, [id]);
+
+  async function refreshEntry(memoryId: string) {
+    const next = await getLocalMemoryById(memoryId);
+    setEntry(next);
+    return next;
+  }
+
+  async function onRetryUpload() {
+    if (!entry || retrying) return;
+
+    const campId = String(entry.campId || DEFAULT_ACTIVE_CAMP_ID).trim() || DEFAULT_ACTIVE_CAMP_ID;
+
+    try {
+      setRetrying(true);
+      setRetryStatus("Retrying upload to DeerCamp…");
+      await markMemoryPublishing(entry.id);
+      await refreshEntry(entry.id);
+
+      const result = await publishMemoryToFeed(entry, {
+        campId,
+        defaultTitle: entry.title || entry.generatedTitle || "Field Memory",
+        defaultCaption:
+          entry.details ||
+          entry.generatedCaption ||
+          "Photo + voice captured in DeerCamp Field Mode.",
+      });
+
+      await markMemoryPublished(entry.id, {
+        feedDocId: result.feedDocId,
+        campId: result.campId,
+        photoUrl: result.imageUrl,
+        audioUrl: result.audioUrl,
+        voiceUrl: result.audioUrl,
+      });
+
+      await refreshEntry(entry.id);
+      setRetryStatus("Uploaded to CampFeed.");
+      Alert.alert("Upload complete", "This field memory was posted to CampFeed.");
+    } catch (error: any) {
+      const message = error?.message || "Upload failed. Check connection and try again.";
+      console.error("Retry local memory upload failed:", error);
+
+      try {
+        await markMemoryPublishFailed(entry.id, message);
+        await refreshEntry(entry.id);
+      } catch (markError) {
+        console.error("Failed to mark retry error:", markError);
+      }
+
+      setRetryStatus(message);
+      Alert.alert("Upload failed", message);
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -281,6 +344,16 @@ export default function LocalEntryDetailScreen() {
       ? "This memory is currently being prepared for upload."
       : "This memory is on your device and ready for later upload.";
 
+  const targetCampId =
+    String(entry.campId || DEFAULT_ACTIVE_CAMP_ID).trim() || DEFAULT_ACTIVE_CAMP_ID;
+  const targetCampName =
+    entry.targetCampName?.trim() ||
+    (targetCampId === DEFAULT_ACTIVE_CAMP_ID ? "Camp Swede" : "Selected DeerCamp");
+  const canRetryUpload =
+    entry.syncStatus !== "synced" &&
+    entry.syncStatus !== "publishing" &&
+    hasPhoto;
+
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.topRow}>
@@ -301,6 +374,31 @@ export default function LocalEntryDetailScreen() {
       <View style={styles.statusCard}>
         <Text style={styles.statusTitle}>{statusLabel}</Text>
         <Text style={styles.statusText}>{statusText}</Text>
+
+        <View style={styles.targetCampCard}>
+          <Text style={styles.targetCampLabel}>Current Camp</Text>
+          <Text style={styles.targetCampName}>{targetCampName}</Text>
+          <Text style={styles.targetCampId}>{targetCampId}</Text>
+        </View>
+
+        {canRetryUpload ? (
+          <Pressable
+            style={[styles.retryBtn, retrying && styles.retryBtnDisabled]}
+            onPress={onRetryUpload}
+            disabled={retrying}
+          >
+            {retrying ? (
+              <ActivityIndicator color="#0B0E12" />
+            ) : (
+              <Ionicons name="cloud-upload-outline" size={18} color="#0B0E12" />
+            )}
+            <Text style={styles.retryBtnText}>
+              {retrying ? "Retrying Upload…" : "Retry Upload"}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {!!retryStatus && <Text style={styles.retryStatus}>{retryStatus}</Text>}
       </View>
 
       <Text style={styles.entryTitle}>{title}</Text>
@@ -433,6 +531,65 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.74)",
     lineHeight: 20,
     fontWeight: "700",
+  },
+
+  targetCampCard: {
+    marginTop: 14,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    borderRadius: 14,
+    padding: 12,
+    gap: 3,
+  },
+
+  targetCampLabel: {
+    color: "rgba(255,255,255,0.56)",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+
+  targetCampName: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  targetCampId: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+
+  retryBtn: {
+    marginTop: 14,
+    minHeight: 50,
+    borderRadius: 16,
+    backgroundColor: "white",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    paddingHorizontal: 16,
+  },
+
+  retryBtnDisabled: {
+    opacity: 0.68,
+  },
+
+  retryBtnText: {
+    color: "#0B0E12",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  retryStatus: {
+    marginTop: 10,
+    color: "rgba(255,255,255,0.72)",
+    lineHeight: 19,
+    fontWeight: "800",
   },
 
   entryTitle: {

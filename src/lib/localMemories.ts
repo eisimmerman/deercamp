@@ -50,6 +50,7 @@ export type LocalMemoryItem = {
   publishedAt?: number;
   publishError?: string;
   campId?: string;
+  targetCampName?: string;
 
   // Cloud-generated metadata fields
   transcript?: string;
@@ -65,6 +66,9 @@ export type LocalMemoryItem = {
 const STORAGE_KEY = "deercamp.localMemories.v1";
 const ACTIVE_CAMP_ID_KEY = "deercamp.activeCampId.v1";
 export const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
+export const DEFAULT_ACTIVE_CAMP_NAME = "Camp Swede";
+const ACTIVE_CAMP_NAME_KEY = "deercamp.activeCampName.v1";
+
 
 function resolveMemoryCampId(value?: string | null) {
   const clean = String(value || "").trim();
@@ -72,10 +76,21 @@ function resolveMemoryCampId(value?: string | null) {
   return clean;
 }
 
+function resolveMemoryCampName(campId?: string | null, value?: string | null) {
+  const clean = String(value || "").trim();
+  if (clean) return clean;
+
+  const resolvedCampId = resolveMemoryCampId(campId);
+  if (resolvedCampId === DEFAULT_ACTIVE_CAMP_ID) return DEFAULT_ACTIVE_CAMP_NAME;
+
+  return "Selected DeerCamp";
+}
+
 function normalizeMemory(item: any): LocalMemoryItem {
   return {
     ...item,
     campId: resolveMemoryCampId(item?.campId),
+    targetCampName: resolveMemoryCampName(item?.campId, item?.targetCampName),
     syncStatus: item?.syncStatus ?? "pending",
     captureVersion: item?.captureVersion ?? 1,
     isSegmented: item?.isSegmented ?? false,
@@ -118,6 +133,7 @@ export async function saveLocalMemory(item: LocalMemoryItem) {
   const normalized: LocalMemoryItem = {
     ...item,
     campId: resolveMemoryCampId(item.campId),
+    targetCampName: resolveMemoryCampName(item.campId, item.targetCampName),
     syncStatus: item.syncStatus ?? "pending",
     captureVersion: item.captureVersion ?? 1,
     isSegmented: item.isSegmented ?? false,
@@ -165,16 +181,34 @@ export async function getActiveCampId() {
   }
 }
 
-export async function setActiveCampId(campId?: string | null) {
+export async function getActiveCampName(campId?: string | null) {
+  try {
+    const raw = await AsyncStorage.getItem(ACTIVE_CAMP_NAME_KEY);
+    return resolveMemoryCampName(campId || (await getActiveCampId()), raw);
+  } catch (error) {
+    console.error("getActiveCampName failed:", error);
+    return resolveMemoryCampName(campId);
+  }
+}
+
+export async function setActiveCampId(campId?: string | null, campName?: string | null) {
   const clean = String(campId || "").trim();
 
   try {
     if (!clean) {
       await AsyncStorage.removeItem(ACTIVE_CAMP_ID_KEY);
+      await AsyncStorage.removeItem(ACTIVE_CAMP_NAME_KEY);
       return;
     }
 
     await AsyncStorage.setItem(ACTIVE_CAMP_ID_KEY, clean);
+
+    const cleanName = String(campName || "").trim();
+    if (cleanName) {
+      await AsyncStorage.setItem(ACTIVE_CAMP_NAME_KEY, cleanName);
+    } else if (clean === DEFAULT_ACTIVE_CAMP_ID) {
+      await AsyncStorage.setItem(ACTIVE_CAMP_NAME_KEY, DEFAULT_ACTIVE_CAMP_NAME);
+    }
   } catch (error) {
     console.error("setActiveCampId failed:", error);
   }
@@ -192,6 +226,7 @@ export async function markMemoryPublished(
   data: {
     feedDocId: string;
     campId?: string;
+  targetCampName?: string;
     photoUrl?: string;
     audioUrl?: string;
     voiceUrl?: string;

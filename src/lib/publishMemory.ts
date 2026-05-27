@@ -50,7 +50,15 @@ function pickImageUri(memory: PublishableMemory) {
 }
 
 function pickAudioUri(memory: PublishableMemory) {
-  return memory.audioUri || memory.voiceUri || null;
+  const direct = memory.audioUri || memory.voiceUri;
+  if (direct) return direct;
+
+  const segments = Array.isArray(memory.segments) ? memory.segments : [];
+  const firstAudioSegment = segments
+    .filter((segment) => segment?.mediaType === "audio" && String(segment?.uri || "").trim())
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))[0];
+
+  return firstAudioSegment?.uri || null;
 }
 
 function pickUploadedImageUrl(memory: PublishableMemory) {
