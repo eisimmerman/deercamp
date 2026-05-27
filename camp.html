@@ -120,6 +120,15 @@
   .story-dictation-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;border-radius:16px;background:rgba(255,255,255,.54);border:1px solid rgba(69,42,22,.10)}
   .story-dictation-status{color:#6b5644;font-size:.9rem;font-weight:700;line-height:1.35}
   .story-dictation-status.is-recording{color:#8b2d1d}
+  .honors-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+  .honors-card{display:grid;gap:10px;padding:16px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10)}
+  .honors-card h3{margin:0;color:#3a2717;font-size:1.05rem}
+  .honors-card p{margin:0;color:#5b3d1e;line-height:1.5}
+  .honors-kicker{display:inline-flex;width:max-content;align-items:center;min-height:26px;padding:4px 9px;border-radius:999px;background:rgba(177,121,45,.16);color:#6a4427;font-size:.72rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+  .honors-slots{display:grid;gap:8px;margin-top:4px}
+  .honors-slot{min-height:38px;padding:9px 11px;border-radius:12px;background:rgba(255,250,244,.76);border:1px dashed rgba(69,42,22,.16);color:#6b5644;font-size:.88rem;font-weight:700}
+  @media (max-width:1100px){.honors-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media (max-width:720px){.honors-grid{grid-template-columns:1fr}}
   .feed-steward-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 4px;padding:10px 0;border-top:1px solid rgba(69,42,22,.10);border-bottom:1px solid rgba(69,42,22,.10)}
   .feed-remove-status{color:#6b5644;font-size:.88rem;font-weight:700;line-height:1.35}
   .btn-danger{background:#8b2d1d;color:#fff8ef}
@@ -1128,7 +1137,7 @@ if (preservedLoadDeerStandPosts.length) {
 }
 
 const enabledSections = Object.assign({
-  campupdate:true,campfeed:true,traditions:true,camprecipes:true,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
+  campupdate:true,campfeed:true,traditions:true,camprecipes:true,camphonors:false,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
 const dashboardSectionSources = [
   preHydrateLegacy && preHydrateLegacy.enabledSections,
@@ -2359,13 +2368,15 @@ function visibleSections(){
     {key:"campcalendar",title:"CampCalendar"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
+    {key:"camphonors",title:"CampHonors"},
     {key:"campdeerstands",title:"CampDeerStands"},
     {key:"campdeerdrives",title:"CampDeerDrives"},
   ];
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
     if (s.key === "campdeerdrives") return isSectionEnabled("campdeerdrives", "deerdrives");
     return !!enabledSections[map[s.key]];
@@ -2679,6 +2690,34 @@ visibleSections().forEach(section=>{
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
     container.innerHTML=`<h2>CampRecipes</h2><p class="section-helper">Recipes selected by the Steward or added through CampUpdate.</p><div id="recipesGrid" class="recipes-grid"></div>`;
+  } else if(section.key==="camphonors"){
+    container.innerHTML=`
+      <div class="feed-header">
+        <div>
+          <h2 style="margin:0">CampHonors</h2>
+          <p class="section-helper" style="margin:8px 0 0">The annual DC+ awards event for recognizing the best pictures, stories, traditions, and recipes from this camp year.</p>
+        </div>
+        <span class="pill">Annual awards</span>
+      </div>
+      <div class="honors-grid">
+        ${[
+          ["Best Picture", "Recognize up to three standout CampFeed pictures from the season."],
+          ["Best Memory / Story", "Honor up to three long-form memories or camp stories worth retelling."],
+          ["Best Tradition", "Celebrate up to three traditions that shaped this camp year."],
+          ["Best Recipe", "Feature up to three recipes that earned a spot at the camp table."]
+        ].map(([title, body]) => `
+          <article class="honors-card">
+            <span class="honors-kicker">CampHonor</span>
+            <h3>${title}</h3>
+            <p>${body}</p>
+            <div class="honors-slots">
+              <div class="honors-slot">Honoree 1 — not selected yet</div>
+              <div class="honors-slot">Honoree 2 — optional</div>
+              <div class="honors-slot">Honoree 3 — optional</div>
+            </div>
+          </article>
+        `).join("")}
+      </div>`;
   } else if(section.key==="campdeerstands"){
     container.innerHTML=`
       <div class="feed-header">

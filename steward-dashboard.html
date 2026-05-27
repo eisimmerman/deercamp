@@ -1424,6 +1424,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       calendar: true,
       traditions: true,
       camprecipes: true,
+      camphonors: false,
       campdeerstands: true,
       campdeerdrives: true
     };
@@ -1589,6 +1590,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       calendar: Boolean(state.sections.calendar),
       traditions: Boolean(state.sections.traditions),
       camprecipes: Boolean(state.sections.camprecipes),
+      camphonors: Boolean(dashboardHasDcPlus() && state.sections.camphonors),
       campdeerstands: Boolean(state.sections.campdeerstands),
       campdeerdrives: Boolean(state.sections.campdeerdrives)
     };
@@ -1603,6 +1605,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       { key: "calendar", label: "CampCalendar", note: "Inform the camp of events and important activity dates." },
       { key: "traditions", label: "CampTraditions", note: "Rituals and camp identity." },
       { key: "camprecipes", label: "CampRecipes", note: "Meals worth saving for future seasons." },
+      { key: "camphonors", label: "CampHonors", note: "DC+ annual awards for Best Picture, Best Memory / Story, Best Tradition, and Best Recipe. Default is off until the Steward is ready to publish the year-end honors.", minTier: "dc_plus" },
       { key: "campdeerstands", label: "CampDeerStands", note: "Steward-controlled stand cards/maps. Turn off to hide this section from members and the live menu." },
       { key: "campdeerdrives", label: "CampDeerDrives", note: "Steward-controlled drive cards/maps. Turn off to hide this section from members and the live menu." }
     ];
@@ -2945,7 +2948,9 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
 
     function renderSections() {
       const list = document.getElementById("sectionList");
-      list.innerHTML = sectionConfig.map(item => `
+      const visibleSectionConfig = sectionConfig.filter(item => item.minTier !== "dc_plus" || dashboardHasDcPlus());
+      if (!dashboardHasDcPlus()) state.sections.camphonors = false;
+      list.innerHTML = visibleSectionConfig.map(item => `
         <div class="section-row">
           <div>
             <strong>${item.label}</strong>
@@ -2971,7 +2976,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           syncCampData();
           renderPreview();
           renderRecipeSelector();
-          const sectionLabel = sectionConfig.find(item => item.key === input.dataset.sectionToggle)?.label || "Section";
+          const sectionLabel = visibleSectionConfig.find(item => item.key === input.dataset.sectionToggle)?.label || "Section";
           const sectionState = input.checked ? "turned on" : "turned off";
           const needsSaveReminder = input.dataset.sectionToggle === "campdeerstands" || input.dataset.sectionToggle === "campdeerdrives";
           const saveReminder = needsSaveReminder ? " — tap Save Dashboard Changes to update camp." : " — tap Save Dashboard Changes to update camp.";
