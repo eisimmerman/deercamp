@@ -2175,16 +2175,28 @@ function applyMemberModalProfileDisplay(profile = {}){
   document.getElementById("memberModalSpecialty").textContent=profile.specialty||"—";
   document.getElementById("memberModalDetailNote").textContent=profile.note||"—";
 }
+function canEditMemberProfile(profile = {}){
+  const role = String(profile.role || '').trim().toLowerCase();
+  if(role === 'camp steward') return isCurrentSteward();
+  if(isCurrentSteward()) return true;
+  return getCurrentSecurityRole() === 'member';
+}
 function renderMemberModalEditAction(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
   if(!wrap) return;
-  const isSteward = String(profile.role || '').trim().toLowerCase() === 'camp steward';
-  if(isSteward && isCurrentSteward()){
+  const isStewardProfile = String(profile.role || '').trim().toLowerCase() === 'camp steward';
+  const canEdit = canEditMemberProfile(profile);
+  if(isStewardProfile && canEdit){
     wrap.innerHTML = `<button id="openStewardProfileEditBtn" class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" type="button">Edit Steward Profile</button>`;
     document.getElementById('openStewardProfileEditBtn')?.addEventListener('click', () => renderStewardProfileEditForm(profile));
-  } else {
-    wrap.textContent = isSteward ? 'Only the Camp Steward can edit the Steward profile.' : 'Member-only editing will be added with secure sign-in.';
+    return;
   }
+  if(!isStewardProfile && canEdit){
+    wrap.innerHTML = `<button id="openMemberProfileEditBtn" class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" type="button">Edit Member Profile</button>`;
+    document.getElementById('openMemberProfileEditBtn')?.addEventListener('click', () => renderMemberProfileEditForm(profile));
+    return;
+  }
+  wrap.textContent = isStewardProfile ? 'Only the Camp Steward can edit the Steward profile.' : 'Member profile changes can be made by the Camp Steward or from Member View.';
 }
 function loadImageElementFromFile(file){
   return new Promise((resolve, reject) => {
@@ -2314,6 +2326,192 @@ function renderStewardProfileEditForm(profile = {}){
   document.getElementById('stewardInlineProfileForm')?.addEventListener('submit', saveStewardProfileFromModal);
   document.getElementById('stewardInlinePhotoUpload')?.addEventListener('change', previewStewardProfilePhotoFile);
   document.getElementById('cancelStewardInlineEditBtn')?.addEventListener('click', () => renderMemberModalEditAction(activeMemberModalProfile || profile));
+}
+
+function previewMemberProfilePhotoFile(event){
+  const file = event?.target?.files?.[0];
+  const preview = document.getElementById('memberInlinePhotoPreview');
+  if(!preview || !file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    preview.innerHTML = `<span class="avatar"><img src="${esc(String(reader.result || ''))}" alt="Member photo preview"></span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">New photo ready. Save Member Profile to upload it.</span>`;
+  };
+  reader.readAsDataURL(file);
+}
+async function uploadMemberProfilePhoto(file, profile = {}){
+  if(!file) return null;
+  const pair = await buildStewardProfilePhotoPair(file);
+  const fallback = {
+    displayUrl: pair.displayDataUrl,
+    thumbUrl: pair.thumbDataUrl,
+    displayPath: '',
+    thumbPath: '',
+    storageProvider: 'inline-profile-fallback'
+  };
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
+    console.warn('Firebase Storage is not available. Saving compressed member photo in camp profile fallback.');
+    return fallback;
+  }
+  const entityId = `member-${slugify(profile.name || profile.email || 'member')}-${Date.now()}`;
+  try{
+    const uploaded = await window.DeerCampStorage.uploadCampImagePair({
+      campId: activeCampId,
+      folder: 'profile-photos',
+      entityId,
+      displayDataUrl: pair.displayDataUrl,
+      thumbDataUrl: pair.thumbDataUrl
+    });
+    return uploaded || fallback;
+  }catch(storageError){
+    console.warn('Firebase Storage member profile photo upload failed. Saving compressed member photo in camp profile fallback.', storageError);
+    return fallback;
+  }
+}
+function renderMemberProfileEditForm(profile = {}){
+  const wrap = document.getElementById('memberModalEditAction');
+  if(!wrap) return;
+  if(!canEditMemberProfile(profile)){
+    wrap.textContent = 'Member profile changes can be made by the Camp Steward or from Member View.';
+    return;
+  }
+  wrap.innerHTML = `
+    <form id="memberInlineProfileForm" class="member-edit-form">
+      <label>Name<input id="memberInlineName" type="text" value="${esc(cleanProfileDisplayValue(profile.name))}" placeholder="Member name"></label>
+      <label>Email<input id="memberInlineEmail" type="email" value="${esc(cleanProfileDisplayValue(profile.email))}" placeholder="name@example.com"></label>
+      <label class="span-2 steward-photo-field">Member Photo
+        <input id="memberInlinePhotoUpload" type="file" accept="image/*">
+        <div id="memberInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Member')}</span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement member photo. On save, DeerCamp stores the image in Firebase Storage or saves a compressed fallback if cloud storage is unavailable.</span></div>
+      </label>
+      <label>Nickname<input id="memberInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
+      <label>Joined<input id="memberInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
+      <label>Favorite Stand<input id="memberInlineFavoriteStand" type="text" value="${esc(cleanProfileDisplayValue(profile.favoriteStand))}" placeholder="Favorite stand"></label>
+      <label>Favorite Gear<input id="memberInlineFavoriteGear" type="text" value="${esc(cleanProfileDisplayValue(profile.favoriteGear))}" placeholder="Favorite gear"></label>
+      <label>Harvest Highlight<input id="memberInlineHarvest" type="text" value="${esc(cleanProfileDisplayValue(profile.harvestHighlight))}" placeholder="Best harvest moment"></label>
+      <label>Best Camp Memory<input id="memberInlineMemory" type="text" value="${esc(cleanProfileDisplayValue(profile.bestCampMemory))}" placeholder="Favorite camp memory"></label>
+      <label class="span-2">Specialty<input id="memberInlineSpecialty" type="text" value="${esc(cleanProfileDisplayValue(profile.specialty))}" placeholder="Camp cook, storyteller, tracker..."></label>
+      <label class="span-2">Note<textarea id="memberInlineNote" placeholder="What should the camp know about this member?">${esc(cleanProfileDisplayValue(profile.note))}</textarea></label>
+      <div class="member-edit-actions span-2">
+        <button class="btn" type="submit">Save Member Profile</button>
+        <button id="cancelMemberInlineEditBtn" class="btn btn-secondary" type="button">Cancel</button>
+        <span id="memberInlineStatus" class="member-edit-status"></span>
+      </div>
+    </form>`;
+  document.getElementById('memberInlineProfileForm')?.addEventListener('submit', saveMemberProfileFromModal);
+  document.getElementById('memberInlinePhotoUpload')?.addEventListener('change', previewMemberProfilePhotoFile);
+  document.getElementById('cancelMemberInlineEditBtn')?.addEventListener('click', () => renderMemberModalEditAction(activeMemberModalProfile || profile));
+}
+function memberProfileMatches(item = {}, profile = {}){
+  const itemEmail = String(item?.email || '').trim().toLowerCase();
+  const profileEmail = String(profile?.email || '').trim().toLowerCase();
+  if(itemEmail && profileEmail && itemEmail === profileEmail) return true;
+  const itemName = String(item?.name || '').trim().toLowerCase();
+  const profileName = String(profile?.name || '').trim().toLowerCase();
+  return !!(itemName && profileName && itemName === profileName && String(item?.role || '').trim().toLowerCase() !== 'camp steward');
+}
+function upsertMemberInArray(items = [], nextProfile = {}, previousProfile = {}){
+  const arr = Array.isArray(items) ? items.slice() : [];
+  const idx = arr.findIndex(item => memberProfileMatches(item, previousProfile) || memberProfileMatches(item, nextProfile));
+  const merged = { ...(idx >= 0 ? arr[idx] : {}), ...nextProfile, role: nextProfile.role || 'Camp Member' };
+  if(idx >= 0) arr[idx] = merged; else arr.push(merged);
+  return arr;
+}
+function syncMemberProfileToDashboardCache(nextProfile = {}, previousProfile = {}){
+  try{
+    const scopedKey = campScopeKey(activeCampId, 'dashboardSlim');
+    const dashboard = safeParseJson(scopedKey ? localStorage.getItem(scopedKey) : '', safeParseJson(localStorage.getItem('deercamp.stewardDashboardSlim'), {}));
+    if(dashboard && typeof dashboard === 'object'){
+      dashboard.members = upsertMemberInArray(dashboard.members, nextProfile, previousProfile);
+      dashboard.people = upsertMemberInArray(dashboard.people, nextProfile, previousProfile);
+      dashboard.dashboardMembers = upsertMemberInArray(dashboard.dashboardMembers, nextProfile, previousProfile);
+      dashboard.dashboardPeople = upsertMemberInArray(dashboard.dashboardPeople, nextProfile, previousProfile);
+      if(scopedKey) localStorage.setItem(scopedKey, JSON.stringify(dashboard));
+      localStorage.setItem('deercamp.stewardDashboardSlim', JSON.stringify(dashboard));
+      localStorage.setItem('deerCampStewardDashboard', JSON.stringify(dashboard));
+    }
+  }catch(error){console.warn('Could not sync member profile to dashboard cache.', error);}
+}
+function refreshVisibleMemberProfile(nextProfile = {}, previousProfile = {}){
+  if(activeMemberModalSource) Object.assign(activeMemberModalSource, nextProfile);
+  const rosterTargets = [stewardMember, ...(additionalMembers || [])].filter(Boolean);
+  rosterTargets.forEach(item => {
+    if(memberProfileMatches(item, previousProfile) || memberProfileMatches(item, nextProfile)) Object.assign(item, nextProfile);
+  });
+  activeMemberModalProfile = buildDetailedMemberProfile(nextProfile, nextProfile.role || 'Camp Member');
+  applyMemberModalProfileDisplay(activeMemberModalProfile);
+  renderMemberModalEditAction(activeMemberModalProfile);
+  if(stewardWrap && stewardMember){stewardWrap.innerHTML=''; stewardWrap.appendChild(buildHeaderMemberButton(stewardMember, true));}
+  renderCampMembersSection();
+  populateMemberSelects();
+}
+async function saveMemberProfileFromModal(event){
+  event.preventDefault();
+  const existing = activeMemberModalProfile || {};
+  if(!canEditMemberProfile(existing)){
+    try{ showToast('Member profile changes can be made by the Camp Steward or from Member View.'); }catch(error){ alert('Member profile changes can be made by the Camp Steward or from Member View.'); }
+    return;
+  }
+  const read = id => String(document.getElementById(id)?.value || '').trim();
+  const status = document.getElementById('memberInlineStatus');
+  let photo = String(existing.photo || existing.profilePhoto || existing.avatar || '').trim();
+  const photoFile = document.getElementById('memberInlinePhotoUpload')?.files?.[0] || null;
+  const roleTemplate = getRoleTemplate('Camp Member');
+  const previousProfile = { ...existing };
+  const nextProfile = {
+    ...existing,
+    name: read('memberInlineName') || existing.name || 'Camp Member',
+    email: read('memberInlineEmail') || existing.email || '',
+    nickname: read('memberInlineNickname'),
+    yearJoined: read('memberInlineYearJoined'),
+    favoriteStand: read('memberInlineFavoriteStand'),
+    favoriteGear: read('memberInlineFavoriteGear'),
+    harvestHighlight: read('memberInlineHarvest'),
+    bestCampMemory: read('memberInlineMemory'),
+    specialty: read('memberInlineSpecialty'),
+    note: read('memberInlineNote') || roleTemplate.roleLine,
+    role: existing.role || 'Camp Member',
+    roleLine: read('memberInlineNote') || roleTemplate.roleLine,
+    responsibilitiesLabel: roleTemplate.responsibilitiesLabel,
+    responsibilities: roleTemplate.responsibilities.slice(),
+    profileUpdatedAt: new Date().toISOString()
+  };
+  if(photoFile){
+    try{
+      if(status) status.textContent = 'Preparing member photo...';
+      const uploadedPhoto = await uploadMemberProfilePhoto(photoFile, nextProfile);
+      if(uploadedPhoto && uploadedPhoto.displayUrl){
+        photo = uploadedPhoto.displayUrl;
+        nextProfile.profilePhotoThumbUrl = uploadedPhoto.thumbUrl || '';
+        nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
+        nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
+        nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
+        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed member photo fallback.';
+      }
+    }catch(error){
+      console.warn('Could not upload member profile photo.', error);
+      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
+      return;
+    }
+  }
+  if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
+  data.memberProfiles = upsertMemberInArray(data.memberProfiles, nextProfile, previousProfile);
+  data.members = upsertMemberInArray(data.members, nextProfile, previousProfile);
+  data.campMembers = upsertMemberInArray(data.campMembers, nextProfile, previousProfile);
+  data.dashboardMembers = upsertMemberInArray(data.dashboardMembers, nextProfile, previousProfile);
+  data.dashboardPeople = upsertMemberInArray(data.dashboardPeople, nextProfile, previousProfile);
+  if(data.dashboardSlim && typeof data.dashboardSlim === 'object'){
+    data.dashboardSlim.members = upsertMemberInArray(data.dashboardSlim.members, nextProfile, previousProfile);
+    data.dashboardSlim.people = upsertMemberInArray(data.dashboardSlim.people, nextProfile, previousProfile);
+  }
+  try{
+    if(status) status.textContent = 'Saving...';
+    persist();
+    syncMemberProfileToDashboardCache(nextProfile, previousProfile);
+    refreshVisibleMemberProfile(nextProfile, previousProfile);
+    if(status) status.textContent = 'Saved.';
+  }catch(error){
+    console.warn('Could not save member profile.', error);
+    if(status) status.textContent = 'Save failed. Please try again.';
+  }
 }
 function upsertStewardInArray(items = [], nextProfile = {}){
   const arr = Array.isArray(items) ? items.slice() : [];
