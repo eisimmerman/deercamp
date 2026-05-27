@@ -4201,19 +4201,67 @@ function closeRecipeModal(){document.getElementById('recipeModalBackdrop').class
 document.getElementById('closeRecipeModal').onclick=closeRecipeModal; document.getElementById('recipeModalBackdrop').onclick=closeRecipeModal;
 
 function ensureStateSeasonOpeners(){
-  const stateCode=String(data.state||data.campState||'').trim().toUpperCase();
-  if(stateCode!=='WI') return;
-  const year=(new Date()).getFullYear();
-  const official=[
-    {date:`${year}-09-12`, title:'Archery/Bow Opener', member:'DeerCamp', description:'Wisconsin statewide archery / bow opener.', icon:'🏹', source:'official'},
-    {date:`${year}-11-21`, title:'Deer Gun/Rifle Opener', member:'DeerCamp', description:'Wisconsin statewide deer gun / rifle opener.', icon:'🦌', source:'official'},
-    {date:`${year}-11-30`, title:'Deer Black Powder/Muzzleloader Opener', member:'DeerCamp', description:'Wisconsin statewide black powder / muzzleloader opener.', icon:'🔥', source:'official'}
+  const rawStateParts = [
+    data.state,
+    data.campState,
+    data.location,
+    data.campLocation,
+    data.city,
+    data.zip,
+    data.campId,
+    activeCampId
+  ].map(value => String(value || "").trim()).filter(Boolean);
+  const stateText = rawStateParts.join(" ").toUpperCase();
+  const isWisconsinCamp =
+    /\bWI\b/.test(stateText) ||
+    /\bWISCONSIN\b/.test(stateText) ||
+    /\b54732\b/.test(stateText) ||
+    /CORNELL/.test(stateText);
+  if(!isWisconsinCamp) return;
+
+  const wiDnrDeerSeasons2026 = [
+    {
+      date: "2026-09-12",
+      title: "WI Archery & Crossbow Deer Season Opens",
+      member: "Wisconsin DNR",
+      description: "Archery and crossbow deer season opens Sept. 12, 2026 and runs statewide through Jan. 3, 2027. Some Metro Sub-units and select DMUs continue through Jan. 31, 2027. Check current Wisconsin DNR regulations before hunting.",
+      icon: "🏹",
+      source: "wi-dnr-deer-season-2026"
+    },
+    {
+      date: "2026-11-21",
+      title: "WI Gun Deer Season Opens",
+      member: "Wisconsin DNR",
+      description: "Wisconsin statewide gun deer season runs Nov. 21-29, 2026. Check current Wisconsin DNR regulations before hunting.",
+      icon: "🦌",
+      source: "wi-dnr-deer-season-2026"
+    },
+    {
+      date: "2026-11-30",
+      title: "WI Muzzleloader Deer Season Opens",
+      member: "Wisconsin DNR",
+      description: "Wisconsin muzzleloader deer season runs Nov. 30-Dec. 9, 2026. Check current Wisconsin DNR regulations before hunting.",
+      icon: "🔥",
+      source: "wi-dnr-deer-season-2026"
+    }
   ];
-  official.forEach(ev=>{
-    const exists=calendarEvents.some(item=>String(item.date||'')===ev.date && String(item.title||'').toLowerCase()===ev.title.toLowerCase());
-    if(!exists) calendarEvents.push(ev);
+
+  const existingKeys = new Set(calendarEvents.map(item => [
+    String(item.date || "").trim(),
+    String(item.title || "").trim().toLowerCase()
+  ].join("|")));
+
+  wiDnrDeerSeasons2026.forEach(ev => {
+    const key = [ev.date, ev.title.toLowerCase()].join("|");
+    if(!existingKeys.has(key)) {
+      calendarEvents.push(ev);
+      existingKeys.add(key);
+    }
   });
-  calendarEvents = calendarEvents.slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')) || String(a.title||'').localeCompare(String(b.title||'')));
+
+  calendarEvents = calendarEvents
+    .slice()
+    .sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")) || String(a.title||"").localeCompare(String(b.title||"")));
 }
 ensureStateSeasonOpeners();
 calendarEvents = normalizeCalendarEvents(calendarEvents);
