@@ -133,8 +133,6 @@ export default function HomeScreen() {
           Tap badge to record both audio and photo.
         </Text>
 
-        <Text style={styles.instructionsText}>Tap here for</Text>
-
         <Pressable
           style={({ pressed }) => [
             styles.photoOnlyBtn,
@@ -146,9 +144,20 @@ export default function HomeScreen() {
               params: { mode: "photo" },
             })
           }
-          accessibilityLabel="Photo only"
+          accessibilityLabel="Tap here for photo only"
         >
-          <Text style={styles.photoOnlyBtnText}>Photo Only</Text>
+          <Text style={styles.photoOnlyBtnText}>Tap Here - Photo Only</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.memoriesLink,
+            pressed && styles.memoriesLinkPressed,
+          ]}
+          onPress={() => router.push("/memories")}
+          accessibilityLabel="Access saved field memories"
+        >
+          <Text style={styles.memoriesLinkText}>Access memories here</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -245,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 16,
+    paddingBottom: 14,
     gap: 10,
     alignItems: "center",
   },
@@ -261,9 +270,9 @@ const styles = StyleSheet.create({
   photoOnlyBtn: {
     backgroundColor: "white",
     borderRadius: 999,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    minWidth: 190,
+    minWidth: 230,
     alignItems: "center",
   },
 
@@ -273,8 +282,25 @@ const styles = StyleSheet.create({
 
   photoOnlyBtnText: {
     color: "#0B0E12",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "900",
+  },
+
+  memoriesLink: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+
+  memoriesLinkPressed: {
+    opacity: 0.7,
+  },
+
+  memoriesLinkText: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 13,
+    fontWeight: "900",
+    textDecorationLine: "underline",
   },
 
   gateTitle: {
