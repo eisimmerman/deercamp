@@ -823,8 +823,71 @@ function getRoleTemplate(role = "Camp Member") {
   const key = String(role || "Camp Member").trim().toLowerCase();
   return ROLE_TEMPLATES[key] || ROLE_TEMPLATES["camp member"];
 }
+function getProfilePhotoCandidate(value){
+  if(!value) return "";
+  if(typeof value === "string") return value.trim();
+  if(typeof value === "object") {
+    return String(value.displayUrl || value.url || value.photoUrl || value.imageUrl || value.thumbUrl || value.thumbnailUrl || value.downloadURL || "").trim();
+  }
+  return "";
+}
+function getMemberPhotoUrl(member = {}){
+  const candidates = [
+    member.photo,
+    member.profilePhoto,
+    member.avatar,
+    member.stewardPhoto,
+    member.stewardProfilePhoto,
+    member.stewardAvatar,
+    member.photoUrl,
+    member.profilePhotoUrl,
+    member.profilePhotoThumbUrl,
+    member.avatarUrl,
+    member.imageUrl,
+    member.displayUrl,
+    member.thumbUrl,
+    member.thumbnailUrl,
+    member.downloadURL,
+    member.storageUrl,
+    member.picture,
+    member.pictureUrl,
+    member.photoDataUrl,
+    member.profilePhotoDataUrl
+  ];
+  for(const item of candidates){
+    const clean = getProfilePhotoCandidate(item);
+    if(clean) return clean;
+  }
+  return "";
+}
+function isCampSwedePublicDemo(){
+  const values = [activeCampId, data?.campId, data?.name, data?.campName, data?.dashboardSlim?.camp?.name]
+    .map(value => String(value || "").trim().toLowerCase())
+    .filter(Boolean);
+  return values.some(value => value.includes("swede"));
+}
+function isMemberProfilePrivate(member = {}){
+  if(isCampSwedePublicDemo()) return false;
+  const role = String(member.role || "").trim().toLowerCase();
+  if(role === "camp steward") return false;
+  if(member.publicProfile === true || member.profilePublic === true || member.isPublic === true) return false;
+  if(member.privateProfile === true || member.profilePrivate === true || member.memberProfilePrivate === true || member.isPrivate === true) return true;
+  const privacy = String(member.profileVisibility || member.visibility || member.profilePrivacy || member.privacy || "").trim().toLowerCase();
+  return ["private", "member", "members", "members-only", "members only", "camp-only", "camp only"].includes(privacy);
+}
+function canOpenMemberProfile(member = {}){
+  if(isCampSwedePublicDemo()) return true;
+  if(isCurrentSteward()) return true;
+  if(!isMemberProfilePrivate(member)) return true;
+  const role = getCurrentSecurityRole();
+  return role === "member" || role === "steward";
+}
+function shouldShowMemberEmail(profile = {}){
+  return isCurrentSteward();
+}
 function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
   const roleTemplate = getRoleTemplate(member.role || fallbackRole);
+  const photo = getMemberPhotoUrl(member);
   return {
     name: String(member.name || "").trim(),
     role: String(member.role || roleTemplate.title).trim() || roleTemplate.title,
@@ -841,7 +904,12 @@ function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
     specialty: String(member.specialty || "—").trim() || "—",
     note: String(member.note || roleTemplate.roleLine).trim() || roleTemplate.roleLine,
     profileUpdatedAt: String(member.profileUpdatedAt || member.updatedAt || member.stewardProfileUpdatedAt || "").trim(),
-    photo: String(member.photo || member.profilePhoto || member.avatar || member.stewardPhoto || member.stewardProfilePhoto || member.stewardAvatar || "").trim()
+    photo,
+    profilePhoto: photo,
+    avatar: photo,
+    profileVisibility: String(member.profileVisibility || member.visibility || member.profilePrivacy || member.privacy || "").trim(),
+    publicProfile: member.publicProfile === true || member.profilePublic === true || member.isPublic === true,
+    privateProfile: member.privateProfile === true || member.profilePrivate === true || member.memberProfilePrivate === true || member.isPrivate === true
   };
 }
 
@@ -1842,8 +1910,8 @@ function getDashboardProfileSources() {
 }
 
 function profileValueScore(member = {}) {
-  const fields = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar","nickname","yearJoined","favoriteStand","favoriteGear","harvestHighlight","bestCampMemory","specialty","roleLine","note"];
-  return fields.reduce((score, key) => score + (String(member[key] || "").trim() ? (key === "photo" || key === "profilePhoto" || key === "avatar" ? 5 : 1) : 0), 0);
+  const fields = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar","photoUrl","profilePhotoUrl","profilePhotoThumbUrl","imageUrl","displayUrl","thumbUrl","thumbnailUrl","nickname","yearJoined","favoriteStand","favoriteGear","harvestHighlight","bestCampMemory","specialty","roleLine","note"];
+  return fields.reduce((score, key) => score + (String(member[key] || "").trim() ? (["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar","photoUrl","profilePhotoUrl","profilePhotoThumbUrl","imageUrl","displayUrl","thumbUrl","thumbnailUrl"].includes(key) ? 5 : 1) : 0), 0);
 }
 
 function mergeMemberProfile(previous = {}, member = {}) {
@@ -1857,7 +1925,7 @@ function mergeMemberProfile(previous = {}, member = {}) {
     const cleanNext = String(nextValue ?? "").trim();
     const cleanPrev = String(merged[key] ?? "").trim();
     if(!cleanNext || cleanNext === "—") return;
-    const photoKeys = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar"];
+    const photoKeys = ["photo","profilePhoto","avatar","stewardPhoto","stewardProfilePhoto","stewardAvatar","photoUrl","profilePhotoUrl","profilePhotoThumbUrl","avatarUrl","imageUrl","displayUrl","thumbUrl","thumbnailUrl","downloadURL","storageUrl","picture","pictureUrl","photoDataUrl","profilePhotoDataUrl"];
     if(photoKeys.includes(key)) {
       merged.photo = cleanNext;
       merged.profilePhoto = cleanNext;
@@ -1866,7 +1934,7 @@ function mergeMemberProfile(previous = {}, member = {}) {
     }
     if(!cleanPrev || cleanPrev === "—" || cleanNext.length >= cleanPrev.length) merged[key] = nextValue;
   });
-  const photo = String(merged.photo || merged.profilePhoto || merged.avatar || "").trim();
+  const photo = getMemberPhotoUrl(merged);
   if(photo){ merged.photo = photo; merged.profilePhoto = photo; merged.avatar = photo; }
   return merged;
 }
@@ -1933,7 +2001,9 @@ const additionalMembers=roster.filter(member=>String(member.role||"").toLowerCas
 function buildHeaderMemberButton(member, isSteward=false){
   const btn=document.createElement("button"); btn.className="camp-member-link"; btn.type="button";
   btn.innerHTML=`<span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)} ${isSteward?'<span class="camp-member-role-tag">Steward</span>':''}</span>`;
-  btn.addEventListener("click",()=>openMemberModal(member));
+  btn.addEventListener("click",()=>{
+    if(canOpenMemberProfile(member)) openMemberModal(member);
+  });
   return btn;
 }
 
@@ -1947,7 +2017,7 @@ if(stewardMember && mobileStewardButton && mobileStewardName){
   const mobileBadge = mobileStewardButton.querySelector(".mobile-steward-badge");
   if(mobileBadge) mobileBadge.innerHTML = renderAvatarMarkup(stewardMember, stewardMember.name);
   mobileStewardName.textContent = stewardMember.name || "Camp Steward";
-  mobileStewardButton.addEventListener("click",()=>openMemberModal(stewardMember));
+  mobileStewardButton.addEventListener("click",()=>{ if(canOpenMemberProfile(stewardMember)) openMemberModal(stewardMember); });
 }
 
 function closeMembersSheet(){
@@ -1964,8 +2034,15 @@ function openMembersSheet(){
     const card=document.createElement("button");
     card.type="button";
     card.className="members-section-card";
-    card.innerHTML=`<div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)}</span></div><p class="member-note">${esc(member.note || member.role || "Camp Member")}</p>`;
+    const canOpen = canOpenMemberProfile(member);
+    const isPrivate = isMemberProfilePrivate(member);
+    card.innerHTML=`<div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)}</span></div><p class="member-note">${esc(!canOpen && isPrivate ? "Private member profile" : (member.note || member.role || "Camp Member"))}</p>`;
+    if(!canOpen){
+      card.setAttribute("aria-disabled", "true");
+      card.title = "Private member profile";
+    }
     card.addEventListener("click",()=>{
+      if(!canOpen) return;
       closeMembersSheet();
       openMemberModal(member);
     });
@@ -2067,7 +2144,7 @@ function renderMemberResponsibilityList(items = []){
   list.innerHTML = (Array.isArray(items) ? items : []).map(item => `<li>${esc(item)}</li>`).join("");
 }
 function renderAvatarMarkup(member = {}, fallbackLabel = "DC"){
-  const photo = String(member?.photo || member?.profilePhoto || member?.avatar || member?.stewardPhoto || member?.stewardProfilePhoto || member?.stewardAvatar || "").trim();
+  const photo = getMemberPhotoUrl(member || {});
   if(photo){
     return `<img src="${esc(photo)}" alt="${esc(member?.name || fallbackLabel)}">`;
   }
@@ -2088,7 +2165,7 @@ function applyMemberModalProfileDisplay(profile = {}){
   document.getElementById("memberModalResponsibilitiesLabel").textContent=profile.responsibilitiesLabel||"Role & responsibilities";
   renderMemberResponsibilityList(profile.responsibilities || []);
   document.getElementById("memberModalDetailName").textContent=profile.name||"—";
-  document.getElementById("memberModalDetailEmail").textContent=profile.email||"—";
+  document.getElementById("memberModalDetailEmail").textContent=shouldShowMemberEmail(profile) ? (profile.email||"—") : "Hidden for public view";
   document.getElementById("memberModalYearJoined").textContent=(/^\d{4}$/.test(String(profile.yearJoined||"").trim()) && String(profile.yearJoined).trim() !== String(data.established||"").trim()) ? profile.yearJoined : "—";
   document.getElementById("memberModalNickname").textContent=profile.nickname||"—";
   document.getElementById("memberModalStand").textContent=profile.favoriteStand||"—";
@@ -2148,18 +2225,32 @@ async function buildStewardProfilePhotoPair(file){
 }
 async function uploadStewardProfilePhoto(file, profile = {}){
   if(!file) return null;
-  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
-    throw new Error('Firebase Storage is not available.');
-  }
   const pair = await buildStewardProfilePhotoPair(file);
+  const fallback = {
+    displayUrl: pair.displayDataUrl,
+    thumbUrl: pair.thumbDataUrl,
+    displayPath: '',
+    thumbPath: '',
+    storageProvider: 'inline-profile-fallback'
+  };
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
+    console.warn('Firebase Storage is not available. Saving compressed Steward photo in camp profile fallback.');
+    return fallback;
+  }
   const entityId = `steward-${slugify(profile.name || data.stewardName || 'steward')}-${Date.now()}`;
-  return window.DeerCampStorage.uploadCampImagePair({
-    campId: activeCampId,
-    folder: 'profile-photos',
-    entityId,
-    displayDataUrl: pair.displayDataUrl,
-    thumbDataUrl: pair.thumbDataUrl
-  });
+  try{
+    const uploaded = await window.DeerCampStorage.uploadCampImagePair({
+      campId: activeCampId,
+      folder: 'profile-photos',
+      entityId,
+      displayDataUrl: pair.displayDataUrl,
+      thumbDataUrl: pair.thumbDataUrl
+    });
+    return uploaded || fallback;
+  }catch(storageError){
+    console.warn('Firebase Storage profile photo upload failed. Saving compressed Steward photo in camp profile fallback.', storageError);
+    return fallback;
+  }
 }
 async function buildCampFeedPhotoPair(file){
   if(!file) return null;
@@ -2293,7 +2384,7 @@ async function saveStewardProfileFromModal(event){
   };
   if(photoFile){
     try{
-      if(status) status.textContent = 'Uploading Steward photo...';
+      if(status) status.textContent = 'Preparing Steward photo...';
       uploadedPhoto = await uploadStewardProfilePhoto(photoFile, nextProfile);
       if(uploadedPhoto && uploadedPhoto.displayUrl){
         photo = uploadedPhoto.displayUrl;
@@ -2301,6 +2392,7 @@ async function saveStewardProfileFromModal(event){
         nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
         nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
         nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
+        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed profile photo fallback.';
       }
     }catch(error){
       console.warn('Could not upload Steward profile photo.', error);
@@ -2347,6 +2439,7 @@ async function saveStewardProfileFromModal(event){
   catch(error){console.warn('Could not save Steward profile.', error); if(status) status.textContent='Save failed. Please try again.';}
 }
 function openMemberModal(member){
+  if(!canOpenMemberProfile(member || {})) return;
   activeMemberModalSource = member || null;
   const profile = buildDetailedMemberProfile(member, member?.role || "Camp Member");
   activeMemberModalProfile = profile;
