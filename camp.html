@@ -2612,52 +2612,7 @@ function refreshVisibleStewardProfile(nextProfile = {}){
   renderCampMembersSection();
   populateMemberSelects();
 }
-async function saveStewardProfileFromModal(event){
-  event.preventDefault();
-  if(!requireCurrentSteward("Only the Camp Steward can edit the Steward profile.")) return;
-  const read = id => String(document.getElementById(id)?.value || '').trim();
-  const status = document.getElementById('stewardInlineStatus');
-  const existing = activeMemberModalProfile || {};
-  let photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
-  let uploadedPhoto = null;
-  const photoFile = document.getElementById('stewardInlinePhotoUpload')?.files?.[0] || null;
-  const nextProfile = {
-    ...existing,
-    name: read('stewardInlineName') || existing.name || 'Camp Steward',
-    email: read('stewardInlineEmail'),
-    nickname: read('stewardInlineNickname'),
-    yearJoined: read('stewardInlineYearJoined'),
-    favoriteStand: read('stewardInlineFavoriteStand'),
-    favoriteGear: read('stewardInlineFavoriteGear'),
-    harvestHighlight: read('stewardInlineHarvest'),
-    bestCampMemory: read('stewardInlineMemory'),
-    specialty: read('stewardInlineSpecialty'),
-    note: read('stewardInlineNote') || getRoleTemplate('Camp Steward').roleLine,
-    role: 'Camp Steward',
-    roleLine: read('stewardInlineNote') || getRoleTemplate('Camp Steward').roleLine,
-    responsibilitiesLabel: getRoleTemplate('Camp Steward').responsibilitiesLabel,
-    responsibilities: getRoleTemplate('Camp Steward').responsibilities.slice(),
-    profileUpdatedAt: new Date().toISOString()
-  };
-  if(photoFile){
-    try{
-      if(status) status.textContent = 'Preparing Steward photo...';
-      uploadedPhoto = await uploadStewardProfilePhoto(photoFile, nextProfile);
-      if(uploadedPhoto && uploadedPhoto.displayUrl){
-        photo = uploadedPhoto.displayUrl;
-        nextProfile.profilePhotoThumbUrl = uploadedPhoto.thumbUrl || '';
-        nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
-        nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
-        nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
-        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed profile photo fallback.';
-      }
-    }catch(error){
-      console.warn('Could not upload Steward profile photo.', error);
-      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
-      return;
-    }
-  }
-  if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
+function applyStewardProfileToCampData(nextProfile = {}){
   data.stewardName = nextProfile.name;
   data.steward = nextProfile.name;
   data.campSteward = nextProfile.name;
@@ -2676,10 +2631,17 @@ async function saveStewardProfileFromModal(event){
     data.stewardPhoto = nextProfile.photo;
     data.stewardProfilePhoto = nextProfile.photo;
     data.stewardAvatar = nextProfile.photo;
+  } else {
+    delete data.stewardPhoto;
+    delete data.stewardProfilePhoto;
+    delete data.stewardAvatar;
   }
   if(nextProfile.profilePhotoThumbUrl) data.stewardProfilePhotoThumbUrl = nextProfile.profilePhotoThumbUrl;
+  else delete data.stewardProfilePhotoThumbUrl;
   if(nextProfile.profilePhotoPath) data.stewardProfilePhotoPath = nextProfile.profilePhotoPath;
+  else delete data.stewardProfilePhotoPath;
   if(nextProfile.profilePhotoThumbPath) data.stewardProfilePhotoThumbPath = nextProfile.profilePhotoThumbPath;
+  else delete data.stewardProfilePhotoThumbPath;
   data.memberProfiles = upsertStewardInArray(data.memberProfiles, nextProfile);
   data.members = upsertStewardInArray(data.members, nextProfile);
   data.campMembers = upsertStewardInArray(data.campMembers, nextProfile);
@@ -2692,8 +2654,90 @@ async function saveStewardProfileFromModal(event){
     data.dashboardSlim.members = upsertStewardInArray(data.dashboardSlim.members, nextProfile);
     data.dashboardSlim.people = upsertStewardInArray(data.dashboardSlim.people, nextProfile);
   }
-  try{persist(); syncStewardProfileToDashboardCache(nextProfile); refreshVisibleStewardProfile(nextProfile); if(status) status.textContent='Saved.';}
-  catch(error){console.warn('Could not save Steward profile.', error); if(status) status.textContent='Save failed. Please try again.';}
+}
+async function saveStewardProfileFromModal(event){
+  event.preventDefault();
+  if(!requireCurrentSteward("Only the Camp Steward can edit the Steward profile.")) return;
+  const read = id => String(document.getElementById(id)?.value || '').trim();
+  const status = document.getElementById('stewardInlineStatus');
+  const existing = activeMemberModalProfile || {};
+  const previousProfile = { ...existing };
+  let photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
+  const photoFile = document.getElementById('stewardInlinePhotoUpload')?.files?.[0] || null;
+  const stewardTemplate = getRoleTemplate('Camp Steward');
+  const nextProfile = {
+    ...existing,
+    name: read('stewardInlineName') || existing.name || 'Camp Steward',
+    email: read('stewardInlineEmail'),
+    nickname: read('stewardInlineNickname'),
+    yearJoined: read('stewardInlineYearJoined'),
+    favoriteStand: read('stewardInlineFavoriteStand'),
+    favoriteGear: read('stewardInlineFavoriteGear'),
+    harvestHighlight: read('stewardInlineHarvest'),
+    bestCampMemory: read('stewardInlineMemory'),
+    specialty: read('stewardInlineSpecialty'),
+    note: read('stewardInlineNote') || stewardTemplate.roleLine,
+    role: 'Camp Steward',
+    roleLine: read('stewardInlineNote') || stewardTemplate.roleLine,
+    responsibilitiesLabel: stewardTemplate.responsibilitiesLabel,
+    responsibilities: stewardTemplate.responsibilities.slice(),
+    profileUpdatedAt: new Date().toISOString()
+  };
+  if(photoFile){
+    try{
+      if(status) status.textContent = 'Preparing Steward photo...';
+      const uploadedPhoto = await uploadStewardProfilePhoto(photoFile, nextProfile);
+      if(uploadedPhoto && uploadedPhoto.displayUrl){
+        photo = uploadedPhoto.displayUrl;
+        nextProfile.profilePhotoThumbUrl = uploadedPhoto.thumbUrl || '';
+        nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
+        nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
+        nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
+        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed Steward photo fallback.';
+      }
+    }catch(error){
+      console.warn('Could not upload Steward profile photo.', error);
+      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
+      return;
+    }
+  }
+  if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
+  applyStewardProfileToCampData(nextProfile);
+  try{
+    if(status) status.textContent = 'Saving...';
+    persist();
+    syncStewardProfileToDashboardCache(nextProfile);
+    refreshVisibleStewardProfile(nextProfile);
+    if(status) status.textContent='Saved.';
+  }catch(error){
+    console.warn('Could not save Steward profile on first attempt.', error);
+    if(photoFile && compactInlineProfilePhoto(nextProfile)){
+      try{
+        applyStewardProfileToCampData(nextProfile);
+        persist();
+        syncStewardProfileToDashboardCache(nextProfile);
+        refreshVisibleStewardProfile(nextProfile);
+        if(status) status.textContent = 'Saved with a smaller compressed Steward photo.';
+        return;
+      }catch(compactError){
+        console.warn('Could not save compact Steward profile photo fallback.', compactError);
+      }
+    }
+    if(photoFile){
+      try{
+        restorePreviousProfilePhoto(nextProfile, previousProfile);
+        applyStewardProfileToCampData(nextProfile);
+        persist();
+        syncStewardProfileToDashboardCache(nextProfile);
+        refreshVisibleStewardProfile(nextProfile);
+        if(status) status.textContent = 'Saved Steward profile text. Photo was too large or cloud storage was unavailable.';
+        return;
+      }catch(textOnlyError){
+        console.warn('Could not save Steward profile without the new photo.', textOnlyError);
+      }
+    }
+    if(status) status.textContent='Save failed. Please try again.';
+  }
 }
 function openMemberModal(member){
   if(!canOpenMemberProfile(member || {})) return;
