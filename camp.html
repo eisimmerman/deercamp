@@ -196,13 +196,33 @@
   .day-dots{display:flex;gap:4px;min-height:10px;margin-top:8px}
   .dot{width:8px;height:8px;border-radius:999px;background:#7a4723}
   .selected-date{display:inline-flex;align-items:center;min-height:40px;padding:8px 14px;border-radius:999px;background:rgba(91,61,30,.10);color:#6b4624;font-size:.98rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+  .calendar-shell{display:grid;grid-template-columns:1fr;gap:18px}
+  .calendar-top-row{display:grid;grid-template-columns:minmax(360px,1.05fr) minmax(380px,.95fr);gap:18px;align-items:start}
+  .calendar-side{display:grid;grid-template-columns:1fr;gap:14px}
+  .calendar-add-card .form-grid{grid-template-columns:1fr;gap:12px;margin-top:14px}
+  .calendar-add-card .form-side,.calendar-add-card .form-main{gap:12px}
+  .calendar-lookahead{padding-top:18px;border-top:2px solid rgba(69,42,22,.18)}
+  .calendar-lookahead-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .calendar-lookahead-head h4{margin:0;color:var(--brown-deep)}
+  .calendar-lookahead-head p{margin:4px 0 0;color:var(--muted);font-size:.92rem;line-height:1.45}
+  .calendar-mini-row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .calendar-mini-card{padding:12px;border-radius:16px;background:rgba(255,255,255,.54);border:1px solid rgba(69,42,22,.08);min-width:0}
+  .calendar-mini-title{margin:0 0 8px;color:#452a16;font-size:.9rem;font-weight:900;text-align:center}
+  .calendar-mini-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+  .mini-weekday{text-align:center;color:#7b5a33;font-size:.58rem;font-weight:900;text-transform:uppercase;opacity:.76}
+  .mini-day{min-height:30px;padding:3px 2px;border:1px solid transparent;border-radius:9px;background:rgba(255,250,244,.68);color:#3a2717;font-size:.72rem;font-weight:800;cursor:pointer;display:grid;place-items:center;gap:2px}
+  .mini-day.empty{visibility:hidden;pointer-events:none}
+  .mini-day.has-event{border-color:rgba(73,102,71,.20);background:rgba(73,102,71,.10)}
+  .mini-day.selected{border-color:rgba(114,70,30,.58);box-shadow:inset 0 0 0 2px rgba(114,70,30,.18)}
+  .mini-day-dots{display:flex;justify-content:center;gap:2px;min-height:5px}
+  .mini-dot{width:5px;height:5px;border-radius:999px;background:#496647}
 
-  .calendar-shell,.calendar-main,.calendar-side,.calendar-grid,.calendar-event-list{overflow-anchor:none}
+  .calendar-shell,.calendar-main,.calendar-side,.calendar-grid,.calendar-event-list,.calendar-lookahead,.calendar-mini-row{overflow-anchor:none}
   .calendar-grid{touch-action:manipulation}
   .calendar-header .arrow,.calendar-event-nav .arrow,.day{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
   .calendar-event-list{min-height:150px}
   @media (max-width:720px){
-    .calendar-shell{grid-template-columns:1fr;gap:14px}
+    .calendar-shell,.calendar-top-row{grid-template-columns:1fr;gap:14px}
     .calendar-side{grid-template-columns:1fr;gap:14px}
     .calendar-main{padding:14px}
     .calendar-grid{gap:5px}
@@ -211,6 +231,8 @@
     .calendar-event-nav{display:flex;gap:10px;align-content:initial}
     .calendar-event-nav .arrow{width:44px;height:44px;flex:0 0 44px}
     .calendar-event-list{min-height:170px}
+    .calendar-mini-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .mini-day{min-height:28px}
   }
   .cinematic-footer{display:block;width:100%;line-height:0;overflow:hidden}
   .footer-logo{display:block;width:100%;height:auto}
@@ -388,7 +410,7 @@
     .menu.open{opacity:1;transform:translateY(0);pointer-events:auto}
   }
 
-  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.feed-modal-media{min-height:auto;max-height:58vh}.feed-modal-media img{width:auto;max-width:100%;max-height:58vh}.calendar-shell,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}}
+  @media (max-width:1100px){.carousel-track{grid-auto-columns:calc((100% - 32px)/3)}.feed-modal-card{grid-template-columns:1fr}.feed-modal-media{min-height:auto;max-height:58vh}.feed-modal-media img{width:auto;max-width:100%;max-height:58vh}.calendar-top-row,.calendar-side,.two-col,.recipe-columns{grid-template-columns:1fr}.calendar-mini-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
   @media (max-width:720px){.hero{height:clamp(180px,38vw,250px)}.hero-main-image{width:min(88vw,620px);max-width:calc(100vw - 20px);height:clamp(145px,34vw,210px)}.camp-title{font-size:1.7rem}.camp-meta{font-size:.98rem}.carousel-track{grid-auto-columns:100%}.recipes-grid,.traditions-grid,.member-detail-grid{grid-template-columns:1fr}.form-grid,.inline-3,.member-detail-row,.feed-comments-row{grid-template-columns:1fr}.header-inner{padding:12px 12px}.header-left,.header-right{top:10px}.header-center{padding:8px 64px 0}.camp-member-link,.members-trigger{font-size:.88rem}.member-modal-card,.members-sheet-card{width:100%}.members-sheet-card{max-height:82vh;padding:20px 14px 22px}}
   .mobile-upgrade-sticky{display:none}
   @media (max-width:720px){
@@ -3142,40 +3164,48 @@ visibleSections().forEach(section=>{
     container.innerHTML=`
       <h2>CampCalendar</h2>
       <div class="calendar-shell">
-        <div class="calendar-main">
-          <div class="calendar-header">
-            <button id="calendarPrev" class="arrow" type="button">◀</button>
-            <h3 id="calendarMonthLabel" style="margin:0"></h3>
-            <button id="calendarNext" class="arrow" type="button">▶</button>
-          </div>
-          <div id="calendarGrid" class="calendar-grid"></div>
-        </div>
-        <div class="calendar-side">
+        <div class="calendar-top-row">
           <div class="calendar-main">
-            <h4 style="margin-top:0">Current / selected events</h4>
-            <div class="calendar-event-shell">
-              <div id="calendarEventList" class="calendar-event-list"></div>
-              <div class="calendar-event-nav">
-                <button id="calendarEventsPrev" class="arrow" type="button" aria-label="Previous 3 events">▲</button>
-                <button id="calendarEventsNext" class="arrow" type="button" aria-label="Next 3 events">▼</button>
+            <div class="calendar-header">
+              <button id="calendarPrev" class="arrow" type="button">◀</button>
+              <h3 id="calendarMonthLabel" style="margin:0"></h3>
+              <button id="calendarNext" class="arrow" type="button">▶</button>
+            </div>
+            <div id="calendarGrid" class="calendar-grid"></div>
+          </div>
+          <div class="calendar-side">
+            <div class="calendar-main">
+              <h4 style="margin-top:0">Current / selected events</h4>
+              <div class="calendar-event-shell">
+                <div id="calendarEventList" class="calendar-event-list"></div>
+                <div class="calendar-event-nav">
+                  <button id="calendarEventsPrev" class="arrow" type="button" aria-label="Previous 3 events">▲</button>
+                  <button id="calendarEventsNext" class="arrow" type="button" aria-label="Next 3 events">▼</button>
+                </div>
               </div>
             </div>
+            <div class="calendar-main calendar-add-card">
+              <h4 style="margin-top:0">Add a Camp Event</h4>
+              <p class="section-helper" style="margin-top:0">Members can add setup days, meals, work weekends, scouting reminders, and other camp events.</p>
+              <div id="calendarSelectedDate" class="selected-date">Selected Date: None</div>
+              <form id="calendarMemberEventForm" class="form-grid">
+                <div class="form-side">
+                  <label class="form-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
+                </div>
+                <div class="form-main">
+                  <label class="form-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Final Setup"></label>
+                  <label class="form-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
+                  <div class="form-actions-full"><button id="calendarMemberEventSubmit" class="btn" type="submit">Add Event</button><div id="calendarMemberEventFeedback" class="feedback">Tap any calendar day or look-ahead dot to select the date, then choose a camp member from the roster.</div></div>
+                </div>
+              </form>
+            </div>
           </div>
-          <div class="calendar-main">
-            <h4 style="margin-top:0">Add a Camp Event</h4>
-            <p class="section-helper" style="margin-top:0">Members can add setup days, meals, work weekends, scouting reminders, and other camp events.</p>
-            <div id="calendarSelectedDate" class="selected-date">Selected Date: None</div>
-            <form id="calendarMemberEventForm" class="form-grid" style="margin-top:16px">
-              <div class="form-side">
-                <label class="form-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
-              </div>
-              <div class="form-main">
-                <label class="form-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Final Setup"></label>
-                <label class="form-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
-                <div class="form-actions-full"><button id="calendarMemberEventSubmit" class="btn" type="submit">Add Event</button><div id="calendarMemberEventFeedback" class="feedback">Tap any calendar day to place that date into the form, then choose a camp member from the roster.</div></div>
-              </div>
-            </form>
+        </div>
+        <div class="calendar-lookahead">
+          <div class="calendar-lookahead-head">
+            <div><h4>Next 6 months</h4><p>Dots mark days with scheduled camp events. Tap any date to show its events above.</p></div>
           </div>
+          <div id="calendarLookaheadGrid" class="calendar-mini-row"></div>
         </div>
       </div>`;
   }
@@ -4270,7 +4300,7 @@ contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEve
 const todayKey=new Date().toISOString().slice(0,10);
 let calendarCursor=new Date(); calendarCursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth(),1); let selectedDateKey=todayKey;
 function refreshCalendarSelectedClasses(){
-  document.querySelectorAll('#calendarGrid .day').forEach(cell=>{
+  document.querySelectorAll('#calendarGrid .day, #calendarLookaheadGrid .mini-day').forEach(cell=>{
     const key = cell.getAttribute('data-date-key') || '';
     cell.classList.toggle('selected', key && key === selectedDateKey);
   });
@@ -4291,6 +4321,34 @@ function populateCalendarGrid(){
     cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
     cell.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();}, event);});
     grid.appendChild(cell);
+  }
+}
+function renderCalendarLookahead(){
+  const shell=document.getElementById('calendarLookaheadGrid'); if(!shell) return;
+  const normalized=normalizeCalendarEvents(calendarEvents);
+  const byDate={}; normalized.forEach(ev=>{ if(ev && ev.date) (byDate[ev.date] ||= []).push(ev); });
+  const monthNames=[];
+  shell.innerHTML='';
+  for(let offset=1; offset<=6; offset++){
+    const cursor=new Date(calendarCursor.getFullYear(), calendarCursor.getMonth()+offset, 1);
+    const year=cursor.getFullYear(), month=cursor.getMonth();
+    const card=document.createElement('div'); card.className='calendar-mini-card';
+    const title=document.createElement('p'); title.className='calendar-mini-title'; title.textContent=cursor.toLocaleDateString(undefined,{month:'long',year:'numeric'}); card.appendChild(title);
+    const grid=document.createElement('div'); grid.className='calendar-mini-grid';
+    ['S','M','T','W','T','F','S'].forEach(d=>{const w=document.createElement('div'); w.className='mini-weekday'; w.textContent=d; grid.appendChild(w);});
+    const first=new Date(year,month,1), start=first.getDay(), days=new Date(year,month+1,0).getDate();
+    for(let i=0;i<start;i++){const empty=document.createElement('span'); empty.className='mini-day empty'; grid.appendChild(empty);}
+    for(let day=1; day<=days; day++){
+      const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      const events=byDate[dateKey]||[];
+      const btn=document.createElement('button'); btn.type='button'; btn.className='mini-day'+(events.length?' has-event':'')+(selectedDateKey===dateKey?' selected':''); btn.setAttribute('data-date-key',dateKey);
+      btn.setAttribute('aria-label', `${formatDateHuman(dateKey)}${events.length?`: ${events.length} event${events.length===1?'':'s'}`:''}`);
+      btn.innerHTML=`<span>${day}</span><span class="mini-day-dots">${events.slice(0,3).map(()=>'<span class="mini-dot"></span>').join('')}</span>`;
+      btn.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarCursor=new Date(year,month,1); calendarEventsOffset=0; populateCalendarGrid(); renderCalendarLookahead(); renderCalendarEvents(); updateSelectedDateChip();}, event);});
+      grid.appendChild(btn);
+    }
+    card.appendChild(grid);
+    shell.appendChild(card);
   }
 }
 function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
@@ -4329,9 +4387,9 @@ function renderCalendarEvents(){
   }
 }
 if(document.getElementById('calendarPrev')){
-  populateMemberSelects(); updateSelectedDateChip(); populateCalendarGrid(); renderCalendarEvents();
-  document.getElementById('calendarPrev').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();}, event);});
-  document.getElementById('calendarNext').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarEvents();updateSelectedDateChip();}, event);});
+  populateMemberSelects(); updateSelectedDateChip(); populateCalendarGrid(); renderCalendarLookahead(); renderCalendarEvents();
+  document.getElementById('calendarPrev').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()-1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarLookahead();renderCalendarEvents();updateSelectedDateChip();}, event);});
+  document.getElementById('calendarNext').addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarCursor=new Date(calendarCursor.getFullYear(),calendarCursor.getMonth()+1,1);calendarEventsOffset=0;populateCalendarGrid();renderCalendarLookahead();renderCalendarEvents();updateSelectedDateChip();}, event);});
   document.getElementById('calendarEventsPrev')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=Math.max(0, calendarEventsOffset-3); renderCalendarEvents();}, event);});
   document.getElementById('calendarEventsNext')?.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{calendarEventsOffset=calendarEventsOffset+3; renderCalendarEvents();}, event);});
   document.getElementById('calendarMemberEventForm').addEventListener('submit',e=>{
@@ -4346,7 +4404,7 @@ if(document.getElementById('calendarPrev')){
     const createdAt=new Date().toISOString(), createdAtMs=Date.now();
     contentSubmissions.unshift({type:'event',member,title:`${title} -- added to CampCalendar`,summary:`${formatDateHuman(selectedDateKey)} • ${description || 'Camp event submitted.'}`,createdAt,createdAtMs});
     try{ persist(); }catch(error){ setCalendarFeedback('CampCalendar could not save that event. Please try again.', true); return; }
-    calendarEvents = normalizeCalendarEvents(calendarEvents); preserveCalendarScroll(()=>{populateCalendarGrid(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); updateSelectedDateChip();}, e); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
+    calendarEvents = normalizeCalendarEvents(calendarEvents); preserveCalendarScroll(()=>{populateCalendarGrid(); renderCalendarLookahead(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); updateSelectedDateChip();}, e); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
   });
 }
 
@@ -4441,6 +4499,7 @@ async function pullLatestCampDataSilently(){
     if(document.getElementById("deerStandsGrid")) renderDeerStands();
     if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
     populateCalendarGrid();
+    renderCalendarLookahead();
     calendarEventsOffset = 0;
     renderCalendarEvents();
     updateSelectedDateChip();
