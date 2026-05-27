@@ -1077,16 +1077,37 @@
       const file = event?.target?.files?.[0];
       if (!file) return;
       const note = document.getElementById("memberFormNote");
-      setMemberFormNote("Compressing profile photo...", "");
+      setMemberFormNote("Uploading compressed profile photo to Firebase Storage...", "");
       try {
-        const compressed = await compressProfilePhoto(file);
+        if (!window.DeerCampStorage || typeof DeerCampStorage.uploadCampImageFilePair !== "function") {
+          throw new Error("Firebase Storage image upload helper is not available.");
+        }
+        const name = document.getElementById("memberName")?.value || "member";
+        const email = document.getElementById("memberEmail")?.value || "";
+        const entityId = `member-${slugify(name || email || Date.now())}-${Date.now()}`;
+        const uploaded = await DeerCampStorage.uploadCampImageFilePair({
+          campId: state.campId,
+          folder: "profile-photos",
+          entityId,
+          file,
+          targets: {
+            display: { maxSize: 420, quality: 0.72, maxBytes: 65000, attempts: [{ maxSize: 420, quality: 0.72 }, { maxSize: 340, quality: 0.66 }, { maxSize: 280, quality: 0.60 }] },
+            thumb: { maxSize: 160, quality: 0.62, maxBytes: 18000, attempts: [{ maxSize: 160, quality: 0.62 }, { maxSize: 128, quality: 0.56 }, { maxSize: 96, quality: 0.50 }] }
+          }
+        });
+        const displayUrl = uploaded && (uploaded.displayUrl || uploaded.thumbUrl) ? (uploaded.displayUrl || uploaded.thumbUrl) : "";
+        const thumbUrl = uploaded && (uploaded.thumbUrl || uploaded.displayUrl) ? (uploaded.thumbUrl || uploaded.displayUrl) : "";
+        if (!displayUrl) throw new Error("Profile photo upload did not return a Firebase Storage URL.");
         const photoInput = document.getElementById("memberPhoto");
-        if (photoInput) photoInput.value = compressed;
-        setMemberPhotoPreview(compressed, `Photo ready. Compressed from ${formatBytes(file.size)} to ${formatBytes(dataUrlBytes(compressed))}.`);
-        setMemberFormNote("Profile photo ready. Save the profile to keep it.", "success");
+        if (photoInput) photoInput.value = displayUrl;
+        setMemberPhotoPreview(thumbUrl || displayUrl, "Photo uploaded. DeerCamp will save only the Storage URL with the profile.");
+        setMemberFormNote("Profile photo uploaded to Firebase Storage. Save the profile to keep it.", "success");
       } catch (error) {
-        setMemberFormNote("Could not process that photo. Try a different image.", "error");
-        showToast("Could not process that photo.");
+        console.warn("Could not upload profile photo to Firebase Storage.", error);
+        const fileInput = document.getElementById("memberPhotoPicker");
+        if (fileInput) fileInput.value = "";
+        setMemberFormNote("Photo upload failed. DeerCamp will not store large inline photos. Try again or save without changing the photo.", "error");
+        showToast("Profile photo upload failed.");
       }
     }
 
@@ -2584,16 +2605,23 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         throw new Error("Firebase Storage upload helper is not available.");
       }
       setCampHeroUploadStatus("Uploading camp sign image...", "");
-      const img = await loadImageFromFile(file);
-      const images = makeImageDataUrlsFromImage(img, 1600, 0.78, 520, 0.66);
       const entityId = `camp-sign-${slugify(state.camp.name || state.campId || "camp")}-${Date.now()}`;
-      const uploaded = await DeerCampStorage.uploadCampImagePair({
-        campId: state.campId,
-        folder: "camp-signs",
-        entityId,
-        displayDataUrl: images.displayDataUrl,
-        thumbDataUrl: images.thumbDataUrl
-      });
+      const uploaded = typeof DeerCampStorage.uploadCampImageFilePair === "function"
+        ? await DeerCampStorage.uploadCampImageFilePair({
+            campId: state.campId,
+            folder: "camp-signs",
+            entityId,
+            file,
+            targets: {
+              display: { maxSize: 1600, quality: 0.78, maxBytes: 380000, attempts: [{ maxSize: 1600, quality: 0.78 }, { maxSize: 1400, quality: 0.74 }, { maxSize: 1200, quality: 0.70 }] },
+              thumb: { maxSize: 520, quality: 0.66, maxBytes: 90000, attempts: [{ maxSize: 520, quality: 0.66 }, { maxSize: 420, quality: 0.60 }, { maxSize: 320, quality: 0.56 }] }
+            }
+          })
+        : await (async () => {
+            const img = await loadImageFromFile(file);
+            const images = makeImageDataUrlsFromImage(img, 1600, 0.78, 520, 0.66);
+            return DeerCampStorage.uploadCampImagePair({ campId: state.campId, folder: "camp-signs", entityId, displayDataUrl: images.displayDataUrl, thumbDataUrl: images.thumbDataUrl });
+          })();
       if (!uploaded || (!uploaded.displayUrl && !uploaded.thumbUrl)) {
         throw new Error("Camp sign image upload did not return a Firebase Storage URL.");
       }
@@ -2661,15 +2689,9 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           }
         }
       } catch (error) {
-        console.warn("Basic field image upload failed; keeping compressed local fallback.", error);
+        console.warn("Basic field image upload failed. DeerCamp will not store inline base64 field images.", error);
       }
-      return {
-        image: thumbDataUrl,
-        thumbnail: thumbDataUrl,
-        detailImage: displayDataUrl,
-        originalMapImage: displayDataUrl,
-        storageProvider: "local-fallback"
-      };
+      return {};
     }
 
     function getBasicFieldUsage(featureKey) {

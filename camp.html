@@ -1369,7 +1369,19 @@ function normalizeContentSubmissions(items = [], events = []) {
 calendarEvents = normalizeCalendarEvents(calendarEvents);
 contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents);
 
+function stripInlineImagePayloads(value, depth = 0){
+  if(depth > 8) return value;
+  if(typeof value === 'string') return /^data:image\//i.test(value) ? '' : value;
+  if(Array.isArray(value)) return value.map(item => stripInlineImagePayloads(item, depth + 1));
+  if(!value || typeof value !== 'object') return value;
+  const out = {};
+  Object.entries(value).forEach(([key, item]) => {
+    out[key] = stripInlineImagePayloads(item, depth + 1);
+  });
+  return out;
+}
 function persist(){
+  data = stripInlineImagePayloads(data);
   data.enabledSections = Object.assign({}, enabledSections);
   data.selectedRecipeIds = selectedRecipeIds.slice();
   data.contentSubmissions = normalizeContentSubmissions(contentSubmissions, calendarEvents).slice(0,30);
@@ -2239,55 +2251,50 @@ async function buildStewardProfilePhotoPair(file){
 }
 async function uploadStewardProfilePhoto(file, profile = {}){
   if(!file) return null;
-  const pair = await buildStewardProfilePhotoPair(file);
-  const fallback = {
-    displayUrl: pair.displayDataUrl,
-    thumbUrl: pair.thumbDataUrl,
-    displayPath: '',
-    thumbPath: '',
-    storageProvider: 'inline-profile-fallback'
-  };
-  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
-    console.warn('Firebase Storage is not available. Saving compressed Steward photo in camp profile fallback.');
-    return fallback;
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImageFilePair !== 'function') {
+    throw new Error('Firebase Storage image upload helper is not available.');
   }
   const entityId = `steward-${slugify(profile.name || data.stewardName || 'steward')}-${Date.now()}`;
-  try{
-    const uploaded = await window.DeerCampStorage.uploadCampImagePair({
-      campId: activeCampId,
-      folder: 'profile-photos',
-      entityId,
-      displayDataUrl: pair.displayDataUrl,
-      thumbDataUrl: pair.thumbDataUrl
-    });
-    return uploaded || fallback;
-  }catch(storageError){
-    console.warn('Firebase Storage profile photo upload failed. Saving compressed Steward photo in camp profile fallback.', storageError);
-    return fallback;
-  }
+  const uploaded = await window.DeerCampStorage.uploadCampImageFilePair({
+    campId: activeCampId,
+    folder: 'profile-photos',
+    entityId,
+    file,
+    targets: {
+      display: { maxSize: 420, quality: 0.72, maxBytes: 65000, attempts: [{ maxSize: 420, quality: 0.72 }, { maxSize: 340, quality: 0.66 }, { maxSize: 280, quality: 0.60 }] },
+      thumb: { maxSize: 160, quality: 0.62, maxBytes: 18000, attempts: [{ maxSize: 160, quality: 0.62 }, { maxSize: 128, quality: 0.56 }, { maxSize: 96, quality: 0.50 }] }
+    }
+  });
+  if(!uploaded || (!uploaded.displayUrl && !uploaded.thumbUrl)) throw new Error('Profile photo upload did not return a Firebase Storage URL.');
+  return uploaded;
 }
 async function buildCampFeedPhotoPair(file){
   if(!file) return null;
+  if(window.DeerCampStorage && typeof window.DeerCampStorage.compressImageFilePair === 'function'){
+    return window.DeerCampStorage.compressImageFilePair(file, {
+      display: { maxSize: 1400, quality: 0.78, maxBytes: 320000, attempts: [{ maxSize: 1400, quality: 0.78 }, { maxSize: 1200, quality: 0.74 }, { maxSize: 1000, quality: 0.70 }] },
+      thumb: { maxSize: 480, quality: 0.68, maxBytes: 80000, attempts: [{ maxSize: 480, quality: 0.68 }, { maxSize: 360, quality: 0.62 }, { maxSize: 280, quality: 0.58 }] }
+    });
+  }
   const img = await loadImageElementFromFile(file);
-  return {
-    displayDataUrl: canvasImageDataUrl(img, 1200, 1200, 0.78),
-    thumbDataUrl: canvasImageDataUrl(img, 360, 360, 0.70)
-  };
+  return { displayDataUrl: canvasImageDataUrl(img, 1200, 1200, 0.74), thumbDataUrl: canvasImageDataUrl(img, 360, 360, 0.62) };
 }
 async function uploadCampFeedPhoto(file, photoId = '', title = ''){
   if(!file) return null;
-  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
-    throw new Error('Firebase Storage is not available.');
-  }
-  const pair = await buildCampFeedPhotoPair(file);
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImageFilePair !== 'function') throw new Error('Firebase Storage image upload helper is not available.');
   const entityId = `${slugify(photoId || title || 'campfeed-photo')}-${Date.now()}`;
-  return window.DeerCampStorage.uploadCampImagePair({
+  const uploaded = await window.DeerCampStorage.uploadCampImageFilePair({
     campId: activeCampId,
     folder: 'campfeed',
     entityId,
-    displayDataUrl: pair.displayDataUrl,
-    thumbDataUrl: pair.thumbDataUrl
+    file,
+    targets: {
+      display: { maxSize: 1400, quality: 0.78, maxBytes: 320000, attempts: [{ maxSize: 1400, quality: 0.78 }, { maxSize: 1200, quality: 0.74 }, { maxSize: 1000, quality: 0.70 }] },
+      thumb: { maxSize: 480, quality: 0.68, maxBytes: 80000, attempts: [{ maxSize: 480, quality: 0.68 }, { maxSize: 360, quality: 0.62 }, { maxSize: 280, quality: 0.58 }] }
+    }
   });
+  if(!uploaded || (!uploaded.displayUrl && !uploaded.thumbUrl)) throw new Error('CampFeed photo upload did not return a Firebase Storage URL.');
+  return uploaded;
 }
 function previewStewardProfilePhotoFile(event){
   const file = event?.target?.files?.[0];
@@ -2309,7 +2316,7 @@ function renderStewardProfileEditForm(profile = {}){
       <label>Email<input id="stewardInlineEmail" type="email" value="${esc(cleanProfileDisplayValue(profile.email))}" placeholder="name@example.com"></label>
       <label class="span-2 steward-photo-field">Steward Photo
         <input id="stewardInlinePhotoUpload" type="file" accept="image/*">
-        <div id="stewardInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Steward')}</span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement Steward photo. On save, DeerCamp stores the image in Firebase Storage and keeps only lean URLs in the camp record.</span></div>
+        <div id="stewardInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Steward')}</span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement Steward photo. On save, DeerCamp uploads it to Firebase Storage and keeps only lean URLs in the camp record.</span></div>
       </label>
       <label>Nickname<input id="stewardInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
       <label>Joined<input id="stewardInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
@@ -2342,32 +2349,22 @@ function previewMemberProfilePhotoFile(event){
 }
 async function uploadMemberProfilePhoto(file, profile = {}){
   if(!file) return null;
-  const pair = await buildStewardProfilePhotoPair(file);
-  const fallback = {
-    displayUrl: pair.displayDataUrl,
-    thumbUrl: pair.thumbDataUrl,
-    displayPath: '',
-    thumbPath: '',
-    storageProvider: 'inline-profile-fallback'
-  };
-  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImagePair !== 'function') {
-    console.warn('Firebase Storage is not available. Saving compressed member photo in camp profile fallback.');
-    return fallback;
+  if(!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImageFilePair !== 'function') {
+    throw new Error('Firebase Storage image upload helper is not available.');
   }
   const entityId = `member-${slugify(profile.name || profile.email || 'member')}-${Date.now()}`;
-  try{
-    const uploaded = await window.DeerCampStorage.uploadCampImagePair({
-      campId: activeCampId,
-      folder: 'profile-photos',
-      entityId,
-      displayDataUrl: pair.displayDataUrl,
-      thumbDataUrl: pair.thumbDataUrl
-    });
-    return uploaded || fallback;
-  }catch(storageError){
-    console.warn('Firebase Storage member profile photo upload failed. Saving compressed member photo in camp profile fallback.', storageError);
-    return fallback;
-  }
+  const uploaded = await window.DeerCampStorage.uploadCampImageFilePair({
+    campId: activeCampId,
+    folder: 'profile-photos',
+    entityId,
+    file,
+    targets: {
+      display: { maxSize: 420, quality: 0.72, maxBytes: 65000, attempts: [{ maxSize: 420, quality: 0.72 }, { maxSize: 340, quality: 0.66 }, { maxSize: 280, quality: 0.60 }] },
+      thumb: { maxSize: 160, quality: 0.62, maxBytes: 18000, attempts: [{ maxSize: 160, quality: 0.62 }, { maxSize: 128, quality: 0.56 }, { maxSize: 96, quality: 0.50 }] }
+    }
+  });
+  if(!uploaded || (!uploaded.displayUrl && !uploaded.thumbUrl)) throw new Error('Member photo upload did not return a Firebase Storage URL.');
+  return uploaded;
 }
 function renderMemberProfileEditForm(profile = {}){
   const wrap = document.getElementById('memberModalEditAction');
@@ -2382,7 +2379,7 @@ function renderMemberProfileEditForm(profile = {}){
       <label>Email<input id="memberInlineEmail" type="email" value="${esc(cleanProfileDisplayValue(profile.email))}" placeholder="name@example.com"></label>
       <label class="span-2 steward-photo-field">Member Photo
         <input id="memberInlinePhotoUpload" type="file" accept="image/*">
-        <div id="memberInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Member')}</span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement member photo. On save, DeerCamp stores the image in Firebase Storage or saves a compressed fallback if cloud storage is unavailable.</span></div>
+        <div id="memberInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Member')}</span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement member photo. On save, DeerCamp uploads it to Firebase Storage and keeps only lean URLs in the camp record.</span></div>
       </label>
       <label>Nickname<input id="memberInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
       <label>Joined<input id="memberInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
@@ -2526,12 +2523,11 @@ async function saveMemberProfileFromModal(event){
         nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
         nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
         nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
-        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed member photo fallback.';
+        if(status) status.textContent = 'Member photo uploaded to Firebase Storage.';
       }
     }catch(error){
       console.warn('Could not upload member profile photo.', error);
-      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
-      return;
+      if(status) status.textContent = 'Photo upload failed or Firebase Storage was unavailable. Saving profile text and keeping the existing photo.';
     }
   }
   if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
@@ -2693,12 +2689,11 @@ async function saveStewardProfileFromModal(event){
         nextProfile.profilePhotoPath = uploadedPhoto.displayPath || '';
         nextProfile.profilePhotoThumbPath = uploadedPhoto.thumbPath || '';
         nextProfile.photoStorageProvider = uploadedPhoto.storageProvider || 'firebase';
-        if(status && uploadedPhoto.storageProvider === 'inline-profile-fallback') status.textContent = 'Cloud photo upload was unavailable, so DeerCamp saved a compressed Steward photo fallback.';
+        if(status) status.textContent = 'Steward photo uploaded to Firebase Storage.';
       }
     }catch(error){
       console.warn('Could not upload Steward profile photo.', error);
-      if(status) status.textContent = 'Photo upload failed. Try a smaller image or save without changing the photo.';
-      return;
+      if(status) status.textContent = 'Photo upload failed or Firebase Storage was unavailable. Saving profile text and keeping the existing photo.';
     }
   }
   if(photo){nextProfile.photo = photo; nextProfile.profilePhoto = photo; nextProfile.avatar = photo;}
