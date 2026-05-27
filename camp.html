@@ -121,6 +121,10 @@
   .feed-card-audio{margin-top:2px;color:#5b3d1e;font-size:.86rem;font-weight:900}
   .feed-memory-placeholder{display:grid;place-items:center;width:100%;aspect-ratio:4/3;max-height:240px;padding:22px;background:linear-gradient(180deg,rgba(106,68,39,.12),rgba(73,102,71,.10));color:#452a16;text-align:center;font-weight:900;line-height:1.25}
   .feed-memory-placeholder span{display:block;font-size:2rem;line-height:1;margin-bottom:8px}
+
+  .campupdate-image-preview{display:grid;gap:8px;padding:10px;border-radius:14px;background:rgba(255,255,255,.46);border:1px solid rgba(69,42,22,.08)}
+  .campupdate-image-preview small{color:var(--muted);font-weight:700;line-height:1.35}
+  .campupdate-card-image{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:14px;background:#e9decf;margin:0 0 10px;border:1px solid rgba(69,42,22,.10)}
   .story-dictation-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:12px;border-radius:16px;background:rgba(255,255,255,.54);border:1px solid rgba(69,42,22,.10)}
   .story-dictation-status{color:#6b5644;font-size:.9rem;font-weight:700;line-height:1.35}
   .story-dictation-status.is-recording{color:#8b2d1d}
@@ -2946,6 +2950,27 @@ async function uploadCampFeedPhoto(file, photoId = '', title = ''){
   if(!uploaded || (!uploaded.displayUrl && !uploaded.thumbUrl)) throw new Error('CampFeed photo upload did not return a Firebase Storage URL.');
   return uploaded;
 }
+async function uploadCampUpdateOptionalImage(file, postId = '', title = '', label = 'CampUpdate picture'){
+  if(!file) return null;
+  try{
+    setUpdateFeedback(`Uploading ${label}...`);
+    const uploaded = await uploadCampFeedPhoto(file, postId, title);
+    if(!uploaded || !uploaded.displayUrl) throw new Error('CampUpdate image upload did not return a URL.');
+    return {
+      image: uploaded.thumbUrl || uploaded.displayUrl,
+      thumbnail: uploaded.thumbUrl || uploaded.displayUrl,
+      displayUrl: uploaded.displayUrl,
+      thumbUrl: uploaded.thumbUrl || uploaded.displayUrl,
+      storagePath: uploaded.displayPath || '',
+      thumbPath: uploaded.thumbPath || '',
+      storageProvider: uploaded.storageProvider || 'firebase'
+    };
+  }catch(uploadError){
+    console.warn('CampUpdate optional image upload failed.', uploadError);
+    setUpdateFeedback(`${label} could not upload. Try a smaller image and post again.`, true);
+    return false;
+  }
+}
 function previewStewardProfilePhotoFile(event){
   const file = event?.target?.files?.[0];
   const preview = document.getElementById('stewardInlinePhotoPreview');
@@ -3444,10 +3469,12 @@ function normalizePhotoEntries(){
     if (isLegacySeedFeedItem(item)) return;
     const mediaType = String(item.mediaType || item.type || item.category || "").toLowerCase();
     const isMemory = mediaType === "memory" || mediaType === "story" || (Array.isArray(item.tags) && item.tags.some(tag => /memory|story/i.test(String(tag || ""))));
+    const isCampUpdateMedia = ["photo","picture","memory","story","recipe","tradition"].includes(mediaType) || isMemory;
     const image=String(item.thumbUrl||item.thumbnailUrl||item.thumbnail||item.image||item.img||item.displayUrl||item.imageUrl||"").trim();
     const displayImage=String(item.displayUrl||item.imageUrl||item.image||item.img||image||"").trim();
+    if(!isMemory && !isCampUpdateMedia && !image && !displayImage) return;
     if(!isMemory && !image && !displayImage) return;
-    const fallbackId = slugify(`${item.title || (isMemory ? 'memory-story' : 'camp-picture')}-${orderIndex + 1}`) || `${isMemory ? 'memory' : 'photo'}-${orderIndex + 1}`;
+    const fallbackId = slugify(`${item.title || (isMemory ? 'memory-story' : (mediaType || 'camp-picture'))}-${orderIndex + 1}`) || `${isMemory ? 'memory' : (mediaType || 'photo')}-${orderIndex + 1}`;
     const stableId = String(item.id || item.imageRef || fallbackId).trim();
     if (removedFeedPostIds.includes(stableId)) return;
     const key=[stableId,item.title||"",image].join("|"); if(seen.has(key)) return; seen.add(key);
@@ -3483,7 +3510,7 @@ function normalizePhotoEntries(){
   feedEntries.forEach(e=>{
     const media=String(e.mediaType||e.type||e.category||"").toLowerCase();
     const galleryItem = galleryMap.get(String(e.imageRef||"").trim());
-    if(media==="photo" || media==="memory" || media==="story" || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
+    if(["photo","picture","memory","story","recipe","tradition"].includes(media) || e.image || galleryItem) push({...e,image:(galleryItem && galleryItem.image) || e.image || ""});
   });
   campPhotoGallery.forEach(p=>push({id:p.id,title:p.title,caption:p.caption,image:p.image,member:p.member,createdAt:p.createdAt,createdAtMs:p.createdAtMs,tags:p.tags}));
   return items.sort((a,b)=>Number(b.createdAtMs)-Number(a.createdAtMs) || Number(a._order)-Number(b._order)).slice(0,12);
@@ -3688,6 +3715,7 @@ visibleSections().forEach(section=>{
               </div>
               <div id="panelMemory" class="content-panel">
                 <label class="form-row"><span class="label">Memory / Story Title</span><input id="memoryTitle" class="input" type="text" placeholder="Opening morning with Grandpa"></label>
+                <label class="form-row campupdate-image-preview"><span class="label">Optional Picture</span><input id="memoryFile" class="input" type="file" accept="image/*"><small>Add a photo when the story has a moment worth showing in CampFeed.</small></label>
                 <label class="form-row"><span class="label">Speak or Type Story</span><textarea id="memoryBody" class="textarea" placeholder="Tell the story here, or use voice-to-text to create a draft you can edit before posting."></textarea></label>
                 <div class="story-dictation-tools" aria-label="Memory Story voice to text controls">
                   <button id="memoryDictateStart" type="button" class="btn btn-secondary">Start Voice-to-Text</button>
@@ -3697,6 +3725,7 @@ visibleSections().forEach(section=>{
               </div>
               <div id="panelRecipe" class="content-panel">
                 <label class="form-row"><span class="label">Recipe Title</span><input id="recipeTitle" class="input" type="text" placeholder="Bruce's Bombastic Backstraps"></label>
+                <label class="form-row campupdate-image-preview"><span class="label">Optional Picture</span><input id="recipeFile" class="input" type="file" accept="image/*"><small>Add a food or camp-table photo to also show this recipe in CampFeed.</small></label>
                 <div class="inline-3">
                   <label class="form-row"><span class="label">Time</span><input id="recipeTime" class="input" type="text" placeholder="30 min"></label>
                   <label class="form-row"><span class="label">Serves</span><input id="recipeServes" class="input" type="text" placeholder="6"></label>
@@ -3708,6 +3737,7 @@ visibleSections().forEach(section=>{
               </div>
               <div id="panelTradition" class="content-panel">
                 <label class="form-row"><span class="label">Tradition Title</span><input id="traditionTitle" class="input" type="text" placeholder="Opening Morning Coffee"></label>
+                <label class="form-row campupdate-image-preview"><span class="label">Optional Picture</span><input id="traditionFile" class="input" type="file" accept="image/*"><small>Add a tradition photo to show it in CampTraditions and CampFeed.</small></label>
                 <label class="form-row"><span class="label">Description</span><textarea id="traditionDescription" class="textarea" placeholder="The quiet coffee ritual before first light that starts every season right."></textarea></label>
                 <label class="form-row"><span class="label">Optional Link</span><input id="traditionUrl" class="input" type="url" placeholder="https://..."></label>
               </div>
@@ -3737,7 +3767,7 @@ visibleSections().forEach(section=>{
         </div>
       </div>
       <div class="carousel"><div id="feedTrack" class="carousel-track"></div></div>
-      <div id="feedEmpty" class="empty" hidden>No CampFeed posts yet. Add a picture or Memory / Story through CampUpdate.</div>`;
+      <div id="feedEmpty" class="empty" hidden>No CampFeed posts yet. Add a picture, Memory / Story, recipe photo, or tradition photo through CampUpdate.</div>`;
   } else if(section.key==="camptraditions"){
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
@@ -4005,16 +4035,20 @@ if(document.getElementById('updateType')){
       stopMemoryDictation();
       const title=String(document.getElementById('memoryTitle').value||'').trim();
       const body=String(document.getElementById('memoryBody').value||'').trim();
+      const file=document.getElementById('memoryFile')?.files?.[0] || null;
       if(!title){setUpdateFeedback('Add a Memory / Story title before posting.', true); return;}
       if(!body){setUpdateFeedback('Add the story text before posting.', true); return;}
       const memoryId=`memory-${createdAtMs}`;
+      const uploadedMemoryImage = file ? await uploadCampUpdateOptionalImage(file, memoryId, title, 'Memory / Story picture') : null;
+      if(uploadedMemoryImage === false) return;
       const memoryEntry={
         id:memoryId,
         title,
         kicker:'CampUpdate • Memory / Story',
         meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,
         body,
-        tags:['Memory / Story','CampUpdate'],
+        ...(uploadedMemoryImage || {}),
+        tags: uploadedMemoryImage ? ['Memory / Story','Picture','CampUpdate'] : ['Memory / Story','CampUpdate'],
         mediaType:'memory',
         type:'memory',
         author:member,
@@ -4038,11 +4072,18 @@ if(document.getElementById('updateType')){
     }
     const title=String(document.getElementById('traditionTitle').value||'').trim();
     if(!title){setUpdateFeedback('Add a tradition title before saving.', true); return;}
-    const tradition={label:title,description:String(document.getElementById('traditionDescription').value||'').trim()||'Member-submitted camp tradition.',url:String(document.getElementById('traditionUrl').value||'').trim()};
+    const traditionId=`tradition-${createdAtMs}`;
+    const file=document.getElementById('traditionFile')?.files?.[0] || null;
+    const uploadedTraditionImage = file ? await uploadCampUpdateOptionalImage(file, traditionId, title, 'Tradition picture') : null;
+    if(uploadedTraditionImage === false) return;
+    const tradition={id:traditionId,label:title,title,description:String(document.getElementById('traditionDescription').value||'').trim()||'Member-submitted camp tradition.',url:String(document.getElementById('traditionUrl').value||'').trim(),...(uploadedTraditionImage || {}),member,createdAt,createdAtMs};
     traditions.unshift(tradition);
-    contentSubmissions.unshift({type:'tradition',member,title:`${title} -- added to CampTraditions`,summary:tradition.description,createdAt,createdAtMs});
+    contentSubmissions.unshift({type:'tradition',linkedItemId:traditionId,member,title:`${title} -- added to CampTraditions`,summary:tradition.description,createdAt,createdAtMs});
+    if(uploadedTraditionImage){
+      feedEntries.unshift({id:traditionId,title,kicker:'CampUpdate • Tradition',meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:tradition.description,image:uploadedTraditionImage.image,thumbnail:uploadedTraditionImage.thumbnail,displayUrl:uploadedTraditionImage.displayUrl,thumbUrl:uploadedTraditionImage.thumbUrl,storagePath:uploadedTraditionImage.storagePath,thumbPath:uploadedTraditionImage.thumbPath,storageProvider:uploadedTraditionImage.storageProvider,tags:['Tradition','Picture','CampUpdate'],mediaType:'tradition',type:'tradition',author:member,member,createdAt,createdAtMs});
+    }
     try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
-    renderTraditions(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to Recent CampUpdates and CampTraditions.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo');
+    renderTraditions(); renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(uploadedTraditionImage ? `${title} was added to Recent CampUpdates, CampTraditions, and CampFeed.` : `${title} was added to Recent CampUpdates and CampTraditions.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo');
     } catch(error){
       console.error('CampUpdate submit failed', error);
       setUpdateFeedback('CampUpdate could not post. Please try again.', true);
@@ -4102,6 +4143,20 @@ document.getElementById('feedCommentSubmit')?.addEventListener('click', () => {
     syncFeedButtons();
   }
 });
+function feedKickerFor(entry = {}){
+  const media = String(entry.mediaType || entry.type || '').toLowerCase();
+  if(entry.isMemory || media === 'memory' || media === 'story') return 'CampUpdate • Memory / Story';
+  if(media === 'recipe') return 'CampUpdate • Recipe';
+  if(media === 'tradition') return 'CampUpdate • Tradition';
+  return 'CampUpdate • Picture';
+}
+function feedOpenLabelFor(entry = {}){
+  const media = String(entry.mediaType || entry.type || '').toLowerCase();
+  if(entry.isMemory || media === 'memory' || media === 'story') return 'Read Story';
+  if(media === 'recipe') return 'Open Recipe';
+  if(media === 'tradition') return 'Open Tradition';
+  return 'Open Post';
+}
 function renderFeed(){
   const track=document.getElementById('feedTrack'), count=document.getElementById('feedCount'), empty=document.getElementById('feedEmpty'); if(!track) return;
   feedItems=normalizePhotoEntries(); track.innerHTML="";
@@ -4110,12 +4165,12 @@ function renderFeed(){
   feedItems.forEach((entry,idx)=>{
     const card=document.createElement('article'); card.className='feed-card';
     const isMemory = entry.isMemory || String(entry.mediaType || '').toLowerCase() === 'memory';
-    const kicker = isMemory ? 'CampUpdate • Memory / Story' : 'CampUpdate • Picture';
+    const kicker = feedKickerFor(entry);
     const mediaMarkup = entry.image
       ? `<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>`
       : `<div class="feed-card-media"><div class="feed-memory-placeholder"><div><span>✍️</span>Memory / Story</div></div></div>`;
     card.innerHTML=`${mediaMarkup}
-      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${isMemory ? 'Read Story' : 'Open Post'}</button></div>`;
+      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,2).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${feedOpenLabelFor(entry)}</button></div>`;
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
@@ -4247,7 +4302,7 @@ function openFeedModal(idx){
   const modalCard = document.querySelector('#feedModal .feed-modal-card');
   if(modalCard) modalCard.classList.toggle('is-memory', Boolean(isMemory && !item.image));
   document.getElementById('feedModalMedia').innerHTML=item.image?`<img src="${esc(item.image)}" alt="${esc(item.title)}">`:"";
-  document.getElementById('feedModalKicker').textContent=isMemory ? 'CampUpdate • Memory / Story' : 'CampUpdate • Picture';
+  document.getElementById('feedModalKicker').textContent=feedKickerFor(item);
   document.getElementById('feedModalTitle').textContent=item.title;
   document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
   document.getElementById('feedModalBody').textContent=item.body;
@@ -4307,6 +4362,7 @@ function renderTraditions(){
   const grid=document.getElementById('traditionsGrid'); if(!grid) return;
   grid.innerHTML = traditions.length ? traditions.map((t,idx)=>`
     <div class="tradition-card">
+      ${t.image||t.thumbUrl||t.displayUrl?`<img class="campupdate-card-image" src="${esc(t.thumbUrl||t.image||t.displayUrl)}" alt="${esc(t.label||t.title||`Tradition ${idx+1}`)}">`:''}
       <p class="tradition-title">${esc(t.label||t.title||`Tradition ${idx+1}`)}</p>
       <p class="tradition-body">${esc(t.description||'Member-submitted camp tradition.')}</p>
       ${t.url?`<p class="tradition-meta"><a href="${esc(t.url)}" target="_blank" rel="noopener noreferrer">Open link</a></p>`:''}
@@ -4842,6 +4898,7 @@ function renderRecipes(){
   recipeModalData = getAllRecipes();
   grid.innerHTML = recipeModalData.length ? recipeModalData.map((r,idx)=>`
     <div class="recipe-card">
+      ${r.image||r.thumbUrl||r.displayUrl?`<img class="campupdate-card-image" src="${esc(r.thumbUrl||r.image||r.displayUrl)}" alt="${esc(r.title)}">`:''}
       <p class="recipe-title">${esc(r.title)}</p>
       <p class="recipe-body">${esc(r.description||'Camp recipe.')}</p>
       <button type="button" class="btn btn-secondary" data-recipe-index="${idx}">Open Recipe</button>
