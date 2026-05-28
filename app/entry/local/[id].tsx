@@ -238,16 +238,43 @@ export default function LocalEntryDetailScreen() {
     return next;
   }
 
+  function getFriendlyUploadError(error: any) {
+    const rawMessage = String(
+      error?.message || "Upload failed. Check connection and try again."
+    ).trim();
+
+    if (
+      rawMessage.toLowerCase().includes("permission") ||
+      rawMessage.toLowerCase().includes("unauthorized")
+    ) {
+      return "Upload did not finish because DeerCamp could not confirm upload permission. Your memory is still safe on this device. Try again after permissions are updated.";
+    }
+
+    if (
+      rawMessage.toLowerCase().includes("network") ||
+      rawMessage.toLowerCase().includes("offline") ||
+      rawMessage.toLowerCase().includes("failed to fetch")
+    ) {
+      return "Upload did not finish because the connection dropped. Your memory is still safe on this device. Try again when signal or Wi-Fi is better.";
+    }
+
+    return "Upload did not finish. Your memory is still safe on this device. Tap Retry Upload when you are ready to try again.";
+  }
+
   async function onRetryUpload() {
     if (!entry || retrying) return;
 
-    const campId = String(entry.campId || DEFAULT_ACTIVE_CAMP_ID).trim() || DEFAULT_ACTIVE_CAMP_ID;
+    const campId =
+      String(entry.campId || DEFAULT_ACTIVE_CAMP_ID).trim() || DEFAULT_ACTIVE_CAMP_ID;
 
     try {
       setRetrying(true);
-      setRetryStatus("Retrying upload to DeerCamp…");
+      setRetryStatus("Uploading now. Keep this screen open…");
+
+      // Persist the in-progress state without refreshing the screen into a new
+      // status layout. This keeps the failed-memory screen calm instead of
+      // jumping between failed/uploading states while the retry runs.
       await markMemoryPublishing(entry.id);
-      await refreshEntry(entry.id);
 
       const result = await publishMemoryToFeed(entry, {
         campId,
@@ -270,18 +297,17 @@ export default function LocalEntryDetailScreen() {
       setRetryStatus("Uploaded to CampFeed.");
       Alert.alert("Upload complete", "This field memory was posted to CampFeed.");
     } catch (error: any) {
-      const message = error?.message || "Upload failed. Check connection and try again.";
+      const friendlyMessage = getFriendlyUploadError(error);
       console.error("Retry local memory upload failed:", error);
 
       try {
-        await markMemoryPublishFailed(entry.id, message);
+        await markMemoryPublishFailed(entry.id, friendlyMessage);
         await refreshEntry(entry.id);
       } catch (markError) {
         console.error("Failed to mark retry error:", markError);
       }
 
-      setRetryStatus(message);
-      Alert.alert("Upload failed", message);
+      setRetryStatus(friendlyMessage);
     } finally {
       setRetrying(false);
     }
@@ -349,10 +375,7 @@ export default function LocalEntryDetailScreen() {
   const targetCampName =
     entry.targetCampName?.trim() ||
     (targetCampId === DEFAULT_ACTIVE_CAMP_ID ? "Camp Swede" : "Selected DeerCamp");
-  const canRetryUpload =
-    entry.syncStatus !== "synced" &&
-    entry.syncStatus !== "publishing" &&
-    hasPhoto;
+  const canRetryUpload = entry.syncStatus !== "synced" && hasPhoto;
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
