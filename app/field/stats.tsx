@@ -94,7 +94,7 @@ export default function CampStatsMgrScreen() {
   const [selectedStand, setSelectedStand] = useState<StandOption | null>(null);
   const [standSaveMessage, setStandSaveMessage] = useState("");
   const [selectedStatType, setSelectedStatType] = useState<CampStatType>("buckAm");
-  const [sightingCount, setSightingCount] = useState(1);
+  const [sightingCount, setSightingCount] = useState(0);
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
   const [lastSaved, setLastSaved] = useState("");
   const saveButtonScale = useRef(new Animated.Value(1)).current;
@@ -165,7 +165,7 @@ export default function CampStatsMgrScreen() {
   }
 
   useEffect(() => {
-    if (!loading && selectedStand && !saving) {
+    if (!loading && selectedStand && !saving && sightingCount > 0) {
       pulseSaveButton();
     }
   }, [loading, selectedStand?.id, selectedStatType, sightingCount]);
@@ -179,7 +179,7 @@ export default function CampStatsMgrScreen() {
     setLastSaved("");
     setSightingCount((current) => {
       const next = current + delta;
-      return Math.min(MAX_SIGHTING_COUNT, Math.max(1, next));
+      return Math.min(MAX_SIGHTING_COUNT, Math.max(0, next));
     });
   }
 
@@ -229,12 +229,12 @@ export default function CampStatsMgrScreen() {
   }
 
   function resetForAnotherSighting() {
-    setSightingCount(1);
+    setSightingCount(0);
     setLastSaved("");
   }
 
   async function saveSighting() {
-    if (!selectedStand || saving) return;
+    if (!selectedStand || saving || sightingCount <= 0) return;
 
     try {
       setSaving(true);
@@ -393,7 +393,7 @@ export default function CampStatsMgrScreen() {
                   pressed && styles.pressed,
                   saving && styles.disabled,
                 ]}
-                disabled={saving || !selectedStand}
+                disabled={saving || !selectedStand || sightingCount <= 0}
                 onPress={() => selectStatType(statType)}
               >
                 <Text
@@ -420,10 +420,10 @@ export default function CampStatsMgrScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.counterButton,
-              sightingCount <= 1 && styles.disabled,
+              sightingCount <= 0 && styles.disabled,
               pressed && styles.pressed,
             ]}
-            disabled={saving || sightingCount <= 1}
+            disabled={saving || sightingCount <= 0}
             onPress={() => changeSightingCount(-1)}
           >
             <Text style={styles.counterButtonText}>−</Text>
@@ -448,7 +448,7 @@ export default function CampStatsMgrScreen() {
         </View>
 
         <Text style={styles.saveHint}>
-          Save once for each sighting type you counted.
+          Set the number seen, then save once for each sighting type you counted.
         </Text>
 
         <Animated.View
@@ -461,9 +461,9 @@ export default function CampStatsMgrScreen() {
             style={({ pressed }) => [
               styles.saveButton,
               pressed && styles.pressed,
-              (saving || !selectedStand) && styles.disabled,
+              (saving || !selectedStand || sightingCount <= 0) && styles.disabled,
             ]}
-            disabled={saving || !selectedStand}
+            disabled={saving || !selectedStand || sightingCount <= 0}
             onPress={saveSighting}
           >
             {saving ? (
