@@ -288,6 +288,7 @@ export default function CampStatsMgrScreen() {
       );
       setUnsavedWarning("");
       setCountSaved(true);
+      setSightingCount(0);
       await refreshSummary(activeCampId);
     } catch (error: any) {
       console.error("save CampStatsMgr stat failed:", error);
