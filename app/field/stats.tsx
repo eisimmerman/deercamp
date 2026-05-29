@@ -20,10 +20,14 @@ import {
   CAMP_STAT_LABELS,
   type CampStatType,
   type CampStatsSummary,
+  type CampStatsSyncSummary,
   DEFAULT_CAMP_STAT_SUMMARY,
+  DEFAULT_CAMP_STAT_SYNC_SUMMARY,
   getCampStatsSummary,
+  getCampStatsSyncSummary,
   saveLocalCampStat,
 } from "../../lib/localCampStats";
+import { syncPendingCampStats } from "../../lib/publishCampStats";
 
 type StandOption = {
   id: string;
@@ -96,7 +100,11 @@ export default function CampStatsMgrScreen() {
   const [selectedStatType, setSelectedStatType] = useState<CampStatType>("buckAm");
   const [sightingCount, setSightingCount] = useState(0);
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
+  const [syncSummary, setSyncSummary] = useState<CampStatsSyncSummary>(DEFAULT_CAMP_STAT_SYNC_SUMMARY);
+  const [syncingStats, setSyncingStats] = useState(false);
+  const [syncMessage, setSyncMessage] = useState("");
   const [lastSaved, setLastSaved] = useState("");
+  const didInitialSyncRef = useRef(false);
   const [countSaved, setCountSaved] = useState(false);
   const [countReadyToSave, setCountReadyToSave] = useState(false);
   const [unsavedWarning, setUnsavedWarning] = useState("");
@@ -110,6 +118,7 @@ export default function CampStatsMgrScreen() {
         const campId = await getActiveCampId();
         const campName = await getActiveCampName(campId);
         const nextSummary = await getCampStatsSummary(campId);
+        const nextSyncSummary = await getCampStatsSyncSummary(campId);
         const savedStandNames = await getSavedStandNames(campId);
         const savedStandOptions = createStandOptionsFromNames(savedStandNames);
 
@@ -118,6 +127,7 @@ export default function CampStatsMgrScreen() {
         setActiveCampId(campId);
         setActiveCampName(campName || "Camp Swede");
         setSummary(nextSummary);
+        setSyncSummary(nextSyncSummary);
         setStandNameInputs(savedStandNames);
         setStandOptions(savedStandOptions);
         setSelectedStand(savedStandOptions[0] || null);
@@ -138,6 +148,13 @@ export default function CampStatsMgrScreen() {
     };
   }, []);
 
+
+  useEffect(() => {
+    if (loading || !activeCampId || didInitialSyncRef.current) return;
+
+    didInitialSyncRef.current = true;
+    void attemptSyncCampStats(activeCampId);
+  }, [activeCampId, loading]);
 
   function pulseSaveButton() {
     saveButtonScale.stopAnimation(() => {
@@ -176,6 +193,39 @@ export default function CampStatsMgrScreen() {
   async function refreshSummary(campId = activeCampId) {
     const nextSummary = await getCampStatsSummary(campId);
     setSummary(nextSummary);
+  }
+
+  async function refreshSyncSummary(campId = activeCampId) {
+    const nextSyncSummary = await getCampStatsSyncSummary(campId);
+    setSyncSummary(nextSyncSummary);
+  }
+
+  async function attemptSyncCampStats(campId = activeCampId) {
+    if (syncingStats) return;
+
+    try {
+      setSyncingStats(true);
+      setSyncMessage(auth.currentUser ? "Syncing saved CSM counts..." : "Saved locally. Sign in to sync.");
+      const result = await syncPendingCampStats(campId);
+
+      if (result.skippedReason === "not-signed-in") {
+        setSyncMessage("Saved locally. Sign in to sync when connected.");
+      } else if (result.skippedReason === "no-pending-records") {
+        setSyncMessage("All CSM counts are synced.");
+      } else if (result.failed > 0) {
+        setSyncMessage(`${result.synced} synced. ${result.failed} still pending retry.`);
+      } else if (result.synced > 0) {
+        setSyncMessage(`${result.synced} CSM count${result.synced === 1 ? "" : "s"} synced.`);
+      }
+
+      await refreshSyncSummary(campId);
+    } catch (error: any) {
+      console.error("sync CampStatsMgr stats failed:", error);
+      setSyncMessage(error?.message || "Sync failed. Counts remain saved locally.");
+      await refreshSyncSummary(campId);
+    } finally {
+      setSyncingStats(false);
+    }
   }
 
   function changeSightingCount(delta: number) {
@@ -290,13 +340,16 @@ export default function CampStatsMgrScreen() {
       });
 
       setLastSaved(
-        `${record.count} ${record.statLabel} saved for ${record.standName}. Ready to sync when connected.`
+        `${record.count} ${record.statLabel} saved for ${record.standName}. Pending sync.`
       );
+      setSyncMessage(auth.currentUser ? "Saved locally. Syncing now..." : "Saved locally. Sign in to sync when connected.");
       setUnsavedWarning("");
       setCountSaved(true);
       setCountReadyToSave(false);
       setSightingCount(0);
       await refreshSummary(activeCampId);
+      await refreshSyncSummary(activeCampId);
+      await attemptSyncCampStats(activeCampId);
     } catch (error: any) {
       console.error("save CampStatsMgr stat failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
@@ -547,6 +600,46 @@ export default function CampStatsMgrScreen() {
             </View>
           ))}
         </View>
+      </View>
+
+      <View style={styles.summaryCard}>
+        <Text style={styles.cardKicker}>CSM Sync Status</Text>
+        <Text style={styles.syncStatusHeadline}>
+          {syncingStats ? "Syncing..." : syncMessage || "Saved locally until sync runs."}
+        </Text>
+
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillNumber}>{syncSummary.pending}</Text>
+            <Text style={styles.summaryPillLabel}>Pending</Text>
+          </View>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillNumber}>{syncSummary.synced}</Text>
+            <Text style={styles.summaryPillLabel}>Synced</Text>
+          </View>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillNumber}>{syncSummary.failed}</Text>
+            <Text style={styles.summaryPillLabel}>Retry</Text>
+          </View>
+          <View style={styles.summaryPill}>
+            <Text style={styles.summaryPillNumber}>{syncSummary.syncing}</Text>
+            <Text style={styles.summaryPillLabel}>Syncing</Text>
+          </View>
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.logAnotherButton,
+            pressed && styles.pressed,
+            syncingStats && styles.disabled,
+          ]}
+          disabled={syncingStats}
+          onPress={() => attemptSyncCampStats(activeCampId)}
+        >
+          <Text style={styles.logAnotherButtonText}>
+            {syncingStats ? "Syncing CSM Counts..." : "Sync CSM Counts"}
+          </Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -995,6 +1088,15 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 16,
+    textAlign: "center",
+  },
+
+  syncStatusHeadline: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 22,
+    marginBottom: 14,
     textAlign: "center",
   },
 
