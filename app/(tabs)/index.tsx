@@ -1,9 +1,7 @@
 // app/(tabs)/index.tsx
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import {
-  Animated,
-  Easing,
-  Image,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -14,61 +12,23 @@ import { useRouter } from "expo-router";
 
 import { auth } from "@/lib/firebase";
 
-const recordMemoryCta = require("../../assets/branding/deercamp_app_cta.png");
-
 export default function HomeScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const signedIn = !!user && !user.isAnonymous;
 
-  const pulse = useRef(new Animated.Value(1)).current;
-  const glow = useRef(new Animated.Value(0.35)).current;
-
-  useEffect(() => {
-    const pulseLoop = Animated.loop(
-      Animated.parallel([
-        Animated.sequence([
-          Animated.timing(pulse, {
-            toValue: 1.032,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulse, {
-            toValue: 1,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-        Animated.sequence([
-          Animated.timing(glow, {
-            toValue: 0.7,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.timing(glow, {
-            toValue: 0.35,
-            duration: 1100,
-            easing: Easing.inOut(Easing.ease),
-            useNativeDriver: true,
-          }),
-        ]),
-      ])
+  function openCampStatsMgr() {
+    Alert.alert(
+      "CampStatsMgr",
+      "Next build step: tap a stand, then log Buck AM, Doe AM, Buck PM, or Doe PM. Counts will save offline and sync back to DeerCamp when connectivity is available."
     );
-
-    pulseLoop.start();
-
-    return () => {
-      pulseLoop.stop();
-    };
-  }, [glow, pulse]);
+  }
 
   if (!signedIn) {
     return (
       <View style={styles.centerGate}>
         <Text style={styles.brand}>DeerCamp</Text>
+        <Text style={styles.appName}>CampFieldApp</Text>
         <Text style={styles.gateTitle}>Sign in required.</Text>
         <Text style={styles.gateText}>Please sign in to continue.</Text>
 
@@ -90,53 +50,69 @@ export default function HomeScreen() {
     >
       <View style={styles.header}>
         <Text style={styles.brand}>DeerCamp</Text>
+        <Text style={styles.appName}>CampFieldApp</Text>
         <Text style={styles.sectionLabel}>FIELD MODE</Text>
+        <Text style={styles.headerText}>
+          Capture camp memories and field stats with simple taps. DeerCamp handles
+          saving, syncing, and posting behind the curtain.
+        </Text>
       </View>
 
-      <Pressable
-        style={({ pressed }) => [
-          styles.ctaWrap,
-          pressed && styles.ctaWrapPressed,
-        ]}
-        onPress={() => router.push("/field/voice")}
-        accessibilityLabel="Record audio and photo memory"
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.pulseGlow,
-            {
-              opacity: glow,
-              transform: [{ scale: pulse }],
-            },
+      <View style={styles.moduleGrid}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.moduleCard,
+            styles.memoryCard,
+            pressed && styles.moduleCardPressed,
           ]}
-        />
-
-        <Animated.View
-          style={[
-            styles.ctaImageWrap,
-            {
-              transform: [{ scale: pulse }],
-            },
-          ]}
+          onPress={() => router.push("/field/voice")}
+          accessibilityLabel="Open CampMemoryMgr"
         >
-          <Image
-            source={recordMemoryCta}
-            style={styles.ctaImage}
-            resizeMode="contain"
-          />
-        </Animated.View>
-      </Pressable>
-
-      <View style={styles.instructionsCard}>
-        <Text style={styles.instructionsText}>
-          Tap badge to record both audio and photo.
-        </Text>
+          <View style={styles.moduleIconWrap}>
+            <Text style={styles.moduleIcon}>🎙️</Text>
+          </View>
+          <Text style={styles.moduleKicker}>CMM</Text>
+          <Text style={styles.moduleTitle}>CampMemoryMgr</Text>
+          <Text style={styles.moduleText}>
+            Open camera, auto-record audio, tap for photo, then stop. Field
+            memories upload later when service is available.
+          </Text>
+          <View style={styles.moduleButton}>
+            <Text style={styles.moduleButtonText}>Record Memory</Text>
+          </View>
+        </Pressable>
 
         <Pressable
           style={({ pressed }) => [
-            styles.photoOnlyBtn,
-            pressed && styles.photoOnlyBtnPressed,
+            styles.moduleCard,
+            styles.statsCard,
+            pressed && styles.moduleCardPressed,
+          ]}
+          onPress={openCampStatsMgr}
+          accessibilityLabel="Open CampStatsMgr"
+        >
+          <View style={styles.moduleIconWrap}>
+            <Text style={styles.moduleIcon}>🦌</Text>
+          </View>
+          <Text style={styles.moduleKicker}>CSM</Text>
+          <Text style={styles.moduleTitle}>CampStatsMgr</Text>
+          <Text style={styles.moduleText}>
+            Tap stand name, log Buck AM, Doe AM, Buck PM, or Doe PM, and build
+            simple deer stand analytics over time.
+          </Text>
+          <View style={[styles.moduleButton, styles.moduleButtonGhost]}>
+            <Text style={styles.moduleButtonGhostText}>Log Stand Stats</Text>
+          </View>
+        </Pressable>
+      </View>
+
+      <View style={styles.quickActionsCard}>
+        <Text style={styles.quickActionsTitle}>Quick Actions</Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickActionBtn,
+            pressed && styles.quickActionBtnPressed,
           ]}
           onPress={() =>
             router.push({
@@ -144,20 +120,21 @@ export default function HomeScreen() {
               params: { mode: "photo" },
             })
           }
-          accessibilityLabel="Tap here for photo only"
+          accessibilityLabel="Capture photo only memory"
         >
-          <Text style={styles.photoOnlyBtnText}>Tap Here - Photo Only</Text>
+          <Text style={styles.quickActionText}>Photo Only</Text>
         </Pressable>
 
         <Pressable
           style={({ pressed }) => [
-            styles.memoriesLink,
-            pressed && styles.memoriesLinkPressed,
+            styles.quickActionBtn,
+            styles.quickActionBtnSecondary,
+            pressed && styles.quickActionBtnPressed,
           ]}
           onPress={() => router.push("/memories")}
           accessibilityLabel="Access saved field memories"
         >
-          <Text style={styles.memoriesLinkText}>Access memories here</Text>
+          <Text style={styles.quickActionSecondaryText}>Saved Memories</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -172,8 +149,8 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 28,
+    paddingTop: 18,
+    paddingBottom: 30,
   },
 
   centerGate: {
@@ -187,7 +164,7 @@ const styles = StyleSheet.create({
   header: {
     alignItems: "center",
     marginTop: 4,
-    marginBottom: 10,
+    marginBottom: 18,
   },
 
   brand: {
@@ -198,109 +175,178 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  sectionLabel: {
-    marginTop: 16,
-    color: "rgba(255,255,255,0.45)",
+  appName: {
+    marginTop: 6,
+    color: "#D0B17A",
+    fontSize: 22,
     fontWeight: "900",
-    letterSpacing: 4,
-    fontSize: 15,
+    letterSpacing: -0.2,
     textAlign: "center",
   },
 
-  ctaWrap: {
+  sectionLabel: {
+    marginTop: 14,
+    color: "rgba(255,255,255,0.45)",
+    fontWeight: "900",
+    letterSpacing: 4,
+    fontSize: 14,
+    textAlign: "center",
+  },
+
+  headerText: {
+    marginTop: 12,
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 23,
+    textAlign: "center",
+    maxWidth: 420,
+  },
+
+  moduleGrid: {
+    gap: 14,
+  },
+
+  moduleCard: {
     width: "100%",
-    minHeight: 390,
-    alignItems: "center",
-    justifyContent: "center",
+    minHeight: 245,
     borderRadius: 28,
-    backgroundColor: "rgba(255,255,255,0.035)",
+    padding: 20,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
     overflow: "hidden",
+    justifyContent: "space-between",
   },
 
-  ctaWrapPressed: {
-    opacity: 0.92,
+  memoryCard: {
+    backgroundColor: "rgba(208,177,122,0.14)",
+    borderColor: "rgba(208,177,122,0.28)",
   },
 
-  pulseGlow: {
-    position: "absolute",
-    width: 310,
-    height: 310,
-    borderRadius: 155,
-    backgroundColor: "rgba(208,177,122,0.22)",
-    shadowColor: "#D0B17A",
-    shadowOpacity: 0.85,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 0 },
+  statsCard: {
+    backgroundColor: "rgba(255,255,255,0.052)",
+    borderColor: "rgba(255,255,255,0.12)",
   },
 
-  ctaImageWrap: {
-    width: "100%",
+  moduleCardPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.99 }],
+  },
+
+  moduleIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  moduleIcon: {
+    fontSize: 29,
+  },
+
+  moduleKicker: {
+    color: "#D0B17A",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 3,
+    marginBottom: 5,
+  },
+
+  moduleTitle: {
+    color: "white",
+    fontSize: 28,
+    fontWeight: "900",
+    letterSpacing: -0.5,
+    marginBottom: 10,
+  },
+
+  moduleText: {
+    color: "rgba(255,255,255,0.76)",
+    fontSize: 16,
+    fontWeight: "700",
+    lineHeight: 23,
+    marginBottom: 18,
+  },
+
+  moduleButton: {
+    alignSelf: "flex-start",
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: "white",
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
   },
 
-  ctaImage: {
-    width: "100%",
-    height: 370,
+  moduleButtonText: {
+    color: "#0B0E12",
+    fontSize: 15,
+    fontWeight: "900",
   },
 
-  instructionsCard: {
+  moduleButtonGhost: {
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+  },
+
+  moduleButtonGhostText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+
+  quickActionsCard: {
     marginTop: 14,
     backgroundColor: "rgba(255,255,255,0.045)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
     borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    padding: 16,
     gap: 10,
-    alignItems: "center",
+    alignItems: "stretch",
   },
 
-  instructionsText: {
+  quickActionsTitle: {
     color: "rgba(255,255,255,0.72)",
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: "900",
-    lineHeight: 24,
+    letterSpacing: 1,
+    textTransform: "uppercase",
     textAlign: "center",
+    marginBottom: 2,
   },
 
-  photoOnlyBtn: {
+  quickActionBtn: {
     backgroundColor: "white",
     borderRadius: 999,
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    minWidth: 230,
+    paddingVertical: 13,
     alignItems: "center",
   },
 
-  photoOnlyBtnPressed: {
+  quickActionBtnSecondary: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  quickActionBtnPressed: {
     opacity: 0.9,
   },
 
-  photoOnlyBtnText: {
+  quickActionText: {
     color: "#0B0E12",
     fontSize: 14,
     fontWeight: "900",
   },
 
-  memoriesLink: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-
-  memoriesLinkPressed: {
-    opacity: 0.7,
-  },
-
-  memoriesLinkText: {
-    color: "rgba(255,255,255,0.68)",
-    fontSize: 13,
+  quickActionSecondaryText: {
+    color: "white",
+    fontSize: 14,
     fontWeight: "900",
-    textDecorationLine: "underline",
   },
 
   gateTitle: {
