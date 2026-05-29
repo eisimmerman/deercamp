@@ -36,6 +36,8 @@ const DEFAULT_STANDS: StandOption[] = [
 
 const STAT_OPTIONS: CampStatType[] = ["buckAm", "doeAm", "buckPm", "doePm"];
 
+const MAX_SIGHTING_COUNT = 99;
+
 export default function CampStatsMgrScreen() {
   const user = auth.currentUser;
   const authorId = user?.uid || "anonymous";
@@ -47,6 +49,8 @@ export default function CampStatsMgrScreen() {
   const [activeCampId, setActiveCampId] = useState("");
   const [activeCampName, setActiveCampName] = useState("Camp Swede");
   const [selectedStand, setSelectedStand] = useState<StandOption | null>(null);
+  const [selectedStatType, setSelectedStatType] = useState<CampStatType>("buckAm");
+  const [sightingCount, setSightingCount] = useState(1);
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
   const [lastSaved, setLastSaved] = useState("");
 
@@ -88,7 +92,19 @@ export default function CampStatsMgrScreen() {
     setSummary(nextSummary);
   }
 
-  async function logStat(statType: CampStatType) {
+  function changeSightingCount(delta: number) {
+    setSightingCount((current) => {
+      const next = current + delta;
+      return Math.min(MAX_SIGHTING_COUNT, Math.max(1, next));
+    });
+  }
+
+  function resetForAnotherSighting() {
+    setSightingCount(1);
+    setLastSaved("");
+  }
+
+  async function saveSighting() {
     if (!selectedStand || saving) return;
 
     try {
@@ -99,13 +115,16 @@ export default function CampStatsMgrScreen() {
         campName: activeCampName,
         standId: selectedStand.id,
         standName: selectedStand.name,
-        statType,
+        statType: selectedStatType,
+        count: sightingCount,
         clientCreatedAt: Date.now(),
         authorId,
         authorName,
       });
 
-      setLastSaved(`${record.statLabel} saved for ${record.standName}`);
+      setLastSaved(
+        `${record.count} ${record.statLabel} saved for ${record.standName}. Ready to sync when connected.`
+      );
       await refreshSummary(activeCampId);
     } catch (error: any) {
       console.error("save CampStatsMgr stat failed:", error);
@@ -141,8 +160,8 @@ export default function CampStatsMgrScreen() {
         <Text style={styles.appName}>CampStatsMgr</Text>
         <Text style={styles.campName}>Current Camp: {activeCampName}</Text>
         <Text style={styles.headerText}>
-          Tap a stand, then tap what you saw. DeerCamp saves the count now and
-          keeps it ready for sync later.
+          Pick a stand, choose what you saw, adjust the count, then save it.
+          DeerCamp keeps it local and ready to sync later.
         </Text>
       </View>
 
@@ -177,35 +196,112 @@ export default function CampStatsMgrScreen() {
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardKicker}>2. Log Sighting</Text>
+        <Text style={styles.cardKicker}>2. Choose Sighting Type</Text>
         <Text style={styles.selectedStandText}>
           {selectedStand ? selectedStand.name : "Choose a stand"}
         </Text>
 
         <View style={styles.statGrid}>
-          {STAT_OPTIONS.map((statType) => (
-            <Pressable
-              key={statType}
-              style={({ pressed }) => [
-                styles.statButton,
-                pressed && styles.pressed,
-                saving && styles.disabled,
-              ]}
-              disabled={saving || !selectedStand}
-              onPress={() => logStat(statType)}
-            >
-              <Text style={styles.statButtonText}>{CAMP_STAT_LABELS[statType]}</Text>
-            </Pressable>
-          ))}
+          {STAT_OPTIONS.map((statType) => {
+            const selected = selectedStatType === statType;
+
+            return (
+              <Pressable
+                key={statType}
+                style={({ pressed }) => [
+                  styles.statButton,
+                  selected && styles.statButtonSelected,
+                  pressed && styles.pressed,
+                  saving && styles.disabled,
+                ]}
+                disabled={saving || !selectedStand}
+                onPress={() => setSelectedStatType(statType)}
+              >
+                <Text
+                  style={[
+                    styles.statButtonText,
+                    selected && styles.statButtonSelectedText,
+                  ]}
+                >
+                  {CAMP_STAT_LABELS[statType]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.cardKicker}>3. Count Seen</Text>
+        <Text style={styles.countContext}>
+          {selectedStand?.name || "Selected stand"} • {CAMP_STAT_LABELS[selectedStatType]}
+        </Text>
+
+        <View style={styles.counterRow}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.counterButton,
+              sightingCount <= 1 && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+            disabled={saving || sightingCount <= 1}
+            onPress={() => changeSightingCount(-1)}
+          >
+            <Text style={styles.counterButtonText}>−</Text>
+          </Pressable>
+
+          <View style={styles.counterDisplay}>
+            <Text style={styles.counterNumber}>{sightingCount}</Text>
+            <Text style={styles.counterLabel}>seen</Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.counterButton,
+              sightingCount >= MAX_SIGHTING_COUNT && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+            disabled={saving || sightingCount >= MAX_SIGHTING_COUNT}
+            onPress={() => changeSightingCount(1)}
+          >
+            <Text style={styles.counterButtonText}>+</Text>
+          </Pressable>
         </View>
 
-        {!!lastSaved && <Text style={styles.savedText}>{lastSaved}</Text>}
+        <Pressable
+          style={({ pressed }) => [
+            styles.saveButton,
+            pressed && styles.pressed,
+            (saving || !selectedStand) && styles.disabled,
+          ]}
+          disabled={saving || !selectedStand}
+          onPress={saveSighting}
+        >
+          {saving ? (
+            <ActivityIndicator color="#0B0E12" />
+          ) : (
+            <Text style={styles.saveButtonText}>Save Sighting</Text>
+          )}
+        </Pressable>
+
+        {!!lastSaved && (
+          <View style={styles.savedBox}>
+            <Text style={styles.savedTitle}>Saved locally</Text>
+            <Text style={styles.savedText}>{lastSaved}</Text>
+            <Pressable
+              style={({ pressed }) => [styles.logAnotherButton, pressed && styles.pressed]}
+              onPress={resetForAnotherSighting}
+            >
+              <Text style={styles.logAnotherButtonText}>Log Another</Text>
+            </Pressable>
+          </View>
+        )}
       </View>
 
       <View style={styles.summaryCard}>
-        <Text style={styles.cardKicker}>Saved Locally</Text>
+        <Text style={styles.cardKicker}>Local CSM Total</Text>
         <Text style={styles.summaryTotal}>{summary.total}</Text>
-        <Text style={styles.summaryLabel}>total CSM field taps</Text>
+        <Text style={styles.summaryLabel}>total sightings saved locally</Text>
 
         <View style={styles.summaryGrid}>
           {STAT_OPTIONS.map((statType) => (
@@ -308,7 +404,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     lineHeight: 22,
     textAlign: "center",
-    maxWidth: 420,
+    maxWidth: 440,
   },
 
   card: {
@@ -376,7 +472,7 @@ const styles = StyleSheet.create({
   statButton: {
     flexGrow: 1,
     flexBasis: "47%",
-    minHeight: 72,
+    minHeight: 66,
     borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
@@ -386,6 +482,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 
+  statButtonSelected: {
+    backgroundColor: "#D0B17A",
+    borderColor: "#D0B17A",
+  },
+
   statButtonText: {
     color: "white",
     fontSize: 19,
@@ -393,12 +494,129 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  savedText: {
-    marginTop: 12,
+  statButtonSelectedText: {
+    color: "#0B0E12",
+  },
+
+  countContext: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 14,
+    textAlign: "center",
+  },
+
+  counterRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    justifyContent: "center",
+    gap: 12,
+    marginBottom: 14,
+  },
+
+  counterButton: {
+    width: 82,
+    minHeight: 82,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  counterButtonText: {
+    color: "white",
+    fontSize: 42,
+    fontWeight: "900",
+    lineHeight: 48,
+  },
+
+  counterDisplay: {
+    flex: 1,
+    minHeight: 82,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.92)",
+  },
+
+  counterNumber: {
+    color: "#0B0E12",
+    fontSize: 48,
+    fontWeight: "900",
+    lineHeight: 54,
+  },
+
+  counterLabel: {
+    marginTop: 2,
+    color: "rgba(11,14,18,0.62)",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
+
+  saveButton: {
+    minHeight: 58,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#D0B17A",
+    borderWidth: 1,
+    borderColor: "#D0B17A",
+  },
+
+  saveButtonText: {
+    color: "#0B0E12",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+
+  savedBox: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: "rgba(208,177,122,0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(208,177,122,0.26)",
+  },
+
+  savedTitle: {
     color: "#D0B17A",
     fontSize: 15,
     fontWeight: "900",
     textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+
+  savedText: {
+    marginTop: 6,
+    color: "rgba(255,255,255,0.78)",
+    fontSize: 15,
+    fontWeight: "800",
+    lineHeight: 21,
+    textAlign: "center",
+  },
+
+  logAnotherButton: {
+    marginTop: 12,
+    minHeight: 46,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  logAnotherButtonText: {
+    color: "white",
+    fontSize: 15,
+    fontWeight: "900",
   },
 
   summaryCard: {
@@ -426,6 +644,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 1,
     marginBottom: 16,
+    textAlign: "center",
   },
 
   summaryGrid: {
