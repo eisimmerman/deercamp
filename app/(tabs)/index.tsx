@@ -1,7 +1,6 @@
 // app/(tabs)/index.tsx
 import React from "react";
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,13 +15,6 @@ export default function HomeScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const signedIn = !!user && !user.isAnonymous;
-
-  function openCampStatsMgr() {
-    Alert.alert(
-      "CampStatsMgr",
-      "Next build step: tap a stand, then log Buck AM, Doe AM, Buck PM, or Doe PM. Counts will save offline and sync back to DeerCamp when connectivity is available."
-    );
-  }
 
   if (!signedIn) {
     return (
@@ -88,7 +80,7 @@ export default function HomeScreen() {
             styles.statsCard,
             pressed && styles.moduleCardPressed,
           ]}
-          onPress={openCampStatsMgr}
+          onPress={() => router.push("/field/stats")}
           accessibilityLabel="Open CampStatsMgr"
         >
           <View style={styles.moduleIconWrap}>
@@ -97,8 +89,8 @@ export default function HomeScreen() {
           <Text style={styles.moduleKicker}>CSM</Text>
           <Text style={styles.moduleTitle}>CampStatsMgr</Text>
           <Text style={styles.moduleText}>
-            Tap stand name, log Buck AM, Doe AM, Buck PM, or Doe PM, and build
-            simple deer stand analytics over time.
+            Tap stand name, log Buck AM, Doe AM, Buck PM, or Doe PM. Counts
+            save locally now and can sync back to DeerCamp later.
           </Text>
           <View style={[styles.moduleButton, styles.moduleButtonGhost]}>
             <Text style={styles.moduleButtonGhostText}>Log Stand Stats</Text>
