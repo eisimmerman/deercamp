@@ -98,6 +98,7 @@ export default function CampStatsMgrScreen() {
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
   const [lastSaved, setLastSaved] = useState("");
   const [countSaved, setCountSaved] = useState(false);
+  const [countReadyToSave, setCountReadyToSave] = useState(false);
   const [unsavedWarning, setUnsavedWarning] = useState("");
   const saveButtonScale = useRef(new Animated.Value(1)).current;
 
@@ -167,10 +168,10 @@ export default function CampStatsMgrScreen() {
   }
 
   useEffect(() => {
-    if (!loading && selectedStand && !saving && sightingCount > 0) {
+    if (!loading && selectedStand && !saving && countReadyToSave) {
       pulseSaveButton();
     }
-  }, [loading, selectedStand?.id, selectedStatType, sightingCount]);
+  }, [loading, selectedStand?.id, selectedStatType, sightingCount, countReadyToSave]);
 
   async function refreshSummary(campId = activeCampId) {
     const nextSummary = await getCampStatsSummary(campId);
@@ -181,6 +182,7 @@ export default function CampStatsMgrScreen() {
     setLastSaved("");
     setUnsavedWarning("");
     setCountSaved(false);
+    setCountReadyToSave(true);
     setSightingCount((current) => {
       const next = current + delta;
       return Math.min(MAX_SIGHTING_COUNT, Math.max(0, next));
@@ -218,6 +220,7 @@ export default function CampStatsMgrScreen() {
       setLastSaved("");
       setUnsavedWarning("");
       setCountSaved(false);
+      setCountReadyToSave(false);
     } catch (error: any) {
       console.error("save CampStatsMgr stands failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
@@ -225,7 +228,7 @@ export default function CampStatsMgrScreen() {
   }
 
   function hasUnsavedCount() {
-    return sightingCount > 0 && !countSaved;
+    return countReadyToSave && !countSaved;
   }
 
   function selectStand(stand: StandOption) {
@@ -241,6 +244,7 @@ export default function CampStatsMgrScreen() {
     setLastSaved("");
     setUnsavedWarning("");
     setCountSaved(false);
+    setCountReadyToSave(false);
   }
 
   function selectStatType(statType: CampStatType) {
@@ -256,6 +260,7 @@ export default function CampStatsMgrScreen() {
     setLastSaved("");
     setUnsavedWarning("");
     setCountSaved(false);
+    setCountReadyToSave(true);
   }
 
   function resetForAnotherSighting() {
@@ -263,10 +268,11 @@ export default function CampStatsMgrScreen() {
     setLastSaved("");
     setUnsavedWarning("");
     setCountSaved(false);
+    setCountReadyToSave(false);
   }
 
   async function saveSighting() {
-    if (!selectedStand || saving || sightingCount <= 0) return;
+    if (!selectedStand || saving || !countReadyToSave) return;
 
     try {
       setSaving(true);
@@ -288,6 +294,7 @@ export default function CampStatsMgrScreen() {
       );
       setUnsavedWarning("");
       setCountSaved(true);
+      setCountReadyToSave(false);
       setSightingCount(0);
       await refreshSummary(activeCampId);
     } catch (error: any) {
@@ -483,7 +490,7 @@ export default function CampStatsMgrScreen() {
         </View>
 
         <Text style={styles.saveHint}>
-          Set the number seen, then save once for each sighting type you counted.
+          Set the number seen, including zero when you saw none, then save once for each sighting type you counted.
         </Text>
 
         {!!unsavedWarning && (
@@ -500,9 +507,9 @@ export default function CampStatsMgrScreen() {
             style={({ pressed }) => [
               styles.saveButton,
               pressed && styles.pressed,
-              (saving || !selectedStand || sightingCount <= 0) && styles.disabled,
+              (saving || !selectedStand || !countReadyToSave) && styles.disabled,
             ]}
-            disabled={saving || !selectedStand || sightingCount <= 0}
+            disabled={saving || !selectedStand || !countReadyToSave}
             onPress={saveSighting}
           >
             {saving ? (
