@@ -24,6 +24,7 @@ import {
   type LocalMemorySegment,
 } from "@/lib/localMemories";
 import { publishMemoryToFeed } from "@/lib/publishMemory";
+import { removeUploadQueueItemsForMemory } from "@/lib/capture/uploadQueue";
 
 function formatWhen(ms?: number) {
   if (!ms) return "";
@@ -293,6 +294,7 @@ export default function LocalEntryDetailScreen() {
         voiceUrl: result.audioUrl,
       });
 
+      await removeUploadQueueItemsForMemory(entry.id);
       await refreshEntry(entry.id);
       setRetryStatus("Uploaded to CampFeed.");
       Alert.alert("Upload complete", "This field memory was posted to CampFeed.");
@@ -380,7 +382,7 @@ export default function LocalEntryDetailScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.topRow}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => router.replace("/(tabs)/memories")}>
           <Ionicons name="arrow-back" size={18} color="white" />
           <Text style={styles.backBtnText}>Back</Text>
         </Pressable>

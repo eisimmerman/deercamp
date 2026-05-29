@@ -1,4 +1,12 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, db, storage } from "./firebase";
@@ -270,6 +278,52 @@ function buildFeedDoc(params: {
   return doc;
 }
 
+
+async function findExistingFeedPost(params: {
+  memoryId: string;
+  campId: string;
+}): Promise<PublishedFeedResult | null> {
+  const memoryId = String(params.memoryId || "").trim();
+  const campId = resolvePublishCampId(params.campId);
+
+  if (!memoryId) return null;
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, "feedItems"),
+      where("localMemoryId", "==", memoryId),
+      where("campId", "==", campId),
+      limit(1)
+    )
+  );
+
+  const existing = snapshot.docs[0];
+  if (!existing) return null;
+
+  const data = existing.data() as Record<string, any>;
+  const imageUrl = String(
+    data.imageUrl || data.displayUrl || data.photoUrl || data.thumbUrl || ""
+  ).trim();
+
+  if (!imageUrl) return null;
+
+  const audioUrl = String(data.audioUrl || data.voiceUrl || "").trim();
+  const title = trimOrFallback(data.title, "Field Memory");
+  const caption = cleanCaptionOrFallback(
+    data.caption || data.body,
+    "Captured in DeerCamp Field Mode."
+  );
+
+  return {
+    feedDocId: existing.id,
+    campId,
+    imageUrl,
+    audioUrl: audioUrl || undefined,
+    title,
+    caption,
+  };
+}
+
 export async function publishUploadedMemoryToFeed(
   memory: PublishableMemory | LocalMemoryItem,
   options?: {
@@ -296,6 +350,15 @@ export async function publishUploadedMemoryToFeed(
 
   if (!imageUrl) {
     throw new Error("Memory is missing an uploaded photo URL.");
+  }
+
+  const existingPost = await findExistingFeedPost({
+    memoryId: memory.id,
+    campId,
+  });
+
+  if (existingPost) {
+    return existingPost;
   }
 
   const docRef = await addDoc(
@@ -349,6 +412,15 @@ export async function publishMemoryToFeed(
 
   if (!memory?.id) {
     throw new Error("Memory is missing an id.");
+  }
+
+  const existingPost = await findExistingFeedPost({
+    memoryId: memory.id,
+    campId,
+  });
+
+  if (existingPost) {
+    return existingPost;
   }
 
   if (!imageUri) {
