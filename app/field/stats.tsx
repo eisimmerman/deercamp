@@ -1,15 +1,18 @@
 // app/field/stats.tsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { auth } from "@/lib/firebase";
 import { getActiveCampId, getActiveCampName } from "@/lib/localMemories";
@@ -27,12 +30,49 @@ type StandOption = {
   name: string;
 };
 
-const DEFAULT_STANDS: StandOption[] = [
-  { id: "north-stand", name: "North Stand" },
-  { id: "south-stand", name: "South Stand" },
-  { id: "east-stand", name: "East Stand" },
-  { id: "west-stand", name: "West Stand" },
-];
+const STAND_SLOT_COUNT = 10;
+const CAMP_STANDS_STORAGE_KEY_PREFIX = "deercamp.campStatsMgr.stands.v1";
+
+const createEmptyStandInputs = () => Array.from({ length: STAND_SLOT_COUNT }, () => "");
+
+function getCampStandsStorageKey(campId: string) {
+  return `${CAMP_STANDS_STORAGE_KEY_PREFIX}.${campId || "default"}`;
+}
+
+function createStandOptionsFromNames(names: string[]): StandOption[] {
+  return names
+    .map((name, index) => ({
+      id: `stand-${index + 1}`,
+      name: name.trim(),
+    }))
+    .filter((stand) => stand.name.length > 0);
+}
+
+async function getSavedStandNames(campId: string) {
+  const raw = await AsyncStorage.getItem(getCampStandsStorageKey(campId));
+
+  if (!raw) return createEmptyStandInputs();
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return createEmptyStandInputs();
+
+    return Array.from({ length: STAND_SLOT_COUNT }, (_, index) =>
+      typeof parsed[index] === "string" ? parsed[index] : ""
+    );
+  } catch {
+    return createEmptyStandInputs();
+  }
+}
+
+async function saveStandNames(campId: string, names: string[]) {
+  const normalized = Array.from({ length: STAND_SLOT_COUNT }, (_, index) =>
+    (names[index] || "").trim()
+  );
+
+  await AsyncStorage.setItem(getCampStandsStorageKey(campId), JSON.stringify(normalized));
+  return normalized;
+}
 
 const STAT_OPTIONS: CampStatType[] = ["buckAm", "doeAm", "buckPm", "doePm"];
 
@@ -48,13 +88,16 @@ export default function CampStatsMgrScreen() {
   const [saving, setSaving] = useState(false);
   const [activeCampId, setActiveCampId] = useState("");
   const [activeCampName, setActiveCampName] = useState("Camp Swede");
+  const [standNameInputs, setStandNameInputs] = useState<string[]>(createEmptyStandInputs);
+  const [standOptions, setStandOptions] = useState<StandOption[]>([]);
+  const [editingStands, setEditingStands] = useState(true);
   const [selectedStand, setSelectedStand] = useState<StandOption | null>(null);
+  const [standSaveMessage, setStandSaveMessage] = useState("");
   const [selectedStatType, setSelectedStatType] = useState<CampStatType>("buckAm");
   const [sightingCount, setSightingCount] = useState(1);
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
   const [lastSaved, setLastSaved] = useState("");
-
-  const standOptions = useMemo(() => DEFAULT_STANDS, []);
+  const saveButtonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     let alive = true;
@@ -64,13 +107,18 @@ export default function CampStatsMgrScreen() {
         const campId = await getActiveCampId();
         const campName = await getActiveCampName(campId);
         const nextSummary = await getCampStatsSummary(campId);
+        const savedStandNames = await getSavedStandNames(campId);
+        const savedStandOptions = createStandOptionsFromNames(savedStandNames);
 
         if (!alive) return;
 
         setActiveCampId(campId);
         setActiveCampName(campName || "Camp Swede");
         setSummary(nextSummary);
-        setSelectedStand(standOptions[0] || null);
+        setStandNameInputs(savedStandNames);
+        setStandOptions(savedStandOptions);
+        setSelectedStand(savedStandOptions[0] || null);
+        setEditingStands(savedStandOptions.length === 0);
       } catch (error) {
         console.error("load CampStatsMgr failed:", error);
         Alert.alert(
@@ -85,7 +133,42 @@ export default function CampStatsMgrScreen() {
     return () => {
       alive = false;
     };
-  }, [standOptions]);
+  }, []);
+
+
+  function pulseSaveButton() {
+    saveButtonScale.stopAnimation(() => {
+      saveButtonScale.setValue(1);
+      Animated.sequence([
+        Animated.timing(saveButtonScale, {
+          toValue: 1.055,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(saveButtonScale, {
+          toValue: 1,
+          duration: 170,
+          useNativeDriver: true,
+        }),
+        Animated.timing(saveButtonScale, {
+          toValue: 1.035,
+          duration: 130,
+          useNativeDriver: true,
+        }),
+        Animated.timing(saveButtonScale, {
+          toValue: 1,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
+  }
+
+  useEffect(() => {
+    if (!loading && selectedStand && !saving) {
+      pulseSaveButton();
+    }
+  }, [loading, selectedStand?.id, selectedStatType, sightingCount]);
 
   async function refreshSummary(campId = activeCampId) {
     const nextSummary = await getCampStatsSummary(campId);
@@ -93,10 +176,56 @@ export default function CampStatsMgrScreen() {
   }
 
   function changeSightingCount(delta: number) {
+    setLastSaved("");
     setSightingCount((current) => {
       const next = current + delta;
       return Math.min(MAX_SIGHTING_COUNT, Math.max(1, next));
     });
+  }
+
+  function updateStandName(index: number, value: string) {
+    setStandSaveMessage("");
+    setStandNameInputs((current) =>
+      current.map((name, nameIndex) => (nameIndex === index ? value : name))
+    );
+  }
+
+  async function handleSaveStands() {
+    try {
+      const savedNames = await saveStandNames(activeCampId, standNameInputs);
+      const nextStandOptions = createStandOptionsFromNames(savedNames);
+
+      if (nextStandOptions.length === 0) {
+        Alert.alert(
+          "Name at least one stand",
+          "Add one stand name before saving your CampStatsMgr stand list."
+        );
+        return;
+      }
+
+      setStandNameInputs(savedNames);
+      setStandOptions(nextStandOptions);
+      setSelectedStand((current) => {
+        if (!current) return nextStandOptions[0] || null;
+        return nextStandOptions.find((stand) => stand.id === current.id) || nextStandOptions[0] || null;
+      });
+      setEditingStands(false);
+      setStandSaveMessage("Stand names saved. Use them every time you log sightings.");
+      setLastSaved("");
+    } catch (error: any) {
+      console.error("save CampStatsMgr stands failed:", error);
+      Alert.alert("Save failed", error?.message ?? "Please try again.");
+    }
+  }
+
+  function selectStand(stand: StandOption) {
+    setSelectedStand(stand);
+    setLastSaved("");
+  }
+
+  function selectStatType(statType: CampStatType) {
+    setSelectedStatType(statType);
+    setLastSaved("");
   }
 
   function resetForAnotherSighting() {
@@ -160,39 +289,89 @@ export default function CampStatsMgrScreen() {
         <Text style={styles.appName}>CampStatsMgr</Text>
         <Text style={styles.campName}>Current Camp: {activeCampName}</Text>
         <Text style={styles.headerText}>
-          Pick a stand, choose what you saw, adjust the count, then save it.
+          Name your stands once, then use them to log each sighting count fast in the field.
           DeerCamp keeps it local and ready to sync later.
         </Text>
       </View>
 
       <View style={styles.card}>
-        <Text style={styles.cardKicker}>1. Select Stand</Text>
-        <View style={styles.standGrid}>
-          {standOptions.map((stand) => {
-            const selected = selectedStand?.id === stand.id;
-
-            return (
-              <Pressable
-                key={stand.id}
-                style={({ pressed }) => [
-                  styles.standButton,
-                  selected && styles.standButtonSelected,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => setSelectedStand(stand)}
-              >
-                <Text
-                  style={[
-                    styles.standButtonText,
-                    selected && styles.standButtonSelectedText,
-                  ]}
-                >
-                  {stand.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardKicker}>1. {editingStands ? "Name Your Stands" : "Select Stand"}</Text>
+          {!editingStands && (
+            <Pressable
+              style={({ pressed }) => [styles.editStandsButton, pressed && styles.pressed]}
+              onPress={() => {
+                setEditingStands(true);
+                setStandSaveMessage("");
+              }}
+            >
+              <Text style={styles.editStandsButtonText}>Edit Names</Text>
+            </Pressable>
+          )}
         </View>
+
+        {editingStands ? (
+          <>
+            <Text style={styles.standHelperText}>
+              Add the stand names your camp actually uses. Save them once, then reuse them every time you log sightings.
+            </Text>
+
+            <View style={styles.standSetupGrid}>
+              {standNameInputs.map((name, index) => (
+                <View key={`stand-input-${index + 1}`} style={styles.standInputSlot}>
+                  <Text style={styles.standInputLabel}>Stand {index + 1}</Text>
+                  <TextInput
+                    value={name}
+                    placeholder="Text Input"
+                    placeholderTextColor="rgba(255,255,255,0.42)"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="done"
+                    style={styles.standInput}
+                    onChangeText={(value) => updateStandName(index, value)}
+                  />
+                </View>
+              ))}
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.saveStandsButton, pressed && styles.pressed]}
+              onPress={handleSaveStands}
+            >
+              <Text style={styles.saveStandsButtonText}>Save Stands</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            {!!standSaveMessage && <Text style={styles.standSaveMessage}>{standSaveMessage}</Text>}
+            <View style={styles.standGrid}>
+              {standOptions.map((stand) => {
+                const selected = selectedStand?.id === stand.id;
+
+                return (
+                  <Pressable
+                    key={stand.id}
+                    style={({ pressed }) => [
+                      styles.standButton,
+                      selected && styles.standButtonSelected,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={() => selectStand(stand)}
+                  >
+                    <Text
+                      style={[
+                        styles.standButtonText,
+                        selected && styles.standButtonSelectedText,
+                      ]}
+                    >
+                      {stand.name}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -215,7 +394,7 @@ export default function CampStatsMgrScreen() {
                   saving && styles.disabled,
                 ]}
                 disabled={saving || !selectedStand}
-                onPress={() => setSelectedStatType(statType)}
+                onPress={() => selectStatType(statType)}
               >
                 <Text
                   style={[
@@ -268,21 +447,32 @@ export default function CampStatsMgrScreen() {
           </Pressable>
         </View>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.saveButton,
-            pressed && styles.pressed,
-            (saving || !selectedStand) && styles.disabled,
+        <Text style={styles.saveHint}>
+          Save once for each sighting type you counted.
+        </Text>
+
+        <Animated.View
+          style={[
+            styles.saveButtonPulseWrap,
+            { transform: [{ scale: saveButtonScale }] },
           ]}
-          disabled={saving || !selectedStand}
-          onPress={saveSighting}
         >
-          {saving ? (
-            <ActivityIndicator color="#0B0E12" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Sighting</Text>
-          )}
-        </Pressable>
+          <Pressable
+            style={({ pressed }) => [
+              styles.saveButton,
+              pressed && styles.pressed,
+              (saving || !selectedStand) && styles.disabled,
+            ]}
+            disabled={saving || !selectedStand}
+            onPress={saveSighting}
+          >
+            {saving ? (
+              <ActivityIndicator color="#0B0E12" />
+            ) : (
+              <Text style={styles.saveButtonText}>Save This Count</Text>
+            )}
+          </Pressable>
+        </Animated.View>
 
         {!!lastSaved && (
           <View style={styles.savedBox}>
@@ -422,6 +612,99 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 2,
     textTransform: "uppercase",
+    marginBottom: 0,
+  },
+
+  cardHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginBottom: 12,
+  },
+
+  editStandsButton: {
+    minHeight: 36,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+
+  editStandsButtonText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+
+  standHelperText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+
+  standSetupGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+
+  standInputSlot: {
+    flexGrow: 1,
+    flexBasis: "47%",
+    minWidth: 140,
+  },
+
+  standInputLabel: {
+    color: "rgba(255,255,255,0.62)",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+
+  standInput: {
+    minHeight: 50,
+    borderRadius: 16,
+    paddingHorizontal: 13,
+    color: "white",
+    fontSize: 15,
+    fontWeight: "900",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  saveStandsButton: {
+    minHeight: 54,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "white",
+    marginTop: 14,
+  },
+
+  saveStandsButtonText: {
+    color: "#0B0E12",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+
+  standSaveMessage: {
+    color: "#D0B17A",
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 20,
     marginBottom: 12,
   },
 
@@ -557,6 +840,19 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+
+  saveHint: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 20,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+
+  saveButtonPulseWrap: {
+    borderRadius: 999,
   },
 
   saveButton: {
