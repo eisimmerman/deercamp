@@ -269,7 +269,7 @@ export default function LocalEntryDetailScreen() {
 
     try {
       setRetrying(true);
-      setRetryStatus("Uploading now. Keep this screen open…");
+      setRetryStatus("Uploading now. Safe to leave this screen.");
 
       // Persist the in-progress state without refreshing the screen into a new
       // status layout. This keeps the failed-memory screen calm instead of

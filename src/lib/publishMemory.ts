@@ -164,6 +164,19 @@ function trimOrFallback(value: string | null | undefined, fallback: string) {
   return clean || fallback;
 }
 
+function stripLocalUploadStatus(value: string | null | undefined) {
+  return String(value || "")
+    .replace(/\s*Ready to upload\.?\s*/gi, " ")
+    .replace(/\s+([.,!?])/g, "$1")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function cleanCaptionOrFallback(value: string | null | undefined, fallback: string) {
+  const clean = stripLocalUploadStatus(value);
+  return clean || fallback;
+}
+
 function resolvePublishCampId(value?: string | null) {
   const clean = String(value || "").trim();
   if (!clean || clean === "ourdeercamp") return DEFAULT_ACTIVE_CAMP_ID;
@@ -177,12 +190,11 @@ function getMemoryTitle(memory: PublishableMemory) {
 }
 
 function getMemoryCaption(memory: PublishableMemory) {
-  const explicit = String(memory.caption || memory.details || "").trim();
-  if (explicit) return explicit;
-
-  return memory.type === "photo"
+  const fallback = memory.type === "photo"
     ? "Photo captured in DeerCamp Field Mode."
     : "Photo + voice captured in DeerCamp Field Mode.";
+
+  return cleanCaptionOrFallback(memory.caption || memory.details, fallback);
 }
 
 function getClientCreatedAt(memory: PublishableMemory) {
@@ -270,7 +282,7 @@ export async function publishUploadedMemoryToFeed(
 
   const campId = resolvePublishCampId(options?.campId || memory.campId);
   const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
-  const caption = trimOrFallback(
+  const caption = cleanCaptionOrFallback(
     options?.defaultCaption || getMemoryCaption(memory),
     "Captured in DeerCamp Field Mode."
   );
@@ -321,13 +333,13 @@ export async function publishMemoryToFeed(
 
   const campId = resolvePublishCampId(options?.campId || memory.campId);
   const defaultTitle = trimOrFallback(options?.defaultTitle, "Field Memory");
-  const defaultCaption = trimOrFallback(
+  const defaultCaption = cleanCaptionOrFallback(
     options?.defaultCaption || memory.details,
     "Captured in DeerCamp Field Mode."
   );
 
   const manualTitle = String(memory.title || "").trim();
-  const manualCaption = String(memory.caption || "").trim();
+  const manualCaption = stripLocalUploadStatus(memory.caption);
 
   const baseTitle = manualTitle || defaultTitle;
   const baseCaption = manualCaption || defaultCaption;

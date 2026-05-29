@@ -354,7 +354,7 @@ export default function FieldVoiceScreen() {
     await saveLocalMemory({
       id: memoryId,
       title: "Field Photo",
-      details: "Photo captured in Field Mode. Ready to upload.",
+      details: "Photo captured in DeerCamp Field Mode.",
       clientCreatedAt: now,
       authorId,
       authorName,
@@ -395,7 +395,7 @@ export default function FieldVoiceScreen() {
     const payload: any = {
       id: memoryId,
       title: "Field Memory",
-      details: "Photo + voice captured in Field Mode. Ready to upload.",
+      details: "Photo + voice captured in DeerCamp Field Mode.",
       clientCreatedAt: now,
       authorId,
       authorName,
