@@ -97,6 +97,8 @@ export default function CampStatsMgrScreen() {
   const [sightingCount, setSightingCount] = useState(0);
   const [summary, setSummary] = useState<CampStatsSummary>(DEFAULT_CAMP_STAT_SUMMARY);
   const [lastSaved, setLastSaved] = useState("");
+  const [countSaved, setCountSaved] = useState(false);
+  const [unsavedWarning, setUnsavedWarning] = useState("");
   const saveButtonScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -177,6 +179,8 @@ export default function CampStatsMgrScreen() {
 
   function changeSightingCount(delta: number) {
     setLastSaved("");
+    setUnsavedWarning("");
+    setCountSaved(false);
     setSightingCount((current) => {
       const next = current + delta;
       return Math.min(MAX_SIGHTING_COUNT, Math.max(0, next));
@@ -212,25 +216,53 @@ export default function CampStatsMgrScreen() {
       setEditingStands(false);
       setStandSaveMessage("Stand names saved. Use them every time you log sightings.");
       setLastSaved("");
+      setUnsavedWarning("");
+      setCountSaved(false);
     } catch (error: any) {
       console.error("save CampStatsMgr stands failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
     }
   }
 
+  function hasUnsavedCount() {
+    return sightingCount > 0 && !countSaved;
+  }
+
   function selectStand(stand: StandOption) {
+    if (selectedStand?.id !== stand.id && hasUnsavedCount()) {
+      setUnsavedWarning(
+        `Save ${sightingCount} ${CAMP_STAT_LABELS[selectedStatType]} for ${selectedStand?.name || "this stand"} before changing stands.`
+      );
+      pulseSaveButton();
+      return;
+    }
+
     setSelectedStand(stand);
     setLastSaved("");
+    setUnsavedWarning("");
+    setCountSaved(false);
   }
 
   function selectStatType(statType: CampStatType) {
+    if (statType !== selectedStatType && hasUnsavedCount()) {
+      setUnsavedWarning(
+        `Save ${sightingCount} ${CAMP_STAT_LABELS[selectedStatType]} before switching to ${CAMP_STAT_LABELS[statType]}.`
+      );
+      pulseSaveButton();
+      return;
+    }
+
     setSelectedStatType(statType);
     setLastSaved("");
+    setUnsavedWarning("");
+    setCountSaved(false);
   }
 
   function resetForAnotherSighting() {
     setSightingCount(0);
     setLastSaved("");
+    setUnsavedWarning("");
+    setCountSaved(false);
   }
 
   async function saveSighting() {
@@ -254,6 +286,8 @@ export default function CampStatsMgrScreen() {
       setLastSaved(
         `${record.count} ${record.statLabel} saved for ${record.standName}. Ready to sync when connected.`
       );
+      setUnsavedWarning("");
+      setCountSaved(true);
       await refreshSummary(activeCampId);
     } catch (error: any) {
       console.error("save CampStatsMgr stat failed:", error);
@@ -393,7 +427,7 @@ export default function CampStatsMgrScreen() {
                   pressed && styles.pressed,
                   saving && styles.disabled,
                 ]}
-                disabled={saving || !selectedStand || sightingCount <= 0}
+                disabled={saving || !selectedStand}
                 onPress={() => selectStatType(statType)}
               >
                 <Text
@@ -450,6 +484,10 @@ export default function CampStatsMgrScreen() {
         <Text style={styles.saveHint}>
           Set the number seen, then save once for each sighting type you counted.
         </Text>
+
+        {!!unsavedWarning && (
+          <Text style={styles.unsavedWarning}>{unsavedWarning}</Text>
+        )}
 
         <Animated.View
           style={[
@@ -848,6 +886,15 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 20,
     marginBottom: 10,
+    textAlign: "center",
+  },
+
+  unsavedWarning: {
+    marginBottom: 12,
+    color: "#FFDFA8",
+    fontSize: 14,
+    fontWeight: "900",
+    lineHeight: 20,
     textAlign: "center",
   },
 
