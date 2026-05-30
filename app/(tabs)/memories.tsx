@@ -13,12 +13,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { auth } from "@/lib/firebase";
-import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
+import {
+  attachPendingAuthMemoriesToUser,
+  getLocalMemories,
+  getPendingAuthMemories,
+  type LocalMemoryItem,
+} from "@/lib/localMemories";
 import {
   getUploadQueueTotals,
   type UploadQueueTotals,
 } from "@/lib/capture/uploadQueueState";
 import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
+import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 type EntryItem = LocalMemoryItem & {
   isLocal?: boolean;
@@ -33,7 +39,71 @@ function formatWhen(item: EntryItem) {
   return "";
 }
 
+function getCleanAuthorName() {
+  const displayName = auth.currentUser?.displayName?.trim() || "";
+  if (displayName && displayName.toLowerCase() !== "5pt") return displayName;
+
+  const email = auth.currentUser?.email?.trim() || "";
+  if (!email) return "DeerCamp Member";
+
+  const cleaned = email
+    .split("@")[0]
+    ?.replace(/[._-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (!cleaned) return email;
+
+  return cleaned
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+async function enqueueMemoryUploadItems(memory: LocalMemoryItem, authorId: string) {
+  const campId = memory.campId || "camp-swede-cornell-wi-54732";
+  const uploadItems: any[] = [];
+
+  if (memory.photoUri?.trim()) {
+    uploadItems.push({
+      id: `${memory.id}-upload-photo-main`,
+      memoryId: memory.id,
+      segmentId: "photo-main",
+      segmentIndex: -1,
+      uri: memory.photoUri.trim(),
+      mediaType: "photo" as const,
+      campId,
+      authorId,
+    });
+  }
+
+  const segments = Array.isArray(memory.segments) ? memory.segments : [];
+  segments.forEach((segment) => {
+    if (!segment?.uri?.trim()) return;
+
+    uploadItems.push({
+      id: `${memory.id}-upload-${String(segment.index).padStart(3, "0")}`,
+      memoryId: memory.id,
+      segmentId: segment.id,
+      segmentIndex: segment.index,
+      uri: segment.uri.trim(),
+      mediaType: "audio" as const,
+      campId,
+      authorId,
+    });
+  });
+
+  if (uploadItems.length > 0) {
+    await enqueueUploadItems(uploadItems);
+  }
+}
+
 function getMemorySummary(item: EntryItem) {
+  if (item.pendingAuth) {
+    return "Saved on this phone. Sign in to attach and sync when connected.";
+  }
+
   if (item.type === "photo") {
     if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to CampFeed.";
     if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Publishing to CampFeed.";
@@ -62,6 +132,7 @@ const emptyUploadTotals: UploadQueueTotals = {
 export default function MemoriesScreen() {
   const router = useRouter();
   const user = auth.currentUser;
+  const isSignedIn = Boolean(user && !user.isAnonymous);
 
   const processingUploadsRef = useRef(false);
 
@@ -84,15 +155,30 @@ export default function MemoriesScreen() {
 
   const loadLocal = useCallback(
     async (showLoading = true) => {
-      if (!user?.uid) {
-        setLocalItems([]);
-        setUploadTotals(emptyUploadTotals);
-        setLoading(false);
-        return;
-      }
-
       try {
         if (showLoading) setLoading(true);
+
+        if (!isSignedIn || !user?.uid) {
+          const pending = await getPendingAuthMemories();
+          const mapped: EntryItem[] = pending.map((item: LocalMemoryItem) => ({
+            ...item,
+            isLocal: true,
+          }));
+
+          mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
+          setLocalItems(mapped);
+          setUploadTotals(emptyUploadTotals);
+          return;
+        }
+
+        const attached = await attachPendingAuthMemoriesToUser({
+          authorId: user.uid,
+          authorName: getCleanAuthorName(),
+        });
+
+        for (const memory of attached) {
+          await enqueueMemoryUploadItems(memory, user.uid);
+        }
 
         const next = await getLocalMemories(user.uid);
         const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
@@ -111,10 +197,11 @@ export default function MemoriesScreen() {
         if (showLoading) setLoading(false);
       }
     },
-    [refreshUploadTotals, user?.uid]
+    [isSignedIn, refreshUploadTotals, user?.uid]
   );
 
   const runUploadPass = useCallback(async () => {
+    if (!isSignedIn || !user?.uid) return;
     if (processingUploadsRef.current) return;
 
     try {
@@ -142,10 +229,15 @@ export default function MemoriesScreen() {
     } finally {
       processingUploadsRef.current = false;
     }
-  }, [loadLocal, refreshUploadTotals]);
+  }, [isSignedIn, loadLocal, refreshUploadTotals, user?.uid]);
 
   const uploadFieldMemories = useCallback(
     async (source: "auto" | "manual" = "manual") => {
+      if (!isSignedIn || !user?.uid) {
+        if (source === "manual") router.push("/sign-in");
+        return;
+      }
+
       if (uploadingFieldMemories || silentPublishRef.current) return;
 
       try {
@@ -194,7 +286,7 @@ export default function MemoriesScreen() {
         await loadLocal(false);
       }
     },
-    [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]
+    [isSignedIn, loadLocal, refreshUploadTotals, router, runUploadPass, uploadingFieldMemories, user?.uid]
   );
 
   useFocusEffect(
@@ -204,7 +296,7 @@ export default function MemoriesScreen() {
       void (async () => {
         await loadLocal(true);
 
-        if (active) {
+        if (active && isSignedIn) {
           void uploadFieldMemories("auto");
         }
       })();
@@ -214,7 +306,7 @@ export default function MemoriesScreen() {
           void (async () => {
             const totals = await refreshUploadTotals();
 
-            if (totals.pending > 0 || totals.uploading > 0) {
+            if (isSignedIn && (totals.pending > 0 || totals.uploading > 0)) {
               await uploadFieldMemories("auto");
               return;
             }
@@ -228,7 +320,7 @@ export default function MemoriesScreen() {
         active = false;
         clearInterval(interval);
       };
-    }, [loadLocal, refreshUploadTotals, uploadFieldMemories])
+    }, [isSignedIn, loadLocal, refreshUploadTotals, uploadFieldMemories])
   );
 
   const items = useMemo(() => {
@@ -277,8 +369,12 @@ export default function MemoriesScreen() {
     !latestFieldMemoryPublished &&
     (uploadingFieldMemories || hasPendingWork || hasLocalPublishing || hasLocalPending);
 
-  const uploadStatusLabel = uploadBusy
-    ? "Publishing field memories to CampFeed…"
+  const hasPendingAuthMemories = visibleFieldMemories.some((item) => item.pendingAuth);
+
+  const uploadStatusLabel = hasPendingAuthMemories && !isSignedIn
+    ? "Saved on this phone. Sign in to attach and sync when connected."
+    : uploadBusy
+      ? "Publishing field memories to CampFeed…"
     : hasFailedWork
       ? "Some field memories need retry."
       : latestFieldMemoryPublished ||
@@ -292,8 +388,9 @@ export default function MemoriesScreen() {
     const title = item.title?.trim() || "Field Memory";
     const details = getMemorySummary(item);
 
-    const statusLabel =
-      item.syncStatus === "publishing"
+    const statusLabel = item.pendingAuth
+      ? "Needs sign in to sync"
+      : item.syncStatus === "publishing"
         ? "Publishing to CampFeed"
         : item.syncStatus === "synced"
           ? "Published to CampFeed"
@@ -330,7 +427,13 @@ export default function MemoriesScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Upload Field Memories</Text>
+      <View style={styles.titleRow}>
+        <Pressable style={styles.backPill} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={18} color="white" />
+          <Text style={styles.backPillText}>Back</Text>
+        </Pressable>
+        <Text style={styles.title}>Upload Field Memories</Text>
+      </View>
 
       <View style={styles.uploadCard}>
         <View style={styles.uploadHeaderRow}>
@@ -359,6 +462,15 @@ export default function MemoriesScreen() {
           </View>
         ) : null}
 
+        {hasPendingAuthMemories && !isSignedIn ? (
+          <Pressable
+            style={styles.uploadBtn}
+            onPress={() => router.push("/sign-in")}
+          >
+            <Text style={styles.uploadBtnText}>Sign In to Sync</Text>
+          </Pressable>
+        ) : null}
+
         {hasFailedWork && !uploadBusy ? (
           <Pressable
             style={styles.uploadBtn}
@@ -373,12 +485,12 @@ export default function MemoriesScreen() {
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No field memories yet</Text>
           <Text style={styles.emptyText}>
-            Tap the badge on the Field Mode screen to record a memory.
+            Open CampMemoryMgr to capture a field memory.
           </Text>
 
           <Pressable style={styles.addBtn} onPress={goAdd}>
             <Ionicons name="arrow-back" size={20} color="#0B0E12" />
-            <Text style={styles.addBtnText}>Back to Field Mode</Text>
+            <Text style={styles.addBtnText}>Back to CampFieldApp</Text>
           </Pressable>
         </View>
       ) : (
@@ -397,12 +509,39 @@ export default function MemoriesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0B0E12", padding: 16 },
 
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+
+  backPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+
+  backPillText: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+
   title: {
     color: "white",
     fontSize: 32,
     fontWeight: "900",
-    marginTop: 8,
-    marginBottom: 12,
+    flex: 1,
+    marginTop: 0,
+    marginBottom: 0,
     letterSpacing: -0.4,
   },
 

@@ -1,7 +1,7 @@
 // lib/publishCampStats.ts
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 
-import { auth, db } from "./firebase";
+import { auth, db } from "../src/lib/firebase";
 import {
   getPendingCampStats,
   markLocalCampStatSyncStatus,

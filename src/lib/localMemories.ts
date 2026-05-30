@@ -23,6 +23,8 @@ export type LocalMemoryItem = {
   clientCreatedAt: number;
   authorId: string;
   authorName?: string;
+  pendingAuth?: boolean;
+  pendingUploadAfterAuth?: boolean;
 
   photoUri?: string;
   photoUrl?: string;
@@ -63,6 +65,7 @@ export type LocalMemoryItem = {
   captionSource?: "manual" | "generated" | "fallback";
 };
 
+export const PENDING_AUTH_AUTHOR_ID = "pending-auth";
 const STORAGE_KEY = "deercamp.localMemories.v1";
 const ACTIVE_CAMP_ID_KEY = "deercamp.activeCampId.v1";
 export const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
@@ -122,6 +125,58 @@ async function writeAll(items: LocalMemoryItem[]) {
 export async function getLocalMemories(authorId?: string) {
   const items = await readAll();
   return authorId ? items.filter((item) => item.authorId === authorId) : items;
+}
+
+export async function getPendingAuthMemories() {
+  const items = await readAll();
+  return items.filter(
+    (item) => item.pendingAuth || item.authorId === PENDING_AUTH_AUTHOR_ID
+  );
+}
+
+export async function attachPendingAuthMemoriesToUser(params: {
+  authorId: string;
+  authorName?: string | null;
+}) {
+  const cleanAuthorId = String(params.authorId || "").trim();
+  if (!cleanAuthorId) return [];
+
+  const cleanAuthorName =
+    String(params.authorName || "").trim() || "DeerCamp Member";
+
+  const items = await readAll();
+  const attached: LocalMemoryItem[] = [];
+
+  const next = items.map((item) => {
+    if (!(item.pendingAuth || item.authorId === PENDING_AUTH_AUTHOR_ID)) {
+      return item;
+    }
+
+    const updated: LocalMemoryItem = {
+      ...item,
+      authorId: cleanAuthorId,
+      authorName: cleanAuthorName,
+      pendingAuth: false,
+      pendingUploadAfterAuth: false,
+      syncStatus:
+        item.syncStatus === "synced" || item.syncStatus === "publishing"
+          ? item.syncStatus
+          : "pending",
+      details:
+        item.type === "photo"
+          ? "Photo captured in Field Mode. Ready to upload."
+          : "Photo + voice captured in Field Mode. Ready to upload.",
+    };
+
+    attached.push(updated);
+    return updated;
+  });
+
+  if (attached.length > 0) {
+    await writeAll(next);
+  }
+
+  return attached;
 }
 
 export async function getLocalMemoryById(id: string) {
