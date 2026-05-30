@@ -191,7 +191,36 @@ export default function CampStatsDashboardScreen() {
     () => records.reduce((total, record) => total + record.count, 0),
     [records]
   );
+  const cloudRecordCount = useMemo(
+    () => records.filter((record) => record.sourceLabel === "Cloud").length,
+    [records]
+  );
+  const localRecordCount = useMemo(
+    () => records.filter((record) => record.sourceLabel === "Local").length,
+    [records]
+  );
   const bestStand = standSummaries[0];
+
+  const insightText = useMemo(() => {
+    if (!bestStand || totalSightings === 0) {
+      return "Log a few sightings to reveal your most active stands and best time-of-day patterns.";
+    }
+
+    const standTypeEntries: Array<{ label: string; count: number }> = [
+      { label: "Buck AM", count: bestStand.buckAm },
+      { label: "Doe AM", count: bestStand.doeAm },
+      { label: "Buck PM", count: bestStand.buckPm },
+      { label: "Doe PM", count: bestStand.doePm },
+    ];
+
+    const leadingType = standTypeEntries.sort((a, b) => b.count - a.count)[0];
+
+    if (!leadingType || leadingType.count === 0) {
+      return `${bestStand.standName} has the most activity so far with ${bestStand.total} sightings.`;
+    }
+
+    return `${bestStand.standName} has the most activity so far, led by ${leadingType.label} sightings.`;
+  }, [bestStand, totalSightings]);
 
   async function loadDashboard(options?: { quiet?: boolean }) {
     try {
@@ -220,9 +249,9 @@ export default function CampStatsDashboardScreen() {
       setSyncSummary(nextSyncSummary);
 
       if (cloudRecords.length > 0) {
-        setStatusMessage("Showing synced CSM counts with any unsynced local counts.");
+        setStatusMessage("Showing synced DeerCamp stats and any local counts on this phone.");
       } else if (localRecords.length > 0) {
-        setStatusMessage("Showing local CSM counts saved on this device.");
+        setStatusMessage("Showing local CSM counts saved on this phone.");
       } else {
         setStatusMessage("No CSM counts logged yet.");
       }
@@ -289,9 +318,19 @@ export default function CampStatsDashboardScreen() {
       <View style={styles.statusCard}>
         <Text style={styles.statusTitle}>Dashboard Status</Text>
         <Text style={styles.statusText}>{statusMessage}</Text>
+        <View style={styles.statusGrid}>
+          <View style={styles.statusMetric}>
+            <Text style={styles.statusMetricNumber}>{cloudRecordCount}</Text>
+            <Text style={styles.statusMetricLabel}>Cloud Records</Text>
+          </View>
+          <View style={styles.statusMetric}>
+            <Text style={styles.statusMetricNumber}>{syncSummary.pending}</Text>
+            <Text style={styles.statusMetricLabel}>Local Pending</Text>
+          </View>
+        </View>
         <Text style={styles.statusMeta}>
-          Pending: {syncSummary.pending}  Synced: {syncSummary.synced}  Retry:{" "}
-          {syncSummary.failed}  Syncing: {syncSummary.syncing}
+          Local records on phone: {localRecordCount} · Retry: {syncSummary.failed} · Syncing:{" "}
+          {syncSummary.syncing}
         </Text>
       </View>
 
@@ -303,6 +342,11 @@ export default function CampStatsDashboardScreen() {
             ? `Most activity: ${bestStand.standName} with ${bestStand.total}.`
             : "Log your first stand sighting to start the dashboard."}
         </Text>
+      </View>
+
+      <View style={styles.insightCard}>
+        <Text style={styles.insightTitle}>Best Activity So Far</Text>
+        <Text style={styles.insightText}>{insightText}</Text>
       </View>
 
       <View style={styles.typeGrid}>
@@ -340,7 +384,7 @@ export default function CampStatsDashboardScreen() {
           <Text style={styles.emptyText}>No recent sightings yet.</Text>
         ) : (
           recentRecords.map((record) => (
-            <View key={`${record.sourceLabel}-${record.id}`} style={styles.recentRow}>
+            <View key={`${record.sourceLabel === "Cloud" ? "Synced" : "Local"}-${record.id}`} style={styles.recentRow}>
               <View style={styles.recentTopRow}>
                 <Text style={styles.recentTitle}>
                   {record.count} {record.statLabel}
@@ -351,7 +395,7 @@ export default function CampStatsDashboardScreen() {
                     record.sourceLabel === "Cloud" ? styles.sourcePillCloud : styles.sourcePillLocal,
                   ]}
                 >
-                  {record.sourceLabel}
+                  {record.sourceLabel === "Cloud" ? "Synced" : "Local"}
                 </Text>
               </View>
               <Text style={styles.recentMeta}>{record.standName}</Text>
@@ -377,7 +421,7 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 34,
+    paddingBottom: 96,
   },
 
   centerScreen: {
@@ -503,6 +547,41 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
+  statusGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
+
+  statusMetric: {
+    flex: 1,
+    minHeight: 78,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,0.055)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.09)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 12,
+  },
+
+  statusMetricNumber: {
+    color: "white",
+    fontSize: 28,
+    fontWeight: "900",
+    lineHeight: 32,
+  },
+
+  statusMetricLabel: {
+    marginTop: 4,
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textAlign: "center",
+    textTransform: "uppercase",
+  },
+
   statusMeta: {
     marginTop: 10,
     color: "rgba(255,255,255,0.58)",
@@ -542,6 +621,31 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     lineHeight: 22,
+  },
+
+  insightCard: {
+    padding: 18,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.045)",
+    borderWidth: 1,
+    borderColor: "rgba(208,177,122,0.22)",
+    marginBottom: 14,
+  },
+
+  insightTitle: {
+    color: "#D0B17A",
+    fontSize: 14,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+    marginBottom: 8,
+  },
+
+  insightText: {
+    color: "rgba(255,255,255,0.82)",
+    fontSize: 16,
+    fontWeight: "800",
+    lineHeight: 24,
   },
 
   typeGrid: {
