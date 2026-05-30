@@ -115,74 +115,54 @@ function SegmentVoiceList({
     .filter((segment) => segment.uri?.trim())
     .sort((a, b) => a.index - b.index);
 
-  const [selectedIndex, setSelectedIndex] = useState(0);
-
   if (playableSegments.length === 0) return null;
 
-  const safeSelectedIndex = Math.min(selectedIndex, playableSegments.length - 1);
-  const selectedSegment = playableSegments[safeSelectedIndex];
-  const selectedPartNumber = safeSelectedIndex + 1;
+  const durationLabel = formatDuration(totalDurationMs);
+  const isSingleRecording = playableSegments.length === 1;
 
   return (
     <View style={styles.segmentCard}>
       <View style={styles.segmentHeader}>
-        <Text style={styles.segmentTitle}>Voice Recording</Text>
+        <Text style={styles.segmentTitle}>Voice Saved</Text>
         <Text style={styles.segmentMeta}>
-          {playableSegments.length} part
-          {playableSegments.length === 1 ? "" : "s"}
-          {totalDurationMs ? ` • ${formatDuration(totalDurationMs)}` : ""}
+          {durationLabel
+            ? `${durationLabel} recording saved locally.`
+            : "Recording saved locally."}
         </Text>
       </View>
 
       <Text style={styles.segmentHelp}>
-        DeerCamp saved this recording in upload-safe parts. Tap a part, then
-        play it below.
+        DeerCamp will publish this voice memory with your photo when service is
+        available.
       </Text>
 
-      <View style={styles.segmentPickerList}>
-        {playableSegments.map((segment, displayIndex) => {
-          const partNumber = displayIndex + 1;
-          const isSelected = displayIndex === safeSelectedIndex;
+      {isSingleRecording ? (
+        <VoicePlayer
+          key={playableSegments[0].id}
+          uri={playableSegments[0].uri}
+          durationMs={playableSegments[0].durationMs || totalDurationMs}
+          label="Recording"
+        />
+      ) : (
+        <View style={styles.segmentPickerList}>
+          {playableSegments.map((segment, displayIndex) => {
+            const clipNumber = displayIndex + 1;
 
-          return (
-            <Pressable
-              key={segment.id}
-              style={[
-                styles.segmentPickerBtn,
-                isSelected && styles.segmentPickerBtnActive,
-              ]}
-              onPress={() => setSelectedIndex(displayIndex)}
-            >
-              <Text
-                style={[
-                  styles.segmentPickerText,
-                  isSelected && styles.segmentPickerTextActive,
-                ]}
-              >
-                Part {partNumber}
-              </Text>
-
-              <Text style={styles.segmentPickerMeta}>
-                {formatDuration(segment.durationMs)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {selectedSegment ? (
-        <View style={styles.segmentItem}>
-          <Text style={styles.segmentLabel}>
-            Selected: Part {selectedPartNumber}
-          </Text>
-          <VoicePlayer
-            key={selectedSegment.id}
-            uri={selectedSegment.uri}
-            durationMs={selectedSegment.durationMs}
-            label={`Part ${selectedPartNumber}`}
-          />
+            return (
+              <View key={segment.id} style={styles.segmentItem}>
+                <Text style={styles.segmentLabel}>
+                  Recording Clip {clipNumber}
+                </Text>
+                <VoicePlayer
+                  uri={segment.uri}
+                  durationMs={segment.durationMs}
+                  label={`Clip ${clipNumber}`}
+                />
+              </View>
+            );
+          })}
         </View>
-      ) : null}
+      )}
     </View>
   );
 }
@@ -356,19 +336,23 @@ export default function LocalEntryDetailScreen() {
     entry.syncStatus === "failed"
       ? "Upload failed"
       : entry.syncStatus === "synced"
-      ? "Uploaded"
+      ? "Published"
       : entry.syncStatus === "publishing"
       ? "Uploading"
-      : "Saved locally";
+      : "Field Memory Saved";
+
+  const savedText = hasVoice
+    ? "Your photo and voice recording are saved on this phone. DeerCamp will publish them to CampFeed when service is available."
+    : "Your photo is saved on this phone. DeerCamp will publish it to CampFeed when service is available.";
 
   const statusText =
     entry.syncStatus === "failed"
-      ? "This memory stayed on your device because upload did not finish."
+      ? "Upload did not finish. Your field memory is still safe on this phone."
       : entry.syncStatus === "synced"
-      ? "This memory has already been uploaded."
+      ? "Your field memory is now in CampFeed."
       : entry.syncStatus === "publishing"
-      ? "This memory is currently being prepared for upload."
-      : "This memory is on your device and ready for later upload.";
+      ? "Publishing to CampFeed. DeerCamp is working behind the curtain."
+      : savedText;
 
   const targetCampId =
     String(entry.campId || DEFAULT_ACTIVE_CAMP_ID).trim() || DEFAULT_ACTIVE_CAMP_ID;
@@ -436,7 +420,7 @@ export default function LocalEntryDetailScreen() {
           totalDurationMs={entry.totalDurationMs}
         />
       ) : hasFallbackVoice ? (
-        <VoicePlayer uri={fallbackVoiceUri} durationMs={entry.totalDurationMs} />
+        <VoicePlayer uri={fallbackVoiceUri} durationMs={entry.totalDurationMs} label="Recording" />
       ) : null}
 
       {!hasPhoto && !hasVoice ? (
