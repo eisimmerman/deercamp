@@ -1,5 +1,5 @@
 // app/(tabs)/memories.tsx
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -13,18 +13,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { auth } from "@/lib/firebase";
-import {
-  attachPendingAuthMemoriesToUser,
-  getLocalMemories,
-  getPendingAuthMemories,
-  type LocalMemoryItem,
-} from "@/lib/localMemories";
+import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
 import {
   getUploadQueueTotals,
   type UploadQueueTotals,
 } from "@/lib/capture/uploadQueueState";
 import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
-import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 type EntryItem = LocalMemoryItem & {
   isLocal?: boolean;
@@ -39,86 +33,22 @@ function formatWhen(item: EntryItem) {
   return "";
 }
 
-function getCleanAuthorName() {
-  const displayName = auth.currentUser?.displayName?.trim() || "";
-  if (displayName && displayName.toLowerCase() !== "5pt") return displayName;
-
-  const email = auth.currentUser?.email?.trim() || "";
-  if (!email) return "DeerCamp Member";
-
-  const cleaned = email
-    .split("@")[0]
-    ?.replace(/[._-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!cleaned) return email;
-
-  return cleaned
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(" ");
-}
-
-async function enqueueMemoryUploadItems(memory: LocalMemoryItem, authorId: string) {
-  const campId = memory.campId || "camp-swede-cornell-wi-54732";
-  const uploadItems: any[] = [];
-
-  if (memory.photoUri?.trim()) {
-    uploadItems.push({
-      id: `${memory.id}-upload-photo-main`,
-      memoryId: memory.id,
-      segmentId: "photo-main",
-      segmentIndex: -1,
-      uri: memory.photoUri.trim(),
-      mediaType: "photo" as const,
-      campId,
-      authorId,
-    });
-  }
-
-  const segments = Array.isArray(memory.segments) ? memory.segments : [];
-  segments.forEach((segment) => {
-    if (!segment?.uri?.trim()) return;
-
-    uploadItems.push({
-      id: `${memory.id}-upload-${String(segment.index).padStart(3, "0")}`,
-      memoryId: memory.id,
-      segmentId: segment.id,
-      segmentIndex: segment.index,
-      uri: segment.uri.trim(),
-      mediaType: "audio" as const,
-      campId,
-      authorId,
-    });
-  });
-
-  if (uploadItems.length > 0) {
-    await enqueueUploadItems(uploadItems);
-  }
-}
-
 function getMemorySummary(item: EntryItem) {
-  if (item.pendingAuth) {
-    return "Saved on this phone. Sign in to attach and sync when connected.";
-  }
-
   if (item.type === "photo") {
-    if (item.syncStatus === "synced") return "Photo captured in Field Mode. Published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo captured in Field Mode. Publishing to CampFeed.";
-    if (item.syncStatus === "failed") return "Photo captured in Field Mode. Upload needs retry.";
-    return "Photo captured in Field Mode. Ready to upload.";
+    if (item.syncStatus === "synced") return "Photo published to CampFeed.";
+    if (item.syncStatus === "publishing") return "Photo to be published. Tap for details.";
+    if (item.syncStatus === "failed") return "Photo saved locally. Retry upload when connected.";
+    return "Photo saved on this phone. DeerCamp will publish it when service is available.";
   }
 
   if (item.type === "fieldMemory") {
-    if (item.syncStatus === "synced") return "Photo + voice captured in Field Mode. Published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo + voice captured in Field Mode. Publishing to CampFeed.";
-    if (item.syncStatus === "failed") return "Photo + voice captured in Field Mode. Upload needs retry.";
-    return "Photo + voice captured in Field Mode. Ready to upload.";
+    if (item.syncStatus === "synced") return "Photo + voice published to CampFeed.";
+    if (item.syncStatus === "publishing") return "Photo + voice to be published. Tap for details.";
+    if (item.syncStatus === "failed") return "Photo + voice saved locally. Retry upload when connected.";
+    return "Photo + voice saved on this phone. DeerCamp will publish it when service is available.";
   }
 
-  return item.details?.trim() || "Saved on device.";
+  return item.details?.trim() || "Saved on this phone.";
 }
 
 const emptyUploadTotals: UploadQueueTotals = {
@@ -132,7 +62,6 @@ const emptyUploadTotals: UploadQueueTotals = {
 export default function MemoriesScreen() {
   const router = useRouter();
   const user = auth.currentUser;
-  const isSignedIn = Boolean(user && !user.isAnonymous);
 
   const processingUploadsRef = useRef(false);
 
@@ -141,6 +70,7 @@ export default function MemoriesScreen() {
   const [uploadTotals, setUploadTotals] =
     useState<UploadQueueTotals>(emptyUploadTotals);
   const [uploadingFieldMemories, setUploadingFieldMemories] = useState(false);
+  const [showDeferredUploadMessage, setShowDeferredUploadMessage] = useState(false);
   const silentPublishRef = useRef(false);
 
   const goAdd = useCallback(() => {
@@ -155,30 +85,15 @@ export default function MemoriesScreen() {
 
   const loadLocal = useCallback(
     async (showLoading = true) => {
+      if (!user?.uid) {
+        setLocalItems([]);
+        setUploadTotals(emptyUploadTotals);
+        setLoading(false);
+        return;
+      }
+
       try {
         if (showLoading) setLoading(true);
-
-        if (!isSignedIn || !user?.uid) {
-          const pending = await getPendingAuthMemories();
-          const mapped: EntryItem[] = pending.map((item: LocalMemoryItem) => ({
-            ...item,
-            isLocal: true,
-          }));
-
-          mapped.sort((a, b) => toSortMs(b) - toSortMs(a));
-          setLocalItems(mapped);
-          setUploadTotals(emptyUploadTotals);
-          return;
-        }
-
-        const attached = await attachPendingAuthMemoriesToUser({
-          authorId: user.uid,
-          authorName: getCleanAuthorName(),
-        });
-
-        for (const memory of attached) {
-          await enqueueMemoryUploadItems(memory, user.uid);
-        }
 
         const next = await getLocalMemories(user.uid);
         const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
@@ -197,11 +112,10 @@ export default function MemoriesScreen() {
         if (showLoading) setLoading(false);
       }
     },
-    [isSignedIn, refreshUploadTotals, user?.uid]
+    [refreshUploadTotals, user?.uid]
   );
 
   const runUploadPass = useCallback(async () => {
-    if (!isSignedIn || !user?.uid) return;
     if (processingUploadsRef.current) return;
 
     try {
@@ -229,15 +143,10 @@ export default function MemoriesScreen() {
     } finally {
       processingUploadsRef.current = false;
     }
-  }, [isSignedIn, loadLocal, refreshUploadTotals, user?.uid]);
+  }, [loadLocal, refreshUploadTotals]);
 
   const uploadFieldMemories = useCallback(
     async (source: "auto" | "manual" = "manual") => {
-      if (!isSignedIn || !user?.uid) {
-        if (source === "manual") router.push("/sign-in");
-        return;
-      }
-
       if (uploadingFieldMemories || silentPublishRef.current) return;
 
       try {
@@ -286,7 +195,7 @@ export default function MemoriesScreen() {
         await loadLocal(false);
       }
     },
-    [isSignedIn, loadLocal, refreshUploadTotals, router, runUploadPass, uploadingFieldMemories, user?.uid]
+    [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]
   );
 
   useFocusEffect(
@@ -296,7 +205,7 @@ export default function MemoriesScreen() {
       void (async () => {
         await loadLocal(true);
 
-        if (active && isSignedIn) {
+        if (active) {
           void uploadFieldMemories("auto");
         }
       })();
@@ -306,7 +215,7 @@ export default function MemoriesScreen() {
           void (async () => {
             const totals = await refreshUploadTotals();
 
-            if (isSignedIn && (totals.pending > 0 || totals.uploading > 0)) {
+            if (totals.pending > 0 || totals.uploading > 0) {
               await uploadFieldMemories("auto");
               return;
             }
@@ -320,8 +229,21 @@ export default function MemoriesScreen() {
         active = false;
         clearInterval(interval);
       };
-    }, [isSignedIn, loadLocal, refreshUploadTotals, uploadFieldMemories])
+    }, [loadLocal, refreshUploadTotals, uploadFieldMemories])
   );
+
+  useEffect(() => {
+    if (!uploadingFieldMemories) {
+      setShowDeferredUploadMessage(false);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowDeferredUploadMessage(true);
+    }, 15000);
+
+    return () => clearTimeout(timer);
+  }, [uploadingFieldMemories]);
 
   const items = useMemo(() => {
     const merged = [...localItems];
@@ -369,28 +291,32 @@ export default function MemoriesScreen() {
     !latestFieldMemoryPublished &&
     (uploadingFieldMemories || hasPendingWork || hasLocalPublishing || hasLocalPending);
 
-  const hasPendingAuthMemories = visibleFieldMemories.some((item) => item.pendingAuth);
+  const uploadStatusLabel =
+    uploadBusy && showDeferredUploadMessage
+      ? "Photo + voice to be published. Tap for details."
+      : uploadBusy
+        ? "Uploading to CampFeed…"
+        : hasFailedWork
+          ? "Some field memories need retry."
+          : latestFieldMemoryPublished ||
+              allVisibleFieldMemoriesPublished ||
+              uploadTotals.uploaded > 0 ||
+              visibleFieldMemories.some((item) => item.syncStatus === "synced")
+            ? "All field memories published to CampFeed."
+            : "No field memories waiting.";
 
-  const uploadStatusLabel = hasPendingAuthMemories && !isSignedIn
-    ? "Saved on this phone. Sign in to attach and sync when connected."
-    : uploadBusy
-      ? "Publishing field memories to CampFeed…"
-    : hasFailedWork
-      ? "Some field memories need retry."
-      : latestFieldMemoryPublished ||
-          allVisibleFieldMemoriesPublished ||
-          uploadTotals.uploaded > 0 ||
-          visibleFieldMemories.some((item) => item.syncStatus === "synced")
-        ? "All field memories published to CampFeed."
-        : "No field memories waiting.";
+  const openLatestFieldMemoryDetails = useCallback(() => {
+    if (latestFieldMemory?.id) {
+      router.push(`/entry/local/${latestFieldMemory.id}`);
+    }
+  }, [latestFieldMemory?.id, router]);
 
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
     const details = getMemorySummary(item);
 
-    const statusLabel = item.pendingAuth
-      ? "Needs sign in to sync"
-      : item.syncStatus === "publishing"
+    const statusLabel =
+      item.syncStatus === "publishing"
         ? "Publishing to CampFeed"
         : item.syncStatus === "synced"
           ? "Published to CampFeed"
@@ -427,15 +353,13 @@ export default function MemoriesScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <Pressable style={styles.backPill} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={18} color="white" />
-          <Text style={styles.backPillText}>Back</Text>
-        </Pressable>
-        <Text style={styles.title}>Upload Field Memories</Text>
-      </View>
+      <Text style={styles.title}>Upload Field Memories</Text>
 
-      <View style={styles.uploadCard}>
+      <Pressable
+        style={styles.uploadCard}
+        disabled={!showDeferredUploadMessage || !latestFieldMemory?.id}
+        onPress={openLatestFieldMemoryDetails}
+      >
         <View style={styles.uploadHeaderRow}>
           <Text style={styles.uploadTitle}>Field Memories</Text>
 
@@ -455,20 +379,15 @@ export default function MemoriesScreen() {
 
         <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
-        {uploadBusy ? (
+        {uploadBusy && !showDeferredUploadMessage ? (
           <View style={styles.publishingRow}>
             <ActivityIndicator color="white" />
             <Text style={styles.publishingText}>Working behind the curtain…</Text>
           </View>
         ) : null}
 
-        {hasPendingAuthMemories && !isSignedIn ? (
-          <Pressable
-            style={styles.uploadBtn}
-            onPress={() => router.push("/sign-in")}
-          >
-            <Text style={styles.uploadBtnText}>Sign In to Sync</Text>
-          </Pressable>
+        {uploadBusy && showDeferredUploadMessage ? (
+          <Text style={styles.tapDetailsText}>DeerCamp has it. Details are available if you want them.</Text>
         ) : null}
 
         {hasFailedWork && !uploadBusy ? (
@@ -479,18 +398,18 @@ export default function MemoriesScreen() {
             <Text style={styles.uploadBtnText}>Retry Publish</Text>
           </Pressable>
         ) : null}
-      </View>
+      </Pressable>
 
       {showEmpty ? (
         <View style={styles.emptyWrap}>
           <Text style={styles.emptyTitle}>No field memories yet</Text>
           <Text style={styles.emptyText}>
-            Open CampMemoryMgr to capture a field memory.
+            Tap the badge on the Field Mode screen to record a memory.
           </Text>
 
           <Pressable style={styles.addBtn} onPress={goAdd}>
             <Ionicons name="arrow-back" size={20} color="#0B0E12" />
-            <Text style={styles.addBtnText}>Back to CampFieldApp</Text>
+            <Text style={styles.addBtnText}>Back to Field Mode</Text>
           </Pressable>
         </View>
       ) : (
@@ -509,39 +428,12 @@ export default function MemoriesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0B0E12", padding: 16 },
 
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-
-  backPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-
-  backPillText: {
-    color: "white",
-    fontSize: 13,
-    fontWeight: "900",
-  },
-
   title: {
     color: "white",
     fontSize: 32,
     fontWeight: "900",
-    flex: 1,
-    marginTop: 0,
-    marginBottom: 0,
+    marginTop: 8,
+    marginBottom: 12,
     letterSpacing: -0.4,
   },
 
@@ -605,6 +497,14 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.78)",
     fontSize: 13,
     fontWeight: "800",
+  },
+
+  tapDetailsText: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 19,
+    marginTop: 2,
   },
 
   uploadBtn: {

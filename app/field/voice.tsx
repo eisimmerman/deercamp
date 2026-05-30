@@ -60,11 +60,9 @@ export default function FieldVoiceScreen() {
   const photoOnly = mode === "photo";
 
   const user = auth.currentUser;
-  const isSignedIn = Boolean(user && !user.isAnonymous);
-  const authorId = isSignedIn ? user!.uid : "pending-auth";
-  const authorName = isSignedIn
-    ? user!.displayName?.trim() || user!.email?.trim() || "DeerCamp Member"
-    : "Pending sign-in";
+  const authorId = user?.uid || "anonymous";
+  const authorName =
+    user?.displayName?.trim() || user?.email?.trim() || "DeerCamp Member";
 
   const cameraRef = useRef<CameraView | null>(null);
   const autoStartedRef = useRef(false);
@@ -297,12 +295,13 @@ export default function FieldVoiceScreen() {
       return;
     }
 
+    if (!user || user.isAnonymous) return;
     if (!cameraPermission?.granted) return;
     if (autoStartedRef.current) return;
 
     autoStartedRef.current = true;
     void startAutoRecording();
-  }, [cameraPermission?.granted, photoOnly, startAutoRecording]);
+  }, [cameraPermission?.granted, photoOnly, startAutoRecording, user]);
 
   useEffect(() => {
     return () => {
@@ -355,14 +354,10 @@ export default function FieldVoiceScreen() {
     await saveLocalMemory({
       id: memoryId,
       title: "Field Photo",
-      details: isSignedIn
-        ? "Photo captured in Field Mode. Ready to upload."
-        : "Photo captured in Field Mode. Saved on this phone. Sign in later to attach and sync.",
+      details: "Photo saved on this phone. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
       authorName,
-      pendingAuth: !isSignedIn,
-      pendingUploadAfterAuth: !isSignedIn,
       syncStatus: "pending",
       type: "photo",
       photoUri,
@@ -374,20 +369,18 @@ export default function FieldVoiceScreen() {
       targetCampName: await getActiveCampName(campId),
     });
 
-    if (isSignedIn) {
-      await enqueueUploadItems([
-        {
-          id: `${memoryId}-upload-photo-main`,
-          memoryId,
-          segmentId: "photo-main",
-          segmentIndex: -1,
-          uri: photoUri,
-          mediaType: "photo" as const,
-          campId,
-          authorId,
-        },
-      ]);
-    }
+    await enqueueUploadItems([
+      {
+        id: `${memoryId}-upload-photo-main`,
+        memoryId,
+        segmentId: "photo-main",
+        segmentIndex: -1,
+        uri: photoUri,
+        mediaType: "photo" as const,
+        campId,
+        authorId,
+      },
+    ]);
   }
 
   async function queueVoiceMemory(photoUri: string) {
@@ -402,14 +395,10 @@ export default function FieldVoiceScreen() {
     const payload: any = {
       id: memoryId,
       title: "Field Memory",
-      details: isSignedIn
-        ? "Photo + voice captured in Field Mode. Ready to upload."
-        : "Photo + voice captured in Field Mode. Saved on this phone. Sign in later to attach and sync.",
+      details: "Photo + voice saved on this phone. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
       authorName,
-      pendingAuth: !isSignedIn,
-      pendingUploadAfterAuth: !isSignedIn,
       syncStatus: "pending",
       type: "fieldMemory",
       photoUri,
@@ -453,9 +442,7 @@ export default function FieldVoiceScreen() {
       })),
     ];
 
-    if (isSignedIn) {
-      await enqueueUploadItems(uploadItems);
-    }
+    await enqueueUploadItems(uploadItems);
   }
 
   async function onTakePhoto() {
@@ -531,6 +518,23 @@ export default function FieldVoiceScreen() {
     router.back();
   }
 
+  if (!user || user.isAnonymous) {
+    return (
+      <View style={styles.centerWrap}>
+        <Text style={styles.gateTitle}>Sign in required</Text>
+        <Text style={styles.gateText}>
+          Please sign in before recording a memory.
+        </Text>
+
+        <Pressable
+          style={styles.primaryBtn}
+          onPress={() => router.replace("/sign-in")}
+        >
+          <Text style={styles.primaryBtnText}>Go to Sign In</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   if (!cameraPermission) {
     return (
@@ -577,7 +581,7 @@ export default function FieldVoiceScreen() {
         />
         <Text style={styles.gateTitle}>Microphone access needed</Text>
         <Text style={styles.gateText}>
-          CampMemoryMgr starts audio automatically when the camera opens.
+          Record Memory starts audio automatically when the camera opens.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={onRetryAudio}>
@@ -595,7 +599,7 @@ export default function FieldVoiceScreen() {
     return (
       <View style={styles.centerWrap}>
         <ActivityIndicator />
-        <Text style={styles.gateTitle}>Starting CampMemoryMgr…</Text>
+        <Text style={styles.gateTitle}>Starting Record Memory…</Text>
         <Text style={styles.gateText}>
           Opening camera and starting audio automatically.
         </Text>
@@ -642,11 +646,11 @@ export default function FieldVoiceScreen() {
 
       <View style={styles.overlayBottom}>
         <Text style={styles.captureTitle}>
-          {photoOnly ? "Photo Only" : "CampMemoryMgr"}
+          {photoOnly ? "Photo Only" : "Record Memory"}
         </Text>
 
         <Text style={styles.captureText}>
-          {photoOnly ? "Tap to take photo." : isSignedIn ? "Audio auto-recording." : "Capture now. Sign in later to sync."}
+          {photoOnly ? "Tap to take photo." : "Audio auto-recording."}
         </Text>
 
         <View style={styles.campTargetPill}>
