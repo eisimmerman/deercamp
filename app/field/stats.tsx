@@ -25,6 +25,7 @@ import {
   DEFAULT_CAMP_STAT_SYNC_SUMMARY,
   getCampStatsSummary,
   getCampStatsSyncSummary,
+  clearLocalCampStats,
   saveLocalCampStat,
 } from "../../lib/localCampStats";
 import { syncPendingCampStats } from "../../lib/publishCampStats";
@@ -226,6 +227,38 @@ export default function CampStatsMgrScreen() {
     } finally {
       setSyncingStats(false);
     }
+  }
+
+  async function handleClearLocalCsmTestData() {
+    Alert.alert(
+      "Clear local CSM test data?",
+      "This only clears CampStatsMgr records saved on this device. It will not delete field memories or cloud-synced records already in DeerCamp.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Clear Test Data",
+          style: "destructive",
+          onPress: () => {
+            void (async () => {
+              try {
+                await clearLocalCampStats(activeCampId);
+                await refreshSummary(activeCampId);
+                await refreshSyncSummary(activeCampId);
+                setLastSaved("");
+                setSyncMessage("Local CSM test data cleared on this device.");
+                setUnsavedWarning("");
+                setCountSaved(false);
+                setCountReadyToSave(false);
+                setSightingCount(0);
+              } catch (error: any) {
+                console.error("clear CampStatsMgr local data failed:", error);
+                Alert.alert("Clear failed", error?.message ?? "Please try again.");
+              }
+            })();
+          },
+        },
+      ]
+    );
   }
 
   function changeSightingCount(delta: number) {
@@ -639,6 +672,18 @@ export default function CampStatsMgrScreen() {
           <Text style={styles.logAnotherButtonText}>
             {syncingStats ? "Syncing CSM Counts..." : "Sync CSM Counts"}
           </Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.clearTestDataButton,
+            pressed && styles.pressed,
+            syncingStats && styles.disabled,
+          ]}
+          disabled={syncingStats}
+          onPress={handleClearLocalCsmTestData}
+        >
+          <Text style={styles.clearTestDataButtonText}>Clear Local CSM Test Data</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -1061,6 +1106,25 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 15,
     fontWeight: "900",
+  },
+
+  clearTestDataButton: {
+    marginTop: 10,
+    minHeight: 44,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.04)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  clearTestDataButtonText: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 13,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 
   summaryCard: {

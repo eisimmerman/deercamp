@@ -123,6 +123,18 @@ export async function getLocalCampStats() {
   return safeJsonParse(raw).map(normalizeRecord).filter(Boolean) as LocalCampStatRecord[];
 }
 
+export async function clearLocalCampStats(campId?: string) {
+  if (!campId) {
+    await writeLocalCampStats([]);
+    return [];
+  }
+
+  const records = await getLocalCampStats();
+  const nextRecords = records.filter((record) => record.campId !== campId);
+  await writeLocalCampStats(nextRecords);
+  return nextRecords;
+}
+
 export async function saveLocalCampStat(
   input: Omit<LocalCampStatRecord, "id" | "statLabel" | "count" | "syncStatus" | "source" | "schemaVersion"> & {
     id?: string;
