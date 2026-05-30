@@ -71,6 +71,8 @@ export default function MemoriesScreen() {
     useState<UploadQueueTotals>(emptyUploadTotals);
   const [uploadingFieldMemories, setUploadingFieldMemories] = useState(false);
   const [showDeferredUploadMessage, setShowDeferredUploadMessage] = useState(false);
+  const [uploadBusySinceMs, setUploadBusySinceMs] = useState<number | null>(null);
+  const [uploadBusyKey, setUploadBusyKey] = useState<string | null>(null);
   const silentPublishRef = useRef(false);
 
   const goAdd = useCallback(() => {
@@ -232,19 +234,6 @@ export default function MemoriesScreen() {
     }, [loadLocal, refreshUploadTotals, uploadFieldMemories])
   );
 
-  useEffect(() => {
-    if (!uploadingFieldMemories) {
-      setShowDeferredUploadMessage(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setShowDeferredUploadMessage(true);
-    }, 15000);
-
-    return () => clearTimeout(timer);
-  }, [uploadingFieldMemories]);
-
   const items = useMemo(() => {
     const merged = [...localItems];
     merged.sort((a, b) => toSortMs(b) - toSortMs(a));
@@ -304,6 +293,37 @@ export default function MemoriesScreen() {
               visibleFieldMemories.some((item) => item.syncStatus === "synced")
             ? "All field memories published to CampFeed."
             : "No field memories waiting.";
+
+  const activeUploadKey = latestFieldMemory?.id || "field-memory-upload-queue";
+
+  useEffect(() => {
+    if (!uploadBusy) {
+      setShowDeferredUploadMessage(false);
+      setUploadBusySinceMs(null);
+      setUploadBusyKey(null);
+      return;
+    }
+
+    if (uploadBusyKey !== activeUploadKey || !uploadBusySinceMs) {
+      setShowDeferredUploadMessage(false);
+      setUploadBusyKey(activeUploadKey);
+      setUploadBusySinceMs(Date.now());
+      return;
+    }
+
+    const elapsedMs = Date.now() - uploadBusySinceMs;
+
+    if (elapsedMs >= 15000) {
+      setShowDeferredUploadMessage(true);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowDeferredUploadMessage(true);
+    }, 15000 - elapsedMs);
+
+    return () => clearTimeout(timer);
+  }, [activeUploadKey, uploadBusy, uploadBusyKey, uploadBusySinceMs]);
 
   const openLatestFieldMemoryDetails = useCallback(() => {
     if (latestFieldMemory?.id) {
