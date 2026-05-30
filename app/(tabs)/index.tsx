@@ -74,28 +74,42 @@ export default function HomeScreen() {
           </View>
         </Pressable>
 
-        <Pressable
-          style={({ pressed }) => [
-            styles.moduleCard,
-            styles.statsCard,
-            pressed && styles.moduleCardPressed,
-          ]}
-          onPress={() => router.push("/field/stats")}
-          accessibilityLabel="Open CampStatsMgr"
-        >
+        <View style={[styles.moduleCard, styles.statsCard]}>
           <View style={styles.moduleIconWrap}>
             <Text style={styles.moduleIcon}>🦌</Text>
           </View>
           <Text style={styles.moduleKicker}>CSM</Text>
           <Text style={styles.moduleTitle}>CampStatsMgr</Text>
           <Text style={styles.moduleText}>
-            Tap stand name, log Buck AM, Doe AM, Buck PM, or Doe PM. Counts
-            save locally now and can sync back to DeerCamp later.
+            Log Buck AM, Doe AM, Buck PM, and Doe PM counts by stand. Review
+            synced sightings in the new stats dashboard.
           </Text>
-          <View style={[styles.moduleButton, styles.moduleButtonGhost]}>
-            <Text style={styles.moduleButtonGhostText}>Log Stand Stats</Text>
+
+          <View style={styles.moduleButtonRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.moduleButton,
+                styles.moduleButtonGhost,
+                pressed && styles.moduleActionPressed,
+              ]}
+              onPress={() => router.push("/field/stats")}
+              accessibilityLabel="Open CampStatsMgr logger"
+            >
+              <Text style={styles.moduleButtonGhostText}>Log Stand Stats</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.moduleButton,
+                pressed && styles.moduleActionPressed,
+              ]}
+              onPress={() => router.push("/stats-dashboard")}
+              accessibilityLabel="Open CampStatsMgr dashboard"
+            >
+              <Text style={styles.moduleButtonText}>View Dashboard</Text>
+            </Pressable>
           </View>
-        </Pressable>
+        </View>
       </View>
 
       <View style={styles.quickActionsCard}>
@@ -262,6 +276,13 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
 
+  moduleButtonRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    alignItems: "center",
+  },
+
   moduleButton: {
     alignSelf: "flex-start",
     minHeight: 48,
@@ -270,6 +291,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  moduleActionPressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
 
   moduleButtonText: {
