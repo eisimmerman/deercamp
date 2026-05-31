@@ -322,6 +322,223 @@ async function recordAdminSubscriptionNotification({ eventId, campId, campName, 
     });
     return { skipped: false, totals };
 }
+const GSS_PRODUCT_NAME_MATCH = "guided steward setup";
+const GSS_ADMIN_NOTIFICATION_EMAIL = "subscriptions@ourdeercamp.com";
+function normalizeProductName(value) {
+    return String(value || "").trim().toLowerCase();
+}
+function getSessionCustomerEmail(session) {
+    return firstNonEmptyValue(
+        session.customer_details && session.customer_details.email,
+        session.customer_email,
+        session.customer && session.customer.email
+    );
+}
+function getSessionCustomerName(session) {
+    return firstNonEmptyValue(
+        session.customer_details && session.customer_details.name,
+        session.customer && session.customer.name,
+        "Steward"
+    );
+}
+function getSessionCustomerPhone(session) {
+    return firstNonEmptyValue(
+        session.customer_details && session.customer_details.phone,
+        session.phone_number_collection && session.phone_number_collection.phone
+    );
+}
+async function getCheckoutLineItemSummary(stripe, sessionId) {
+    const lineItems = await stripe.checkout.sessions.listLineItems(String(sessionId || ""), {
+        limit: 10,
+        expand: ["data.price.product"],
+    });
+    return lineItems.data.map((item) => {
+        const price = item.price || {};
+        const product = price.product && typeof price.product === "object" ? price.product : {};
+        return {
+            description: String(item.description || product.name || "").trim(),
+            productName: String(product.name || item.description || "").trim(),
+            productId: String(product.id || "").trim(),
+            priceId: String(price.id || "").trim(),
+            quantity: Number(item.quantity || 0),
+            amountTotal: Number(item.amount_total || 0),
+            currency: String(item.currency || price.currency || "usd").trim().toUpperCase(),
+        };
+    });
+}
+function isGssCheckoutSession(session, lineItems = []) {
+    const metadata = session.metadata || {};
+    const mode = String(session.mode || "").toLowerCase();
+    const metadataText = [metadata.product, metadata.service, metadata.sku, metadata.tier, metadata.flow, metadata.offer, metadata.name]
+        .map(normalizeProductName)
+        .join(" ");
+    const lineText = lineItems.map((item) => normalizeProductName(`${item.productName} ${item.description}`)).join(" ");
+    return mode === "payment" && (metadataText.includes("gss") || metadataText.includes(GSS_PRODUCT_NAME_MATCH) || lineText.includes(GSS_PRODUCT_NAME_MATCH));
+}
+function formatDollarsFromCents(cents, currency = "USD") {
+    const amount = Number(cents || 0) / 100;
+    return `${amount.toLocaleString("en-US", { style: "currency", currency: currency || "USD" })}`;
+}
+function getStewardDashboardLink(campId) {
+    const cleanCampId = String(campId || "").trim();
+    if (!cleanCampId)
+        return "https://www.ourdeercamp.com/build.html";
+    return `https://www.ourdeercamp.com/steward-dashboard.html?campId=${encodeURIComponent(cleanCampId)}&role=steward&view=steward`;
+}
+async function recordGssPurchase({ eventId, session, lineItems }) {
+    if (!eventId)
+        throw new Error("Missing Stripe event id for GSS purchase.");
+    const campId = String((session.metadata && session.metadata.campId) || session.client_reference_id || "").trim();
+    const stewardEmail = getSessionCustomerEmail(session);
+    const stewardName = getSessionCustomerName(session);
+    const phone = getSessionCustomerPhone(session);
+    const paymentIntentId = normalizeStripeId(session.payment_intent);
+    const customerId = normalizeStripeId(session.customer);
+    const amountTotal = Number(session.amount_total || lineItems.reduce((sum, item) => sum + Number(item.amountTotal || 0), 0));
+    const currency = String(session.currency || (lineItems[0] && lineItems[0].currency) || "USD").toUpperCase();
+    const purchaseRef = db.collection("gssPurchases").doc(String(session.id || eventId));
+    const eventRef = db.collection("systemStats").doc("gss").collection("processedEvents").doc(eventId);
+    const statsRef = db.collection("systemStats").doc("gss");
+    const purchasePayload = {
+        eventId,
+        checkoutSessionId: String(session.id || ""),
+        paymentIntentId,
+        stripeCustomerId: customerId,
+        campId,
+        stewardName,
+        stewardEmail,
+        phone,
+        amountTotal,
+        currency,
+        lineItems,
+        status: "needs_scheduling",
+        includesDcPlusYear: true,
+        purchased: true,
+        createdAt: firestore_1.FieldValue.serverTimestamp(),
+        createdAtClient: new Date().toISOString(),
+    };
+    const totals = await db.runTransaction(async (transaction) => {
+        const existingEvent = await transaction.get(eventRef);
+        const statsSnap = await transaction.get(statsRef);
+        const current = statsSnap.exists ? statsSnap.data() || {} : {};
+        if (existingEvent.exists) {
+            return Object.assign({}, current, { alreadyProcessed: true });
+        }
+        const next = {
+            gssTotal: Number(current.gssTotal || 0) + 1,
+            gssRevenueCents: Number(current.gssRevenueCents || 0) + amountTotal,
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAtClient: new Date().toISOString(),
+        };
+        transaction.set(statsRef, next, { merge: true });
+        transaction.set(eventRef, { eventId, checkoutSessionId: String(session.id || ""), processedAt: firestore_1.FieldValue.serverTimestamp(), processedAtClient: new Date().toISOString() });
+        transaction.set(purchaseRef, purchasePayload, { merge: true });
+        if (campId) {
+            transaction.set(db.collection("camps").doc(campId), {
+                gss: {
+                    purchased: true,
+                    status: "needs_scheduling",
+                    purchasedAt: firestore_1.FieldValue.serverTimestamp(),
+                    purchasedAtClient: new Date().toISOString(),
+                    checkoutSessionId: String(session.id || ""),
+                    paymentIntentId,
+                    stripeCustomerId: customerId,
+                    stewardEmail,
+                    phone,
+                    includesDcPlusYear: true,
+                },
+                tier: "dc_plus",
+                billingStatus: "gss_includes_dc_plus_year",
+                updatedAtClient: new Date().toISOString(),
+            }, { merge: true });
+        }
+        return next;
+    });
+    return { campId, stewardEmail, stewardName, phone, amountTotal, currency, paymentIntentId, customerId, totals };
+}
+function composeGssStewardEmail({ campId, stewardName, stewardEmail }) {
+    if (!stewardEmail)
+        throw new Error("Missing Steward email for GSS welcome email.");
+    const dashboardLink = getStewardDashboardLink(campId);
+    const subject = "Your Guided Steward Setup is ready";
+    const safeName = stewardName || "Steward";
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${htmlEscape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f5f1e8;font-family:Arial,Helvetica,sans-serif;color:#2f2a24;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f1e8;margin:0;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <tr><td style="padding:32px 32px 12px 32px;text-align:left;">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+            <img src="https://ourdeercamp.com/email-assets/steward-welcome/deercamp-icon.png" alt="DeerCamp" width="40" height="40" style="display:inline-block;vertical-align:middle;border:0;" />
+            <div style="font-size:24px;line-height:1.2;font-weight:700;color:#1f1a15;">Your Guided Steward Setup is ready</div>
+          </div>
+          <div style="font-size:15px;line-height:1.7;color:#3b342c;">
+            <p style="margin:0 0 16px 0;">Hi ${htmlEscape(safeName)},</p>
+            <p style="margin:0 0 16px 0;">Thank you for purchasing Guided Steward Setup. We’ll help you configure your DeerCamp, review your setup, assist with member invites, and answer questions so your camp is ready to launch with confidence.</p>
+            <p style="margin:0 0 16px 0;"><strong>Your first year of DeerCamp Plus (DC+) is included.</strong></p>
+            <p style="margin:0 0 16px 0;">Please reply to this email with your camp name, best phone number, and a few good times to connect. We’ll use that to schedule your setup help.</p>
+            <p style="margin:0 0 24px 0;"><a href="${htmlEscape(dashboardLink)}" style="display:inline-block;background:#2f5d3a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:10px;font-weight:700;">Continue Building Your DeerCamp</a></p>
+            <p style="margin:0 0 16px 0;">Need help sooner? Email <a href="mailto:support@ourdeercamp.com" style="color:#2f5d3a;font-weight:700;text-decoration:underline;">support@ourdeercamp.com</a>.</p>
+            <p style="margin:0 0 0 0;">— Eric Simmerman, Founder</p>
+          </div>
+        </td></tr>
+        <tr><td style="padding:8px 32px 32px 32px;font-size:13px;line-height:1.6;color:#6a6157;">Sent from <a href="mailto:welcome@ourdeercamp.com" style="color:#2f5d3a;text-decoration:none;">welcome@ourdeercamp.com</a><br />Guided Steward Setup Email</td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+    const text = `Hi ${safeName},\n\nThank you for purchasing Guided Steward Setup. We’ll help you configure your DeerCamp, review your setup, assist with member invites, and answer questions so your camp is ready to launch with confidence.\n\nYour first year of DeerCamp Plus (DC+) is included.\n\nPlease reply to this email with your camp name, best phone number, and a few good times to connect. We’ll use that to schedule your setup help.\n\nContinue Building Your DeerCamp:\n${dashboardLink}\n\nNeed help sooner? Email support@ourdeercamp.com.\n\n— Eric Simmerman, Founder\n`;
+    return {
+        to: stewardEmail,
+        subject,
+        from: process.env.WELCOME_FROM || "DeerCamp <welcome@ourdeercamp.com>",
+        html,
+        text,
+        replyTo: process.env.WELCOME_REPLY_TO || "welcome@ourdeercamp.com",
+        attachments: [],
+        tags: [
+            { name: "flow", value: "gss-steward-welcome" },
+            { name: "environment", value: process.env.VERCEL_ENV || "firebase" },
+        ],
+    };
+}
+function composeGssAdminEmail({ campId, stewardName, stewardEmail, phone, amountTotal, currency, paymentIntentId, customerId, totals }) {
+    const subject = `New GSS Purchase — Includes First Year DC+`;
+    const dashboardLink = getStewardDashboardLink(campId);
+    const text = `New Guided Steward Setup purchase received.\n\nIncludes first year of DC+.\n\nSteward:\n${stewardName || ""}\n\nEmail:\n${stewardEmail || ""}\n\nPhone:\n${phone || ""}\n\nCamp ID:\n${campId || "Not provided by Stripe Payment Link"}\n\nDashboard / Builder Link:\n${dashboardLink}\n\nStripe Customer ID:\n${customerId || ""}\n\nPayment Intent ID:\n${paymentIntentId || ""}\n\nAmount:\n${formatDollarsFromCents(amountTotal, currency)}\n\nRunning Totals:\nTotal GSS: ${totals && totals.gssTotal ? totals.gssTotal : 0}\nGSS Revenue: ${formatDollarsFromCents(totals && totals.gssRevenueCents ? totals.gssRevenueCents : 0, currency)}\n\nTime:\n${new Date().toISOString()}\n`;
+    return {
+        to: GSS_ADMIN_NOTIFICATION_EMAIL,
+        from: process.env.WELCOME_FROM || "DeerCamp <welcome@ourdeercamp.com>",
+        subject,
+        text,
+        html: `<pre style="font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap;line-height:1.5;">${htmlEscape(text)}</pre>`,
+        replyTo: process.env.WELCOME_REPLY_TO || "welcome@ourdeercamp.com",
+        attachments: [],
+        tags: [
+            { name: "flow", value: "gss-admin-purchase-notification" },
+            { name: "environment", value: process.env.VERCEL_ENV || "firebase" },
+        ],
+    };
+}
+async function handleGssCheckoutCompleted({ stripe, event, session }) {
+    const lineItems = await getCheckoutLineItemSummary(stripe, session.id);
+    if (!isGssCheckoutSession(session, lineItems)) {
+        return { skipped: true, reason: "Not a GSS checkout session." };
+    }
+    const purchase = await recordGssPurchase({ eventId: String(event.id || ""), session, lineItems });
+    await sendViaResend(composeGssAdminEmail(purchase));
+    if (purchase.stewardEmail) {
+        await sendViaResend(composeGssStewardEmail(purchase));
+    }
+    else {
+        firebase_functions_1.logger.warn("GSS purchase did not include a customer email; steward email skipped.", { eventId: String(event.id || ""), sessionId: String(session.id || "") });
+    }
+    return { skipped: false, purchase };
+}
+
 function getRequestOrigin(req) {
     const origin = String(req.headers.origin || "").trim();
     if (origin)
@@ -644,6 +861,16 @@ exports.stripeWebhook = (0, https_1.onRequest)({
             const campId = String((session.metadata && session.metadata.campId) || session.client_reference_id || "").trim();
             const subscriptionId = normalizeStripeId(session.subscription);
             const customerId = normalizeStripeId(session.customer);
+            try {
+                await handleGssCheckoutCompleted({ stripe, event, session });
+            }
+            catch (gssError) {
+                firebase_functions_1.logger.error("GSS checkout handling failed.", {
+                    error: gssError instanceof Error ? gssError.message : String(gssError),
+                    eventId: String(event.id || ""),
+                    sessionId: String(session.id || ""),
+                });
+            }
             if (campId && subscriptionId) {
                 const subscription = await stripe.subscriptions.retrieve(subscriptionId);
                 await writeCampBilling(campId, subscriptionBillingPayload(subscription, {
