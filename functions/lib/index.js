@@ -323,6 +323,10 @@ async function recordAdminSubscriptionNotification({ eventId, campId, campName, 
     return { skipped: false, totals };
 }
 const GSS_PRODUCT_NAME_MATCH = "guided steward setup";
+const GSS_PAYMENT_LINK_IDS = new Set([
+    "plink_1Td9lJRcr1GduppUYBDqpQbE",
+    "plink_1Td7MFRcr1GduppUKYqu7ycU",
+]);
 const GSS_ADMIN_NOTIFICATION_EMAIL = "subscriptions@ourdeercamp.com";
 function normalizeProductName(value) {
     return String(value || "").trim().toLowerCase();
@@ -369,11 +373,12 @@ async function getCheckoutLineItemSummary(stripe, sessionId) {
 function isGssCheckoutSession(session, lineItems = []) {
     const metadata = session.metadata || {};
     const mode = String(session.mode || "").toLowerCase();
+    const paymentLinkId = normalizeStripeId(session.payment_link);
     const metadataText = [metadata.product, metadata.service, metadata.sku, metadata.tier, metadata.flow, metadata.offer, metadata.name]
         .map(normalizeProductName)
         .join(" ");
     const lineText = lineItems.map((item) => normalizeProductName(`${item.productName} ${item.description}`)).join(" ");
-    return mode === "payment" && (metadataText.includes("gss") || metadataText.includes(GSS_PRODUCT_NAME_MATCH) || lineText.includes(GSS_PRODUCT_NAME_MATCH));
+    return mode === "payment" && (GSS_PAYMENT_LINK_IDS.has(paymentLinkId) || metadataText.includes("gss") || metadataText.includes(GSS_PRODUCT_NAME_MATCH) || lineText.includes(GSS_PRODUCT_NAME_MATCH));
 }
 function formatDollarsFromCents(cents, currency = "USD") {
     const amount = Number(cents || 0) / 100;
