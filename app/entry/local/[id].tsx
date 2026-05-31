@@ -132,8 +132,8 @@ function SegmentVoiceList({
       </View>
 
       <Text style={styles.segmentHelp}>
-        DeerCamp will publish this voice memory with your photo when service is
-        available.
+        Your Field Memory is safely stored on this phone. DeerCamp will
+        automatically publish it when service becomes available.
       </Text>
 
       {isSingleRecording ? (
@@ -342,8 +342,8 @@ export default function LocalEntryDetailScreen() {
       : "Field Memory Saved";
 
   const savedText = hasVoice
-    ? "Your photo and voice recording are saved on this phone. DeerCamp will publish them to CampFeed when service is available."
-    : "Your photo is saved on this phone. DeerCamp will publish it to CampFeed when service is available.";
+    ? "Your Field Memory is safe. DeerCamp will automatically publish it to CampFeed when service becomes available."
+    : "Your Field Memory is safe. DeerCamp will automatically publish it to CampFeed when service becomes available.";
 
   const statusText =
     entry.syncStatus === "failed"
@@ -351,7 +351,7 @@ export default function LocalEntryDetailScreen() {
       : entry.syncStatus === "synced"
       ? "Your field memory is now in CampFeed."
       : entry.syncStatus === "publishing"
-      ? "Publishing to CampFeed. DeerCamp is working behind the curtain."
+      ? "Publishing to CampFeed... DeerCamp is working behind the curtain."
       : savedText;
 
   const targetCampId =

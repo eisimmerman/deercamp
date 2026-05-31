@@ -36,15 +36,15 @@ function formatWhen(item: EntryItem) {
 function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
     if (item.syncStatus === "synced") return "Photo published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo to be published. Tap for details.";
-    if (item.syncStatus === "failed") return "Photo saved locally. Retry upload when connected.";
+    if (item.syncStatus === "publishing") return "Photo safely stored.";
+    if (item.syncStatus === "failed") return "Photo saved locally. Retry when connected.";
     return "Photo saved on this phone. DeerCamp will publish it when service is available.";
   }
 
   if (item.type === "fieldMemory") {
     if (item.syncStatus === "synced") return "Photo + voice published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo + voice to be published. Tap for details.";
-    if (item.syncStatus === "failed") return "Photo + voice saved locally. Retry upload when connected.";
+    if (item.syncStatus === "publishing") return "Field Memory safely stored.";
+    if (item.syncStatus === "failed") return "Field Memory saved locally. Retry when connected.";
     return "Photo + voice saved on this phone. DeerCamp will publish it when service is available.";
   }
 
@@ -287,7 +287,7 @@ export default function MemoriesScreen() {
 
   const uploadStatusLabel =
     uploadBusy && showDeferredUploadMessage
-      ? "Photo + voice to be published. Tap for details."
+      ? "Field Memory safely stored."
       : uploadBusy
         ? "Uploading to CampFeed…"
         : hasFailedWork
@@ -296,7 +296,7 @@ export default function MemoriesScreen() {
               allVisibleFieldMemoriesPublished ||
               uploadTotals.uploaded > 0 ||
               visibleFieldMemories.some((item) => item.syncStatus === "synced")
-            ? "All field memories published to CampFeed."
+            ? "All Field Memories published to CampFeed."
             : "No field memories waiting.";
 
   const activeUploadKey = latestFieldMemory?.id || "field-memory-upload-queue";
@@ -392,8 +392,7 @@ export default function MemoriesScreen() {
             style={[
               styles.uploadStatusDot,
               latestFieldMemoryPublished ||
-              allVisibleFieldMemoriesPublished ||
-              uploadTotals.uploaded > 0
+              allVisibleFieldMemoriesPublished
                 ? styles.uploadDotGood
                 : hasWorkToUpload
                   ? styles.uploadDotUploading
@@ -412,7 +411,7 @@ export default function MemoriesScreen() {
         ) : null}
 
         {uploadBusy && showDeferredUploadMessage ? (
-          <Text style={styles.tapDetailsText}>DeerCamp has it. Details are available if you want them.</Text>
+          <Text style={styles.tapDetailsText}>Enjoy the moment. DeerCamp will publish it automatically when service is available.</Text>
         ) : null}
 
         {hasFailedWork && !uploadBusy ? (
