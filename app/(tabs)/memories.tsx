@@ -64,6 +64,7 @@ export default function MemoriesScreen() {
   const user = auth.currentUser;
 
   const processingUploadsRef = useRef(false);
+  const autoUploadRunningRef = useRef(false);
 
   const [localItems, setLocalItems] = useState<EntryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,13 +150,14 @@ export default function MemoriesScreen() {
 
   const uploadFieldMemories = useCallback(
     async (source: "auto" | "manual" = "manual") => {
-      if (uploadingFieldMemories || silentPublishRef.current) return;
+      if (autoUploadRunningRef.current || silentPublishRef.current) return;
 
       try {
+        autoUploadRunningRef.current = true;
         silentPublishRef.current = true;
         setUploadingFieldMemories(true);
 
-        for (let pass = 0; pass < 8; pass += 1) {
+        for (let pass = 0; pass < 3; pass += 1) {
           const before = await refreshUploadTotals();
 
           if (
@@ -190,6 +192,7 @@ export default function MemoriesScreen() {
         await new Promise((resolve) => setTimeout(resolve, 650));
         await loadLocal(false);
       } finally {
+        autoUploadRunningRef.current = false;
         silentPublishRef.current = false;
         setUploadingFieldMemories(false);
 
@@ -197,7 +200,7 @@ export default function MemoriesScreen() {
         await loadLocal(false);
       }
     },
-    [loadLocal, refreshUploadTotals, runUploadPass, uploadingFieldMemories]
+    [loadLocal, refreshUploadTotals, runUploadPass]
   );
 
   useFocusEffect(
@@ -217,8 +220,10 @@ export default function MemoriesScreen() {
           void (async () => {
             const totals = await refreshUploadTotals();
 
-            if (totals.pending > 0 || totals.uploading > 0) {
-              await uploadFieldMemories("auto");
+            if (totals.pending > 0 || totals.failed > 0) {
+              if (!autoUploadRunningRef.current) {
+                await uploadFieldMemories("auto");
+              }
               return;
             }
 
