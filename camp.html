@@ -4347,9 +4347,20 @@ async function removeCurrentFeedPost(){
   }
 }
 
+function stopFeedModalAudio(){
+  const audioWrap = document.getElementById('feedModalAudio');
+  if(!audioWrap) return;
+  audioWrap.querySelectorAll('audio').forEach(audio => {
+    try { audio.pause(); } catch(error) {}
+    try { audio.currentTime = 0; } catch(error) {}
+    try { audio.removeAttribute('src'); audio.load(); } catch(error) {}
+  });
+}
+
 function renderFeedAudioControl(item){
   const audioWrap = document.getElementById('feedModalAudio');
   if(!audioWrap) return;
+  stopFeedModalAudio();
   const audioUrl = String(item && item.audioUrl ? item.audioUrl : '').trim();
   if(!audioUrl){
     audioWrap.hidden = true;
@@ -4385,12 +4396,15 @@ function openFeedModal(idx){
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
-function closeFeedModal(){document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
+function closeFeedModal(){stopFeedModalAudio();document.getElementById('feedModalAudio').innerHTML='';document.getElementById('feedModalAudio').hidden=true;document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
 document.getElementById('feedPrev')?.addEventListener('click',()=>feedPageStep(-1));
 document.getElementById('feedNext')?.addEventListener('click',()=>feedPageStep(1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
 document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
 document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape' && document.getElementById('feedModal')?.classList.contains('open')) closeFeedModal();
+});
 let feedResizeTimer=null;
 window.addEventListener('resize', ()=>{
   clearTimeout(feedResizeTimer);
