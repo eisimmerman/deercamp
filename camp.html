@@ -4347,20 +4347,41 @@ async function removeCurrentFeedPost(){
   }
 }
 
-function stopFeedModalAudio(){
+function pauseAndResetAudioElement(audio, options = {}){
+  if(!audio) return;
+  const detach = Boolean(options.detach);
+  try { audio.pause(); } catch(error) {}
+  try { audio.currentTime = 0; } catch(error) {}
+  // Detach only modal-owned audio so iOS/Safari cannot keep the old stream alive after the modal closes.
+  if(detach && audio.closest && audio.closest('#feedModal')){
+    try { audio.removeAttribute('src'); } catch(error) {}
+    try { audio.querySelectorAll('source').forEach(source => source.removeAttribute('src')); } catch(error) {}
+    try { audio.load(); } catch(error) {}
+  }
+}
+
+function stopFeedModalAudio(options = {}){
+  const aggressive = Boolean(options.aggressive);
+  const detach = Boolean(options.detach);
   const audioWrap = document.getElementById('feedModalAudio');
-  if(!audioWrap) return;
-  audioWrap.querySelectorAll('audio').forEach(audio => {
-    try { audio.pause(); } catch(error) {}
-    try { audio.currentTime = 0; } catch(error) {}
-    try { audio.removeAttribute('src'); audio.load(); } catch(error) {}
+  const modal = document.getElementById('feedModal');
+  const audios = new Set();
+  [audioWrap, modal].forEach(root => {
+    if(!root) return;
+    root.querySelectorAll('audio').forEach(audio => audios.add(audio));
   });
+  // iOS Safari can keep media alive if the close tap lands before the modal cleanup runs.
+  // On an actual modal close, also pause any currently playing page audio as a safety net.
+  if(aggressive){
+    document.querySelectorAll('audio').forEach(audio => audios.add(audio));
+  }
+  audios.forEach(audio => pauseAndResetAudioElement(audio, { detach }));
 }
 
 function renderFeedAudioControl(item){
   const audioWrap = document.getElementById('feedModalAudio');
   if(!audioWrap) return;
-  stopFeedModalAudio();
+  stopFeedModalAudio({ aggressive: true });
   const audioUrl = String(item && item.audioUrl ? item.audioUrl : '').trim();
   if(!audioUrl){
     audioWrap.hidden = true;
@@ -4370,13 +4391,14 @@ function renderFeedAudioControl(item){
   audioWrap.hidden = false;
   audioWrap.innerHTML = `
     <p class="feed-audio-title">Voice Memory</p>
-    <audio controls preload="metadata" src="${esc(audioUrl)}">
+    <audio controls preload="metadata" playsinline src="${esc(audioUrl)}">
       Your browser does not support audio playback.
     </audio>
   `;
 }
 
 function openFeedModal(idx){
+  stopFeedModalAudio({ aggressive: true });
   modalFeedIndex=idx; const item=feedItems[idx]; if(!item) return;
   const isMemory = item.isMemory || String(item.mediaType || '').toLowerCase() === 'memory';
   const modalCard = document.querySelector('#feedModal .feed-modal-card');
@@ -4396,15 +4418,14 @@ function openFeedModal(idx){
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
-function closeFeedModal(){stopFeedModalAudio();document.getElementById('feedModalAudio').innerHTML='';document.getElementById('feedModalAudio').hidden=true;document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
+function closeFeedModal(){stopFeedModalAudio({ aggressive: true, detach: true });const audioWrap=document.getElementById('feedModalAudio');if(audioWrap){audioWrap.innerHTML='';audioWrap.hidden=true;}document.getElementById('feedModalBackdrop').classList.remove('open');document.getElementById('feedModal').classList.remove('open');document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');document.body.classList.remove('modal-open'); setFeedRemoveStatus(''); modalFeedIndex=-1}
 document.getElementById('feedPrev')?.addEventListener('click',()=>feedPageStep(-1));
 document.getElementById('feedNext')?.addEventListener('click',()=>feedPageStep(1));
 document.getElementById('feedModalClose').onclick=closeFeedModal; document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
+['feedModalClose','feedModalBackdrop'].forEach(id=>{const el=document.getElementById(id); if(el && !el.dataset.feedAudioStopBound){el.dataset.feedAudioStopBound='1'; ['pointerdown','touchstart','mousedown','click'].forEach(evt=>el.addEventListener(evt,()=>stopFeedModalAudio({ aggressive: true, detach: evt === 'click' }),{capture:true, passive:true}));}});
+(function bindFeedModalAudioSafety(){const modal=document.getElementById('feedModal'); if(!modal || modal.dataset.feedAudioSafetyBound) return; modal.dataset.feedAudioSafetyBound='1'; const observer=new MutationObserver(()=>{if(!modal.classList.contains('open')) stopFeedModalAudio({ aggressive: true, detach: true });}); observer.observe(modal,{attributes:true,attributeFilter:['class','aria-hidden']});})();
 document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
-document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
-document.addEventListener('keydown', event => {
-  if(event.key === 'Escape' && document.getElementById('feedModal')?.classList.contains('open')) closeFeedModal();
-});
+document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0){stopFeedModalAudio({ aggressive: true, detach: true }); openFeedModal(modalFeedIndex-1)}}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1){stopFeedModalAudio({ aggressive: true, detach: true }); openFeedModal(modalFeedIndex+1)}};
 let feedResizeTimer=null;
 window.addEventListener('resize', ()=>{
   clearTimeout(feedResizeTimer);
