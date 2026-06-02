@@ -472,7 +472,7 @@
       <div class="form-row">
         <label>Referral Detail</label>
         <div>
-          <input id="campReferralDetail" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="e.g., WI Deer Hunters FB group, Joe's Tavern, Buck Country Taxidermy">
+          <input id="campReferralDetail" name="dc_referral_context" type="text" autocomplete="new-password" autocorrect="off" autocapitalize="words" spellcheck="false" data-form-type="other" data-lpignore="true" data-1p-ignore="true" placeholder="e.g., WI Deer Hunters FB group, Joe's Tavern, Buck Country Taxidermy">
           <div class="field-helper">Optional: name the group, shop, tavern, processor, taxidermist, poster location, or friend who pointed you here.</div>
         </div>
       </div>
@@ -1526,16 +1526,58 @@ function buildDeerCampAttributionFields() {
 }
 
 captureDeerCampBuildAttribution();
+
+function normalizeReferralDetailValue(value = "") {
+  const raw = String(value || "").trim();
+  const countryOnlyValues = new Set([
+    "united states",
+    "united states of america",
+    "usa",
+    "u.s.a.",
+    "u.s.",
+    "us"
+  ]);
+  return countryOnlyValues.has(raw.toLowerCase()) ? "" : raw;
+}
+
 function normalizeReferralDetailField() {
   const input = document.getElementById("campReferralDetail");
   if (!input) return;
-  input.setAttribute("autocomplete", "off");
+
+  input.setAttribute("name", "dc_referral_context");
+  input.setAttribute("type", "text");
+  input.setAttribute("autocomplete", "new-password");
   input.setAttribute("autocorrect", "off");
   input.setAttribute("autocapitalize", "words");
   input.setAttribute("spellcheck", "false");
-  if (String(input.value || "").trim().toLowerCase() === "united states") {
-    input.value = "";
+  input.setAttribute("data-form-type", "other");
+  input.setAttribute("data-lpignore", "true");
+  input.setAttribute("data-1p-ignore", "true");
+
+  const scrubCountryAutofill = () => {
+    const cleaned = normalizeReferralDetailValue(input.value);
+    if (cleaned !== String(input.value || "").trim()) {
+      input.value = cleaned;
+    }
+  };
+
+  scrubCountryAutofill();
+  ["input", "change", "focus", "blur", "animationstart"].forEach((eventName) => {
+    input.addEventListener(eventName, scrubCountryAutofill);
+  });
+
+  window.addEventListener("load", scrubCountryAutofill);
+  window.addEventListener("pageshow", scrubCountryAutofill);
+  document.addEventListener("visibilitychange", scrubCountryAutofill);
+
+  if (window.requestAnimationFrame) {
+    requestAnimationFrame(scrubCountryAutofill);
+    requestAnimationFrame(() => requestAnimationFrame(scrubCountryAutofill));
   }
+
+  [50, 200, 600, 1200, 2500].forEach((delay) => {
+    window.setTimeout(scrubCountryAutofill, delay);
+  });
 }
 normalizeReferralDetailField();
 
@@ -2194,6 +2236,8 @@ function incrementCreatedCampCounter(campId) {
 document.getElementById("campForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
+  normalizeReferralDetailField();
+
   setBuildButtonBusy(true);
   setBuildFormStatus("Building your DeerCamp and opening the next setup step...");
 
@@ -2215,7 +2259,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const stewardEmail = document.getElementById("campStewardEmail").value.trim();
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
   const referralSource = String(document.getElementById("campReferralSource")?.value || "").trim();
-  const referralDetail = String(document.getElementById("campReferralDetail")?.value || "").trim();
+  const referralDetail = normalizeReferralDetailValue(document.getElementById("campReferralDetail")?.value || "");
   const rosterNames = [stewardName, ...campMembers].filter(Boolean);
 
   const memberProfiles = [];
