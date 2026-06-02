@@ -750,15 +750,24 @@
     const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members : (Array.isArray(dashboardData.people) ? dashboardData.people : []);
     const stewardName = firstNonEmpty(urlPrefill.stewardName, hydrationCampData.stewardName, hydrationCampData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
     const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, hydrationCampData.stewardEmail, dashboardData.stewardEmail);
-    const memberNames = (
+    const draftMemberNames = (
       Array.isArray(urlPrefill.members) && urlPrefill.members.length
         ? urlPrefill.members
         : (Array.isArray(hydrationCampData.members)
             ? hydrationCampData.members
             : (Array.isArray(hydrationCampData.campMembers)
                 ? hydrationCampData.campMembers
-                : dashboardMembers.filter(person => String(person.role || '').toLowerCase() !== 'camp steward').map(person => person.name)))
-    ).filter(Boolean);
+                : []))
+    ).map(item => String(item || '').trim()).filter(Boolean);
+    const activeMemberNames = dashboardMembers
+      .filter(person => String(person.role || '').toLowerCase() !== 'camp steward')
+      .filter(person => {
+        const status = String(person.status || '').trim().toLowerCase();
+        const hasAcceptedInvite = status === 'active' || status === 'accepted' || status === 'joined';
+        return hasAcceptedInvite && person.pendingInvite !== true;
+      })
+      .map(person => String(person.name || '').trim())
+      .filter(Boolean);
     const heroPath = normalizeBuilderImagePath(firstNonEmpty(
       urlPrefill.hero,
       urlPrefill.brand,
@@ -773,9 +782,9 @@
     const locationParts = [city, state].filter(Boolean);
     const locationLine = [locationParts.join(', '), zip].filter(Boolean).join(' • ') || 'Location not set yet';
     const establishedLine = established ? `Est. ${established}` : 'Established year not set';
-    const memberLine = memberNames.length
-      ? `${memberNames.length} member${memberNames.length === 1 ? '' : 's'}`
-      : 'No members yet';
+    const memberLine = activeMemberNames.length
+      ? `${activeMemberNames.length} active member${activeMemberNames.length === 1 ? '' : 's'}`
+      : (draftMemberNames.length ? 'No active members yet' : 'No members yet');
 
     document.getElementById('welcomeHeadline').textContent = `Welcome, ${firstName}`;
     document.getElementById('heroMessage').textContent = `${campName} has been created. If it is already live, DeerCamp will open it automatically. Otherwise, finish setup before viewing or sharing the camp page.`;
