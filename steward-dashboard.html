@@ -2774,6 +2774,42 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
       inviteBtn.hidden = pending.length === 0;
       inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
+      inviteBtn.classList.toggle("btn-primary", pending.length > 0);
+      inviteBtn.classList.toggle("btn-secondary", pending.length === 0);
+    }
+
+    function setPostSaveInviteAction(member = {}) {
+      const submitBtn = document.getElementById("memberSubmitBtn");
+      const inviteBtn = document.getElementById("memberInviteBtn");
+      const isMemberReadyToInvite =
+        String(member.role || "").toLowerCase() !== "camp steward" &&
+        Boolean(member.pendingInvite) &&
+        isLikelyEmail(member.email);
+
+      updateInviteButton();
+
+      if (!submitBtn || !isMemberReadyToInvite) return false;
+
+      submitBtn.textContent = "Email Saved ✓";
+      submitBtn.classList.remove("btn-primary");
+      submitBtn.classList.add("btn-soft");
+
+      if (inviteBtn) {
+        inviteBtn.hidden = false;
+        inviteBtn.classList.remove("btn-secondary");
+        inviteBtn.classList.add("btn-primary");
+        inviteBtn.textContent = "Send Member Invite";
+      }
+
+      return true;
+    }
+
+    function restoreMemberSaveButtonLabel(isStewardSave = false, fallbackLabel = "") {
+      const submitBtn = document.getElementById("memberSubmitBtn");
+      if (!submitBtn) return;
+      submitBtn.classList.remove("btn-soft");
+      submitBtn.classList.add("btn-primary");
+      submitBtn.textContent = isStewardSave ? "Save Steward Email" : (fallbackLabel || "Save Member Email");
     }
 
     async function sendMemberInvites(members) {
@@ -2889,7 +2925,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       document.getElementById("memberEmail").value = member.email || "";
       document.getElementById("memberNote").value = member.note || "";
       writeProfileFieldsToForm(member);
-      document.getElementById("memberSubmitBtn").textContent = String(member.role || "").toLowerCase() === "camp steward" ? "Save Steward Email" : "Save Member Email";
+      restoreMemberSaveButtonLabel(String(member.role || "").toLowerCase() === "camp steward", "Save Member Email");
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) {
         const isSteward = String(member.role || "").toLowerCase() === "camp steward";
@@ -2904,7 +2940,12 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       document.getElementById("memberForm").reset();
       document.getElementById("memberEditIndex").value = "";
       clearMemberPhoto();
-      document.getElementById("memberSubmitBtn").textContent = "Add Member";
+      const submitBtn = document.getElementById("memberSubmitBtn");
+      if (submitBtn) {
+        submitBtn.classList.remove("btn-soft");
+        submitBtn.classList.add("btn-primary");
+        submitBtn.textContent = "Add Member";
+      }
       const deleteBtn = document.getElementById("memberDeleteBtn");
       if (deleteBtn) deleteBtn.hidden = true;
       clearMemberEditPulse();
@@ -3650,13 +3691,14 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
             }
           }
 
-          if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
+          const readyToInvite = setPostSaveInviteAction(member);
+          if (!readyToInvite && submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
           if (cloudSynced) {
-            setMemberFormNote(`${name} profile saved and synced. Refresh the live camp page to view the updated profile.`, "success");
-            showToast(`${name} profile saved and synced.`, 6500);
+            setMemberFormNote(readyToInvite ? `${name} email saved and synced. Next step: tap Send Member Invite.` : `${name} profile saved and synced. Refresh the live camp page to view the updated profile.`, "success");
+            showToast(readyToInvite ? `${name} email saved. Send invite when ready.` : `${name} profile saved and synced.`, 6500);
           } else {
-            setMemberFormNote(`${name} profile saved on this device. Cloud sync was not confirmed, but the live camp page on this device should update after refresh.`, "success");
-            showToast(`${name} profile saved locally.`, 6500);
+            setMemberFormNote(readyToInvite ? `${name} email saved on this device. Next step: tap Send Member Invite.` : `${name} profile saved on this device. Cloud sync was not confirmed, but the live camp page on this device should update after refresh.`, "success");
+            showToast(readyToInvite ? `${name} email saved locally. Send invite when ready.` : `${name} profile saved locally.`, 6500);
           }
         } catch (error) {
           console.error("Profile save failed.", error);
@@ -3665,9 +3707,18 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
-            setTimeout(() => {
-              submitBtn.textContent = isStewardSave ? "Save Steward Profile" : (oldSubmitLabel || "Save Member Profile");
-            }, 2400);
+            const shouldKeepInviteAction =
+              !isStewardSave &&
+              Boolean(member.pendingInvite) &&
+              isLikelyEmail(member.email);
+
+            if (shouldKeepInviteAction) {
+              setPostSaveInviteAction(member);
+            } else {
+              setTimeout(() => {
+                restoreMemberSaveButtonLabel(isStewardSave, oldSubmitLabel || "Save Member Email");
+              }, 2400);
+            }
           }
         }
         return;
@@ -3753,6 +3804,11 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       renderPreview();
       renderDashboardBillingControls();
       updateInviteButton();
+      const currentEditIndex = document.getElementById("memberEditIndex")?.value || "";
+      if (currentEditIndex !== "") {
+        const currentMember = state.members[Number(currentEditIndex)];
+        restoreMemberSaveButtonLabel(String(currentMember?.role || "").toLowerCase() === "camp steward", "Save Member Email");
+      }
       if (failCount === 0) {
         showToast(successCount > 1 ? `${successCount} member invites sent.` : `Invite sent to ${pending[0].name}.`);
       } else if (successCount > 0) {
