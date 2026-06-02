@@ -446,6 +446,37 @@
         </div>
       </div>
 
+      <div class="form-row">
+        <label>How Did You Hear About DeerCamp?</label>
+        <div>
+          <select id="campReferralSource">
+            <option value="">Select One</option>
+            <option value="Facebook Group">Facebook Group</option>
+            <option value="Facebook Post">Facebook Post</option>
+            <option value="Friend">Friend</option>
+            <option value="Taxidermist">Taxidermist</option>
+            <option value="Venison Processor">Venison Processor</option>
+            <option value="Hunting Lodge">Hunting Lodge</option>
+            <option value="Outfitter">Outfitter</option>
+            <option value="Archery Shop">Archery Shop</option>
+            <option value="Tavern / Supper Club">Tavern / Supper Club</option>
+            <option value="QR Poster">QR Poster</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Other">Other</option>
+          </select>
+          <div class="field-helper">Helps DeerCamp understand which hunting communities and partners are creating new camps.</div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Referral Detail</label>
+        <div>
+          <input id="campReferralDetail" placeholder="e.g., Wisconsin Deer Hunters FB Group, Joe's Tavern, Buck Country Taxidermy">
+          <div class="field-helper">Optional, but extremely helpful for tracking what is working.</div>
+        </div>
+      </div>
+
       <input type="hidden" id="campTraditionsCustom" value="">
       <input type="hidden" id="campDeerDrives" value="">
     </div>
@@ -665,6 +696,10 @@ function buildBuilderResumeUrl(path, payload = {}) {
     ["campBrand", payload.campBrand],
     ["memberNames", payload.memberNames],
     ["campDescription", payload.campDescription],
+    ["referralSource", payload.referralSource],
+    ["referralDetail", payload.referralDetail],
+    ["reportedReferralSource", payload.reportedReferralSource],
+    ["reportedReferralDetail", payload.reportedReferralDetail],
     ["role", payload.role],
     ["view", payload.view]
   ];
@@ -2166,6 +2201,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const stewardName = document.getElementById("campSteward").value.trim();
   const stewardEmail = document.getElementById("campStewardEmail").value.trim();
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
+  const referralSource = String(document.getElementById("campReferralSource")?.value || "").trim();
+  const referralDetail = String(document.getElementById("campReferralDetail")?.value || "").trim();
   const rosterNames = [stewardName, ...campMembers].filter(Boolean);
 
   const memberProfiles = [];
@@ -2218,10 +2255,16 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     }
   };
 
+  const referralCapturedAtClient = new Date().toISOString();
   const metricsAttribution = {
     ...buildDeerCampAttributionFields(),
     campId,
-    createdAtClient: new Date().toISOString()
+    referralSource,
+    referralDetail,
+    reportedReferralSource: referralSource,
+    reportedReferralDetail: referralDetail,
+    referralCapturedAtClient,
+    createdAtClient: referralCapturedAtClient
   };
 
   let hero = resolvedSelectHero || selectedSign.file || HERO_FALLBACK_FILE;
@@ -2369,6 +2412,10 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     stewardEmail,
     campStewardEmail: stewardEmail,
     campMembers: campMembers.join(", "),
+    referralSource,
+    referralDetail,
+    reportedReferralSource: referralSource,
+    reportedReferralDetail: referralDetail,
     heroTemplate: selectedSign.file,
     campHero: selectedSignAssetPath,
     campBrand: selectedSignAssetPath,
@@ -2409,6 +2456,8 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
         campaign: metricsAttribution.signupCampaign || "",
         audience: metricsAttribution.signupAudience || "",
         tier: "DCF",
+        reportedReferralSource: referralSource,
+        reportedReferralDetail: referralDetail,
         cloudSaved
       });
     }
@@ -2434,6 +2483,10 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
     stewardLastName,
     stewardEmail,
     campMembers: campMembers.join(", "),
+    referralSource,
+    referralDetail,
+    reportedReferralSource: referralSource,
+    reportedReferralDetail: referralDetail,
     campTraditionsCustom: parseCustomTraditions().map((item) => item.label).join(", "),
     campDeerDrives: deerDrives.join(", "),
     heroTemplate: selectedSign.file,
