@@ -1177,6 +1177,24 @@
   @media (max-width:1100px){#feedTrack{grid-auto-columns:calc((100% - 32px)/3)!important}}
   @media (max-width:720px){#feedTrack{grid-auto-columns:100%!important}}
 
+
+
+  /* CampRules v1 */
+  .camprules-shell{display:grid;gap:14px}
+  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+  .camprules-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .camprules-grid{display:grid;gap:12px}
+  .camprules-card{padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10)}
+  .camprules-card h3{margin:0 0 7px;color:#3a2717;font-size:1.04rem}
+  .camprules-card p{margin:0;color:#4b3116;line-height:1.55}
+  .camprules-agreement{display:grid;gap:12px;margin-top:4px;padding:16px;border-radius:20px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
+  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.06rem}
+  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.5}
+  .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
+  .camprules-status{font-weight:800;color:#27411e}
+  .camprules-status.is-pending{color:#7c561f}
+  .camprules-locked{padding:16px;border-radius:18px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.55;font-weight:700}
+  @media (max-width:720px){.camprules-agreement-row{grid-template-columns:1fr}.camprules-agreement-row .btn{width:100%}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -1915,7 +1933,7 @@ if (preservedLoadDeerStandPosts.length) {
 }
 
 const enabledSections = Object.assign({
-  campupdate:true,campfeed:true,traditions:true,camprecipes:true,camphonors:false,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
+  campupdate:true,campfeed:true,traditions:true,camprecipes:true,camphonors:false,calendar:true,camprules:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
 const dashboardSectionSources = [
   preHydrateLegacy && preHydrateLegacy.enabledSections,
@@ -1951,6 +1969,39 @@ function isSectionEnabled(primaryKey, aliasKey){
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
+const CAMP_RULES_DEFAULTS = [
+  {id:"safety-first", title:"Safety Comes First", body:"Every hunter must follow firearm, bow, blaze-orange, treestand, and state safety laws at all times."},
+  {id:"no-impairment", title:"No Alcohol or Drugs Before or During Hunting", body:"No one hunts, drives, handles firearms, or participates in drives while impaired. Firearms, bows, vehicles, and hunting activity are done for the day before drinks come out."},
+  {id:"stand-etiquette", title:"Stand, Blind, and Spot Etiquette", body:"Do not hunt another member’s assigned stand, blind, or spot without permission. Do not move, alter, brush, or place a new stand that interferes with another hunter’s setup."},
+  {id:"guest-policy", title:"Guest Policy Must Be Approved", body:"Guests must be approved by the Camp Steward before hunting. The host member is responsible for the guest’s safety, behavior, legal compliance, and harvest rules."},
+  {id:"harvest-rules", title:"Know and Follow Harvest Rules", body:"Know this camp’s harvest rules before hunting. Follow all state laws, tag requirements, guest rules, and any camp-specific size or management standards."},
+  {id:"check-in", title:"Communicate Before Entering or Leaving the Woods", body:"Before hunting, mark or tell the camp where you’ll be. After the hunt, check back in. If plans change, update the group."},
+  {id:"respect-land", title:"Respect the Land and Property", body:"Respect the land, landowner, neighbors, gates, roads, fields, fences, buildings, and equipment. Close and lock gates as found, stay on approved trails, pack out trash, and report damage."},
+  {id:"shared-chores", title:"Camp Chores and Costs Are Shared", body:"Everyone helps with camp chores, meals, cleanup, firewood, maintenance, and shared costs. Leave camp cleaner than you found it."},
+  {id:"scouting-work", title:"Scouting, Cameras, Baiting, and Habitat Work Need Camp Agreement", body:"Scouting, baiting where legal, trail cameras, trimming, food plots, and habitat work must follow camp rules and must not interfere with another hunter’s setup."},
+  {id:"respect-camp", title:"Respect the Camp, the Story, and Each Other", body:"Respect other hunters, their harvests, their gear, their stories, and their families. Handle disagreements through the Camp Steward or camp process."},
+  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community."}
+];
+function normalizeCampRulesConfig(source = {}){
+  const existing = source && typeof source === "object" ? source : {};
+  const rawRules = Array.isArray(existing.rules) && existing.rules.length ? existing.rules : CAMP_RULES_DEFAULTS;
+  const cleanRules = rawRules.map((rule, index) => ({
+    id: String(rule.id || `rule-${index + 1}`).trim() || `rule-${index + 1}`,
+    title: String(rule.title || `Camp Rule ${index + 1}`).trim() || `Camp Rule ${index + 1}`,
+    body: String(rule.body || rule.text || "").trim(),
+    enabled: rule.enabled !== false
+  })).filter(rule => rule.title && rule.body);
+  return {
+    visibility: ["public","members","draft"].includes(String(existing.visibility || "").toLowerCase()) ? String(existing.visibility).toLowerCase() : "members",
+    version: Math.max(1, Number(existing.version || 1) || 1),
+    publishedAt: String(existing.publishedAt || "").trim(),
+    lastUpdatedAt: String(existing.lastUpdatedAt || "").trim(),
+    rules: cleanRules.length ? cleanRules : CAMP_RULES_DEFAULTS.map(rule => ({...rule, enabled:true})),
+    agreements: existing.agreements && typeof existing.agreements === "object" && !Array.isArray(existing.agreements) ? existing.agreements : {}
+  };
+}
+let campRules = normalizeCampRulesConfig(data.campRules || data.dashboardSlim?.campRules || {});
+let campRulesAgreements = Object.assign({}, campRules.agreements || {}, data.campRulesAgreements || {});
 let calendarEvents = (Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
   date:String(e.date||"").trim(),
   title:String(e.title||"Camp Event").trim(),
@@ -2099,6 +2150,9 @@ function persist(){
   data.recipeObjects = customRecipes.slice();
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
+  campRules.agreements = Object.assign({}, campRulesAgreements);
+  data.campRules = normalizeCampRulesConfig(campRules);
+  data.campRulesAgreements = Object.assign({}, campRulesAgreements);
   data.removedFeedPostIds = removedFeedPostIds.slice();
   saveRemovedFeedPostIdsToLocal();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
@@ -2143,6 +2197,8 @@ function persist(){
     if(dash && typeof dash==="object"){
       dash.sections = Object.assign({}, dash.sections||{}, enabledSections);
       dash.selectedRecipeIds = selectedRecipeIds.slice();
+      dash.campRules = normalizeCampRulesConfig(campRules);
+      dash.campRulesAgreements = Object.assign({}, campRulesAgreements);
       localStorage.setItem(campScopeKey(activeCampId,"dashboardSlim"), JSON.stringify(dash));
       localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(dash));
     }
@@ -3481,6 +3537,7 @@ function visibleSections(){
     {key:"campupdate",title:"CampUpdate"},
     {key:"campmembers",title:"CampMembers"},
     {key:"campcalendar",title:"CampCalendar"},
+    {key:"camprules",title:"CampRules"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
     {key:"camphonors",title:"CampHonors"},
@@ -3489,8 +3546,14 @@ function visibleSections(){
   ];
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camprules:"camprules",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
+    if (s.key === "camprules") {
+      const visibility = String(campRules.visibility || "members").toLowerCase();
+      if (visibility === "draft") return isCurrentSteward();
+      if (visibility === "members") return getCurrentSecurityRole() === "member" || isCurrentSteward();
+      return isSectionEnabled("camprules");
+    }
     if (s.key === "campupdate") return isSectionEnabled("campupdate");
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
@@ -3862,6 +3925,12 @@ visibleSections().forEach(section=>{
       </div>
       <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
       <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
+  } else if(section.key==="camprules"){
+    container.innerHTML=`
+      <div class="feed-header">
+        <div><h2 style="margin:0">CampRules</h2><p class="section-helper" style="margin:8px 0 0">The rules, expectations, and posting standards this camp agrees to follow.</p></div>
+      </div>
+      <div id="campRulesContent" class="camprules-shell"></div>`;
   } else if(section.key==="campmembers"){
     container.innerHTML=`
       <h2>CampMembers</h2>
@@ -3923,6 +3992,95 @@ visibleSections().forEach(section=>{
   }
   content.appendChild(container);
 });
+function activeCampRules(){
+  return normalizeCampRulesConfig(Object.assign({}, campRules, {agreements: campRulesAgreements}));
+}
+function campRulesAgreementKey(name = "", email = ""){
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  if(cleanEmail) return `email:${cleanEmail}`;
+  const cleanName = String(name || "").trim().toLowerCase();
+  return cleanName ? `name:${cleanName}` : "";
+}
+function getCampRulesAgreementStatus(){
+  const select = document.getElementById('campRulesMemberSelect');
+  const selectedName = String(select?.value || "").trim();
+  const member = roster.find(item => String(item.name || "").trim() === selectedName) || {};
+  const key = campRulesAgreementKey(member.name || selectedName, member.email || "");
+  const agreement = key ? campRulesAgreements[key] : null;
+  return {member, key, agreement};
+}
+function refreshCampRulesAgreementStatus(){
+  const status = document.getElementById('campRulesAgreementStatus');
+  if(!status) return;
+  const rules = activeCampRules();
+  const {agreement} = getCampRulesAgreementStatus();
+  const agreedVersion = Number(agreement?.version || 0);
+  if(agreedVersion >= Number(rules.version || 1)){
+    status.textContent = `Agreed to v${agreedVersion} on ${new Date(agreement.agreedAt || Date.now()).toLocaleString()}.`;
+    status.classList.remove('is-pending');
+  } else {
+    status.textContent = agreement ? `Needs review: last agreed to v${agreedVersion}. Current version is v${rules.version}.` : `Pending agreement for v${rules.version}.`;
+    status.classList.add('is-pending');
+  }
+}
+function populateCampRulesMemberSelect(){
+  const select = document.getElementById('campRulesMemberSelect');
+  if(!select) return;
+  const members = roster.filter(member => String(member.name || "").trim());
+  select.innerHTML = members.length ? members.map(member => `<option value="${esc(member.name)}">${esc(member.name)}${member.email ? ` — ${esc(member.email)}` : ""}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
+  refreshCampRulesAgreementStatus();
+}
+function agreeToCampRules(){
+  const rules = activeCampRules();
+  const {member, key} = getCampRulesAgreementStatus();
+  if(!key){
+    try{ showToast('Choose your member name before agreeing to CampRules.'); }catch(error){}
+    return;
+  }
+  const snapshot = rules.rules.filter(rule => rule.enabled !== false).map(rule => ({id: rule.id, title: rule.title, body: rule.body}));
+  campRulesAgreements[key] = {
+    name: String(member.name || document.getElementById('campRulesMemberSelect')?.value || 'Camp Member').trim(),
+    email: String(member.email || '').trim(),
+    version: Number(rules.version || 1),
+    agreedAt: new Date().toISOString(),
+    campId: activeCampId,
+    visibility: rules.visibility,
+    ruleSnapshot: snapshot
+  };
+  campRules.agreements = Object.assign({}, campRulesAgreements);
+  persist();
+  refreshCampRulesAgreementStatus();
+  try{ showToast('CampRules agreement recorded.'); }catch(error){}
+}
+function renderCampRulesSection(){
+  const root = document.getElementById('campRulesContent');
+  if(!root) return;
+  const rules = activeCampRules();
+  const enabledRules = rules.rules.filter(rule => rule.enabled !== false);
+  const visibilityLabels = {public:'Public Preview', members:'Members Only', draft:'Draft — Steward Only'};
+  const canAgree = getCurrentSecurityRole() === 'member' || isCurrentSteward();
+  const agreementBlock = canAgree ? `
+    <div class="camprules-agreement">
+      <h3>Member Agreement</h3>
+      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community at the Camp Steward’s discretion.</p>
+      <div class="camprules-agreement-row">
+        <select id="campRulesMemberSelect" class="select" aria-label="Choose member for CampRules agreement"></select>
+        <button id="campRulesAgreeBtn" type="button" class="btn">I Have Read and Agree</button>
+      </div>
+      <div id="campRulesAgreementStatus" class="camprules-status is-pending">Pending agreement.</div>
+    </div>` : `<div class="camprules-locked">CampRules agreement is available after joining this camp as a member. Visitors can view only the rules the Steward has chosen to share publicly.</div>`;
+  root.innerHTML = `
+    <div class="camprules-toolbar">
+      <div class="camprules-meta"><span class="pill">${esc(visibilityLabels[rules.visibility] || 'Members Only')}</span><span class="pill">Version ${esc(rules.version)}</span>${rules.publishedAt ? `<span class="pill">Published ${esc(new Date(rules.publishedAt).toLocaleDateString())}</span>` : ''}</div>
+    </div>
+    <div class="camprules-grid">${enabledRules.map((rule, index) => `<article class="camprules-card"><h3>${index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('')}</div>
+    ${agreementBlock}`;
+  populateCampRulesMemberSelect();
+  document.getElementById('campRulesMemberSelect')?.addEventListener('change', refreshCampRulesAgreementStatus);
+  document.getElementById('campRulesAgreeBtn')?.addEventListener('click', agreeToCampRules);
+}
+
+
 function renderCampMembersSection(){
   const grid=document.getElementById('campMembersGrid'); if(!grid) return;
   const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
@@ -5344,6 +5502,8 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
+    campRules = normalizeCampRulesConfig(data.campRules || data.dashboardSlim?.campRules || campRules);
+    campRulesAgreements = Object.assign({}, campRules.agreements || {}, data.campRulesAgreements || {});
     deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
     deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
 
@@ -5361,6 +5521,7 @@ async function pullLatestCampDataSilently(){
     recentUpdatesOffset = 0;
     renderRecentUpdates();
     renderCampMembersSection();
+    renderCampRulesSection();
     renderTraditions();
     renderRecipes();
     if(document.getElementById("deerStandsGrid")) renderDeerStands();
@@ -5452,7 +5613,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderCampRulesSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>
