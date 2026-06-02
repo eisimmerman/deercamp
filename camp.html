@@ -1189,7 +1189,6 @@
   .camprules-card h3{margin:0 0 5px;color:#3a2717;font-size:.94rem;line-height:1.18}
   .camprules-card p{margin:0;color:#4b3116;font-size:.90rem;line-height:1.38}
   .camprules-agreement{display:grid;gap:10px;margin-top:2px;padding:14px;border-radius:18px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
-  .camprules-agreement[hidden]{display:none!important}
   .camprules-agreement h3{margin:0;color:#27411e;font-size:1.02rem}
   .camprules-agreement p{margin:0;color:#4b3116;line-height:1.42}
   .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
@@ -1989,7 +1988,7 @@ const CAMP_RULES_DEFAULTS = [
   {id:"shared-chores", title:"Camp Chores and Costs Are Shared", body:"Everyone helps with camp chores, meals, cleanup, firewood, maintenance, and shared costs. Leave camp cleaner than you found it."},
   {id:"scouting-work", title:"Scouting, Cameras, Baiting, and Habitat Work Need Camp Agreement", body:"Scouting, baiting where legal, trail cameras, trimming, food plots, and habitat work must follow camp rules and must not interfere with another hunter’s setup."},
   {id:"respect-camp", title:"Respect the Camp, the Story, and Each Other", body:"Respect other hunters, their harvests, their gear, their stories, and their families. Handle disagreements through the Camp Steward or camp process."},
-  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community."}
+  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or removal from the camp community."}
 ];
 function normalizeCampRulesConfig(source = {}){
   const existing = source && typeof source === "object" ? source : {};
@@ -4024,13 +4023,10 @@ function refreshCampRulesAgreementStatus(){
   const rules = activeCampRules();
   const {agreement} = getCampRulesAgreementStatus();
   const agreedVersion = Number(agreement?.version || 0);
-  const agreementBlock = document.getElementById('campRulesAgreementBlock');
   if(agreedVersion >= Number(rules.version || 1)){
     status.textContent = `Agreed to v${agreedVersion} on ${new Date(agreement.agreedAt || Date.now()).toLocaleString()}.`;
     status.classList.remove('is-pending');
-    if(agreementBlock && getCurrentSecurityRole() !== 'steward') agreementBlock.hidden = true;
   } else {
-    if(agreementBlock) agreementBlock.hidden = false;
     status.textContent = agreement ? `Needs review: last agreed to v${agreedVersion}. Current version is v${rules.version}.` : `Pending agreement for v${rules.version}.`;
     status.classList.add('is-pending');
   }
@@ -4061,7 +4057,7 @@ function agreeToCampRules(){
   };
   campRules.agreements = Object.assign({}, campRulesAgreements);
   persist();
-  renderCampRulesSection();
+  refreshCampRulesAgreementStatus();
   try{ showToast('CampRules agreement recorded.'); }catch(error){}
 }
 function renderCampRulesSection(){
@@ -4072,9 +4068,9 @@ function renderCampRulesSection(){
   const visibilityLabels = {public:'Public Preview', members:'Members Only', draft:'Draft — Steward Only'};
   const canAgree = getCurrentSecurityRole() === 'member' || isCurrentSteward();
   const agreementBlock = canAgree ? `
-    <div class="camprules-agreement" id="campRulesAgreementBlock">
+    <div class="camprules-agreement">
       <h3>Member Agreement</h3>
-      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community at the Camp Steward’s discretion.</p>
+      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or removal from the camp community at the Camp Steward’s discretion.</p>
       <div class="camprules-agreement-row">
         <select id="campRulesMemberSelect" class="select" aria-label="Choose member for CampRules agreement"></select>
         <button id="campRulesAgreeBtn" type="button" class="btn">I Have Read and Agree</button>
