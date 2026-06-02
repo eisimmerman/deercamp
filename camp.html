@@ -1189,6 +1189,7 @@
   .camprules-card h3{margin:0 0 5px;color:#3a2717;font-size:.94rem;line-height:1.18}
   .camprules-card p{margin:0;color:#4b3116;font-size:.90rem;line-height:1.38}
   .camprules-agreement{display:grid;gap:10px;margin-top:2px;padding:14px;border-radius:18px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
+  .camprules-agreement[hidden]{display:none!important}
   .camprules-agreement h3{margin:0;color:#27411e;font-size:1.02rem}
   .camprules-agreement p{margin:0;color:#4b3116;line-height:1.42}
   .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
@@ -4023,10 +4024,13 @@ function refreshCampRulesAgreementStatus(){
   const rules = activeCampRules();
   const {agreement} = getCampRulesAgreementStatus();
   const agreedVersion = Number(agreement?.version || 0);
+  const agreementBlock = document.getElementById('campRulesAgreementBlock');
   if(agreedVersion >= Number(rules.version || 1)){
     status.textContent = `Agreed to v${agreedVersion} on ${new Date(agreement.agreedAt || Date.now()).toLocaleString()}.`;
     status.classList.remove('is-pending');
+    if(agreementBlock && getCurrentSecurityRole() !== 'steward') agreementBlock.hidden = true;
   } else {
+    if(agreementBlock) agreementBlock.hidden = false;
     status.textContent = agreement ? `Needs review: last agreed to v${agreedVersion}. Current version is v${rules.version}.` : `Pending agreement for v${rules.version}.`;
     status.classList.add('is-pending');
   }
@@ -4057,7 +4061,7 @@ function agreeToCampRules(){
   };
   campRules.agreements = Object.assign({}, campRulesAgreements);
   persist();
-  refreshCampRulesAgreementStatus();
+  renderCampRulesSection();
   try{ showToast('CampRules agreement recorded.'); }catch(error){}
 }
 function renderCampRulesSection(){
@@ -4068,7 +4072,7 @@ function renderCampRulesSection(){
   const visibilityLabels = {public:'Public Preview', members:'Members Only', draft:'Draft — Steward Only'};
   const canAgree = getCurrentSecurityRole() === 'member' || isCurrentSteward();
   const agreementBlock = canAgree ? `
-    <div class="camprules-agreement">
+    <div class="camprules-agreement" id="campRulesAgreementBlock">
       <h3>Member Agreement</h3>
       <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community at the Camp Steward’s discretion.</p>
       <div class="camprules-agreement-row">
