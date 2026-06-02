@@ -1736,8 +1736,8 @@ function mapAppFeedDocToCampFeedItem(doc){
   const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
   const platform = getFieldMemoryPlatform(item);
   const baseTags = hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"];
-  const audioDurationMs = Number(item.audioDurationMs || item.voiceDurationMs || item.totalDurationMs || 0) || 0;
-  const audioDurationSeconds = Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || (audioDurationMs > 0 ? Math.round(audioDurationMs / 1000) : 0);
+  const audioDurationMs = Number(item.audioDurationMs || item.voiceDurationMs || item.durationMs || item.recordingDurationMs || item.recordedDurationMs || item.totalDurationMs || 0) || 0;
+  const audioDurationSeconds = Number(item.audioDurationSeconds || item.voiceDurationSeconds || item.durationSeconds || item.recordingDurationSeconds || item.recordedDurationSeconds || item.totalDurationSeconds || 0) || (audioDurationMs > 0 ? Math.round(audioDurationMs / 1000) : 0);
   return {
     id,
     title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
@@ -3655,10 +3655,10 @@ function normalizePhotoEntries(){
       audioPath: String(item.audioPath || "").trim(),
       audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
       voiceContentType: String(item.voiceContentType || item.audioContentType || "").trim(),
-      audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || item.totalDurationMs || 0) || 0,
-      voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || item.totalDurationMs || 0) || 0,
-      audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
-      voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
+      audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || item.durationMs || item.recordingDurationMs || item.recordedDurationMs || item.totalDurationMs || 0) || 0,
+      voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || item.durationMs || item.recordingDurationMs || item.recordedDurationMs || item.totalDurationMs || 0) || 0,
+      audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || item.durationSeconds || item.recordingDurationSeconds || item.recordedDurationSeconds || item.totalDurationSeconds || 0) || 0,
+      voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || item.durationSeconds || item.recordingDurationSeconds || item.recordedDurationSeconds || item.totalDurationSeconds || 0) || 0,
       platform: getFieldMemoryPlatform(item),
       devicePlatform: getFieldMemoryPlatform(item),
       source: String(item.source || "").trim(),
@@ -4466,17 +4466,54 @@ async function removeCurrentFeedPost(){
   }
 }
 
-function formatFeedAudioDuration(item = {}){
-  const durationMs = Number(item.audioDurationMs || 0);
-  const durationSeconds = Number(item.audioDurationSeconds || 0);
-  const totalSeconds = durationMs > 0
-    ? Math.max(1, Math.round(durationMs / 1000))
-    : (durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds)) : 0);
+function getFeedAudioDurationSeconds(item = {}){
+  const candidatesSeconds = [
+    item.audioDurationSeconds,
+    item.voiceDurationSeconds,
+    item.durationSeconds,
+    item.recordingDurationSeconds,
+    item.recordedDurationSeconds,
+    item.totalDurationSeconds,
+    item.audioDuration,
+    item.voiceDuration,
+    item.duration
+  ];
+  for(const value of candidatesSeconds){
+    const numeric = Number(value || 0);
+    if(Number.isFinite(numeric) && numeric > 0 && numeric < 36000){
+      return Math.max(1, Math.round(numeric));
+    }
+  }
 
-  if(!totalSeconds) return "";
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
+  const candidatesMs = [
+    item.audioDurationMs,
+    item.voiceDurationMs,
+    item.durationMs,
+    item.recordingDurationMs,
+    item.recordedDurationMs,
+    item.totalDurationMs,
+    item.audioMs,
+    item.voiceMs
+  ];
+  for(const value of candidatesMs){
+    const numeric = Number(value || 0);
+    if(Number.isFinite(numeric) && numeric > 0){
+      return Math.max(1, Math.round(numeric / 1000));
+    }
+  }
+  return 0;
+}
+
+function formatSecondsAsAudioDuration(totalSeconds = 0){
+  const cleanSeconds = Math.max(0, Math.round(Number(totalSeconds || 0)));
+  if(!cleanSeconds) return "";
+  const minutes = Math.floor(cleanSeconds / 60);
+  const seconds = cleanSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function formatFeedAudioDuration(item = {}){
+  return formatSecondsAsAudioDuration(getFeedAudioDurationSeconds(item));
 }
 
 function getFeedAudioContentType(item = {}){
@@ -4492,16 +4529,6 @@ function getFeedAudioContentType(item = {}){
   if(url.endsWith(".mp4")) return "audio/mp4";
   if(url.endsWith(".webm")) return "audio/webm";
   if(url.endsWith(".ogg") || url.endsWith(".oga")) return "audio/ogg";
-  return "audio/mp4";
-}){
-  const explicit = String(item.audioContentType || item.voiceContentType || "").trim().toLowerCase();
-  if(explicit && explicit !== "application/octet-stream") return explicit;
-
-  const url = String(item.audioUrl || "").split("?")[0].split("#")[0].toLowerCase();
-  if(url.endsWith(".mp3")) return "audio/mpeg";
-  if(url.endsWith(".wav")) return "audio/wav";
-  if(url.endsWith(".aac")) return "audio/aac";
-  if(url.endsWith(".caf")) return "audio/x-caf";
   return "audio/mp4";
 }
 
@@ -4530,13 +4557,14 @@ function renderFeedAudioControl(item){
     return;
   }
 
-  const durationLabel = formatFeedAudioDuration(item);
+  const savedDurationSeconds = getFeedAudioDurationSeconds(item);
+  const savedDurationLabel = formatSecondsAsAudioDuration(savedDurationSeconds);
   const contentType = getFeedAudioContentType(item);
-  const titleText = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory • loading duration…';
+  const titleText = savedDurationLabel ? `Voice Memory • ${savedDurationLabel}` : 'Voice Memory';
   audioWrap.hidden = false;
   audioWrap.innerHTML = `
     <p class="feed-audio-title" id="feedModalAudioTitle">${esc(titleText)}</p>
-    <audio controls preload="metadata" playsinline>
+    <audio controls preload="metadata" playsinline data-saved-duration-seconds="${esc(String(savedDurationSeconds || ''))}">
       <source src="${esc(audioUrl)}" type="${esc(contentType)}">
       <source src="${esc(audioUrl)}">
       Your browser does not support audio playback.
@@ -4548,39 +4576,48 @@ function renderFeedAudioControl(item){
   const titleEl = document.getElementById('feedModalAudioTitle');
   const fallbackLink = document.getElementById('feedModalAudioFallbackLink');
 
-  if(audioEl && titleEl && !durationLabel){
-    const updateDuration = () => {
-      const duration = Number(audioEl.duration || 0);
-      if(Number.isFinite(duration) && duration > 0){
-        const seconds = Math.max(1, Math.round(duration));
-        const minutes = Math.floor(seconds / 60);
-        const remainder = seconds % 60;
-        titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
-        if(fallbackLink) fallbackLink.hidden = true;
-        return true;
-      }
-      return false;
-    };
+  const applyDurationLabel = (seconds) => {
+    const label = formatSecondsAsAudioDuration(seconds);
+    if(!label || !titleEl) return false;
+    titleEl.textContent = `Voice Memory • ${label}`;
+    if(fallbackLink) fallbackLink.hidden = true;
+    return true;
+  };
 
-    audioEl.addEventListener('loadedmetadata', updateDuration, { once:false });
-    audioEl.addEventListener('durationchange', updateDuration, { once:false });
-    audioEl.addEventListener('canplay', updateDuration, { once:false });
-    audioEl.addEventListener('play', updateDuration, { once:false });
-    setTimeout(() => {
-      if(!updateDuration() && titleEl){
-        titleEl.textContent = 'Voice Memory';
-      }
-    }, 2200);
-    try { audioEl.load(); } catch(error) {}
+  if(savedDurationSeconds){
+    applyDurationLabel(savedDurationSeconds);
   }
 
-  if(audioEl){
+  if(audioEl && titleEl){
+    const updateDurationFromPlayer = () => {
+      const duration = Number(audioEl.duration || 0);
+      if(Number.isFinite(duration) && duration > 0){
+        return applyDurationLabel(duration);
+      }
+      return Boolean(savedDurationSeconds && applyDurationLabel(savedDurationSeconds));
+    };
+
+    audioEl.addEventListener('loadedmetadata', updateDurationFromPlayer, { once:false });
+    audioEl.addEventListener('durationchange', updateDurationFromPlayer, { once:false });
+    audioEl.addEventListener('canplay', updateDurationFromPlayer, { once:false });
+    audioEl.addEventListener('play', updateDurationFromPlayer, { once:false });
     audioEl.addEventListener('error', () => {
-      const title = document.getElementById('feedModalAudioTitle');
-      const link = document.getElementById('feedModalAudioFallbackLink');
-      if(title) title.textContent = 'Voice Memory';
-      if(link) link.hidden = false;
+      if(savedDurationSeconds){
+        applyDurationLabel(savedDurationSeconds);
+      }else if(titleEl){
+        titleEl.textContent = 'Voice Memory';
+      }
+      if(fallbackLink) fallbackLink.hidden = false;
     });
+    setTimeout(() => {
+      updateDurationFromPlayer();
+    }, 800);
+    setTimeout(() => {
+      if(!updateDurationFromPlayer() && fallbackLink){
+        fallbackLink.hidden = false;
+      }
+    }, 2600);
+    try { audioEl.load(); } catch(error) {}
   }
 }
 
