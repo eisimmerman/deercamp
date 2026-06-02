@@ -118,6 +118,7 @@
   .feed-audio{display:grid;gap:8px;margin:10px 0 4px;padding:12px;border-radius:16px;background:rgba(255,255,255,.58);border:1px solid rgba(69,42,22,.10)}
   .feed-audio-title{margin:0;color:#452a16;font-size:.82rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase}
   .feed-audio audio{display:block;width:100%;max-width:100%}
+  .feed-audio-link{display:inline-flex;width:max-content;color:#452a16;font-size:.84rem;font-weight:800;text-decoration:underline;text-underline-offset:3px}
   .feed-card-audio{margin-top:2px;color:#5b3d1e;font-size:.86rem;font-weight:900}
   .feed-memory-placeholder{display:grid;place-items:center;width:100%;aspect-ratio:4/3;max-height:240px;padding:22px;background:linear-gradient(180deg,rgba(106,68,39,.12),rgba(73,102,71,.10));color:#452a16;text-align:center;font-weight:900;line-height:1.25}
   .feed-memory-placeholder span{display:block;font-size:2rem;line-height:1;margin-bottom:8px}
@@ -1645,6 +1646,9 @@ function mapAppFeedDocToCampFeedItem(doc){
     image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
     displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
     audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
+    audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
+    audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || 0) || 0,
+    audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
     author: String(item.authorName || item.member || "DeerCamp Member").trim(),
     createdAt: new Date(createdAtMs).toISOString(),
     createdAtMs,
@@ -4347,74 +4351,100 @@ async function removeCurrentFeedPost(){
   }
 }
 
-function pauseAndResetAudioElement(audio, options = {}){
-  if(!audio) return;
-  const detach = Boolean(options.detach);
-  try { audio.pause(); } catch(error) {}
-  try { audio.currentTime = 0; } catch(error) {}
-  try { audio.muted = true; } catch(error) {}
-  if(detach){
-    try { audio.removeAttribute('src'); } catch(error) {}
-    try { audio.src = ''; } catch(error) {}
-    try { audio.querySelectorAll('source').forEach(source => { source.removeAttribute('src'); source.src = ''; }); } catch(error) {}
-    try { audio.load(); } catch(error) {}
-    // iOS Safari can occasionally keep a detached media stream alive after pause/load.
-    // Replacing the node is the strongest practical stop signal for modal-owned audio.
-    try {
-      const clone = audio.cloneNode(false);
-      clone.removeAttribute('src');
-      clone.controls = audio.controls;
-      clone.preload = 'none';
-      audio.replaceWith(clone);
-    } catch(error) {}
-  }
+function formatFeedAudioDuration(item = {}){
+  const durationMs = Number(item.audioDurationMs || 0);
+  const durationSeconds = Number(item.audioDurationSeconds || 0);
+  const totalSeconds = durationMs > 0
+    ? Math.max(1, Math.round(durationMs / 1000))
+    : (durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds)) : 0);
+
+  if(!totalSeconds) return "";
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
-function stopFeedModalAudio(options = {}){
-  const aggressive = Boolean(options.aggressive);
-  const detach = Boolean(options.detach);
+function getFeedAudioContentType(item = {}){
+  const explicit = String(item.audioContentType || item.voiceContentType || "").trim().toLowerCase();
+  if(explicit && explicit !== "application/octet-stream") return explicit;
+
+  const url = String(item.audioUrl || "").split("?")[0].split("#")[0].toLowerCase();
+  if(url.endsWith(".mp3")) return "audio/mpeg";
+  if(url.endsWith(".wav")) return "audio/wav";
+  if(url.endsWith(".aac")) return "audio/aac";
+  if(url.endsWith(".caf")) return "audio/x-caf";
+  return "audio/mp4";
+}
+
+function stopFeedModalAudioPlayback(){
   const audioWrap = document.getElementById('feedModalAudio');
-  const modal = document.getElementById('feedModal');
-  const audios = new Set();
-  [audioWrap, modal].forEach(root => {
-    if(!root) return;
-    root.querySelectorAll('audio,video').forEach(audio => audios.add(audio));
-  });
-  if(aggressive){
-    document.querySelectorAll('audio,video').forEach(audio => audios.add(audio));
-  }
-  audios.forEach(audio => pauseAndResetAudioElement(audio, { detach }));
-  if(detach && audioWrap){
-    try { audioWrap.innerHTML = ''; } catch(error) {}
-    audioWrap.hidden = true;
-  }
-}
+  if(!audioWrap) return;
 
-window.DeerCampStopAllMedia = function DeerCampStopAllMedia(){
-  stopFeedModalAudio({ aggressive: true, detach: true });
-};
+  audioWrap.querySelectorAll('audio').forEach(audio => {
+    try { audio.pause(); } catch(error) {}
+    try { audio.currentTime = 0; } catch(error) {}
+    try { audio.removeAttribute('src'); } catch(error) {}
+    try { audio.querySelectorAll('source').forEach(source => source.removeAttribute('src')); } catch(error) {}
+    try { audio.load(); } catch(error) {}
+  });
+}
 
 function renderFeedAudioControl(item){
   const audioWrap = document.getElementById('feedModalAudio');
   if(!audioWrap) return;
-  stopFeedModalAudio({ aggressive: true, detach: true });
+  stopFeedModalAudioPlayback();
+
   const audioUrl = String(item && item.audioUrl ? item.audioUrl : '').trim();
   if(!audioUrl){
     audioWrap.hidden = true;
     audioWrap.innerHTML = '';
     return;
   }
+
+  const durationLabel = formatFeedAudioDuration(item);
+  const contentType = getFeedAudioContentType(item);
+  const titleText = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory';
   audioWrap.hidden = false;
   audioWrap.innerHTML = `
-    <p class="feed-audio-title">Voice Memory</p>
-    <audio controls preload="none" playsinline webkit-playsinline src="${esc(audioUrl)}">
+    <p class="feed-audio-title" id="feedModalAudioTitle">${esc(titleText)}</p>
+    <audio controls preload="metadata" playsinline crossorigin="anonymous">
+      <source src="${esc(audioUrl)}" type="${esc(contentType)}">
+      <source src="${esc(audioUrl)}">
       Your browser does not support audio playback.
     </audio>
+    <a class="feed-audio-link" href="${esc(audioUrl)}" target="_blank" rel="noopener noreferrer">Open voice memory audio</a>
   `;
+
+  const audioEl = audioWrap.querySelector('audio');
+  const titleEl = document.getElementById('feedModalAudioTitle');
+
+  if(audioEl && titleEl && !durationLabel){
+    const updateDuration = () => {
+      const duration = Number(audioEl.duration || 0);
+      if(Number.isFinite(duration) && duration > 0){
+        const seconds = Math.max(1, Math.round(duration));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
+      }
+    };
+
+    audioEl.addEventListener('loadedmetadata', updateDuration, { once:false });
+    audioEl.addEventListener('durationchange', updateDuration, { once:false });
+    audioEl.addEventListener('canplay', updateDuration, { once:false });
+    try { audioEl.load(); } catch(error) {}
+  }
+
+  if(audioEl){
+    audioEl.addEventListener('error', () => {
+      const title = document.getElementById('feedModalAudioTitle');
+      if(title) title.textContent = 'Voice Memory • tap “Open voice memory audio” if playback does not start';
+    });
+  }
 }
 
 function openFeedModal(idx){
-  stopFeedModalAudio({ aggressive: true, detach: true });
+  stopFeedModalAudioPlayback();
   modalFeedIndex=idx; const item=feedItems[idx]; if(!item) return;
   const isMemory = item.isMemory || String(item.mediaType || '').toLowerCase() === 'memory';
   const modalCard = document.querySelector('#feedModal .feed-modal-card');
@@ -4431,57 +4461,34 @@ function openFeedModal(idx){
   setFeedCommentFeedback('Comments stay with this camp post.');
   document.getElementById('feedModalBackdrop').classList.add('open');
   document.getElementById('feedModal').classList.add('open');
-  document.getElementById('feedModal').setAttribute('aria-hidden','false');
   document.body.classList.add('modal-open');
   syncFeedButtons();
 }
 function closeFeedModal(){
-  stopFeedModalAudio({ aggressive: true, detach: true });
-  const backdrop=document.getElementById('feedModalBackdrop');
-  const modal=document.getElementById('feedModal');
-  const audioWrap=document.getElementById('feedModalAudio');
-  if(audioWrap){audioWrap.innerHTML='';audioWrap.hidden=true;}
-  if(backdrop) backdrop.classList.remove('open');
-  if(modal){modal.classList.remove('open'); modal.setAttribute('aria-hidden','true');}
+  stopFeedModalAudioPlayback();
+  const audioWrap = document.getElementById('feedModalAudio');
+  if(audioWrap){
+    audioWrap.hidden = true;
+    audioWrap.innerHTML = '';
+  }
+  document.getElementById('feedModalBackdrop').classList.remove('open');
+  document.getElementById('feedModal').classList.remove('open');
   document.querySelector('#feedModal .feed-modal-card')?.classList.remove('is-memory');
   document.body.classList.remove('modal-open');
   setFeedRemoveStatus('');
   modalFeedIndex=-1;
-  // One more pass after DOM state changes catches iOS/Safari streams that keep playing during UI teardown.
-  setTimeout(()=>stopFeedModalAudio({ aggressive: true, detach: true }), 0);
-  setTimeout(()=>stopFeedModalAudio({ aggressive: true, detach: true }), 250);
+  setTimeout(stopFeedModalAudioPlayback, 80);
 }
 document.getElementById('feedPrev')?.addEventListener('click',()=>feedPageStep(-1));
 document.getElementById('feedNext')?.addEventListener('click',()=>feedPageStep(1));
-
-document.getElementById('feedModalClose')?.addEventListener('click', closeFeedModal);
-document.getElementById('feedModalBackdrop')?.addEventListener('click', closeFeedModal);
-
-// Capture close/backdrop taps before iOS Safari dispatches its normal click handling.
-['pointerdown','touchstart','mousedown','click'].forEach(evt=>{
-  document.addEventListener(evt, event=>{
-    const target = event.target;
-    if(!target || !target.closest) return;
-    const isFeedClose = target.closest('#feedModalClose') || target.id === 'feedModalBackdrop';
-    if(!isFeedClose) return;
-    stopFeedModalAudio({ aggressive: true, detach: true });
-    if(evt === 'pointerdown' || evt === 'touchstart') setTimeout(()=>stopFeedModalAudio({ aggressive: true, detach: true }), 50);
-  }, {capture:true, passive:true});
-});
-
-(function bindFeedModalAudioSafety(){
-  const modal=document.getElementById('feedModal');
-  if(!modal || modal.dataset.feedAudioSafetyBound) return;
-  modal.dataset.feedAudioSafetyBound='1';
-  const observer=new MutationObserver(()=>{
-    if(!modal.classList.contains('open') || modal.getAttribute('aria-hidden') === 'true') stopFeedModalAudio({ aggressive: true, detach: true });
-  });
-  observer.observe(modal,{attributes:true,attributeFilter:['class','aria-hidden','style']});
-  window.addEventListener('pagehide',()=>stopFeedModalAudio({ aggressive: true, detach: true }));
-  document.addEventListener('visibilitychange',()=>{ if(document.hidden) stopFeedModalAudio({ aggressive: true, detach: true }); });
-})();
+document.getElementById('feedModalClose').addEventListener('pointerdown', stopFeedModalAudioPlayback);
+document.getElementById('feedModalClose').onclick=closeFeedModal;
+document.getElementById('feedModalBackdrop').addEventListener('pointerdown', stopFeedModalAudioPlayback);
+document.getElementById('feedModalBackdrop').onclick=closeFeedModal;
+document.addEventListener('keydown', event => { if(event.key === 'Escape') closeFeedModal(); });
 document.getElementById('feedRemovePost')?.addEventListener('click', removeCurrentFeedPost);
-document.getElementById('feedModalPrev').onclick=()=>{if(modalFeedIndex>0){stopFeedModalAudio({ aggressive: true, detach: true }); openFeedModal(modalFeedIndex-1)}}; document.getElementById('feedModalNext').onclick=()=>{if(modalFeedIndex<feedItems.length-1){stopFeedModalAudio({ aggressive: true, detach: true }); openFeedModal(modalFeedIndex+1)}};
+document.getElementById('feedModalPrev').onclick=()=>{stopFeedModalAudioPlayback(); if(modalFeedIndex>0) openFeedModal(modalFeedIndex-1)};
+document.getElementById('feedModalNext').onclick=()=>{stopFeedModalAudioPlayback(); if(modalFeedIndex<feedItems.length-1) openFeedModal(modalFeedIndex+1)};
 let feedResizeTimer=null;
 window.addEventListener('resize', ()=>{
   clearTimeout(feedResizeTimer);

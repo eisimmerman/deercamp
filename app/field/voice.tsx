@@ -388,9 +388,21 @@ export default function FieldVoiceScreen() {
     const state = segmentStateRef.current;
     const summary = state ? getSegmentSummary(state) : null;
     const segments = summary?.segments || [];
+    const totalDurationMs =
+      summary?.totalDurationMs ||
+      segments.reduce((sum, segment) => sum + Math.max(0, Number(segment.durationMs || 0)), 0) ||
+      recorderState.durationMillis ||
+      0;
     const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
     const now = Date.now();
     const firstAudioUri = segments[0]?.uri?.trim() || "";
+    const audioContentType = firstAudioUri.toLowerCase().endsWith(".mp3")
+      ? "audio/mpeg"
+      : firstAudioUri.toLowerCase().endsWith(".wav")
+        ? "audio/wav"
+        : firstAudioUri.toLowerCase().endsWith(".aac")
+          ? "audio/aac"
+          : "audio/mp4";
 
     const payload: any = {
       id: memoryId,
@@ -405,7 +417,10 @@ export default function FieldVoiceScreen() {
       captureVersion: 2,
       isSegmented: segments.length > 0,
       segmentCount: segments.length,
-      totalDurationMs: summary?.totalDurationMs || undefined,
+      totalDurationMs: totalDurationMs || undefined,
+      audioDurationMs: totalDurationMs || undefined,
+      audioDurationSeconds: totalDurationMs ? Math.round(totalDurationMs / 1000) : undefined,
+      audioContentType,
       parentMemoryTitle: "Field Memory",
       campId,
       targetCampName: await getActiveCampName(campId),
