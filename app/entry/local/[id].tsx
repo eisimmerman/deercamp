@@ -107,9 +107,11 @@ function VoicePlayer({
 function SegmentVoiceList({
   segments,
   totalDurationMs,
+  syncStatus,
 }: {
   segments: LocalMemorySegment[];
   totalDurationMs?: number;
+  syncStatus?: LocalMemoryItem["syncStatus"];
 }) {
   const playableSegments = segments
     .filter((segment) => segment.uri?.trim())
@@ -119,22 +121,31 @@ function SegmentVoiceList({
 
   const durationLabel = formatDuration(totalDurationMs);
   const isSingleRecording = playableSegments.length === 1;
+  const savedLabel =
+    syncStatus === "synced"
+      ? durationLabel
+        ? `${durationLabel} recording saved locally as backup.`
+        : "Recording saved locally as backup."
+      : durationLabel
+      ? `${durationLabel} recording saved locally.`
+      : "Recording saved locally.";
+  const helpText =
+    syncStatus === "synced"
+      ? "This voice memory is published to CampFeed. DeerCamp keeps the local copy on this phone as a backup."
+      : syncStatus === "publishing"
+      ? "This voice memory is saved locally as backup while DeerCamp publishes it to CampFeed."
+      : syncStatus === "failed"
+      ? "This voice memory is saved locally. Tap Retry Upload when service is available."
+      : "This voice memory is saved locally. DeerCamp will publish it when service is available.";
 
   return (
     <View style={styles.segmentCard}>
       <View style={styles.segmentHeader}>
         <Text style={styles.segmentTitle}>Voice Saved</Text>
-        <Text style={styles.segmentMeta}>
-          {durationLabel
-            ? `${durationLabel} recording saved locally.`
-            : "Recording saved locally."}
-        </Text>
+        <Text style={styles.segmentMeta}>{savedLabel}</Text>
       </View>
 
-      <Text style={styles.segmentHelp}>
-        Your Field Memory is safely stored on this phone. DeerCamp will
-        automatically publish it when service becomes available.
-      </Text>
+      <Text style={styles.segmentHelp}>{helpText}</Text>
 
       {isSingleRecording ? (
         <VoicePlayer
@@ -361,10 +372,14 @@ export default function LocalEntryDetailScreen() {
     (targetCampId === DEFAULT_ACTIVE_CAMP_ID ? "Camp Swede" : "Selected DeerCamp");
   const canRetryUpload = entry.syncStatus !== "synced" && hasPhoto;
 
+  function goToFieldMemories() {
+    router.replace("/(tabs)/memories");
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.topRow}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={goToFieldMemories}>
           <Ionicons name="arrow-back" size={18} color="white" />
           <Text style={styles.backBtnText}>Back</Text>
         </Pressable>
@@ -418,6 +433,7 @@ export default function LocalEntryDetailScreen() {
         <SegmentVoiceList
           segments={playableSegments}
           totalDurationMs={entry.totalDurationMs}
+          syncStatus={entry.syncStatus}
         />
       ) : hasFallbackVoice ? (
         <VoicePlayer uri={fallbackVoiceUri} durationMs={entry.totalDurationMs} label="Recording" />
