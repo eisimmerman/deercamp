@@ -1179,21 +1179,29 @@
 
 
 
-  /* CampRules v1 */
-  .camprules-shell{display:grid;gap:14px}
-  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-  .camprules-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* CampRules v3: fixed two columns of five rules on desktop */
+  .camprules-shell{display:grid;gap:12px}
+  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+  .camprules-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
   .camprules-grid{display:grid;gap:12px}
-  .camprules-card{padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10)}
-  .camprules-card h3{margin:0 0 7px;color:#3a2717;font-size:1.04rem}
-  .camprules-card p{margin:0;color:#4b3116;line-height:1.55}
-  .camprules-agreement{display:grid;gap:12px;margin-top:4px;padding:16px;border-radius:20px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
-  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.06rem}
-  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.5}
+  .camprules-column{display:grid;gap:10px;align-content:start}
+  .camprules-card{padding:10px 12px;border-radius:15px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10);min-width:0}
+  .camprules-card h3{margin:0 0 5px;color:#3a2717;font-size:.94rem;line-height:1.18}
+  .camprules-card p{margin:0;color:#4b3116;font-size:.90rem;line-height:1.38}
+  .camprules-agreement{display:grid;gap:10px;margin-top:2px;padding:14px;border-radius:18px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
+  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.02rem}
+  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.42}
   .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
   .camprules-status{font-weight:800;color:#27411e}
   .camprules-status.is-pending{color:#7c561f}
-  .camprules-locked{padding:16px;border-radius:18px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.55;font-weight:700}
+  .camprules-locked{padding:14px;border-radius:16px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.45;font-weight:700}
+  @media (min-width:900px){
+    .camprules-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      align-items:start;
+    }
+    .camprules-overflow-column{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
   @media (max-width:720px){.camprules-agreement-row{grid-template-columns:1fr}.camprules-agreement-row .btn{width:100%}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -1644,6 +1652,17 @@ function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringif
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 
+function getCurrentClientPlatformLabel(){
+  try{
+    const ua = String(navigator.userAgent || navigator.vendor || window.opera || "").toLowerCase();
+    const platform = String(navigator.platform || "").toLowerCase();
+    const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
+    if(/android/.test(ua)) return "Android";
+    if(/iphone|ipad|ipod/.test(ua)) return "iOS";
+    if(platform === "macintel" && maxTouchPoints > 1) return "iOS";
+  }catch(error){}
+  return "";
+}
 function normalizeFieldMemoryPlatform(value = ""){
   const raw = String(value || "").trim();
   const clean = raw.toLowerCase();
@@ -1661,6 +1680,8 @@ function getFieldMemoryPlatform(item = {}){
     item.sourcePlatform,
     item.uploadPlatform,
     item.appPlatform,
+    item.nativePlatform,
+    item.runtimePlatform,
     item.os,
     item.deviceOs,
     item.operatingSystem,
@@ -1668,10 +1689,17 @@ function getFieldMemoryPlatform(item = {}){
     item.clientUserAgent,
     item.deviceUserAgent,
     item.source,
+    item.device,
+    item.deviceName,
+    item.appSource,
+    item.client,
+    Array.isArray(item.tags) ? item.tags.join(" ") : "",
     deviceInfo.platform,
     deviceInfo.os,
     deviceInfo.operatingSystem,
-    deviceInfo.userAgent
+    deviceInfo.userAgent,
+    deviceInfo.device,
+    deviceInfo.deviceName
   ];
   for(const candidate of candidates){
     const label = normalizeFieldMemoryPlatform(candidate);
@@ -1737,7 +1765,6 @@ function feedDisplayTitle(entry = {}){
   const firstName = getFeedAuthorFirstName(entry);
   return firstName ? `${title} - ${firstName}` : title;
 }
-
 function firestoreTimestampToMs(value){
   if(!value) return Date.now();
   if(typeof value === "number") return value;
@@ -1761,15 +1788,23 @@ function mapAppFeedDocToCampFeedItem(doc){
     image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
     displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
     audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
+    voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
     audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
+    voiceContentType: String(item.voiceContentType || item.audioContentType || "").trim(),
     audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || 0) || 0,
     audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
-    author: String(item.authorName || item.member || "DeerCamp Member").trim(),
+    voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || 0) || 0,
+    voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
+    author: String(item.authorName || item.member || item.authorEmail || item.email || "DeerCamp Member").trim(),
+    authorEmail: String(item.authorEmail || item.email || "").trim(),
     createdAt: new Date(createdAtMs).toISOString(),
     createdAtMs,
     tags: buildFieldMemoryTags(Object.assign({}, item, { title: item.title || (hasAudio ? "Field Memory" : "Field Photo"), audioUrl: item.audioUrl || item.voiceUrl, mediaType, platform }), baseTags),
     platform,
     devicePlatform: platform,
+    clientPlatform: String(item.clientPlatform || item.sourcePlatform || item.uploadPlatform || item.appPlatform || platform || "").trim(),
+    userAgent: String(item.userAgent || item.clientUserAgent || item.deviceUserAgent || "").trim(),
+    deviceInfo: item.deviceInfo && typeof item.deviceInfo === "object" ? Object.assign({}, item.deviceInfo) : undefined,
     mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
     source: "app",
     appFeedDocId: id,
@@ -2079,7 +2114,7 @@ const CAMP_RULES_DEFAULTS = [
   {id:"shared-chores", title:"Camp Chores and Costs Are Shared", body:"Everyone helps with camp chores, meals, cleanup, firewood, maintenance, and shared costs. Leave camp cleaner than you found it."},
   {id:"scouting-work", title:"Scouting, Cameras, Baiting, and Habitat Work Need Camp Agreement", body:"Scouting, baiting where legal, trail cameras, trimming, food plots, and habitat work must follow camp rules and must not interfere with another hunter’s setup."},
   {id:"respect-camp", title:"Respect the Camp, the Story, and Each Other", body:"Respect other hunters, their harvests, their gear, their stories, and their families. Handle disagreements through the Camp Steward or camp process."},
-  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community."}
+  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or removal from the camp community."}
 ];
 function normalizeCampRulesConfig(source = {}){
   const existing = source && typeof source === "object" ? source : {};
@@ -3703,12 +3738,23 @@ function normalizePhotoEntries(){
       author:String(item.author||item.member||"Camp Member").trim(),
       createdAt,
       createdAtMs,
-      tags: buildFieldMemoryTags(item, Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"]),
-      platform: getFieldMemoryPlatform(item),
-      devicePlatform: getFieldMemoryPlatform(item),
+      tags: isFieldMemoryFeedItem(item)
+        ? buildFieldMemoryTags(item, Array.isArray(item.tags)&&item.tags.length ? item.tags : ["Picture","CampUpdate"])
+        : (Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"]),
       comments,
       audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
       voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
+      audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || 0) || 0,
+      audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
+      voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || 0) || 0,
+      voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
+      audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
+      voiceContentType: String(item.voiceContentType || item.audioContentType || "").trim(),
+      platform: getFieldMemoryPlatform(item),
+      devicePlatform: getFieldMemoryPlatform(item),
+      clientPlatform: String(item.clientPlatform || item.sourcePlatform || item.uploadPlatform || item.appPlatform || "").trim(),
+      userAgent: String(item.userAgent || item.clientUserAgent || item.deviceUserAgent || "").trim(),
+      deviceInfo: item.deviceInfo && typeof item.deviceInfo === "object" ? Object.assign({}, item.deviceInfo) : undefined,
       audioPath: String(item.audioPath || "").trim(),
       source: String(item.source || "").trim(),
       appFeedDocId: String(item.appFeedDocId || item.feedDocId || "").trim(),
@@ -4163,18 +4209,26 @@ function renderCampRulesSection(){
   const agreementBlock = canAgree ? `
     <div class="camprules-agreement">
       <h3>Member Agreement</h3>
-      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or expulsion from the camp community at the Camp Steward’s discretion.</p>
+      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or removal from the camp community at the Camp Steward’s discretion.</p>
       <div class="camprules-agreement-row">
         <select id="campRulesMemberSelect" class="select" aria-label="Choose member for CampRules agreement"></select>
         <button id="campRulesAgreeBtn" type="button" class="btn">I Have Read and Agree</button>
       </div>
       <div id="campRulesAgreementStatus" class="camprules-status is-pending">Pending agreement.</div>
     </div>` : `<div class="camprules-locked">CampRules agreement is available after joining this camp as a member. Visitors can view only the rules the Steward has chosen to share publicly.</div>`;
+  const renderCampRuleCards = (items, offset = 0) => items.map((rule, index) => `<article class="camprules-card"><h3>${offset + index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('');
+  const leftRules = enabledRules.slice(0, 5);
+  const rightRules = enabledRules.slice(5, 10);
+  const overflowRules = enabledRules.slice(10);
+  const rulesMarkup = `
+    <div class="camprules-column">${renderCampRuleCards(leftRules, 0)}</div>
+    <div class="camprules-column">${renderCampRuleCards(rightRules, 5)}</div>
+    ${overflowRules.length ? `<div class="camprules-column camprules-overflow-column">${renderCampRuleCards(overflowRules, 10)}</div>` : ''}`;
   root.innerHTML = `
     <div class="camprules-toolbar">
       <div class="camprules-meta"><span class="pill">${esc(visibilityLabels[rules.visibility] || 'Members Only')}</span><span class="pill">Version ${esc(rules.version)}</span>${rules.publishedAt ? `<span class="pill">Published ${esc(new Date(rules.publishedAt).toLocaleDateString())}</span>` : ''}</div>
     </div>
-    <div class="camprules-grid">${enabledRules.map((rule, index) => `<article class="camprules-card"><h3>${index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('')}</div>
+    <div class="camprules-grid">${rulesMarkup}</div>
     ${agreementBlock}`;
   populateCampRulesMemberSelect();
   document.getElementById('campRulesMemberSelect')?.addEventListener('change', refreshCampRulesAgreementStatus);
@@ -4332,7 +4386,7 @@ if(document.getElementById('updateType')){
         tags:["Picture","CampUpdate"]
       };
       campPhotoGallery.unshift(photo);
-      feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs});
+      feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs,platform:getCurrentClientPlatformLabel(),devicePlatform:getCurrentClientPlatformLabel(),clientPlatform:getCurrentClientPlatformLabel(),userAgent:String(navigator.userAgent||"").trim()});
       try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
       renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
     }
@@ -4359,7 +4413,11 @@ if(document.getElementById('updateType')){
         author:member,
         member,
         createdAt,
-        createdAtMs
+        createdAtMs,
+        platform:getCurrentClientPlatformLabel(),
+        devicePlatform:getCurrentClientPlatformLabel(),
+        clientPlatform:getCurrentClientPlatformLabel(),
+        userAgent:String(navigator.userAgent||"").trim()
       };
       feedEntries.unshift(memoryEntry);
       contentSubmissions.unshift({type:'memory',linkedItemId:memoryId,member,title:`${title} -- added to Memory / Story`,summary:body,createdAt,createdAtMs});
@@ -4385,7 +4443,7 @@ if(document.getElementById('updateType')){
     traditions.unshift(tradition);
     contentSubmissions.unshift({type:'tradition',linkedItemId:traditionId,member,title:`${title} -- added to CampTraditions`,summary:tradition.description,createdAt,createdAtMs});
     if(uploadedTraditionImage){
-      feedEntries.unshift({id:traditionId,title,kicker:'CampUpdate • Tradition',meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:tradition.description,image:uploadedTraditionImage.image,thumbnail:uploadedTraditionImage.thumbnail,displayUrl:uploadedTraditionImage.displayUrl,thumbUrl:uploadedTraditionImage.thumbUrl,storagePath:uploadedTraditionImage.storagePath,thumbPath:uploadedTraditionImage.thumbPath,storageProvider:uploadedTraditionImage.storageProvider,tags:['Tradition','Picture','CampUpdate'],mediaType:'tradition',type:'tradition',author:member,member,createdAt,createdAtMs});
+      feedEntries.unshift({id:traditionId,title,kicker:'CampUpdate • Tradition',meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:tradition.description,image:uploadedTraditionImage.image,thumbnail:uploadedTraditionImage.thumbnail,displayUrl:uploadedTraditionImage.displayUrl,thumbUrl:uploadedTraditionImage.thumbUrl,storagePath:uploadedTraditionImage.storagePath,thumbPath:uploadedTraditionImage.thumbPath,storageProvider:uploadedTraditionImage.storageProvider,tags:['Tradition','Picture','CampUpdate'],mediaType:'tradition',type:'tradition',author:member,member,createdAt,createdAtMs,platform:getCurrentClientPlatformLabel(),devicePlatform:getCurrentClientPlatformLabel(),clientPlatform:getCurrentClientPlatformLabel(),userAgent:String(navigator.userAgent||'').trim()});
     }
     try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
     renderTraditions(); renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(uploadedTraditionImage ? `${title} was added to Recent CampUpdates, CampTraditions, and CampFeed.` : `${title} was added to Recent CampUpdates and CampTraditions.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo');
@@ -4496,9 +4554,8 @@ function renderFeed(){
     const mediaMarkup = entry.image
       ? `<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>`
       : `<div class="feed-card-media"><div class="feed-memory-placeholder"><div><span>✍️</span>Memory / Story</div></div></div>`;
-    const displayTitle = feedDisplayTitle(entry);
     card.innerHTML=`${mediaMarkup}
-      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(displayTitle)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${feedOpenLabelFor(entry)}</button></div>`;
+      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(feedDisplayTitle(entry))}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${feedOpenLabelFor(entry)}</button></div>`;
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
@@ -4612,8 +4669,8 @@ async function removeCurrentFeedPost(){
 }
 
 function formatFeedAudioDuration(item = {}){
-  const durationMs = Number(item.audioDurationMs || 0);
-  const durationSeconds = Number(item.audioDurationSeconds || 0);
+  const durationMs = Number(item.audioDurationMs || item.voiceDurationMs || 0);
+  const durationSeconds = Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0);
   const totalSeconds = durationMs > 0
     ? Math.max(1, Math.round(durationMs / 1000))
     : (durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds)) : 0);
@@ -4632,7 +4689,11 @@ function getFeedAudioContentType(item = {}){
   if(url.endsWith(".mp3")) return "audio/mpeg";
   if(url.endsWith(".wav")) return "audio/wav";
   if(url.endsWith(".aac")) return "audio/aac";
+  if(url.endsWith(".m4a")) return "audio/mp4";
+  if(url.endsWith(".mp4")) return "audio/mp4";
   if(url.endsWith(".caf")) return "audio/x-caf";
+  if(url.endsWith(".webm")) return "audio/webm";
+  if(url.endsWith(".ogg") || url.endsWith(".oga")) return "audio/ogg";
   return "audio/mp4";
 }
 
@@ -4663,43 +4724,64 @@ function renderFeedAudioControl(item){
 
   const durationLabel = formatFeedAudioDuration(item);
   const contentType = getFeedAudioContentType(item);
-  const titleText = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory';
+  const initialTitle = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory • loading duration…';
   audioWrap.hidden = false;
   audioWrap.innerHTML = `
-    <p class="feed-audio-title" id="feedModalAudioTitle">${esc(titleText)}</p>
-    <audio controls preload="metadata" playsinline crossorigin="anonymous">
+    <p class="feed-audio-title" id="feedModalAudioTitle">${esc(initialTitle)}</p>
+    <audio controls preload="metadata" playsinline>
       <source src="${esc(audioUrl)}" type="${esc(contentType)}">
       <source src="${esc(audioUrl)}">
       Your browser does not support audio playback.
     </audio>
-    <a class="feed-audio-link" href="${esc(audioUrl)}" target="_blank" rel="noopener noreferrer">Open voice memory audio</a>
+    <a class="feed-audio-link" id="feedModalAudioLink" href="${esc(audioUrl)}" target="_blank" rel="noopener noreferrer" hidden>Open voice memory audio</a>
   `;
 
   const audioEl = audioWrap.querySelector('audio');
   const titleEl = document.getElementById('feedModalAudioTitle');
+  const linkEl = document.getElementById('feedModalAudioLink');
+  let foundDuration = Boolean(durationLabel);
 
-  if(audioEl && titleEl && !durationLabel){
-    const updateDuration = () => {
-      const duration = Number(audioEl.duration || 0);
-      if(Number.isFinite(duration) && duration > 0){
-        const seconds = Math.max(1, Math.round(duration));
-        const minutes = Math.floor(seconds / 60);
-        const remainder = seconds % 60;
-        titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
-      }
-    };
+  const setDurationTitle = (secondsValue) => {
+    const duration = Number(secondsValue || 0);
+    if(!Number.isFinite(duration) || duration <= 0) return false;
+    const seconds = Math.max(1, Math.round(duration));
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    if(titleEl) titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
+    if(linkEl) linkEl.hidden = true;
+    foundDuration = true;
+    return true;
+  };
+
+  if(durationLabel && titleEl){
+    titleEl.textContent = `Voice Memory • ${durationLabel}`;
+  }
+
+  if(audioEl && titleEl){
+    const updateDuration = () => setDurationTitle(audioEl.duration);
 
     audioEl.addEventListener('loadedmetadata', updateDuration, { once:false });
     audioEl.addEventListener('durationchange', updateDuration, { once:false });
     audioEl.addEventListener('canplay', updateDuration, { once:false });
-    try { audioEl.load(); } catch(error) {}
-  }
+    audioEl.addEventListener('loadeddata', updateDuration, { once:false });
+    audioEl.addEventListener('play', updateDuration, { once:false });
 
-  if(audioEl){
     audioEl.addEventListener('error', () => {
       const title = document.getElementById('feedModalAudioTitle');
-      if(title) title.textContent = 'Voice Memory • tap “Open voice memory audio” if playback does not start';
+      const link = document.getElementById('feedModalAudioLink');
+      if(title) title.textContent = 'Voice Memory • open audio if playback does not start';
+      if(link) link.hidden = false;
     });
+
+    window.setTimeout(() => {
+      if(foundDuration) return;
+      updateDuration();
+      if(foundDuration) return;
+      if(titleEl) titleEl.textContent = 'Voice Memory';
+      if(linkEl) linkEl.hidden = false;
+    }, 2200);
+
+    try { audioEl.load(); } catch(error) {}
   }
 }
 
@@ -4711,7 +4793,7 @@ function openFeedModal(idx){
   if(modalCard) modalCard.classList.toggle('is-memory', Boolean(isMemory && !item.image));
   document.getElementById('feedModalMedia').innerHTML=item.image?`<img src="${esc(item.image)}" alt="${esc(item.title)}">`:"";
   document.getElementById('feedModalKicker').textContent=feedKickerFor(item);
-  document.getElementById('feedModalTitle').textContent=feedDisplayTitle(item);
+  document.getElementById('feedModalTitle').textContent=item.title;
   document.getElementById('feedModalMeta').textContent=`${item.author} • ${new Date(item.createdAtMs).toLocaleString()}`;
   document.getElementById('feedModalBody').textContent=item.body;
   document.getElementById('feedModalTags').innerHTML=item.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('');
