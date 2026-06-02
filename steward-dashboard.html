@@ -634,6 +634,25 @@
       .camprules-agreement-row{grid-template-columns:1fr}
     }
 
+
+/* CampGrowth update: Basic Field Cards full-width horizontal layout */
+#basicFieldCardsSection{
+  grid-column:1 / -1;
+}
+#basicFieldCardsSection .basic-field-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+#basicFieldCardsSection .later-list{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+@media (min-width:1100px){
+  #basicFieldCardsSection .basic-field-grid{
+    grid-template-columns:1fr 1fr;
+  }
+}
+
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -764,7 +783,7 @@
       <section class="section-card">
         <div>
           <h3>2. Members and invites</h3>
-          <p class="helper">See who is Active and who needs an email for the camp invitation.</p>
+          <p class="helper">Add the emails you have now. You can add missing member emails later and still keep building the camp.</p>
         </div>
 
         <div class="member-list" id="memberList"></div>
@@ -796,7 +815,7 @@
         </form>
         <div class="section-complete-actions">
           <button id="membersCompleteBtn" class="section-complete-btn" type="button" data-section-complete="members">Members Complete</button>
-          <span id="membersCompleteNote" class="section-complete-note">Return to the Camp Launch Checklist for the next step.</span>
+          <span id="membersCompleteNote" class="section-complete-note">Save known emails now, or add other member emails later.</span>
         </div>
       </section>
     </div>
@@ -857,7 +876,7 @@
 
       <section class="section-card basic-field-card" id="basicFieldCardsSection">
         <div>
-          <h3>4. Basic field cards</h3>
+          <h3>5. Basic field cards</h3>
           <p class="helper">DCF Stewards can create basic field cards within the free limits. DC+ upgrades unlock the Scout Elite map-based builders, show-all maps, and printable exports.</p>
         </div>
         <div class="basic-field-grid">
@@ -2323,24 +2342,31 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
     }
 
     function getLaunchChecklistSteps() {
+      const checklistState = getLaunchChecklistState();
       const nonStewardMembers = state.members.filter(member => {
         const role = String(member.role || "").trim().toLowerCase();
         const status = String(member.status || "Active").trim().toLowerCase();
         return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
       });
       const membersHaveEmails = nonStewardMembers.length > 0 && nonStewardMembers.every(member => isLikelyEmail(member.email || "") && String(member.email || "").trim());
+      const membersCanProceed = nonStewardMembers.length > 0 && (membersHaveEmails || checklistState.membersReviewed === true || checklistState.memberEmailsDeferred === true);
+      const missingMemberEmailCount = nonStewardMembers.filter(member => !(isLikelyEmail(member.email || "") && String(member.email || "").trim())).length;
+      const memberStepLabel = nonStewardMembers.length > 0 && missingMemberEmailCount > 0 ? "Add other members later" : "Add first camp member";
+      const memberStepNote = nonStewardMembers.length > 0 && missingMemberEmailCount > 0
+        ? "Save the emails you have now; add the rest later from this dashboard."
+        : "The camp starts becoming shared.";
       let fieldCardCount = 0;
       try {
         fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
       } catch (error) {}
       return [
-        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean((getLaunchChecklistState().identityConfirmed === true) || (String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim())), target:"#campName", completeLabel:"Camp Essentials Complete" },
+        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean((checklistState.identityConfirmed === true) || (String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim())), target:"#campName", completeLabel:"Camp Essentials Complete" },
         { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList", completeLabel:"Steward Email Complete" },
         { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload", completeLabel:"Camp Sign Complete" },
-        { key:"members", label:"Add first camp member", note:"The camp starts becoming shared.", done:nonStewardMembers.length > 0, target:"#memberName", completeLabel:"Members Complete" },
+        { key:"members", label:memberStepLabel, note:memberStepNote, done:membersCanProceed, target:"#memberList", completeLabel:(nonStewardMembers.length > 0 && missingMemberEmailCount > 0 ? "Add Other Members Later" : "Members Complete") },
         { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
-        { key:"field", label:"Add 1 or more Stands/Drives", note:"Save at least one stand or drive, or choose Add Later.", done:fieldCardCount > 0 || getLaunchChecklistState().fieldCardsDeferred === true, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
-        { key:"memberEmails", label:"Edit Member Email(s)", note:"Add valid emails so invites can be sent.", done:membersHaveEmails, target:"#memberList", completeLabel:"Member Emails Complete" }
+        { key:"rules", label:"Review CampRules", note:"Publish or review the camp rulebook before launch.", done:Boolean(checklistState.rulesReviewed === true || state.campRules?.publishedAt), target:"#campRulesBuilderCard", completeLabel:"CampRules Complete" },
+        { key:"field", label:"Add 1 or more Stands/Drives", note:"Save at least one stand or drive, or choose Add Later.", done:fieldCardCount > 0 || checklistState.fieldCardsDeferred === true, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" }
       ];
     }
 
@@ -2431,8 +2457,9 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
     function getSectionButtonStepMap() {
       return {
         campEssentialsCompleteBtn: ["identity"],
-        membersCompleteBtn: ["members", "memberEmails", "steward"],
+        membersCompleteBtn: ["members", "steward"],
         sectionsCompleteBtn: ["sections"],
+        campRulesCompleteBtn: ["rules"],
         fieldCardsCompleteBtn: ["field"]
       };
     }
@@ -2482,6 +2509,33 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         focusLaunchTarget("#launchChecklistCard");
         return;
       }
+      if (key === "members") {
+        try { syncCampData(); } catch (error) {}
+        renderMembers();
+        renderPreview();
+        const nonStewardMembers = state.members.filter(member => {
+          const role = String(member.role || "").trim().toLowerCase();
+          const status = String(member.status || "Active").trim().toLowerCase();
+          return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
+        });
+        if (!nonStewardMembers.length) {
+          showToast("Add at least one camp member name, or add members later from this dashboard.");
+          focusLaunchTarget("#memberName");
+          return;
+        }
+        const missingEmailCount = nonStewardMembers.filter(member => !(isLikelyEmail(member.email || "") && String(member.email || "").trim())).length;
+        saveLaunchChecklistPatch({
+          membersReviewed:true,
+          membersReviewedAt:new Date().toISOString(),
+          memberEmailsDeferred: missingEmailCount > 0,
+          memberEmailsDeferredAt: missingEmailCount > 0 ? new Date().toISOString() : undefined
+        });
+        try { syncCampData(); } catch (error) {}
+        renderLaunchChecklist();
+        showToast(missingEmailCount > 0 ? "Members saved. You can add missing emails later." : "Members and emails complete. Returning to the launch checklist.");
+        focusLaunchTarget("#launchChecklistCard");
+        return;
+      }
       if (key === "sections") {
         syncCampStateFromForm();
         saveLaunchChecklistPatch({ sectionsReviewed:true, sectionsReviewedAt:new Date().toISOString() });
@@ -2491,21 +2545,23 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         focusLaunchTarget("#launchChecklistCard");
         return;
       }
+      if (key === "rules") {
+        try { syncCampRulesFromForm(); } catch (error) {}
+        saveLaunchChecklistPatch({ rulesReviewed:true, rulesReviewedAt:new Date().toISOString() });
+        try { syncCampData(); } catch (error) {}
+        renderCampRulesBuilder();
+        renderLaunchChecklist();
+        showToast("CampRules reviewed. Returning to the launch checklist.");
+        focusLaunchTarget("#launchChecklistCard");
+        return;
+      }
       if (key === "memberEmails") {
+        saveLaunchChecklistPatch({ membersReviewed:true, memberEmailsDeferred:true, memberEmailsDeferredAt:new Date().toISOString() });
         try { syncCampData(); } catch (error) {}
         renderMembers();
         renderPreview();
-        const missingEmailMember = state.members.find(member => {
-          const role = String(member.role || "").trim().toLowerCase();
-          const status = String(member.status || "Active").trim().toLowerCase();
-          return role !== "camp steward" && status !== "removed" && String(member.name || "").trim() && !(isLikelyEmail(member.email || "") && String(member.email || "").trim());
-        });
-        if (missingEmailMember) {
-          showToast("Add valid email addresses for each camp member before this step is complete.");
-          focusLaunchTarget("#memberList");
-          return;
-        }
-        showToast("Member emails complete. Returning to the launch checklist.");
+        renderLaunchChecklist();
+        showToast("Member email setup marked for later.");
         focusLaunchTarget("#launchChecklistCard");
         return;
       }
