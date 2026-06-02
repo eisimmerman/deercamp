@@ -1179,21 +1179,30 @@
 
 
 
-  /* CampRules v1 */
-  .camprules-shell{display:grid;gap:14px}
-  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:4px}
-  .camprules-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* CampRules v3: fixed two columns of five rules on desktop */
+  .camprules-shell{display:grid;gap:12px}
+  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:2px}
+  .camprules-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
   .camprules-grid{display:grid;gap:12px}
-  .camprules-card{padding:14px 15px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10)}
-  .camprules-card h3{margin:0 0 7px;color:#3a2717;font-size:1.04rem}
-  .camprules-card p{margin:0;color:#4b3116;line-height:1.55}
-  .camprules-agreement{display:grid;gap:12px;margin-top:4px;padding:16px;border-radius:20px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
-  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.06rem}
-  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.5}
+  .camprules-column{display:grid;gap:10px;align-content:start}
+  .camprules-card{padding:10px 12px;border-radius:15px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10);min-width:0}
+  .camprules-card h3{margin:0 0 5px;color:#3a2717;font-size:.94rem;line-height:1.18}
+  .camprules-card p{margin:0;color:#4b3116;font-size:.90rem;line-height:1.38}
+  .camprules-agreement{display:grid;gap:10px;margin-top:2px;padding:14px;border-radius:18px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
+  .camprules-agreement[hidden]{display:none!important}
+  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.02rem}
+  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.42}
   .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
   .camprules-status{font-weight:800;color:#27411e}
   .camprules-status.is-pending{color:#7c561f}
-  .camprules-locked{padding:16px;border-radius:18px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.55;font-weight:700}
+  .camprules-locked{padding:14px;border-radius:16px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.45;font-weight:700}
+  @media (min-width:900px){
+    .camprules-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      align-items:start;
+    }
+    .camprules-overflow-column{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}
+  }
   @media (max-width:720px){.camprules-agreement-row{grid-template-columns:1fr}.camprules-agreement-row .btn{width:100%}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -4021,10 +4030,13 @@ function refreshCampRulesAgreementStatus(){
   const rules = activeCampRules();
   const {agreement} = getCampRulesAgreementStatus();
   const agreedVersion = Number(agreement?.version || 0);
+  const agreementBlock = document.getElementById('campRulesAgreementBlock');
   if(agreedVersion >= Number(rules.version || 1)){
     status.textContent = `Agreed to v${agreedVersion} on ${new Date(agreement.agreedAt || Date.now()).toLocaleString()}.`;
     status.classList.remove('is-pending');
+    if(agreementBlock && getCurrentSecurityRole() !== 'steward') agreementBlock.hidden = true;
   } else {
+    if(agreementBlock) agreementBlock.hidden = false;
     status.textContent = agreement ? `Needs review: last agreed to v${agreedVersion}. Current version is v${rules.version}.` : `Pending agreement for v${rules.version}.`;
     status.classList.add('is-pending');
   }
@@ -4055,7 +4067,7 @@ function agreeToCampRules(){
   };
   campRules.agreements = Object.assign({}, campRulesAgreements);
   persist();
-  refreshCampRulesAgreementStatus();
+  renderCampRulesSection();
   try{ showToast('CampRules agreement recorded.'); }catch(error){}
 }
 function renderCampRulesSection(){
@@ -4066,7 +4078,7 @@ function renderCampRulesSection(){
   const visibilityLabels = {public:'Public Preview', members:'Members Only', draft:'Draft — Steward Only'};
   const canAgree = getCurrentSecurityRole() === 'member' || isCurrentSteward();
   const agreementBlock = canAgree ? `
-    <div class="camprules-agreement">
+    <div class="camprules-agreement" id="campRulesAgreementBlock">
       <h3>Member Agreement</h3>
       <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or removal from the camp community at the Camp Steward’s discretion.</p>
       <div class="camprules-agreement-row">
@@ -4075,11 +4087,19 @@ function renderCampRulesSection(){
       </div>
       <div id="campRulesAgreementStatus" class="camprules-status is-pending">Pending agreement.</div>
     </div>` : `<div class="camprules-locked">CampRules agreement is available after joining this camp as a member. Visitors can view only the rules the Steward has chosen to share publicly.</div>`;
+  const renderCampRuleCards = (items, offset = 0) => items.map((rule, index) => `<article class="camprules-card"><h3>${offset + index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('');
+  const leftRules = enabledRules.slice(0, 5);
+  const rightRules = enabledRules.slice(5, 10);
+  const overflowRules = enabledRules.slice(10);
+  const rulesMarkup = `
+    <div class="camprules-column">${renderCampRuleCards(leftRules, 0)}</div>
+    <div class="camprules-column">${renderCampRuleCards(rightRules, 5)}</div>
+    ${overflowRules.length ? `<div class="camprules-column camprules-overflow-column">${renderCampRuleCards(overflowRules, 10)}</div>` : ''}`;
   root.innerHTML = `
     <div class="camprules-toolbar">
       <div class="camprules-meta"><span class="pill">${esc(visibilityLabels[rules.visibility] || 'Members Only')}</span><span class="pill">Version ${esc(rules.version)}</span>${rules.publishedAt ? `<span class="pill">Published ${esc(new Date(rules.publishedAt).toLocaleDateString())}</span>` : ''}</div>
     </div>
-    <div class="camprules-grid">${enabledRules.map((rule, index) => `<article class="camprules-card"><h3>${index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('')}</div>
+    <div class="camprules-grid">${rulesMarkup}</div>
     ${agreementBlock}`;
   populateCampRulesMemberSelect();
   document.getElementById('campRulesMemberSelect')?.addEventListener('change', refreshCampRulesAgreementStatus);
