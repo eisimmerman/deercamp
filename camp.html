@@ -1177,32 +1177,6 @@
   @media (max-width:1100px){#feedTrack{grid-auto-columns:calc((100% - 32px)/3)!important}}
   @media (max-width:720px){#feedTrack{grid-auto-columns:100%!important}}
 
-
-
-  /* CampRules v3: fixed two columns of five rules on desktop */
-  .camprules-shell{display:grid;gap:12px}
-  .camprules-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:2px}
-  .camprules-meta{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
-  .camprules-grid{display:grid;gap:12px}
-  .camprules-column{display:grid;gap:10px;align-content:start}
-  .camprules-card{padding:10px 12px;border-radius:15px;background:rgba(255,255,255,.72);border:1px solid rgba(97,70,38,.10);min-width:0}
-  .camprules-card h3{margin:0 0 5px;color:#3a2717;font-size:.94rem;line-height:1.18}
-  .camprules-card p{margin:0;color:#4b3116;font-size:.90rem;line-height:1.38}
-  .camprules-agreement{display:grid;gap:10px;margin-top:2px;padding:14px;border-radius:18px;background:rgba(73,102,71,.10);border:1px solid rgba(73,102,71,.18)}
-  .camprules-agreement h3{margin:0;color:#27411e;font-size:1.02rem}
-  .camprules-agreement p{margin:0;color:#4b3116;line-height:1.42}
-  .camprules-agreement-row{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:10px;align-items:center}
-  .camprules-status{font-weight:800;color:#27411e}
-  .camprules-status.is-pending{color:#7c561f}
-  .camprules-locked{padding:14px;border-radius:16px;background:rgba(177,121,45,.12);border:1px solid rgba(177,121,45,.24);color:#5b3d1e;line-height:1.45;font-weight:700}
-  @media (min-width:900px){
-    .camprules-grid{
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      align-items:start;
-    }
-    .camprules-overflow-column{grid-column:1 / -1;grid-template-columns:repeat(2,minmax(0,1fr))}
-  }
-  @media (max-width:720px){.camprules-agreement-row{grid-template-columns:1fr}.camprules-agreement-row .btn{width:100%}}
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -1652,17 +1626,6 @@ function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringif
 async function hydrateCampFromCloud(campId){const cleanCampId=String(campId||"").trim();if(!cleanCampId||!window.DeerCampCloud) return null;try{const nextData=await DeerCampCloud.hydrateCampToLocal(cleanCampId);if(!nextData||typeof nextData!=="object") return null;return nextData;}catch(error){console.warn("Cloud camp hydration skipped.",error);return null}}
 function esc(v=""){return String(v).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;")}
 
-function getCurrentClientPlatformLabel(){
-  try{
-    const ua = String(navigator.userAgent || navigator.vendor || window.opera || "").toLowerCase();
-    const platform = String(navigator.platform || "").toLowerCase();
-    const maxTouchPoints = Number(navigator.maxTouchPoints || 0);
-    if(/android/.test(ua)) return "Android";
-    if(/iphone|ipad|ipod/.test(ua)) return "iOS";
-    if(platform === "macintel" && maxTouchPoints > 1) return "iOS";
-  }catch(error){}
-  return "";
-}
 function normalizeFieldMemoryPlatform(value = ""){
   const raw = String(value || "").trim();
   const clean = raw.toLowerCase();
@@ -1680,8 +1643,6 @@ function getFieldMemoryPlatform(item = {}){
     item.sourcePlatform,
     item.uploadPlatform,
     item.appPlatform,
-    item.nativePlatform,
-    item.runtimePlatform,
     item.os,
     item.deviceOs,
     item.operatingSystem,
@@ -1689,17 +1650,10 @@ function getFieldMemoryPlatform(item = {}){
     item.clientUserAgent,
     item.deviceUserAgent,
     item.source,
-    item.device,
-    item.deviceName,
-    item.appSource,
-    item.client,
-    Array.isArray(item.tags) ? item.tags.join(" ") : "",
     deviceInfo.platform,
     deviceInfo.os,
     deviceInfo.operatingSystem,
-    deviceInfo.userAgent,
-    deviceInfo.device,
-    deviceInfo.deviceName
+    deviceInfo.userAgent
   ];
   for(const candidate of candidates){
     const label = normalizeFieldMemoryPlatform(candidate);
@@ -1715,6 +1669,7 @@ function isFieldMemoryFeedItem(item = {}){
     || title.includes("field photo")
     || mediaType === "fieldmemory"
     || mediaType === "field-memory"
+    || mediaType === "photo-voice"
     || tags.some(tag => tag.includes("field memory"));
 }
 function buildFieldMemoryTags(item = {}, fallbackTags = []){
@@ -1755,7 +1710,7 @@ function getFeedAuthorFirstName(entry = {}){
   const local = rawAuthor.split("@")[0] || "";
   const parts = local.split(/[._-]+/).map(part => part.trim()).filter(Boolean);
   if(!parts.length) return "";
-  const likelyFirst = parts.find(part => /^[a-z]+$/i.test(part) && part.length <= 8) || parts[0];
+  const likelyFirst = parts.find(part => /^[a-z]+$/i.test(part) && part.length <= 12) || parts[0];
   return cleanFeedAuthorToken(likelyFirst);
 }
 function feedDisplayTitle(entry = {}){
@@ -1781,6 +1736,8 @@ function mapAppFeedDocToCampFeedItem(doc){
   const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
   const platform = getFieldMemoryPlatform(item);
   const baseTags = hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"];
+  const audioDurationMs = Number(item.audioDurationMs || item.voiceDurationMs || item.totalDurationMs || 0) || 0;
+  const audioDurationSeconds = Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || (audioDurationMs > 0 ? Math.round(audioDurationMs / 1000) : 0);
   return {
     id,
     title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
@@ -1791,20 +1748,18 @@ function mapAppFeedDocToCampFeedItem(doc){
     voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
     audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
     voiceContentType: String(item.voiceContentType || item.audioContentType || "").trim(),
-    audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || 0) || 0,
-    audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
-    voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || 0) || 0,
-    voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
-    author: String(item.authorName || item.member || item.authorEmail || item.email || "DeerCamp Member").trim(),
-    authorEmail: String(item.authorEmail || item.email || "").trim(),
+    audioDurationMs,
+    voiceDurationMs: audioDurationMs,
+    audioDurationSeconds,
+    voiceDurationSeconds: audioDurationSeconds,
+    author: String(item.authorName || item.author || item.member || "DeerCamp Member").trim(),
     createdAt: new Date(createdAtMs).toISOString(),
     createdAtMs,
     tags: buildFieldMemoryTags(Object.assign({}, item, { title: item.title || (hasAudio ? "Field Memory" : "Field Photo"), audioUrl: item.audioUrl || item.voiceUrl, mediaType, platform }), baseTags),
     platform,
     devicePlatform: platform,
-    clientPlatform: String(item.clientPlatform || item.sourcePlatform || item.uploadPlatform || item.appPlatform || platform || "").trim(),
-    userAgent: String(item.userAgent || item.clientUserAgent || item.deviceUserAgent || "").trim(),
-    deviceInfo: item.deviceInfo && typeof item.deviceInfo === "object" ? Object.assign({}, item.deviceInfo) : undefined,
+    sourcePlatform: platform,
+    appPlatform: platform,
     mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
     source: "app",
     appFeedDocId: id,
@@ -2067,7 +2022,7 @@ if (preservedLoadDeerStandPosts.length) {
 }
 
 const enabledSections = Object.assign({
-  campupdate:true,campfeed:true,traditions:true,camprecipes:true,camphonors:false,calendar:true,camprules:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
+  campupdate:true,campfeed:true,traditions:true,camprecipes:true,camphonors:false,calendar:true,campcards:false,campmemories:false,stands:false,deerdrives:false,campdeerdrives:false,campmaps:false
 }, data.enabledSections || {});
 const dashboardSectionSources = [
   preHydrateLegacy && preHydrateLegacy.enabledSections,
@@ -2103,39 +2058,6 @@ function isSectionEnabled(primaryKey, aliasKey){
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
-const CAMP_RULES_DEFAULTS = [
-  {id:"safety-first", title:"Safety Comes First", body:"Every hunter must follow firearm, bow, blaze-orange, treestand, and state safety laws at all times."},
-  {id:"no-impairment", title:"No Alcohol or Drugs Before or During Hunting", body:"No one hunts, drives, handles firearms, or participates in drives while impaired. Firearms, bows, vehicles, and hunting activity are done for the day before drinks come out."},
-  {id:"stand-etiquette", title:"Stand, Blind, and Spot Etiquette", body:"Do not hunt another member’s assigned stand, blind, or spot without permission. Do not move, alter, brush, or place a new stand that interferes with another hunter’s setup."},
-  {id:"guest-policy", title:"Guest Policy Must Be Approved", body:"Guests must be approved by the Camp Steward before hunting. The host member is responsible for the guest’s safety, behavior, legal compliance, and harvest rules."},
-  {id:"harvest-rules", title:"Know and Follow Harvest Rules", body:"Know this camp’s harvest rules before hunting. Follow all state laws, tag requirements, guest rules, and any camp-specific size or management standards."},
-  {id:"check-in", title:"Communicate Before Entering or Leaving the Woods", body:"Before hunting, mark or tell the camp where you’ll be. After the hunt, check back in. If plans change, update the group."},
-  {id:"respect-land", title:"Respect the Land and Property", body:"Respect the land, landowner, neighbors, gates, roads, fields, fences, buildings, and equipment. Close and lock gates as found, stay on approved trails, pack out trash, and report damage."},
-  {id:"shared-chores", title:"Camp Chores and Costs Are Shared", body:"Everyone helps with camp chores, meals, cleanup, firewood, maintenance, and shared costs. Leave camp cleaner than you found it."},
-  {id:"scouting-work", title:"Scouting, Cameras, Baiting, and Habitat Work Need Camp Agreement", body:"Scouting, baiting where legal, trail cameras, trimming, food plots, and habitat work must follow camp rules and must not interfere with another hunter’s setup."},
-  {id:"respect-camp", title:"Respect the Camp, the Story, and Each Other", body:"Respect other hunters, their harvests, their gear, their stories, and their families. Handle disagreements through the Camp Steward or camp process."},
-  {id:"respectful-posting", title:"Respectful Posting and Commentary", body:"Members agree to post and comment in good taste. Photos, memories, stories, captions, jokes, and replies should be respectful, non-offensive, and appropriate for the camp audience. The Camp Steward may remove content that violates CampRules. Repeated or serious violations may result in warnings, restricted posting privileges, removal from DeerCamp access, or removal from the camp community."}
-];
-function normalizeCampRulesConfig(source = {}){
-  const existing = source && typeof source === "object" ? source : {};
-  const rawRules = Array.isArray(existing.rules) && existing.rules.length ? existing.rules : CAMP_RULES_DEFAULTS;
-  const cleanRules = rawRules.map((rule, index) => ({
-    id: String(rule.id || `rule-${index + 1}`).trim() || `rule-${index + 1}`,
-    title: String(rule.title || `Camp Rule ${index + 1}`).trim() || `Camp Rule ${index + 1}`,
-    body: String(rule.body || rule.text || "").trim(),
-    enabled: rule.enabled !== false
-  })).filter(rule => rule.title && rule.body);
-  return {
-    visibility: ["public","members","draft"].includes(String(existing.visibility || "").toLowerCase()) ? String(existing.visibility).toLowerCase() : "members",
-    version: Math.max(1, Number(existing.version || 1) || 1),
-    publishedAt: String(existing.publishedAt || "").trim(),
-    lastUpdatedAt: String(existing.lastUpdatedAt || "").trim(),
-    rules: cleanRules.length ? cleanRules : CAMP_RULES_DEFAULTS.map(rule => ({...rule, enabled:true})),
-    agreements: existing.agreements && typeof existing.agreements === "object" && !Array.isArray(existing.agreements) ? existing.agreements : {}
-  };
-}
-let campRules = normalizeCampRulesConfig(data.campRules || data.dashboardSlim?.campRules || {});
-let campRulesAgreements = Object.assign({}, campRules.agreements || {}, data.campRulesAgreements || {});
 let calendarEvents = (Array.isArray(data.calendarEvents) ? data.calendarEvents : (Array.isArray(data.events)?data.events:[])).map(e=>({
   date:String(e.date||"").trim(),
   title:String(e.title||"Camp Event").trim(),
@@ -2284,9 +2206,6 @@ function persist(){
   data.recipeObjects = customRecipes.slice();
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
-  campRules.agreements = Object.assign({}, campRulesAgreements);
-  data.campRules = normalizeCampRulesConfig(campRules);
-  data.campRulesAgreements = Object.assign({}, campRulesAgreements);
   data.removedFeedPostIds = removedFeedPostIds.slice();
   saveRemovedFeedPostIdsToLocal();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
@@ -2331,8 +2250,6 @@ function persist(){
     if(dash && typeof dash==="object"){
       dash.sections = Object.assign({}, dash.sections||{}, enabledSections);
       dash.selectedRecipeIds = selectedRecipeIds.slice();
-      dash.campRules = normalizeCampRulesConfig(campRules);
-      dash.campRulesAgreements = Object.assign({}, campRulesAgreements);
       localStorage.setItem(campScopeKey(activeCampId,"dashboardSlim"), JSON.stringify(dash));
       localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(dash));
     }
@@ -3671,7 +3588,6 @@ function visibleSections(){
     {key:"campupdate",title:"CampUpdate"},
     {key:"campmembers",title:"CampMembers"},
     {key:"campcalendar",title:"CampCalendar"},
-    {key:"camprules",title:"CampRules"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
     {key:"camphonors",title:"CampHonors"},
@@ -3680,14 +3596,8 @@ function visibleSections(){
   ];
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camprules:"camprules",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
-    if (s.key === "camprules") {
-      const visibility = String(campRules.visibility || "members").toLowerCase();
-      if (visibility === "draft") return isCurrentSteward();
-      if (visibility === "members") return getCurrentSecurityRole() === "member" || isCurrentSteward();
-      return isSectionEnabled("camprules");
-    }
     if (s.key === "campupdate") return isSectionEnabled("campupdate");
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
@@ -3730,32 +3640,27 @@ function normalizePhotoEntries(){
     const createdAt = String(item.createdAt || (Number.isFinite(parsedCreatedAtMs) ? new Date(parsedCreatedAtMs).toISOString() : '1970-01-01T00:00:00.000Z'));
     items.push({
       id:stableId,
-      title:String(item.title||"Camp picture").trim(),
+      title:feedDisplayTitle(Object.assign({}, item, { title: String(item.title||"Camp picture").trim() })),
       body:String(item.body||item.caption||"Camp picture posted from DeerCamp.").trim(),
       image,
       mediaType: isMemory ? 'memory' : (mediaType || 'photo'),
       isMemory,
-      author:String(item.author||item.member||"Camp Member").trim(),
+      author:String(item.author||item.authorName||item.member||"Camp Member").trim(),
       createdAt,
       createdAtMs,
-      tags: isFieldMemoryFeedItem(item)
-        ? buildFieldMemoryTags(item, Array.isArray(item.tags)&&item.tags.length ? item.tags : ["Picture","CampUpdate"])
-        : (Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"]),
+      tags:buildFieldMemoryTags(item, Array.isArray(item.tags)&&item.tags.length?item.tags:["Picture","CampUpdate"]),
       comments,
       audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
       voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
-      audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || 0) || 0,
-      audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
-      voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || 0) || 0,
-      voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
+      audioPath: String(item.audioPath || "").trim(),
       audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
       voiceContentType: String(item.voiceContentType || item.audioContentType || "").trim(),
+      audioDurationMs: Number(item.audioDurationMs || item.voiceDurationMs || item.totalDurationMs || 0) || 0,
+      voiceDurationMs: Number(item.voiceDurationMs || item.audioDurationMs || item.totalDurationMs || 0) || 0,
+      audioDurationSeconds: Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0) || 0,
+      voiceDurationSeconds: Number(item.voiceDurationSeconds || item.audioDurationSeconds || 0) || 0,
       platform: getFieldMemoryPlatform(item),
       devicePlatform: getFieldMemoryPlatform(item),
-      clientPlatform: String(item.clientPlatform || item.sourcePlatform || item.uploadPlatform || item.appPlatform || "").trim(),
-      userAgent: String(item.userAgent || item.clientUserAgent || item.deviceUserAgent || "").trim(),
-      deviceInfo: item.deviceInfo && typeof item.deviceInfo === "object" ? Object.assign({}, item.deviceInfo) : undefined,
-      audioPath: String(item.audioPath || "").trim(),
       source: String(item.source || "").trim(),
       appFeedDocId: String(item.appFeedDocId || item.feedDocId || "").trim(),
       storageProvider: String(item.storageProvider || "").trim(),
@@ -4072,12 +3977,6 @@ visibleSections().forEach(section=>{
       </div>
       <div id="deerDrivesGrid" class="deer-shelf-grid"></div>
       <div id="deerDrivesEmpty" class="empty" hidden>No deer drives saved yet. Create one in Scout and tap 4. Save Drive.</div>`;
-  } else if(section.key==="camprules"){
-    container.innerHTML=`
-      <div class="feed-header">
-        <div><h2 style="margin:0">CampRules</h2><p class="section-helper" style="margin:8px 0 0">The rules, expectations, and posting standards this camp agrees to follow.</p></div>
-      </div>
-      <div id="campRulesContent" class="camprules-shell"></div>`;
   } else if(section.key==="campmembers"){
     container.innerHTML=`
       <h2>CampMembers</h2>
@@ -4139,103 +4038,6 @@ visibleSections().forEach(section=>{
   }
   content.appendChild(container);
 });
-function activeCampRules(){
-  return normalizeCampRulesConfig(Object.assign({}, campRules, {agreements: campRulesAgreements}));
-}
-function campRulesAgreementKey(name = "", email = ""){
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  if(cleanEmail) return `email:${cleanEmail}`;
-  const cleanName = String(name || "").trim().toLowerCase();
-  return cleanName ? `name:${cleanName}` : "";
-}
-function getCampRulesAgreementStatus(){
-  const select = document.getElementById('campRulesMemberSelect');
-  const selectedName = String(select?.value || "").trim();
-  const member = roster.find(item => String(item.name || "").trim() === selectedName) || {};
-  const key = campRulesAgreementKey(member.name || selectedName, member.email || "");
-  const agreement = key ? campRulesAgreements[key] : null;
-  return {member, key, agreement};
-}
-function refreshCampRulesAgreementStatus(){
-  const status = document.getElementById('campRulesAgreementStatus');
-  if(!status) return;
-  const rules = activeCampRules();
-  const {agreement} = getCampRulesAgreementStatus();
-  const agreedVersion = Number(agreement?.version || 0);
-  if(agreedVersion >= Number(rules.version || 1)){
-    status.textContent = `Agreed to v${agreedVersion} on ${new Date(agreement.agreedAt || Date.now()).toLocaleString()}.`;
-    status.classList.remove('is-pending');
-  } else {
-    status.textContent = agreement ? `Needs review: last agreed to v${agreedVersion}. Current version is v${rules.version}.` : `Pending agreement for v${rules.version}.`;
-    status.classList.add('is-pending');
-  }
-}
-function populateCampRulesMemberSelect(){
-  const select = document.getElementById('campRulesMemberSelect');
-  if(!select) return;
-  const members = roster.filter(member => String(member.name || "").trim());
-  select.innerHTML = members.length ? members.map(member => `<option value="${esc(member.name)}">${esc(member.name)}${member.email ? ` — ${esc(member.email)}` : ""}</option>`).join('') : '<option value="Camp Member">Camp Member</option>';
-  refreshCampRulesAgreementStatus();
-}
-function agreeToCampRules(){
-  const rules = activeCampRules();
-  const {member, key} = getCampRulesAgreementStatus();
-  if(!key){
-    try{ showToast('Choose your member name before agreeing to CampRules.'); }catch(error){}
-    return;
-  }
-  const snapshot = rules.rules.filter(rule => rule.enabled !== false).map(rule => ({id: rule.id, title: rule.title, body: rule.body}));
-  campRulesAgreements[key] = {
-    name: String(member.name || document.getElementById('campRulesMemberSelect')?.value || 'Camp Member').trim(),
-    email: String(member.email || '').trim(),
-    version: Number(rules.version || 1),
-    agreedAt: new Date().toISOString(),
-    campId: activeCampId,
-    visibility: rules.visibility,
-    ruleSnapshot: snapshot
-  };
-  campRules.agreements = Object.assign({}, campRulesAgreements);
-  persist();
-  refreshCampRulesAgreementStatus();
-  try{ showToast('CampRules agreement recorded.'); }catch(error){}
-}
-function renderCampRulesSection(){
-  const root = document.getElementById('campRulesContent');
-  if(!root) return;
-  const rules = activeCampRules();
-  const enabledRules = rules.rules.filter(rule => rule.enabled !== false);
-  const visibilityLabels = {public:'Public Preview', members:'Members Only', draft:'Draft — Steward Only'};
-  const canAgree = getCurrentSecurityRole() === 'member' || isCurrentSteward();
-  const agreementBlock = canAgree ? `
-    <div class="camprules-agreement">
-      <h3>Member Agreement</h3>
-      <p>I have read and agree to follow these CampRules. I understand repeated or serious violations may result in content removal, restricted posting privileges, removal from DeerCamp access, or removal from the camp community at the Camp Steward’s discretion.</p>
-      <div class="camprules-agreement-row">
-        <select id="campRulesMemberSelect" class="select" aria-label="Choose member for CampRules agreement"></select>
-        <button id="campRulesAgreeBtn" type="button" class="btn">I Have Read and Agree</button>
-      </div>
-      <div id="campRulesAgreementStatus" class="camprules-status is-pending">Pending agreement.</div>
-    </div>` : `<div class="camprules-locked">CampRules agreement is available after joining this camp as a member. Visitors can view only the rules the Steward has chosen to share publicly.</div>`;
-  const renderCampRuleCards = (items, offset = 0) => items.map((rule, index) => `<article class="camprules-card"><h3>${offset + index + 1}. ${esc(rule.title)}</h3><p>${esc(rule.body)}</p></article>`).join('');
-  const leftRules = enabledRules.slice(0, 5);
-  const rightRules = enabledRules.slice(5, 10);
-  const overflowRules = enabledRules.slice(10);
-  const rulesMarkup = `
-    <div class="camprules-column">${renderCampRuleCards(leftRules, 0)}</div>
-    <div class="camprules-column">${renderCampRuleCards(rightRules, 5)}</div>
-    ${overflowRules.length ? `<div class="camprules-column camprules-overflow-column">${renderCampRuleCards(overflowRules, 10)}</div>` : ''}`;
-  root.innerHTML = `
-    <div class="camprules-toolbar">
-      <div class="camprules-meta"><span class="pill">${esc(visibilityLabels[rules.visibility] || 'Members Only')}</span><span class="pill">Version ${esc(rules.version)}</span>${rules.publishedAt ? `<span class="pill">Published ${esc(new Date(rules.publishedAt).toLocaleDateString())}</span>` : ''}</div>
-    </div>
-    <div class="camprules-grid">${rulesMarkup}</div>
-    ${agreementBlock}`;
-  populateCampRulesMemberSelect();
-  document.getElementById('campRulesMemberSelect')?.addEventListener('change', refreshCampRulesAgreementStatus);
-  document.getElementById('campRulesAgreeBtn')?.addEventListener('click', agreeToCampRules);
-}
-
-
 function renderCampMembersSection(){
   const grid=document.getElementById('campMembersGrid'); if(!grid) return;
   const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
@@ -4386,7 +4188,7 @@ if(document.getElementById('updateType')){
         tags:["Picture","CampUpdate"]
       };
       campPhotoGallery.unshift(photo);
-      feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs,platform:getCurrentClientPlatformLabel(),devicePlatform:getCurrentClientPlatformLabel(),clientPlatform:getCurrentClientPlatformLabel(),userAgent:String(navigator.userAgent||"").trim()});
+      feedEntries.unshift({id:photoId,title,kicker:"CampUpdate • Picture",meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:caption||`${member} added a new camp picture.`,imageRef:photoId,imageFit:"cover",tags:["Picture","CampUpdate"],mediaType:"photo",author:member,createdAt,createdAtMs});
       try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
       renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to CampFeed.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
     }
@@ -4413,11 +4215,7 @@ if(document.getElementById('updateType')){
         author:member,
         member,
         createdAt,
-        createdAtMs,
-        platform:getCurrentClientPlatformLabel(),
-        devicePlatform:getCurrentClientPlatformLabel(),
-        clientPlatform:getCurrentClientPlatformLabel(),
-        userAgent:String(navigator.userAgent||"").trim()
+        createdAtMs
       };
       feedEntries.unshift(memoryEntry);
       contentSubmissions.unshift({type:'memory',linkedItemId:memoryId,member,title:`${title} -- added to Memory / Story`,summary:body,createdAt,createdAtMs});
@@ -4443,7 +4241,7 @@ if(document.getElementById('updateType')){
     traditions.unshift(tradition);
     contentSubmissions.unshift({type:'tradition',linkedItemId:traditionId,member,title:`${title} -- added to CampTraditions`,summary:tradition.description,createdAt,createdAtMs});
     if(uploadedTraditionImage){
-      feedEntries.unshift({id:traditionId,title,kicker:'CampUpdate • Tradition',meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:tradition.description,image:uploadedTraditionImage.image,thumbnail:uploadedTraditionImage.thumbnail,displayUrl:uploadedTraditionImage.displayUrl,thumbUrl:uploadedTraditionImage.thumbUrl,storagePath:uploadedTraditionImage.storagePath,thumbPath:uploadedTraditionImage.thumbPath,storageProvider:uploadedTraditionImage.storageProvider,tags:['Tradition','Picture','CampUpdate'],mediaType:'tradition',type:'tradition',author:member,member,createdAt,createdAtMs,platform:getCurrentClientPlatformLabel(),devicePlatform:getCurrentClientPlatformLabel(),clientPlatform:getCurrentClientPlatformLabel(),userAgent:String(navigator.userAgent||'').trim()});
+      feedEntries.unshift({id:traditionId,title,kicker:'CampUpdate • Tradition',meta:`${member} • ${new Date(createdAtMs).toLocaleString()}`,body:tradition.description,image:uploadedTraditionImage.image,thumbnail:uploadedTraditionImage.thumbnail,displayUrl:uploadedTraditionImage.displayUrl,thumbUrl:uploadedTraditionImage.thumbUrl,storagePath:uploadedTraditionImage.storagePath,thumbPath:uploadedTraditionImage.thumbPath,storageProvider:uploadedTraditionImage.storageProvider,tags:['Tradition','Picture','CampUpdate'],mediaType:'tradition',type:'tradition',author:member,member,createdAt,createdAtMs});
     }
     try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
     renderTraditions(); renderFeed(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(uploadedTraditionImage ? `${title} was added to Recent CampUpdates, CampTraditions, and CampFeed.` : `${title} was added to Recent CampUpdates and CampTraditions.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo');
@@ -4555,7 +4353,7 @@ function renderFeed(){
       ? `<div class="feed-card-media"><img src="${esc(entry.image)}" alt="${esc(entry.title)}"></div>`
       : `<div class="feed-card-media"><div class="feed-memory-placeholder"><div><span>✍️</span>Memory / Story</div></div></div>`;
     card.innerHTML=`${mediaMarkup}
-      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(feedDisplayTitle(entry))}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${feedOpenLabelFor(entry)}</button></div>`;
+      <div class="feed-card-copy"><p class="feed-kicker">${kicker}</p><h3 class="feed-title">${esc(entry.title)}</h3><p class="feed-meta">${esc(entry.author)} • ${esc(new Date(entry.createdAtMs).toLocaleString())}</p><p class="feed-body">${esc(entry.body)}</p><div class="feed-tags">${entry.tags.slice(0,4).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}${entry.comments && entry.comments.length ? `<span class="tag">${entry.comments.length} comment${entry.comments.length === 1 ? '' : 's'}</span>` : ''}</div>${entry.audioUrl ? `<div class="feed-card-audio">Voice memory available</div>` : ''}<button type="button" class="btn btn-secondary">${feedOpenLabelFor(entry)}</button></div>`;
     card.addEventListener('click',()=>openFeedModal(idx));
     track.appendChild(card);
   });
@@ -4669,8 +4467,8 @@ async function removeCurrentFeedPost(){
 }
 
 function formatFeedAudioDuration(item = {}){
-  const durationMs = Number(item.audioDurationMs || item.voiceDurationMs || 0);
-  const durationSeconds = Number(item.audioDurationSeconds || item.voiceDurationSeconds || 0);
+  const durationMs = Number(item.audioDurationMs || 0);
+  const durationSeconds = Number(item.audioDurationSeconds || 0);
   const totalSeconds = durationMs > 0
     ? Math.max(1, Math.round(durationMs / 1000))
     : (durationSeconds > 0 ? Math.max(1, Math.round(durationSeconds)) : 0);
@@ -4685,15 +4483,25 @@ function getFeedAudioContentType(item = {}){
   const explicit = String(item.audioContentType || item.voiceContentType || "").trim().toLowerCase();
   if(explicit && explicit !== "application/octet-stream") return explicit;
 
+  const url = String(item.audioUrl || item.voiceUrl || "").split("?")[0].split("#")[0].toLowerCase();
+  if(url.endsWith(".mp3")) return "audio/mpeg";
+  if(url.endsWith(".wav")) return "audio/wav";
+  if(url.endsWith(".aac")) return "audio/aac";
+  if(url.endsWith(".caf")) return "audio/x-caf";
+  if(url.endsWith(".m4a")) return "audio/mp4";
+  if(url.endsWith(".mp4")) return "audio/mp4";
+  if(url.endsWith(".webm")) return "audio/webm";
+  if(url.endsWith(".ogg") || url.endsWith(".oga")) return "audio/ogg";
+  return "audio/mp4";
+}){
+  const explicit = String(item.audioContentType || item.voiceContentType || "").trim().toLowerCase();
+  if(explicit && explicit !== "application/octet-stream") return explicit;
+
   const url = String(item.audioUrl || "").split("?")[0].split("#")[0].toLowerCase();
   if(url.endsWith(".mp3")) return "audio/mpeg";
   if(url.endsWith(".wav")) return "audio/wav";
   if(url.endsWith(".aac")) return "audio/aac";
-  if(url.endsWith(".m4a")) return "audio/mp4";
-  if(url.endsWith(".mp4")) return "audio/mp4";
   if(url.endsWith(".caf")) return "audio/x-caf";
-  if(url.endsWith(".webm")) return "audio/webm";
-  if(url.endsWith(".ogg") || url.endsWith(".oga")) return "audio/ogg";
   return "audio/mp4";
 }
 
@@ -4715,7 +4523,7 @@ function renderFeedAudioControl(item){
   if(!audioWrap) return;
   stopFeedModalAudioPlayback();
 
-  const audioUrl = String(item && item.audioUrl ? item.audioUrl : '').trim();
+  const audioUrl = String(item && (item.audioUrl || item.voiceUrl) ? (item.audioUrl || item.voiceUrl) : '').trim();
   if(!audioUrl){
     audioWrap.hidden = true;
     audioWrap.innerHTML = '';
@@ -4724,64 +4532,55 @@ function renderFeedAudioControl(item){
 
   const durationLabel = formatFeedAudioDuration(item);
   const contentType = getFeedAudioContentType(item);
-  const initialTitle = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory • loading duration…';
+  const titleText = durationLabel ? `Voice Memory • ${durationLabel}` : 'Voice Memory • loading duration…';
   audioWrap.hidden = false;
   audioWrap.innerHTML = `
-    <p class="feed-audio-title" id="feedModalAudioTitle">${esc(initialTitle)}</p>
+    <p class="feed-audio-title" id="feedModalAudioTitle">${esc(titleText)}</p>
     <audio controls preload="metadata" playsinline>
       <source src="${esc(audioUrl)}" type="${esc(contentType)}">
       <source src="${esc(audioUrl)}">
       Your browser does not support audio playback.
     </audio>
-    <a class="feed-audio-link" id="feedModalAudioLink" href="${esc(audioUrl)}" target="_blank" rel="noopener noreferrer" hidden>Open voice memory audio</a>
+    <a class="feed-audio-link" id="feedModalAudioFallbackLink" href="${esc(audioUrl)}" target="_blank" rel="noopener noreferrer" hidden>Open voice memory audio</a>
   `;
 
   const audioEl = audioWrap.querySelector('audio');
   const titleEl = document.getElementById('feedModalAudioTitle');
-  const linkEl = document.getElementById('feedModalAudioLink');
-  let foundDuration = Boolean(durationLabel);
+  const fallbackLink = document.getElementById('feedModalAudioFallbackLink');
 
-  const setDurationTitle = (secondsValue) => {
-    const duration = Number(secondsValue || 0);
-    if(!Number.isFinite(duration) || duration <= 0) return false;
-    const seconds = Math.max(1, Math.round(duration));
-    const minutes = Math.floor(seconds / 60);
-    const remainder = seconds % 60;
-    if(titleEl) titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
-    if(linkEl) linkEl.hidden = true;
-    foundDuration = true;
-    return true;
-  };
-
-  if(durationLabel && titleEl){
-    titleEl.textContent = `Voice Memory • ${durationLabel}`;
-  }
-
-  if(audioEl && titleEl){
-    const updateDuration = () => setDurationTitle(audioEl.duration);
+  if(audioEl && titleEl && !durationLabel){
+    const updateDuration = () => {
+      const duration = Number(audioEl.duration || 0);
+      if(Number.isFinite(duration) && duration > 0){
+        const seconds = Math.max(1, Math.round(duration));
+        const minutes = Math.floor(seconds / 60);
+        const remainder = seconds % 60;
+        titleEl.textContent = `Voice Memory • ${minutes}:${String(remainder).padStart(2, "0")}`;
+        if(fallbackLink) fallbackLink.hidden = true;
+        return true;
+      }
+      return false;
+    };
 
     audioEl.addEventListener('loadedmetadata', updateDuration, { once:false });
     audioEl.addEventListener('durationchange', updateDuration, { once:false });
     audioEl.addEventListener('canplay', updateDuration, { once:false });
-    audioEl.addEventListener('loadeddata', updateDuration, { once:false });
     audioEl.addEventListener('play', updateDuration, { once:false });
+    setTimeout(() => {
+      if(!updateDuration() && titleEl){
+        titleEl.textContent = 'Voice Memory';
+      }
+    }, 2200);
+    try { audioEl.load(); } catch(error) {}
+  }
 
+  if(audioEl){
     audioEl.addEventListener('error', () => {
       const title = document.getElementById('feedModalAudioTitle');
-      const link = document.getElementById('feedModalAudioLink');
-      if(title) title.textContent = 'Voice Memory • open audio if playback does not start';
+      const link = document.getElementById('feedModalAudioFallbackLink');
+      if(title) title.textContent = 'Voice Memory';
       if(link) link.hidden = false;
     });
-
-    window.setTimeout(() => {
-      if(foundDuration) return;
-      updateDuration();
-      if(foundDuration) return;
-      if(titleEl) titleEl.textContent = 'Voice Memory';
-      if(linkEl) linkEl.hidden = false;
-    }, 2200);
-
-    try { audioEl.load(); } catch(error) {}
   }
 }
 
@@ -5686,8 +5485,6 @@ async function pullLatestCampDataSilently(){
     campPhotoGallery = Array.isArray(data.campPhotoGallery) ? data.campPhotoGallery.filter(Boolean) : [];
     feedEntries = feedEntries.filter(item => !isLegacySeedFeedItem(item));
     campPhotoGallery = campPhotoGallery.filter(item => !isLegacySeedFeedItem(item));
-    campRules = normalizeCampRulesConfig(data.campRules || data.dashboardSlim?.campRules || campRules);
-    campRulesAgreements = Object.assign({}, campRules.agreements || {}, data.campRulesAgreements || {});
     deerDrivePosts = normalizeDeerDrivePosts(Array.isArray(data.deerDrivePosts) ? data.deerDrivePosts : (Array.isArray(data.deerDrives) ? data.deerDrives : []));
     deerStandPosts = normalizeDeerStandPosts(Array.isArray(data.deerStandPosts) ? data.deerStandPosts : (Array.isArray(data.deerStands) ? data.deerStands : (Array.isArray(data.stands) ? data.stands : [])));
 
@@ -5705,7 +5502,6 @@ async function pullLatestCampDataSilently(){
     recentUpdatesOffset = 0;
     renderRecentUpdates();
     renderCampMembersSection();
-    renderCampRulesSection();
     renderTraditions();
     renderRecipes();
     if(document.getElementById("deerStandsGrid")) renderDeerStands();
@@ -5797,7 +5593,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderCampRulesSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderRecipes(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>

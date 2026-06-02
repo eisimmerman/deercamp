@@ -35,6 +35,26 @@ export type LocalMemoryItem = {
   videoUri?: string;
   videoUrl?: string;
 
+  audioContentType?: string;
+  voiceContentType?: string;
+  audioDurationMs?: number;
+  audioDurationSeconds?: number;
+  voiceDurationMs?: number;
+  voiceDurationSeconds?: number;
+
+  platform?: string;
+  devicePlatform?: string;
+  sourcePlatform?: string;
+  appPlatform?: string;
+  operatingSystem?: string;
+  deviceInfo?: {
+    platform?: string;
+    os?: string;
+    operatingSystem?: string;
+    appSource?: string;
+    appVersion?: string;
+  };
+
   type?: "photo" | "text" | "voice" | "video" | "fieldMemory";
 
   syncStatus?: "pending" | "publishing" | "synced" | "failed";

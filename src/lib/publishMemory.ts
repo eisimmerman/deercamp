@@ -24,6 +24,24 @@ export type PublishableMemory = {
   type?: string | null;
   segments?: LocalMemorySegment[] | null;
   totalDurationMs?: number | null;
+  audioDurationMs?: number | null;
+  audioDurationSeconds?: number | null;
+  voiceDurationMs?: number | null;
+  voiceDurationSeconds?: number | null;
+  audioContentType?: string | null;
+  voiceContentType?: string | null;
+  platform?: string | null;
+  devicePlatform?: string | null;
+  sourcePlatform?: string | null;
+  appPlatform?: string | null;
+  operatingSystem?: string | null;
+  deviceInfo?: {
+    platform?: string | null;
+    os?: string | null;
+    operatingSystem?: string | null;
+    appSource?: string | null;
+    appVersion?: string | null;
+  } | null;
 };
 
 export type PublishedFeedResult = {
@@ -115,6 +133,78 @@ function getAudioContentType(ext: string) {
       return "application/octet-stream";
   }
 }
+
+function normalizeFieldMemoryPlatform(value?: string | null) {
+  const raw = String(value || "").trim();
+  const clean = raw.toLowerCase();
+
+  if (!clean) return "";
+  if (clean.includes("android")) return "Android";
+  if (
+    clean === "ios" ||
+    clean.includes("iphone") ||
+    clean.includes("ipad") ||
+    clean.includes("ipod") ||
+    clean.includes("ios")
+  ) {
+    return "iOS";
+  }
+
+  return raw;
+}
+
+function getMemoryPlatform(memory: PublishableMemory) {
+  const deviceInfo = memory.deviceInfo && typeof memory.deviceInfo === "object" ? memory.deviceInfo : {};
+  const candidates = [
+    memory.platform,
+    memory.devicePlatform,
+    memory.sourcePlatform,
+    memory.appPlatform,
+    memory.operatingSystem,
+    deviceInfo.platform,
+    deviceInfo.os,
+    deviceInfo.operatingSystem,
+  ];
+
+  for (const candidate of candidates) {
+    const label = normalizeFieldMemoryPlatform(candidate || "");
+    if (label) return label;
+  }
+
+  return "";
+}
+
+function getMemoryAudioDurationMs(memory: PublishableMemory) {
+  const directMs = Number(
+    memory.audioDurationMs ||
+      memory.voiceDurationMs ||
+      memory.totalDurationMs ||
+      0
+  );
+
+  if (Number.isFinite(directMs) && directMs > 0) return Math.round(directMs);
+
+  const seconds = Number(memory.audioDurationSeconds || memory.voiceDurationSeconds || 0);
+  if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000);
+
+  const segments = Array.isArray(memory.segments) ? memory.segments : [];
+  const segmentTotal = segments.reduce(
+    (sum, segment) => sum + Math.max(0, Number(segment.durationMs || 0)),
+    0
+  );
+
+  return segmentTotal > 0 ? Math.round(segmentTotal) : 0;
+}
+
+function getMemoryAudioContentType(memory: PublishableMemory, audioPath?: string, audioUrl?: string) {
+  const explicit = String(memory.audioContentType || memory.voiceContentType || "").trim();
+  if (explicit && explicit !== "application/octet-stream") return explicit;
+
+  const candidate = String(audioPath || audioUrl || pickAudioUri(memory) || "").trim();
+  if (!candidate) return "";
+  return getAudioContentType(getFileExtension(candidate, "m4a"));
+}
+
 
 function toTitleCase(value: string) {
   return value
@@ -210,6 +300,17 @@ function buildFeedDoc(params: {
   const authorName =
     String(params.memory.authorName || "").trim() || getCleanAuthorName(params.user);
   const clientCreatedAt = getClientCreatedAt(params.memory);
+  const platform = getMemoryPlatform(params.memory);
+  const audioDurationMs = params.audioUrl ? getMemoryAudioDurationMs(params.memory) : 0;
+  const audioDurationSeconds = audioDurationMs > 0 ? Math.round(audioDurationMs / 1000) : 0;
+  const audioContentType = params.audioUrl
+    ? getMemoryAudioContentType(params.memory, params.audioPath, params.audioUrl)
+    : "";
+  const tags = params.audioUrl
+    ? ["Picture", "Voice", "Field Memory"]
+    : ["Picture", "Field Memory"];
+
+  if (platform) tags.push(platform);
 
   const doc: Record<string, any> = {
     campId: params.campId,
@@ -237,7 +338,7 @@ function buildFeedDoc(params: {
     mediaType,
     type: mediaType,
     category: "field-note",
-    tags: params.audioUrl ? ["Field Memory", "Photo", "Voice"] : ["Field Memory", "Photo"],
+    tags,
     published: true,
     source: "app",
     localMemoryId: params.memory.id,
@@ -247,9 +348,34 @@ function buildFeedDoc(params: {
     aiRequestedAt: params.audioUrl ? serverTimestamp() : null,
   };
 
+  if (platform) {
+    doc.platform = platform;
+    doc.devicePlatform = platform;
+    doc.sourcePlatform = platform;
+    doc.appPlatform = platform;
+    doc.operatingSystem = String(params.memory.operatingSystem || platform).trim();
+    doc.deviceInfo = {
+      ...(params.memory.deviceInfo || {}),
+      platform,
+      os: platform,
+      operatingSystem: String(params.memory.operatingSystem || platform).trim(),
+      appSource: String(params.memory.deviceInfo?.appSource || "CampFieldApp").trim(),
+    };
+  }
+
   if (params.audioUrl) {
     doc.audioUrl = params.audioUrl;
     doc.voiceUrl = params.audioUrl;
+    if (audioContentType) {
+      doc.audioContentType = audioContentType;
+      doc.voiceContentType = audioContentType;
+    }
+    if (audioDurationMs > 0) {
+      doc.audioDurationMs = audioDurationMs;
+      doc.voiceDurationMs = audioDurationMs;
+      doc.audioDurationSeconds = audioDurationSeconds;
+      doc.voiceDurationSeconds = audioDurationSeconds;
+    }
   }
 
   if (params.imagePath) doc.imagePath = params.imagePath;

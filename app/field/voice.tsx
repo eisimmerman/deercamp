@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -34,6 +35,30 @@ import {
 import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
+
+function getFieldMemoryPlatformLabel() {
+  if (Platform.OS === "ios") return "iOS";
+  if (Platform.OS === "android") return "Android";
+  return Platform.OS || "Unknown";
+}
+
+function buildFieldMemoryPlatformMeta() {
+  const platform = getFieldMemoryPlatformLabel();
+
+  return {
+    platform,
+    devicePlatform: platform,
+    sourcePlatform: platform,
+    appPlatform: platform,
+    operatingSystem: platform,
+    deviceInfo: {
+      platform,
+      os: platform,
+      operatingSystem: platform,
+      appSource: "CampFieldApp",
+    },
+  };
+}
 
 function isKeepAwakeActivationError(error: unknown) {
   const message = String(
@@ -367,6 +392,7 @@ export default function FieldVoiceScreen() {
       parentMemoryTitle: "Field Photo",
       campId,
       targetCampName: await getActiveCampName(campId),
+      ...buildFieldMemoryPlatformMeta(),
     });
 
     await enqueueUploadItems([
@@ -424,6 +450,7 @@ export default function FieldVoiceScreen() {
       parentMemoryTitle: "Field Memory",
       campId,
       targetCampName: await getActiveCampName(campId),
+      ...buildFieldMemoryPlatformMeta(),
       segments,
     };
 
