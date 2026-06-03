@@ -171,7 +171,12 @@
     </section>
 
     <section class="grid-2">
-      <div class="panel"><div class="panel-head"><div><h3>Acquisition by Source</h3><p class="helper">Which outreach path creates the most DCF installs.</p></div></div><div id="sourceTableWrap" class="table-wrap"></div></div>
+      <div class="panel"><div class="panel-head"><div><h3>Campaign Performance</h3><p class="helper">Campaign IDs now power CampGrowthAgent attribution tracking.</p></div></div><div id="sourceTableWrap" class="table-wrap"></div></div>
+      <div class="panel"><div class="panel-head"><div><h3>Campaign Types</h3><p class="helper">Which outreach category is creating camps.</p></div></div><div id="campaignTypeTableWrap" class="table-wrap"></div></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><div class="panel-head"><div><h3>Acquisition by Source</h3><p class="helper">Which reported outreach path creates the most DCF installs.</p></div></div><div id="reportedSourceTableWrap" class="table-wrap"></div></div>
       <div class="panel"><div class="panel-head"><div><h3>Activation Breakdown</h3><p class="helper">Setup actions that indicate stronger DC+ potential.</p></div></div><div id="activationTableWrap" class="table-wrap"></div></div>
     </section>
 
@@ -221,12 +226,49 @@
 
     function sourceOf(camp = {}) {
       const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
-      return clean(camp.signupSource || metrics.signupSource || camp.source || metrics.source || "direct") || "direct";
+      return clean(
+        camp.campaignType ||
+        metrics.campaignType ||
+        camp.referralSource ||
+        metrics.referralSource ||
+        camp.reportedReferralSource ||
+        metrics.reportedReferralSource ||
+        camp.signupSource ||
+        metrics.signupSource ||
+        camp.source ||
+        metrics.source ||
+        "direct"
+      ) || "direct";
     }
 
     function campaignOf(camp = {}) {
       const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
-      return clean(camp.signupCampaign || metrics.signupCampaign || camp.campaign || metrics.campaign || "uncampaign") || "uncampaign";
+      return clean(
+        camp.campaignId ||
+        metrics.campaignId ||
+        camp.campaignRef ||
+        metrics.campaignRef ||
+        camp.campaignName ||
+        metrics.campaignName ||
+        camp.signupCampaign ||
+        metrics.signupCampaign ||
+        camp.campaign ||
+        metrics.campaign ||
+        "uncampaign"
+      ) || "uncampaign";
+    }
+
+    function campaignTypeOf(camp = {}) {
+      const metrics = camp.metrics && typeof camp.metrics === "object" ? camp.metrics : {};
+      return clean(
+        camp.campaignType ||
+        metrics.campaignType ||
+        camp.signupCampaignType ||
+        metrics.signupCampaignType ||
+        camp.channel ||
+        metrics.channel ||
+        "Unknown"
+      ) || "Unknown";
     }
 
     function audienceOf(camp = {}) {
@@ -295,6 +337,7 @@
         stewardEmail: clean(camp.stewardEmail || camp.campStewardEmail || ""),
         source: sourceOf(camp),
         campaign: campaignOf(camp),
+        campaignType: campaignTypeOf(camp),
         audience: audienceOf(camp),
         tier: plus ? "dc_plus" : tier,
         plus,
@@ -320,7 +363,7 @@
         if (campaign && lower(row.campaign) !== campaign) return false;
         if (tier && lower(row.tier) !== tier) return false;
         if (search) {
-          const haystack = lower([row.name, row.city, row.state, row.stewardEmail, row.campId, row.source, row.campaign].join(" "));
+          const haystack = lower([row.name, row.city, row.state, row.stewardEmail, row.campId, row.source, row.campaign, row.campaignType].join(" "));
           if (!haystack.includes(search)) return false;
         }
         return true;
@@ -358,6 +401,8 @@
       $("publicCount").textContent = fmtInt(rows.filter((r) => r.isPublic).length);
       $("pipelineValue").textContent = fmtMoney(highIntentRows.length * DC_PLUS_MONTHLY);
       renderSourceTable(rows);
+      renderCampaignTypeTable(rows);
+      renderReportedSourceTable(rows);
       renderActivationTable(rows);
       renderHighIntent(highIntentRows);
       renderRecent(rows);
@@ -366,13 +411,37 @@
     function renderSourceTable(rows) {
       const grouped = new Map();
       rows.forEach((row) => {
-        const key = `${row.source}||${row.campaign}`;
-        if (!grouped.has(key)) grouped.set(key, { source: row.source, campaign: row.campaign, total: 0, dcf: 0, plus: 0, high: 0 });
+        const key = `${row.campaign}||${row.campaignType}`;
+        if (!grouped.has(key)) grouped.set(key, { campaign: row.campaign, campaignType: row.campaignType, total: 0, dcf: 0, plus: 0, high: 0 });
         const item = grouped.get(key);
         item.total += 1; if (row.plus) item.plus += 1; else item.dcf += 1; if (!row.plus && row.score >= 75) item.high += 1;
       });
-      const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total).map((item) => `<tr><td><span class="pill">${escapeHtml(item.source)}</span></td><td>${escapeHtml(item.campaign)}</td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
-      $("sourceTableWrap").innerHTML = table(["Source", "Campaign", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
+      const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total || a.campaign.localeCompare(b.campaign)).map((item) => `<tr><td><strong>${escapeHtml(item.campaign)}</strong></td><td><span class="pill">${escapeHtml(item.campaignType)}</span></td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
+      $("sourceTableWrap").innerHTML = table(["Campaign", "Type", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
+    }
+
+    function renderCampaignTypeTable(rows) {
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const key = row.campaignType || "Unknown";
+        if (!grouped.has(key)) grouped.set(key, { campaignType: key, total: 0, dcf: 0, plus: 0, high: 0 });
+        const item = grouped.get(key);
+        item.total += 1; if (row.plus) item.plus += 1; else item.dcf += 1; if (!row.plus && row.score >= 75) item.high += 1;
+      });
+      const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total || a.campaignType.localeCompare(b.campaignType)).map((item) => `<tr><td><span class="pill">${escapeHtml(item.campaignType)}</span></td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
+      $("campaignTypeTableWrap").innerHTML = table(["Campaign Type", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
+    }
+
+    function renderReportedSourceTable(rows) {
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const key = row.source || "direct";
+        if (!grouped.has(key)) grouped.set(key, { source: key, total: 0, dcf: 0, plus: 0, high: 0 });
+        const item = grouped.get(key);
+        item.total += 1; if (row.plus) item.plus += 1; else item.dcf += 1; if (!row.plus && row.score >= 75) item.high += 1;
+      });
+      const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total || a.source.localeCompare(b.source)).map((item) => `<tr><td><span class="pill">${escapeHtml(item.source)}</span></td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
+      $("reportedSourceTableWrap").innerHTML = table(["Source", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
     }
 
     function renderActivationTable(rows) {
@@ -400,18 +469,18 @@
 
     function renderHighIntent(rows) {
       $("highIntentStatus").textContent = `${fmtInt(rows.length)} high-intent DCF camps`;
-      const body = rows.sort((a,b)=>b.score-a.score || b.createdSort-a.createdSort).slice(0,50).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</div></td><td><span class="score">${row.score}</span></td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td>${fmtInt(row.members)}</td><td>${fmtInt(row.fieldCards)}</td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
-      $("highIntentTableWrap").innerHTML = table(["Camp", "Score", "Source", "Campaign", "Members", "Field Cards", "Created", "Link"], body);
+      const body = rows.sort((a,b)=>b.score-a.score || b.createdSort-a.createdSort).slice(0,50).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</div></td><td><span class="score">${row.score}</span></td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td>${escapeHtml(row.campaignType)}</td><td>${fmtInt(row.members)}</td><td>${fmtInt(row.fieldCards)}</td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
+      $("highIntentTableWrap").innerHTML = table(["Camp", "Score", "Source", "Campaign", "Type", "Members", "Field Cards", "Created", "Link"], body);
     }
 
     function renderRecent(rows) {
       $("recentStatus").textContent = `${fmtInt(rows.length)} matching camps`;
-      const body = rows.sort((a,b)=>b.createdSort-a.createdSort).slice(0,80).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.campId)}</div></td><td>${rowTierPill(row)}</td><td>${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td><span class="score">${row.score}</span></td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
-      $("recentTableWrap").innerHTML = table(["Camp", "Tier", "Location", "Source", "Campaign", "Score", "Created", "Link"], body);
+      const body = rows.sort((a,b)=>b.createdSort-a.createdSort).slice(0,80).map((row) => `<tr><td><strong>${escapeHtml(row.name)}</strong><div class="muted">${escapeHtml(row.campId)}</div></td><td>${rowTierPill(row)}</td><td>${escapeHtml([row.city,row.state].filter(Boolean).join(", "))}</td><td>${escapeHtml(row.source)}</td><td>${escapeHtml(row.campaign)}</td><td>${escapeHtml(row.campaignType)}</td><td><span class="score">${row.score}</span></td><td>${fmtDate(row.createdAt)}</td><td>${campLink(row)}</td></tr>`);
+      $("recentTableWrap").innerHTML = table(["Camp", "Tier", "Location", "Source", "Campaign", "Type", "Score", "Created", "Link"], body);
     }
 
     function exportCsv() {
-      const headers = ["campId","name","city","state","tier","source","campaign","audience","score","members","fieldCards","sections","feed","isPublic","createdAt","stewardEmail"];
+      const headers = ["campId","name","city","state","tier","source","campaign","campaignType","audience","score","members","fieldCards","sections","feed","isPublic","createdAt","stewardEmail"];
       const lines = [headers.join(",")].concat(filteredRows.map((row) => headers.map((key) => `"${String(row[key] ?? "").replace(/"/g,'""')}"`).join(",")));
       const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
       const url = URL.createObjectURL(blob);
