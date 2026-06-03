@@ -781,6 +781,35 @@
       .camprules-agreement-row{grid-template-columns:1fr}
     }
 
+
+
+    /* DeerCamp final polish: neutral checklist buttons + wider CampRules edit surface */
+    .section-complete-btn.is-next{
+      background:var(--brown)!important;
+      color:#fff!important;
+      box-shadow:0 10px 22px rgba(69,42,22,.16)!important;
+    }
+    @media (min-width:981px){
+      #campRulesBuilderCard .camprules-builder{
+        grid-template-columns:minmax(250px,.28fr) minmax(0,.72fr)!important;
+      }
+      #campRulesBuilderCard .camprules-rule-list{
+        grid-template-columns:repeat(2,minmax(0,1fr))!important;
+        max-height:none!important;
+        overflow:visible!important;
+      }
+      #campRulesBuilderCard .camprules-rule-editor:has(.camprules-rule-details[open]){
+        grid-column:1 / -1!important;
+      }
+      #campRulesBuilderCard .camprules-rule-editor:has(.camprules-rule-details[open]) .camprules-rule-head{
+        grid-template-columns:auto minmax(260px,1fr) auto!important;
+      }
+      #campRulesBuilderCard .camprules-rule-editor textarea{
+        min-height:118px!important;
+        width:100%!important;
+        resize:vertical!important;
+      }
+    }
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -821,7 +850,7 @@
         <h3 class="launch-checklist-title">Bring your DeerCamp to life.</h3>
         <p id="launchChecklistBody" class="launch-checklist-body">Finish the simple setup steps that make a new camp feel useful right away.</p>
         <div class="launch-progress-track" aria-hidden="true"><span id="launchProgressBar" class="launch-progress-bar"></span></div>
-        <div class="launch-progress-meta"><span id="launchProgressText">0 of 7 complete</span><span id="launchProgressPercent">0%</span></div>
+        <div class="launch-progress-meta"><span id="launchProgressText">0 of 8 complete</span><span id="launchProgressPercent">0%</span></div>
         <a id="launchNextAction" class="launch-next-action" href="#">Continue setup</a>
       </div>
       <div id="launchChecklistGrid" class="launch-checklist-grid"></div>
@@ -2489,7 +2518,10 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         const status = String(member.status || "Active").trim().toLowerCase();
         return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
       });
-      const membersHaveEmails = nonStewardMembers.length > 0 && nonStewardMembers.every(member => isLikelyEmail(member.email || "") && String(member.email || "").trim());
+      const membersWithValidEmails = nonStewardMembers.filter(member => isLikelyEmail(member.email || "") && String(member.email || "").trim());
+      const membersWithInvalidEmails = nonStewardMembers.filter(member => String(member.email || "").trim() && !isLikelyEmail(member.email || ""));
+      const membersInviteStepReviewed = getLaunchChecklistState().memberEmailsReviewed === true;
+      const membersHaveEmails = membersWithInvalidEmails.length === 0 && (membersInviteStepReviewed || membersWithValidEmails.length > 0 || nonStewardMembers.length > 0);
       let fieldCardCount = 0;
       try {
         fieldCardCount = getDashboardCanonicalItems(["deerDrivePosts", "deerDrives", "savedDeerDrives", "scoutDeerDrives"]).length + getDashboardCanonicalItems(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]).length;
@@ -2502,7 +2534,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
         { key:"rules", label:"Publish CampRules", note:"Review and publish the current camp rulebook.", done:getLaunchChecklistState().rulesReviewed === true || Boolean(state.campRules?.publishedAt), target:"#campRulesBuilderCard", completeLabel:"CampRules Complete" },
         { key:"field", label:"Add 1 or more Stands/Drives", note:"Save at least one stand or drive, or choose Add Later.", done:fieldCardCount > 0 || getLaunchChecklistState().fieldCardsDeferred === true, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" },
-        { key:"memberEmails", label:"Edit Member Email(s)", note:"Add valid emails so invites can be sent.", done:membersHaveEmails, target:"#memberList", completeLabel:"Member Emails Complete" }
+        { key:"memberEmails", label:"Review Member Invite Emails", note:"Send/edit the emails you have now. Members without email can be completed later.", done:membersHaveEmails, target:"#memberList", completeLabel:"Member Invite Emails Reviewed" }
       ];
     }
 
@@ -2593,7 +2625,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
     function getSectionButtonStepMap() {
       return {
         campEssentialsCompleteBtn: ["identity"],
-        membersCompleteBtn: ["members", "memberEmails", "steward"],
+        membersCompleteBtn: ["members"],
         sectionsCompleteBtn: ["sections"],
         fieldCardsCompleteBtn: ["field"]
       };
@@ -2657,17 +2689,20 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         try { syncCampData(); } catch (error) {}
         renderMembers();
         renderPreview();
-        const missingEmailMember = state.members.find(member => {
+        const invalidEmailMember = state.members.find(member => {
           const role = String(member.role || "").trim().toLowerCase();
           const status = String(member.status || "Active").trim().toLowerCase();
-          return role !== "camp steward" && status !== "removed" && String(member.name || "").trim() && !(isLikelyEmail(member.email || "") && String(member.email || "").trim());
+          const email = String(member.email || "").trim();
+          return role !== "camp steward" && status !== "removed" && email && !isLikelyEmail(email);
         });
-        if (missingEmailMember) {
-          showToast("Add valid email addresses for each camp member before this step is complete.");
+        if (invalidEmailMember) {
+          showToast("Fix the invalid member email shown here, or clear it and add it later.");
           focusLaunchTarget("#memberList");
           return;
         }
-        showToast("Member emails complete. Returning to the launch checklist.");
+        saveLaunchChecklistPatch({ memberEmailsReviewed:true, memberEmailsReviewedAt:new Date().toISOString() });
+        renderLaunchChecklist();
+        showToast("Member invite emails reviewed. Members without email can be completed later.");
         focusLaunchTarget("#launchChecklistCard");
         return;
       }
@@ -3722,10 +3757,15 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         if (!member) return;
         const previousEmail = String(member.email || "").trim();
         const previousStatus = String(member.status || "").trim().toLowerCase();
+        const previousInviteSentAt = String(member.inviteSentAt || "").trim();
+        const previousInviteToken = String(member.inviteToken || "").trim();
         const form = document.getElementById("memberForm");
-        const previousInviteSentAt = String(member.inviteSentAt || (form && form.dataset.loadedMemberInviteSentAt) || "").trim();
-        const previousInviteToken = String(member.inviteToken || (form && form.dataset.loadedMemberInviteToken) || "").trim();
-        const wasInviteSent = hasMemberInviteAlreadySent(member) || (form && form.dataset.loadedMemberInviteSent === "true");
+        const loadedInviteWasSent = form?.dataset?.loadedMemberInviteSent === "true";
+        const loadedInviteSentAt = String(form?.dataset?.loadedMemberInviteSentAt || "").trim();
+        const loadedInviteToken = String(form?.dataset?.loadedMemberInviteToken || "").trim();
+        const loadedEmail = String(form?.dataset?.loadedMemberEmail || previousEmail || "").trim();
+        const emailChangedFromLoaded = loadedEmail && email && loadedEmail.toLowerCase() !== email.toLowerCase();
+        const wasInviteSent = (hasMemberInviteAlreadySent(member) || loadedInviteWasSent || ['invite sent','invited','sent','email sent','invitation sent'].includes(previousStatus)) && !emailChangedFromLoaded;
         member.name = name;
         member.email = email;
         member.note = note;
@@ -3748,8 +3788,8 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           } else if (wasInviteSent) {
             member.pendingInvite = false;
             member.status = "Invite Sent";
-            member.inviteToken = previousInviteToken;
-            member.inviteSentAt = previousInviteSentAt || new Date().toISOString();
+            member.inviteToken = previousInviteToken || loadedInviteToken || "";
+            member.inviteSentAt = previousInviteSentAt || loadedInviteSentAt || new Date().toISOString();
             member.inviteStartedAt = "";
           } else {
             member.pendingInvite = true;
@@ -3774,24 +3814,25 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
               await DeerCampCloud.saveCamp(state.campId, savedCampData);
               cloudSynced = true;
             } catch (cloudError) {
-              console.warn("Profile saved locally, but cloud sync was not confirmed.", cloudError);
+              console.warn("Member email saved locally, but cloud sync was not confirmed.", cloudError);
             }
           }
 
-          const noteMember = Object.assign({}, member);
-          if (wasInviteSent && String(noteMember.email || "").trim()) {
-            noteMember.status = "Invite Sent";
-            noteMember.pendingInvite = false;
-            noteMember.inviteSentAt = String(noteMember.inviteSentAt || previousInviteSentAt || new Date().toISOString());
+          const savedMember = state.members.find(candidate => membersMatch(candidate, member)) || member;
+          if (wasInviteSent && email && !emailChangedFromLoaded) {
+            savedMember.status = "Invite Sent";
+            savedMember.pendingInvite = false;
+            savedMember.inviteSentAt = savedMember.inviteSentAt || previousInviteSentAt || loadedInviteSentAt || new Date().toISOString();
+            savedMember.inviteToken = savedMember.inviteToken || previousInviteToken || loadedInviteToken || "";
           }
-          const saveNote = buildMemberSaveNote(noteMember, name, cloudSynced);
+          const saveNote = buildMemberSaveNote(savedMember, name, cloudSynced);
           if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Email Saved ✓";
           setMemberFormNote(saveNote, "success");
           showToast(saveNote, 6500);
         } catch (error) {
-          console.error("Profile save failed.", error);
-          setMemberFormNote(`${name} profile did not save. Check browser storage/console, then try again.`, "error");
-          showToast("Profile save failed.", 6500);
+          console.error("Member email save failed.", error);
+          setMemberFormNote(`${name} member email did not save. Check browser storage/console, then try again.`, "error");
+          showToast("Member email save failed.", 6500);
         } finally {
           if (submitBtn) {
             submitBtn.disabled = false;
