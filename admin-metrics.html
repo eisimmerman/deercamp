@@ -107,6 +107,7 @@
         <span id="campaignBuilderStatus" class="builder-status"></span>
       </div>
       <div class="preset-row" aria-label="Campaign presets">
+        <button class="preset-btn" type="button" data-preset="tavernPoster">Tavern / Supper Club</button>
         <button class="preset-btn" type="button" data-preset="processorEmail">Processor Email</button>
         <button class="preset-btn" type="button" data-preset="facebookMessenger">Facebook / Messenger</button>
         <button class="preset-btn" type="button" data-preset="processorQr">Processor QR Poster</button>
@@ -178,6 +179,17 @@
     <section class="grid-2">
       <div class="panel"><div class="panel-head"><div><h3>Acquisition by Source</h3><p class="helper">Which reported outreach path creates the most DCF installs.</p></div></div><div id="reportedSourceTableWrap" class="table-wrap"></div></div>
       <div class="panel"><div class="panel-head"><div><h3>Activation Breakdown</h3><p class="helper">Setup actions that indicate stronger DC+ potential.</p></div></div><div id="activationTableWrap" class="table-wrap"></div></div>
+    </section>
+
+    <section class="grid-2">
+      <div class="panel"><div class="panel-head"><div><h3>Campaign Leaderboard</h3><p class="helper">CampGrowthAgent ranking by camps, DC+, high-intent activity, and channel score.</p></div></div><div id="campaignLeaderboardWrap" class="table-wrap"></div></div>
+      <div class="panel"><div class="panel-head"><div><h3>Growth Recommendations</h3><p class="helper">Simple rule-based recommendations until enough real campaign data exists for deeper agentic analysis.</p></div></div><div id="growthRecommendationsWrap" class="table-wrap"></div></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><div><h3>Tavern / Supper Club Research Prompt</h3><p class="helper">Copy this into your AI research tool to generate target prospects by hunting-heavy counties.</p></div></div>
+      <textarea id="tavernResearchPrompt" class="campaign-message-output" readonly aria-label="Tavern and supper club research prompt"></textarea>
+      <div class="actions" style="justify-content:flex-start"><button id="copyTavernPromptBtn" class="btn btn-primary" type="button">Copy Tavern Research Prompt</button></div>
     </section>
 
     <section class="panel">
@@ -404,6 +416,8 @@
       renderCampaignTypeTable(rows);
       renderReportedSourceTable(rows);
       renderActivationTable(rows);
+      renderCampaignLeaderboard(rows);
+      renderGrowthRecommendations(rows);
       renderHighIntent(highIntentRows);
       renderRecent(rows);
     }
@@ -442,6 +456,83 @@
       });
       const body = Array.from(grouped.values()).sort((a,b)=>b.total-a.total || a.source.localeCompare(b.source)).map((item) => `<tr><td><span class="pill">${escapeHtml(item.source)}</span></td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td>${fmtPct((item.plus/Math.max(1,item.total))*100)}</td></tr>`);
       $("reportedSourceTableWrap").innerHTML = table(["Source", "Total", "DCF", "DC+", "High Intent", "Upgrade %"], body);
+    }
+
+    function channelScore(item = {}) {
+      const total = Number(item.total || 0);
+      const plus = Number(item.plus || 0);
+      const high = Number(item.high || 0);
+      const dcf = Number(item.dcf || 0);
+      return Math.min(100, Math.round((total * 10) + (dcf * 5) + (high * 15) + (plus * 30)));
+    }
+
+    function renderCampaignLeaderboard(rows) {
+      const grouped = new Map();
+      rows.forEach((row) => {
+        const key = `${row.campaign}||${row.campaignType}`;
+        if (!grouped.has(key)) grouped.set(key, { campaign: row.campaign, campaignType: row.campaignType, total: 0, dcf: 0, plus: 0, high: 0 });
+        const item = grouped.get(key);
+        item.total += 1;
+        if (row.plus) item.plus += 1; else item.dcf += 1;
+        if (!row.plus && row.score >= 75) item.high += 1;
+      });
+      const body = Array.from(grouped.values())
+        .sort((a,b)=>channelScore(b)-channelScore(a) || b.total-a.total || a.campaign.localeCompare(b.campaign))
+        .slice(0,25)
+        .map((item, index) => `<tr><td><strong>#${index + 1}</strong></td><td><strong>${escapeHtml(item.campaign)}</strong><div class="muted">${escapeHtml(item.campaignType)}</div></td><td>${fmtInt(item.total)}</td><td>${fmtInt(item.dcf)}</td><td>${fmtInt(item.plus)}</td><td>${fmtInt(item.high)}</td><td><span class="score">${channelScore(item)}</span></td></tr>`);
+      $("campaignLeaderboardWrap").innerHTML = table(["Rank", "Campaign", "Total", "DCF", "DC+", "High Intent", "Score"], body);
+    }
+
+    function renderGrowthRecommendations(rows) {
+      const byType = new Map();
+      rows.forEach((row) => {
+        const key = row.campaignType || "Unknown";
+        if (!byType.has(key)) byType.set(key, { campaignType: key, total: 0, dcf: 0, plus: 0, high: 0 });
+        const item = byType.get(key);
+        item.total += 1;
+        if (row.plus) item.plus += 1; else item.dcf += 1;
+        if (!row.plus && row.score >= 75) item.high += 1;
+      });
+      const ranked = Array.from(byType.values()).sort((a,b)=>channelScore(b)-channelScore(a) || b.total-a.total);
+      const top = ranked[0] || null;
+      const recommendations = [];
+
+      if (top && top.total > 0 && top.campaignType !== "Unknown") {
+        recommendations.push({
+          priority: "High",
+          signal: `${top.campaignType} is the current top channel`,
+          action: `Create 10 more ${top.campaignType} campaigns and compare camp-build rate.`
+        });
+      }
+
+      const tavern = ranked.find((item) => item.campaignType === "Tavern / Supper Club");
+      if (!tavern || tavern.total < 10) {
+        recommendations.push({
+          priority: "High",
+          signal: "Tavern / Supper Club sample size is still small",
+          action: "Build a first controlled tavern campaign list by hunting-heavy counties and assign WI-TAVERN campaign IDs."
+        });
+      }
+
+      const highIntent = rows.filter((row) => !row.plus && row.score >= 75);
+      if (highIntent.length) {
+        recommendations.push({
+          priority: "Medium",
+          signal: `${highIntent.length} high-intent DCF camp${highIntent.length === 1 ? "" : "s"} found`,
+          action: "Prioritize follow-up for DC+ upgrade messaging and GSS outreach."
+        });
+      }
+
+      if (!rows.some((row) => row.campaign !== "uncampaign")) {
+        recommendations.push({
+          priority: "High",
+          signal: "No attributed campaigns found yet",
+          action: "Create campaign links using the builder and use QR/ref links for every outreach source."
+        });
+      }
+
+      const body = recommendations.map((item) => `<tr><td><span class="pill ${item.priority === "High" ? "gold" : ""}">${escapeHtml(item.priority)}</span></td><td>${escapeHtml(item.signal)}</td><td>${escapeHtml(item.action)}</td></tr>`);
+      $("growthRecommendationsWrap").innerHTML = table(["Priority", "Signal", "Recommended Action"], body);
     }
 
     function renderActivationTable(rows) {
@@ -494,6 +585,7 @@
     }
 
     const CAMPAIGN_PRESETS = {
+      tavernPoster: { source: "qr", medium: "tavern-poster", campaign: "WI-TAVERN-001", audience: "hunter", ref: "WI-TAVERN-001", template: "posterQr", shortCode: "wi-tavern-001" },
       processorEmail: { source: "email", medium: "processor-outreach", campaign: "launch-2026", audience: "processor", ref: "processor-email", template: "processorEmail", shortCode: "processor-email" },
       facebookMessenger: { source: "facebook", medium: "messenger", campaign: "launch-2026", audience: "hunter", ref: "facebook-messenger", template: "fbOther", shortCode: "fb-processor" },
       processorQr: { source: "qr", medium: "processor-poster", campaign: "launch-2026", audience: "processor-customer", ref: "processor-qr", template: "posterQr", shortCode: "qr-processor" },
@@ -632,13 +724,19 @@
       } catch (error) {
         url = new URL(defaultCampaignBaseUrl());
       }
+      const campaignValue = clean($("builderCampaign")?.value);
+      const refValue = clean($("builderRef")?.value);
+      const campaignIdValue = refValue || campaignValue;
+      const campaignTypeValue = campaignIdValue.toUpperCase().includes("TAVERN") ? "Tavern / Supper Club" : "";
       const params = {
         utm_source: clean($("builderSource")?.value),
         utm_medium: clean($("builderMedium")?.value),
-        utm_campaign: clean($("builderCampaign")?.value),
+        utm_campaign: campaignValue,
         utm_audience: clean($("builderAudience")?.value),
         prospectId: clean($("builderProspectId")?.value),
-        ref: clean($("builderRef")?.value)
+        ref: refValue,
+        campaignId: campaignIdValue,
+        campaignType: campaignTypeValue
       };
       Object.entries(params).forEach(([key, value]) => {
         if (value) url.searchParams.set(key, value);
@@ -822,6 +920,76 @@
       await copyTextToClipboard(messages.facebook, "facebookCommentOutput", "Copied Facebook comment", "copyFacebookCommentBtn");
     }
 
+    function buildTavernResearchPrompt() {
+      return `You are a market research analyst building a prospect list for DeerCamp, a private online platform for hunting camps.
+
+Objective:
+Find taverns, supper clubs, bars, sports bars, and restaurant-bars likely to reach deer hunters and hunting camp members.
+
+Target states:
+Minnesota, Wisconsin, Iowa, Michigan, Pennsylvania, Ohio, Illinois, Alabama.
+
+Research method:
+1. Identify the top deer-hunting counties in each target state using the best available 2025 or most recent official public indicator:
+   - deer harvest totals
+   - deer harvest per square mile
+   - deer hunting license sales
+   - hunter participation
+   - public land deer hunting activity
+   - state DNR deer reports or equivalent agency data
+
+2. For each selected county, find taverns, supper clubs, bars, sports bars, and local gathering places that are likely to be visited by hunters before/after:
+   - summer camp cleanup
+   - food plot work
+   - scouting
+   - shed hunting
+   - rifle opener
+   - archery season
+   - deer processing/taxidermy trips
+
+3. Prioritize places that:
+   - are rural or small-town gathering places
+   - show hunting/outdoor culture in photos or posts
+   - host meat raffles, game feeds, gun raffles, outdoor banquets, or hunting season events
+   - are near high-harvest counties, public hunting land, deer camps, processors, taxidermists, archery shops, or outfitters
+
+Return a table suitable for Airtable import with these fields:
+Business Name
+Category
+City
+County
+State
+Website
+Facebook Page
+Phone
+Email if public
+County Deer Indicator
+Indicator Source URL
+Reason County Was Selected
+Estimated DeerCamp Fit Score 1-10
+Reason For Fit
+Recommended Campaign ID
+Recommended Outreach Action
+Notes
+
+Campaign ID format:
+WI-TAVERN-001
+MN-TAVERN-001
+IA-TAVERN-001
+MI-TAVERN-001
+PA-TAVERN-001
+OH-TAVERN-001
+IL-TAVERN-001
+AL-TAVERN-001
+
+Output rules:
+- Use official state wildlife/DNR sources where possible for deer data.
+- Cite the source URL for each county indicator.
+- Do not invent phone numbers, websites, or Facebook pages.
+- If a field is unavailable, leave it blank.
+- Start with the top 10 prospects per state.`;
+    }
+
     async function loadMetrics() {
       $("loadStatus").textContent = "Loading Firestore camp records...";
       $("loadStatus").className = "status";
@@ -880,6 +1048,8 @@
       $("copyShortMessageBtn").addEventListener("click", copyShortMessage);
       $("copyPosterMessageBtn").addEventListener("click", copyPosterMessage);
       $("copyFacebookCommentBtn").addEventListener("click", copyFacebookComment);
+      if ($("tavernResearchPrompt")) $("tavernResearchPrompt").value = buildTavernResearchPrompt();
+      if ($("copyTavernPromptBtn")) $("copyTavernPromptBtn").addEventListener("click", () => copyTextToClipboard(buildTavernResearchPrompt(), "tavernResearchPrompt", "Copied tavern research prompt", "copyTavernPromptBtn"));
 
       ["sourceFilter","campaignFilter","tierFilter","searchFilter"].forEach((id) => $(id).addEventListener("input", applyFilters));
       $("refreshBtn").addEventListener("click", loadMetrics);
