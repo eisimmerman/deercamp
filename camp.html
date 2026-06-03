@@ -1177,6 +1177,56 @@
   @media (max-width:1100px){#feedTrack{grid-auto-columns:calc((100% - 32px)/3)!important}}
   @media (max-width:720px){#feedTrack{grid-auto-columns:100%!important}}
 
+
+/* DeerCamp CampRules live section */
+.camprules-live-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+.camprules-live-card{
+  display:grid;
+  gap:8px;
+  padding:14px 16px;
+  border-radius:18px;
+  background:rgba(255,255,255,.72);
+  border:1px solid rgba(97,70,38,.10);
+}
+.camprules-live-card h3{
+  margin:0;
+  color:#3a2717;
+  font-size:1.04rem;
+}
+.camprules-live-card p{
+  margin:0;
+  color:#4b3116;
+  line-height:1.5;
+  white-space:pre-line;
+}
+.camprules-live-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  align-items:center;
+  margin-top:2px;
+}
+.camprules-live-badge{
+  display:inline-flex;
+  align-items:center;
+  min-height:26px;
+  padding:4px 9px;
+  border-radius:999px;
+  background:rgba(73,102,71,.12);
+  color:#27411e;
+  font-size:.74rem;
+  font-weight:900;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+}
+@media (max-width:720px){
+  .camprules-live-grid{grid-template-columns:1fr}
+}
+
 </style>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
@@ -2055,6 +2105,44 @@ function isSectionEnabled(primaryKey, aliasKey){
   if (primaryKey === "campdeerdrives") return Boolean(enabledSections.campdeerdrives);
   return Boolean(enabledSections[primaryKey] || (aliasKey && enabledSections[aliasKey]));
 }
+
+function normalizeCampRulesRuleText(value = ""){
+  return String(value || "").replace(/\r\n/g, "\n").trim();
+}
+const CAMP_RULES_DEFAULTS = [
+  { id:"safety", title:"Safety Comes First", body:"Every hunter must follow firearm, bow, blaze-orange, stand, and drive safety expectations.", enabled:true },
+  { id:"alcohol", title:"No Alcohol or Drugs During Hunting", body:"No one hunts, drives, handles firearms, or participates in drives while impaired.", enabled:true },
+  { id:"stands", title:"Stand, Blind, and Spot Respect", body:"Respect assigned stands, blinds, and hunting spots. Check with the Steward before changing locations.", enabled:true },
+  { id:"guests", title:"Guest Policy Must Be Clear", body:"Guests must be approved by the Steward before participating in camp activities.", enabled:true }
+];
+function normalizeCampRulesConfig(source = {}){
+  const existing = source && typeof source === "object" ? source : {};
+  const rawRules = Array.isArray(existing.rules) && existing.rules.length ? existing.rules : CAMP_RULES_DEFAULTS;
+  return {
+    visibility: ["public","members","draft"].includes(String(existing.visibility || "").toLowerCase()) ? String(existing.visibility).toLowerCase() : "members",
+    version: Math.max(1, Number(existing.version || 1) || 1),
+    publishedAt: String(existing.publishedAt || "").trim(),
+    lastUpdatedAt: String(existing.lastUpdatedAt || "").trim(),
+    rules: rawRules.map((rule, index) => ({
+      id: String(rule.id || `rule-${index + 1}`).trim() || `rule-${index + 1}`,
+      title: String(rule.title || `Camp Rule ${index + 1}`).trim() || `Camp Rule ${index + 1}`,
+      body: normalizeCampRulesRuleText(rule.body || rule.text || ""),
+      enabled: rule.enabled !== false
+    })).filter(rule => rule.title && rule.body),
+    agreements: existing.agreements && typeof existing.agreements === "object" && !Array.isArray(existing.agreements) ? existing.agreements : {}
+  };
+}
+const dashboardCampRulesSource = data.dashboardSlim && typeof data.dashboardSlim === "object" ? data.dashboardSlim.campRules : null;
+let campRulesConfig = normalizeCampRulesConfig(data.campRules || dashboardCampRulesSource || {});
+let campRulesAgreements = Object.assign({}, campRulesConfig.agreements || {}, (data.campRulesAgreements && typeof data.campRulesAgreements === "object" ? data.campRulesAgreements : {}));
+function canShowCampRulesSection(){
+  if(!isSectionEnabled("camprules")) return false;
+  const visibility = String(campRulesConfig.visibility || "members").toLowerCase();
+  const role = getCurrentSecurityRole();
+  if(visibility === "draft") return role === "steward";
+  if(visibility === "members") return role === "steward" || role === "member";
+  return true;
+}
 let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
 let contentSubmissions = Array.isArray(data.contentSubmissions) ? data.contentSubmissions.filter(Boolean) : [];
 let feedComments = (data.feedComments && typeof data.feedComments === "object" && !Array.isArray(data.feedComments)) ? data.feedComments : {};
@@ -2206,6 +2294,8 @@ function persist(){
   data.recipeObjects = customRecipes.slice();
   data.traditions = traditions.slice();
   data.feedComments = Object.assign({}, feedComments);
+  data.campRules = Object.assign({}, campRulesConfig, { agreements: Object.assign({}, campRulesAgreements) });
+  data.campRulesAgreements = Object.assign({}, campRulesAgreements);
   data.removedFeedPostIds = removedFeedPostIds.slice();
   saveRemovedFeedPostIdsToLocal();
   data.feedEntries = feedEntries.slice(0,12).map(entry => {
@@ -3588,6 +3678,7 @@ function visibleSections(){
     {key:"campupdate",title:"CampUpdate"},
     {key:"campmembers",title:"CampMembers"},
     {key:"campcalendar",title:"CampCalendar"},
+    {key:"camprules",title:"CampRules"},
     {key:"camptraditions",title:"CampTraditions"},
     {key:"camprecipes",title:"CampRecipes"},
     {key:"camphonors",title:"CampHonors"},
@@ -3596,9 +3687,10 @@ function visibleSections(){
   ];
   const truthySection = (...keys) => keys.some(key => Boolean(enabledSections[key]));
   return base.filter(s=>{
-    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
+    const map={campfeed:"campfeed",campupdate:"campupdate",campmembers:"campmembers",campcalendar:"calendar",camprules:"camprules",camptraditions:"traditions",camprecipes:"camprecipes",camphonors:"camphonors",campdeerstands:"campdeerstands",campdeerdrives:"campdeerdrives"};
     if (s.key === "campmembers") return Array.isArray(roster) && roster.length > 0;
     if (s.key === "campupdate") return isSectionEnabled("campupdate");
+    if (s.key === "camprules") return canShowCampRulesSection();
     if (s.key === "camphonors") return isCampDcPlusActive() && isSectionEnabled("camphonors");
     if (s.key === "campdeerstands") return isSectionEnabled("campdeerstands", "stands");
     if (s.key === "campdeerdrives") return isSectionEnabled("campdeerdrives", "deerdrives");
@@ -3929,6 +4021,27 @@ visibleSections().forEach(section=>{
       </div>
       <div class="carousel"><div id="feedTrack" class="carousel-track"></div></div>
       <div id="feedEmpty" class="empty" hidden>No CampFeed posts yet. Add a picture, Memory / Story, recipe photo, or tradition photo through CampUpdate.</div>`;
+  } else if(section.key==="camprules"){
+    const visibleRules = campRulesConfig.rules.filter(rule => rule.enabled !== false);
+    const visibilityLabel = campRulesConfig.visibility === "public" ? "Public Preview" : (campRulesConfig.visibility === "draft" ? "Draft — Steward Only" : "Members Only");
+    container.innerHTML=`
+      <div class="feed-header">
+        <div>
+          <h2 style="margin:0">CampRules</h2>
+          <p class="section-helper" style="margin:8px 0 0">The camp rulebook published by the Steward for this DeerCamp.</p>
+        </div>
+        <div class="camprules-live-meta">
+          <span class="camprules-live-badge">v${esc(campRulesConfig.version)}</span>
+          <span class="camprules-live-badge">${esc(visibilityLabel)}</span>
+        </div>
+      </div>
+      ${visibleRules.length ? `<div class="camprules-live-grid">${visibleRules.map((rule, index) => `
+        <article class="camprules-live-card">
+          <span class="camprules-live-badge">Rule ${index + 1}</span>
+          <h3>${esc(rule.title)}</h3>
+          <p>${esc(rule.body)}</p>
+        </article>
+      `).join("")}</div>` : `<div class="empty">No CampRules have been published yet.</div>`}`;
   } else if(section.key==="camptraditions"){
     container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
   } else if(section.key==="camprecipes"){
