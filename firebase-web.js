@@ -1,5 +1,5 @@
 (function () {
-  const firebaseConfig = {
+  const productionFirebaseConfig = {
     apiKey: "AIzaSyCjw3z52JzomgclqczxJguGGlltlXWU45w",
     authDomain: "deercamp-47c12.firebaseapp.com",
     projectId: "deercamp-47c12",
@@ -7,6 +7,25 @@
     messagingSenderId: "343631330837",
     appId: "1:343631330837:web:246adec6a15421c390d81c"
   };
+
+  const stagingFirebaseConfig = {
+    apiKey: "AIzaSyCjw3z52JzomgclqczxJguGGlltlXWU45w",
+    authDomain: "deercamp-staging.firebaseapp.com",
+    projectId: "deercamp-staging",
+    storageBucket: "deercamp-staging.firebasestorage.app",
+    messagingSenderId: "343631330837",
+    appId: "1:343631330837:web:246adec6a15421c390d81c"
+  };
+
+  function isDeerCampStagingHost() {
+    const host = String(window.location.hostname || "").toLowerCase();
+    return host === "deercamp-staging.web.app" ||
+      host === "deercamp-staging.firebaseapp.com" ||
+      (host.includes("localhost") && String(window.location.search || "").includes("useStagingFirebase=true"));
+  }
+
+  const firebaseConfig = isDeerCampStagingHost() ? stagingFirebaseConfig : productionFirebaseConfig;
+  window.DEERCAMP_FIREBASE_PROJECT_ID = firebaseConfig.projectId;
 
   function scopedKey(campId, suffix) {
     const cleanCampId = String(campId || "").trim();
