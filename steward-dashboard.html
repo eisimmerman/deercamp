@@ -418,6 +418,25 @@
 
   
 
+
+    /* DeerCamp Camp Sections v2: make Section 3 span the dashboard width */
+    #campSectionsCard{grid-column:1 / -1}
+    #campSectionsCard .section-list{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+    #campSectionsCard .recipe-selector{
+      grid-column:1 / -1;
+    }
+    #campSectionsCard .section-complete-actions{
+      grid-column:1 / -1;
+    }
+    @media (max-width:720px){
+      #campSectionsCard{grid-column:auto}
+      #campSectionsCard .section-list{grid-template-columns:1fr}
+    }
+
     /* CampRules Builder v2 compact desktop/mobile layout */
     #campRulesBuilderCard{grid-column:1 / -1}
     .camprules-builder{
@@ -615,104 +634,6 @@
       .camprules-agreement-row{grid-template-columns:1fr}
     }
 
-
-    /* DeerCamp 161: restore horizontal dashboard sections and compact CampRules/field-card layout */
-    @media (min-width:981px){
-      .grid-2:has(#sectionList){
-        grid-template-columns:minmax(420px,.95fr) minmax(520px,1.05fr);
-        align-items:start;
-      }
-      .grid-2:has(#sectionList) #campRulesBuilderCard{
-        grid-column:auto!important;
-      }
-      .grid-2:has(#sectionList) #basicFieldCardsSection{
-        grid-column:1 / -1!important;
-      }
-      .section-list{
-        display:grid!important;
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-        gap:10px!important;
-      }
-      .section-list .section-row{
-        grid-template-columns:minmax(0,1fr) auto!important;
-        gap:10px!important;
-        align-items:center!important;
-        padding:11px 12px!important;
-        min-height:94px!important;
-      }
-      .section-list .section-row strong{
-        font-size:.96rem!important;
-        line-height:1.12!important;
-      }
-      .section-list .section-row p{
-        margin-top:4px!important;
-        font-size:.78rem!important;
-        line-height:1.32!important;
-      }
-      .section-list .section-toggle .switch{
-        width:48px!important;
-        height:28px!important;
-      }
-      .section-list .section-toggle .switch-thumb{
-        width:20px!important;
-        height:20px!important;
-      }
-      .section-list .section-toggle .switch input:checked + .switch-thumb{
-        transform:translateX(20px)!important;
-      }
-      #recipeSelector{
-        margin-top:2px!important;
-      }
-      #campRulesBuilderCard .camprules-builder{
-        grid-template-columns:minmax(180px,.68fr) minmax(0,1.32fr)!important;
-        gap:10px 12px!important;
-      }
-      #campRulesBuilderCard .camprules-controls{
-        gap:8px!important;
-      }
-      #campRulesBuilderCard .camprules-rule-list{
-        grid-template-columns:1fr!important;
-        gap:8px!important;
-        max-height:560px;
-        overflow:auto;
-        padding-right:2px;
-      }
-      #campRulesBuilderCard .camprules-rule-editor{
-        padding:9px 10px!important;
-      }
-      #campRulesBuilderCard .camprules-rule-title-input{
-        min-height:34px!important;
-        font-size:.84rem!important;
-      }
-      #campRulesBuilderCard .camprules-rule-details summary{
-        font-size:.76rem!important;
-      }
-      #campRulesBuilderCard .camprules-rule-editor textarea{
-        min-height:66px!important;
-        font-size:.82rem!important;
-      }
-      #campRulesBuilderCard .camprules-action-row .btn{
-        min-height:36px!important;
-        padding:7px 10px!important;
-        font-size:.84rem!important;
-      }
-      #basicFieldCardsSection .basic-field-grid{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      }
-      #basicFieldCardsSection .later-list{
-        grid-template-columns:repeat(2,minmax(0,1fr))!important;
-      }
-    }
-    @media (max-width:980px){
-      .section-list{
-        grid-template-columns:1fr!important;
-      }
-      #campRulesBuilderCard,
-      #basicFieldCardsSection{
-        grid-column:auto!important;
-      }
-    }
-
 </style>
 
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
@@ -728,7 +649,7 @@
       <div class="hero-copy">
         <span class="eyebrow">Steward Dashboard</span>
         <h2 id="welcomeHeadline">Welcome back</h2>
-        <p id="welcomeCopy">Use this dashboard as your Steward setup surface. Confirm the camp basics, review members and invites, choose which live camp sections are on or off, publish CampRules, and add basic field cards now or later. DeerCamp saves each step behind the curtain; when the checklist is complete, open View Live Camp.</p>
+        <p id="welcomeCopy">To launch your camp, confirm the camp identity in 1. Camp Essentials, add Members and Invites in 2. and decide which sections of your camp page you want to show publicly or hide privately in 3. You can add deer drives or deer stands now in 4. (optional) or later. When finished, tap the “View Live Camp” button.</p>
         <div class="hero-actions">
           <a id="shareCampBtn" class="btn btn-soft" href="#">Copy Share Link</a>
         </div>
@@ -881,7 +802,7 @@
     </div>
 
     <div class="grid-2">
-      <section class="section-card">
+      <section class="section-card" id="campSectionsCard">
         <div>
           <h3>3. Turn on Camp Sections</h3>
           <p class="helper">Toggle Sections On (button to right) or Off (button to left) to choose what content shows in your camp.</p>
@@ -936,7 +857,7 @@
 
       <section class="section-card basic-field-card" id="basicFieldCardsSection">
         <div>
-          <h3>5. Basic field cards</h3>
+          <h3>4. Basic field cards</h3>
           <p class="helper">DCF Stewards can create basic field cards within the free limits. DC+ upgrades unlock the Scout Elite map-based builders, show-all maps, and printable exports.</p>
         </div>
         <div class="basic-field-grid">
@@ -1300,32 +1221,11 @@
       if (role === 'camp steward') return 'Active';
       if (status === 'removed') return 'Removed';
       if (status === 'accepted' || status === 'active') return 'Active';
-      if (status === 'invite sent' || status === 'invited' || status === 'sent' || status === 'email sent') return 'Invite Sent';
+      if (isInviteSentStatus(status)) return 'Invite Sent';
       if (status === 'sending') return 'Ready';
       if (status === 'failed') return 'Failed';
       if (hasEmail) return 'Ready';
       return 'Draft';
-    }
-
-    function hasMemberInviteAlreadySent(member = {}) {
-      const status = String(member.status || '').trim().toLowerCase();
-      return status === 'invite sent'
-        || status === 'invited'
-        || status === 'sent'
-        || status === 'email sent'
-        || Boolean(String(member.inviteSentAt || '').trim());
-    }
-
-    function buildMemberSaveNote(member = {}, name = 'Member', cloudSynced = false) {
-      const memberName = String(name || member.name || 'Member').trim() || 'Member';
-      const isSteward = String(member.role || '').trim().toLowerCase() === 'camp steward';
-      const hasEmail = Boolean(String(member.email || '').trim());
-      const syncPhrase = cloudSynced ? 'saved and synced' : 'saved on this device';
-      if (isSteward) return `${memberName} Steward email ${syncPhrase}.`;
-      if (hasMemberInviteAlreadySent(member)) return `${memberName} email ${syncPhrase}. Invite has already been sent; use Resend on the member card if you want to send it again.`;
-      if (Boolean(member.pendingInvite) && hasEmail) return `${memberName} email ${syncPhrase}. Next step: tap Send Member Invite.`;
-      if (hasEmail) return `${memberName} email ${syncPhrase}.`;
-      return `${memberName} saved. Add an email later when ready.`;
     }
 
     function isPublicMemberStatus(status = '') {
@@ -1546,7 +1446,7 @@
       const previousInviteToken = String(previous.inviteToken || "").trim();
       const nextInviteToken = String(next.inviteToken || "").trim();
 
-      const lockedStatuses = ["invite sent", "invited", "sent", "email sent", "active", "accepted"];
+      const lockedStatuses = ["invite sent", "invited", "sent", "email sent", "invitation sent", "active", "accepted"];
       const previousIsLocked = lockedStatuses.includes(previousStatus) || Boolean(previousInviteSentAt);
       const nextIsLocked = lockedStatuses.includes(nextStatus) || Boolean(nextInviteSentAt);
       const nextIsStale = !nextStatus || nextStatus === "ready" || nextStatus === "draft" || nextStatus === "sending";
@@ -1571,7 +1471,7 @@
       copyMemberProfileFields(merged, next);
 
       const mergedStatusLower = String(merged.status || "").trim().toLowerCase();
-      if (mergedStatusLower === "invite sent" || Boolean(merged.inviteSentAt)) {
+      if (isInviteSentStatus(mergedStatusLower) || Boolean(merged.inviteSentAt)) {
         merged.status = "Invite Sent";
         merged.pendingInvite = false;
         merged.inviteError = "";
@@ -2743,13 +2643,14 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
       list.innerHTML = items.length ? items.map((member, index) => {
         const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+        const normalizedMemberStatus = normalizeMemberStatus(member);
         const statusLine = role === "Camp Steward"
           ? ""
-          : (member.status === "Sending"
+          : (normalizedMemberStatus === "Sending"
               ? " • Sending..."
-              : member.status === "Invite Sent"
+              : normalizedMemberStatus === "Invite Sent"
                 ? " • Invite sent"
-                : member.status === "Failed"
+                : normalizedMemberStatus === "Failed"
                   ? ` • Failed to send${member.inviteError ? ` (${member.inviteError})` : ""}`
                   : member.pendingInvite
                     ? " • Ready to send • Tap Send Member Invite button below"
@@ -2758,7 +2659,6 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           ? `${member.email}${statusLine}`
           : (role === "Camp Steward" ? "Steward email was not found from setup — save it here if needed." : "No email yet - tap Edit to add.");
         const extraNote = member.note ? ` • ${member.note}` : "";
-        const normalizedMemberStatus = normalizeMemberStatus(member);
         const resendButton = role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(normalizedMemberStatus) && String(member.email || "").trim()
           ? `<button class="member-resend" type="button" data-resend-member="${index}">${normalizedMemberStatus === "Failed" ? "Retry" : "Resend"}</button>`
           : "";
@@ -3639,6 +3539,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         if (!member) return;
         const previousEmail = String(member.email || "").trim();
         const previousStatus = String(member.status || "").trim().toLowerCase();
+        const inviteWasAlreadySent = hasMemberInviteAlreadySent(member);
         member.name = name;
         member.email = email;
         member.note = note;
@@ -3658,9 +3559,12 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           } else if ((previousStatus === "active" || previousStatus === "accepted") && previousEmail.toLowerCase() === email.toLowerCase()) {
             member.pendingInvite = false;
             member.status = "Active";
-          } else if ((previousStatus === "invite sent" || previousStatus === "invited" || previousStatus === "sent" || previousStatus === "email sent" || Boolean(member.inviteSentAt)) && previousEmail.toLowerCase() === email.toLowerCase()) {
+          } else if (inviteWasAlreadySent) {
             member.pendingInvite = false;
             member.status = "Invite Sent";
+            member.inviteError = "";
+            member.inviteStartedAt = "";
+            if (!String(member.inviteSentAt || "").trim()) member.inviteSentAt = new Date().toISOString();
           } else {
             member.pendingInvite = true;
             member.status = "Ready";
@@ -3688,10 +3592,14 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
             }
           }
 
-          const saveNote = buildMemberSaveNote(member, name, cloudSynced);
-          if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Email Saved ✓";
-          setMemberFormNote(saveNote, "success");
-          showToast(saveNote, 6500);
+          if (submitBtn) submitBtn.textContent = isStewardSave ? "Saved Steward ✓" : "Saved Member ✓";
+          if (cloudSynced) {
+            setMemberFormNote(`${name} profile saved and synced. Refresh the live camp page to view the updated profile.`, "success");
+            showToast(`${name} profile saved and synced.`, 6500);
+          } else {
+            setMemberFormNote(`${name} profile saved on this device. Cloud sync was not confirmed, but the live camp page on this device should update after refresh.`, "success");
+            showToast(`${name} profile saved locally.`, 6500);
+          }
         } catch (error) {
           console.error("Profile save failed.", error);
           setMemberFormNote(`${name} profile did not save. Check browser storage/console, then try again.`, "error");
@@ -3700,7 +3608,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           if (submitBtn) {
             submitBtn.disabled = false;
             setTimeout(() => {
-              submitBtn.textContent = isStewardSave ? "Save Steward Email" : (oldSubmitLabel || "Save Member Email");
+              submitBtn.textContent = isStewardSave ? "Save Steward Profile" : (oldSubmitLabel || "Save Member Profile");
             }, 2400);
           }
         }
@@ -3723,8 +3631,9 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         return;
       }
       if (duplicateIndex >= 0) {
+        const refreshedMember = mergeMemberRecords(state.members[duplicateIndex], proposedMember);
         purgeMemberEverywhere(state.members[duplicateIndex]);
-        state.members.push(proposedMember);
+        state.members.push(refreshedMember);
         syncCampData();
         renderMembers();
         renderPreview();
