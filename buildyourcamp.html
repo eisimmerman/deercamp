@@ -458,6 +458,18 @@
       };
     }
 
+
+    function getCampaignLinkParams() {
+      const params = new URLSearchParams(window.location.search || "");
+      const keys = ["ref","campaignId","cid","dc_campaign","dcCampaign","campaignName","campaignType","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_audience","channel","source","medium","content","term","prospectId","prospect","pid","leadId","businessId"];
+      const out = {};
+      keys.forEach(key => {
+        const value = String(params.get(key) || "").trim();
+        if (value) out[key] = value;
+      });
+      return out;
+    }
+
     function buildCampUrl(path, campId, extras = {}) {
       const cleanCampId = String(campId || "").trim();
       const url = new URL(path, window.location.href);
@@ -807,7 +819,7 @@
       heroHelper.textContent = 'Add a Steward email during setup so you always have a simple return path.';
     }
 
-    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId, { role: 'steward', view: 'steward' });
+    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId, Object.assign({}, getCampaignLinkParams(), { role: 'steward', view: 'steward' }));
     const finishSetupBtn = document.getElementById('finishSetupBtn');
     finishSetupBtn.setAttribute('href', dashboardUrl);
     finishSetupBtn.addEventListener('click', (event) => {

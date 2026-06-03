@@ -2152,6 +2152,74 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       return [];
     }
 
+
+    function normalizeDashboardCampaignId(value = "") {
+      return String(value || "").trim().replace(/\s+/g, "-").replace(/[^a-zA-Z0-9_-]/g, "").toUpperCase();
+    }
+    function humanizeDashboardCampaignName(value = "") {
+      const clean = String(value || "").trim();
+      if (!clean) return "";
+      return clean.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim().toLowerCase().replace(/\b\w/g, char => char.toUpperCase());
+    }
+    function inferDashboardCampaignType(campaignId = "", source = "", medium = "", explicitType = "") {
+      const text = `${campaignId || ""} ${source || ""} ${medium || ""} ${explicitType || ""}`.toLowerCase();
+      if (explicitType) return humanizeDashboardCampaignName(explicitType);
+      if (text.includes("tavern") || text.includes("bar") || text.includes("supper")) return "Tavern / Supper Club";
+      if (text.includes("fbgroup") || text.includes("facebook group")) return "Facebook Group";
+      if (text.includes("fb") || text.includes("facebook")) return "Facebook";
+      if (text.includes("tax")) return "Taxidermist";
+      if (text.includes("proc") || text.includes("venison")) return "Venison Processor";
+      if (text.includes("outfitter") || text.includes("guide")) return "Outfitter";
+      if (text.includes("lodge")) return "Hunting Lodge";
+      if (text.includes("archery")) return "Archery Shop";
+      if (text.includes("qr") || text.includes("poster")) return "QR Poster";
+      if (text.includes("gss") || text.includes("guided")) return "Guided Steward Setup";
+      if (text.includes("ig") || text.includes("instagram")) return "Instagram";
+      if (text.includes("yt") || text.includes("youtube")) return "YouTube";
+      return "";
+    }
+    function getDashboardCampaignTrackingFromUrl() {
+      try {
+        const params = new URLSearchParams(window.location.search || "");
+        const readFirst = (...keys) => {
+          for (const key of keys) {
+            const value = String(params.get(key) || "").trim();
+            if (value) return value;
+          }
+          return "";
+        };
+        const campaignId = normalizeDashboardCampaignId(readFirst("campaignId", "cid", "dc_campaign", "dcCampaign", "ref", "utm_campaign", "campaign"));
+        if (!campaignId) return {};
+        const source = readFirst("utm_source", "source", "src");
+        const medium = readFirst("utm_medium", "medium");
+        const explicitType = readFirst("campaignType", "campaign_type", "dc_campaign_type", "channel");
+        const campaignType = inferDashboardCampaignType(campaignId, source, medium, explicitType);
+        return {
+          campaignId,
+          campaignName: readFirst("campaignName", "campaign_name", "dc_campaign_name") || humanizeDashboardCampaignName(campaignId),
+          campaignType,
+          campaignRef: campaignId,
+          signupCampaign: campaignId,
+          signupSource: source || campaignType || "direct",
+          signupMedium: medium,
+          campaignCapturedAtClient: new Date().toISOString()
+        };
+      } catch (error) {
+        return {};
+      }
+    }
+    function getPreservedCampaignAttribution() {
+      const fromUrl = getDashboardCampaignTrackingFromUrl();
+      const source = Object.keys(fromUrl).length ? fromUrl : (campData && typeof campData === "object" ? campData : {});
+      const out = {};
+      ["campaignId","campaignName","campaignType","campaignRef","signupCampaign","signupSource","signupMedium","signupAudience","signupChannel","signupProspectId","signupContent","signupTerm","firstTouchUrl","firstTouchPath","firstTouchAtClient","lastTouchSource","lastTouchMedium","lastTouchCampaign","lastTouchUrl","lastTouchAtClient"].forEach(key => {
+        const value = String(source[key] || "").trim();
+        if (value) out[key] = value;
+      });
+      if (Object.keys(out).length) out.metrics = Object.assign({}, campData.metrics || {}, out);
+      return out;
+    }
+
     function writeCampAndDashboardStorage(nextCampData, nextDashboard) {
       const profilePayload = buildProfileOnlyCampPayload(nextCampData, nextDashboard);
       safeSetJson(scopedProfileDataKey, profilePayload);
@@ -2222,7 +2290,9 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         profile.updatedAt = profile.updatedAt || profileUpdatedAt;
       });
 
+      const preservedCampaignAttribution = getPreservedCampaignAttribution();
       const nextDashboard = {
+        ...preservedCampaignAttribution,
         campId: state.campId,
         camp: {
           campId: state.campId,
@@ -2257,7 +2327,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       const preservedDeerStandPosts = collectCanonicalCampItemsFromSnapshots(["deerStandPosts", "deerStands", "stands", "savedDeerStands", "scoutDeerStands"]);
       const savedCampSnapshot = safeParse(localStorage.getItem(scopedCampDataKey), safeParse(localStorage.getItem(CAMP_DATA_KEY), {}));
 
-      const nextCampData = Object.assign({}, campData, {
+      const nextCampData = Object.assign({}, campData, preservedCampaignAttribution, {
         campId: state.campId,
         name: state.camp.name,
         campName: state.camp.name,

@@ -1439,6 +1439,72 @@ function normalizeState(value) {
   return stateMap[clean] || "";
 }
 
+
+function normalizeCampaignId(value = "") {
+  return String(value || "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .toUpperCase();
+}
+
+function humanizeCampaignName(value = "") {
+  const clean = String(value || "").trim();
+  if (!clean) return "";
+  return clean
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, char => char.toUpperCase());
+}
+
+function inferCampaignType(campaignId = "", source = "", medium = "", explicitType = "") {
+  const id = String(campaignId || "").toUpperCase();
+  const text = `${id} ${source || ""} ${medium || ""} ${explicitType || ""}`.toLowerCase();
+  if (explicitType) return humanizeCampaignName(explicitType);
+  if (text.includes("tavern") || text.includes("bar") || text.includes("supper")) return "Tavern / Supper Club";
+  if (text.includes("fbgroup") || text.includes("facebook-group") || text.includes("facebook group")) return "Facebook Group";
+  if (text.includes("fb") || text.includes("facebook")) return "Facebook";
+  if (text.includes("tax") || text.includes("taxidermy") || text.includes("taxidermist")) return "Taxidermist";
+  if (text.includes("proc") || text.includes("processor") || text.includes("venison")) return "Venison Processor";
+  if (text.includes("outfitter") || text.includes("guide")) return "Outfitter";
+  if (text.includes("lodge")) return "Hunting Lodge";
+  if (text.includes("archery")) return "Archery Shop";
+  if (text.includes("qr") || text.includes("poster")) return "QR Poster";
+  if (text.includes("gss") || text.includes("guided")) return "Guided Steward Setup";
+  if (text.includes("ig") || text.includes("instagram")) return "Instagram";
+  if (text.includes("yt") || text.includes("youtube")) return "YouTube";
+  return "";
+}
+
+function buildCampaignTrackingFieldsFromParams(params = new URLSearchParams(window.location.search || "")) {
+  const readFirst = (...keys) => {
+    for (const key of keys) {
+      const value = String(params.get(key) || "").trim();
+      if (value) return value;
+    }
+    return "";
+  };
+  const rawCampaignId = readFirst("campaignId", "cid", "dc_campaign", "dcCampaign", "ref", "utm_campaign", "campaign", "signupCampaign");
+  const campaignId = normalizeCampaignId(rawCampaignId);
+  const explicitName = readFirst("campaignName", "campaign_name", "dc_campaign_name");
+  const source = readFirst("utm_source", "source", "src", "signupSource");
+  const medium = readFirst("utm_medium", "medium", "signupMedium");
+  const explicitType = readFirst("campaignType", "campaign_type", "dc_campaign_type", "channel", "signupChannel");
+  const campaignType = inferCampaignType(campaignId, source, medium, explicitType);
+  const campaignName = explicitName || (campaignId ? humanizeCampaignName(campaignId) : "");
+  return {
+    campaignId,
+    campaignName,
+    campaignType,
+    campaignRef: campaignId,
+    campaignSource: source,
+    campaignMedium: medium,
+    campaignCapturedAtClient: campaignId ? new Date().toISOString() : ""
+  };
+}
+
 function captureDeerCampBuildAttribution() {
   if (window.DeerCampCloud && typeof DeerCampCloud.captureAttribution === "function") {
     return DeerCampCloud.captureAttribution() || {};
@@ -1453,7 +1519,7 @@ function captureDeerCampBuildAttribution() {
       }
       return "";
     };
-    const source = readFirst("utm_source", "source", "src", "ref", "signupSource");
+    const source = readFirst("utm_source", "source", "src", "signupSource");
     const medium = readFirst("utm_medium", "medium", "signupMedium");
     const campaign = readFirst("utm_campaign", "campaign", "signupCampaign");
     const audience = readFirst("utm_audience", "audience", "signupAudience");
@@ -1461,12 +1527,18 @@ function captureDeerCampBuildAttribution() {
     const channel = readFirst("channel", "signupChannel");
     const content = readFirst("utm_content", "content");
     const term = readFirst("utm_term", "term");
-    const hasTracking = Boolean(source || medium || campaign || audience || prospectId || channel || content || term);
+    const campaignTracking = buildCampaignTrackingFieldsFromParams(params);
+    const campaignId = campaignTracking.campaignId;
+    const hasTracking = Boolean(source || medium || campaign || audience || prospectId || channel || content || term || campaignId);
     if (hasTracking) {
       const payload = {
-        source: source || "direct",
+        source: source || campaignTracking.campaignType || "direct",
         medium,
-        campaign,
+        campaign: campaign || campaignId,
+        campaignId,
+        campaignName: campaignTracking.campaignName,
+        campaignType: campaignTracking.campaignType,
+        campaignRef: campaignTracking.campaignRef,
         audience,
         prospectId,
         channel,
@@ -1506,7 +1578,11 @@ function buildDeerCampAttributionFields() {
   return {
     signupSource: String(primary.source || "direct").trim() || "direct",
     signupMedium: String(primary.medium || "").trim(),
-    signupCampaign: String(primary.campaign || "").trim(),
+    signupCampaign: String(primary.campaign || primary.campaignId || "").trim(),
+    campaignId: String(primary.campaignId || primary.campaign || "").trim(),
+    campaignName: String(primary.campaignName || "").trim(),
+    campaignType: String(primary.campaignType || "").trim(),
+    campaignRef: String(primary.campaignRef || primary.campaignId || primary.campaign || "").trim(),
     signupAudience: String(primary.audience || "").trim(),
     signupChannel: String(primary.channel || "").trim(),
     signupProspectId: String(primary.prospectId || "").trim(),
@@ -2260,6 +2336,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
   const referralSource = String(document.getElementById("campReferralSource")?.value || "").trim();
   const referralDetail = normalizeReferralDetailValue(document.getElementById("campReferralDetail")?.value || "");
+  const campaignTracking = buildCampaignTrackingFieldsFromParams();
   const rosterNames = [stewardName, ...campMembers].filter(Boolean);
 
   const memberProfiles = [];
@@ -2315,6 +2392,7 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   const referralCapturedAtClient = new Date().toISOString();
   const metricsAttribution = {
     ...buildDeerCampAttributionFields(),
+    ...campaignTracking,
     campId,
     referralSource,
     referralDetail,
@@ -2510,7 +2588,10 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
       DeerCampCloud.saveMetricEvent(campId, "camp_created", {
         source: metricsAttribution.signupSource || "direct",
         medium: metricsAttribution.signupMedium || "",
-        campaign: metricsAttribution.signupCampaign || "",
+        campaign: metricsAttribution.signupCampaign || metricsAttribution.campaignId || "",
+        campaignId: metricsAttribution.campaignId || "",
+        campaignName: metricsAttribution.campaignName || "",
+        campaignType: metricsAttribution.campaignType || "",
         audience: metricsAttribution.signupAudience || "",
         tier: "DCF",
         reportedReferralSource: referralSource,

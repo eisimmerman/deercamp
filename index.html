@@ -1043,5 +1043,29 @@
       }
     });
   </script>
+
+<script>
+(function preserveDeerCampCampaignParamsOnBuildLinks(){
+  try {
+    const incoming = new URLSearchParams(window.location.search || "");
+    const keys = ["ref","campaignId","cid","dc_campaign","dcCampaign","campaignName","campaignType","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_audience","channel","source","medium","content","term","prospectId","prospect","pid","leadId","businessId"];
+    const hasAttribution = keys.some(key => String(incoming.get(key) || "").trim());
+    if (!hasAttribution) return;
+    document.querySelectorAll('a[href]').forEach(link => {
+      const rawHref = String(link.getAttribute("href") || "").trim();
+      if (!rawHref || !rawHref.includes("build.html")) return;
+      const url = new URL(rawHref, window.location.href);
+      keys.forEach(key => {
+        const value = String(incoming.get(key) || "").trim();
+        if (value && !url.searchParams.get(key)) url.searchParams.set(key, value);
+      });
+      link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
+    });
+  } catch (error) {
+    console.warn("Could not preserve DeerCamp campaign parameters.", error);
+  }
+})();
+</script>
+
 </body>
 </html>
