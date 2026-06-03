@@ -3375,15 +3375,28 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         </div>
       `).join("");
       grid.querySelectorAll("[data-recipe-id]").forEach(input => {
-        input.addEventListener("change", () => {
+        input.addEventListener("change", async () => {
           const id = input.dataset.recipeId;
           if (input.checked) {
             if (!state.selectedRecipeIds.includes(id)) state.selectedRecipeIds.push(id);
           } else {
             state.selectedRecipeIds = state.selectedRecipeIds.filter(item => item !== id);
           }
-          syncCampData();
-          showToast("CampRecipes selections saved.");
+
+          input.disabled = true;
+          try {
+            const savedCampData = syncCampData();
+            renderLaunchChecklist();
+            if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
+              await DeerCampCloud.saveCamp(state.campId, savedCampData);
+            }
+            showToast("CampRecipes selections saved and published.", 5200);
+          } catch (error) {
+            console.error("CampRecipes auto-save failed.", error);
+            showToast("CampRecipes selections saved locally. Tap Save Dashboard Changes to retry cloud save.", 6500);
+          } finally {
+            input.disabled = false;
+          }
         });
       });
     }
