@@ -48,7 +48,7 @@
   </style>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-  <script src="firebase-web.js"></script>
+  <script src="firebase-web.js?v=campgrowthagent-3d-firestore-refresh"></script>
 </head>
 <body>
   <section id="adminPasscodeGate" class="admin-gate" aria-label="Admin passcode required">
@@ -80,7 +80,7 @@
   <main id="adminDashboardPage" class="page" hidden>
     <header class="topbar">
       <div class="brand"><img src="assets/images/deer-track.png" alt="DeerCamp mark"><div><h1>DeerCamp Growth Dashboard</h1><p>DCF installs, activation, and DC+ conversion pipeline</p></div></div>
-      <div class="actions"><button id="refreshBtn" class="btn btn-primary" type="button">Refresh Metrics</button><button id="exportBtn" class="btn" type="button">Export CSV</button><button id="lockAdminBtn" class="btn admin-lock-btn" type="button">Lock</button><a class="btn" href="index.html">Open Home</a></div>
+      <div class="actions"><button id="refreshBtn" class="btn btn-primary" type="button">Refresh Metrics</button><button id="hardReloadBtn" class="btn" type="button">Hard Reload</button><button id="exportBtn" class="btn" type="button">Export CSV</button><button id="lockAdminBtn" class="btn admin-lock-btn" type="button">Lock</button><a class="btn" href="index.html">Open Home</a></div>
     </header>
 
     <section class="hero">
@@ -169,6 +169,7 @@
       <div class="metric-card"><span class="metric-label">With Field Cards</span><span id="withFieldCardsCount" class="metric-value">0</span><div class="metric-note">Camps with at least one stand or drive card.</div></div>
       <div class="metric-card"><span class="metric-label">Public / Live Camps</span><span id="publicCount" class="metric-value">0</span><div class="metric-note">Camps marked public or live.</div></div>
       <div class="metric-card"><span class="metric-label">Estimated Pipeline</span><span id="pipelineValue" class="metric-value">$0/mo</span><div class="metric-note">High-intent DCF camps × $9.99 monthly DC+ price.</div></div>
+      <div class="metric-card"><span class="metric-label">Firebase Project</span><span id="firebaseProjectId" class="metric-value" style="font-size:1.15rem">—</span><div id="firebaseProjectNote" class="metric-note">Confirms the dashboard is reading the expected Firestore project.</div></div>
     </section>
 
     <section class="grid-2">
@@ -990,16 +991,58 @@ Output rules:
 - Start with the top 10 prospects per state.`;
     }
 
+    async function loadCampRecordsDirectly() {
+      const records = [];
+      try {
+        if (!window.firebase || !firebase.firestore) return records;
+        const db = firebase.firestore();
+        const snap = await db.collection("camps").get();
+        snap.forEach((doc) => records.push({ campId: doc.id, id: doc.id, ...(doc.data() || {}) }));
+      } catch (error) {
+        console.warn("Direct Firestore camp load failed.", error);
+      }
+      return records;
+    }
+
+    function uniqueCampsById(camps = []) {
+      const byId = new Map();
+      camps.forEach((camp) => {
+        const id = clean(camp && (camp.campId || camp.id));
+        if (!id) return;
+        byId.set(id, { ...camp, campId: id, id });
+      });
+      return Array.from(byId.values());
+    }
+
+    function updateFirebaseProjectDebug() {
+      const projectEl = $("firebaseProjectId");
+      const noteEl = $("firebaseProjectNote");
+      let projectId = "";
+      try {
+        projectId = clean(window.DEERCAMP_FIREBASE_PROJECT_ID || (window.firebase && firebase.apps && firebase.apps.length ? firebase.app().options.projectId : ""));
+      } catch (error) {}
+      if (projectEl) projectEl.textContent = projectId || "unknown";
+      if (noteEl) {
+        noteEl.textContent = projectId === "deercamp-staging"
+          ? "Reading staging Firestore."
+          : (projectId === "deercamp-47c12" ? "Reading production Firestore." : "Unable to confirm Firebase project.");
+      }
+    }
+
     async function loadMetrics() {
       $("loadStatus").textContent = "Loading Firestore camp records...";
       $("loadStatus").className = "status";
+      updateFirebaseProjectDebug();
       try {
-        const camps = await (window.DeerCampCloud && typeof DeerCampCloud.listCamps === "function" ? DeerCampCloud.listCamps({ limit: 1000 }) : []);
+        const cloudCamps = await (window.DeerCampCloud && typeof DeerCampCloud.listCamps === "function" ? DeerCampCloud.listCamps({ limit: 1000 }) : []);
+        const directCamps = await loadCampRecordsDirectly();
+        const camps = uniqueCampsById([...(cloudCamps || []), ...(directCamps || [])]);
         allRows = camps.map(normalizeCamp).filter((row) => row.campId);
         fillSelect("sourceFilter", Array.from(new Set(allRows.map((r)=>r.source))).sort(), "All sources");
         fillSelect("campaignFilter", Array.from(new Set(allRows.map((r)=>r.campaign))).sort(), "All campaigns");
         filteredRows = allRows.slice();
-        $("loadStatus").textContent = `Loaded ${fmtInt(allRows.length)} camp records.`;
+        const attributedCount = allRows.filter((row) => row.campaign && row.campaign !== "uncampaign").length;
+        $("loadStatus").textContent = `Loaded ${fmtInt(allRows.length)} camp records · ${fmtInt(attributedCount)} attributed.`;
         $("loadStatus").className = "status is-good";
         applyFilters();
       } catch (error) {
@@ -1053,6 +1096,15 @@ Output rules:
 
       ["sourceFilter","campaignFilter","tierFilter","searchFilter"].forEach((id) => $(id).addEventListener("input", applyFilters));
       $("refreshBtn").addEventListener("click", loadMetrics);
+      const hardReloadBtn = $("hardReloadBtn");
+      if (hardReloadBtn) hardReloadBtn.addEventListener("click", () => {
+        try {
+          window.sessionStorage.setItem(ADMIN_UNLOCK_STORAGE_KEY, "true");
+          window.location.href = `${window.location.pathname}?v=${Date.now()}`;
+        } catch (error) {
+          window.location.reload();
+        }
+      });
       $("exportBtn").addEventListener("click", exportCsv);
       const lockBtn = $("lockAdminBtn");
       if (lockBtn) lockBtn.addEventListener("click", lockAdminDashboard);
