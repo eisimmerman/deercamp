@@ -3,52 +3,137 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Opening DeerCamp...</title>
+  <meta name="robots" content="noindex" />
+  <title>Opening DeerCamp…</title>
   <style>
-    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif}
-    .card{max-width:560px;margin:24px;padding:28px;border-radius:24px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);box-shadow:0 14px 34px rgba(0,0,0,.12);text-align:center}
-    h1{margin:0 0 10px;color:#452a16}p{margin:0;color:#6b5644;line-height:1.55}.btn{display:inline-flex;align-items:center;justify-content:center;margin-top:18px;min-height:44px;padding:0 16px;border-radius:999px;background:#6a4427;color:#fff;text-decoration:none;font-weight:800}
+    :root {
+      --paper: #f7f1e5;
+      --ink: #231a13;
+      --brown: #6a4427;
+      --green: #2f5d3a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top, rgba(255,255,255,0.35), transparent 42%),
+        linear-gradient(180deg, #ddd3c3 0%, #cfc1aa 100%);
+    }
+
+    .card {
+      width: min(100%, 560px);
+      padding: 28px;
+      border-radius: 24px;
+      background: rgba(247, 241, 229, 0.96);
+      border: 1px solid rgba(106, 68, 39, 0.16);
+      box-shadow: 0 16px 36px rgba(0,0,0,0.16);
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      color: #402717;
+    }
+
+    p {
+      margin: 0 0 18px;
+      line-height: 1.55;
+      color: #5a4331;
+      font-size: 1rem;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: var(--green);
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .small {
+      display: block;
+      margin-top: 14px;
+      color: #6a6157;
+      font-size: 0.9rem;
+      word-break: break-word;
+    }
   </style>
-  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
-  <script src="/firebase-web.js"></script>
 </head>
 <body>
   <main class="card">
-    <h1>Opening DeerCamp...</h1>
-    <p id="status">Looking up this DeerCamp short link.</p>
-    <a id="fallbackLink" class="btn" href="/build.html" hidden>Open DeerCamp</a>
+    <h1>Opening DeerCamp…</h1>
+    <p>Taking you to the free DeerCamp builder.</p>
+    <a id="redirectLink" class="button" href="/build.html">Continue to DeerCamp</a>
+    <span id="redirectNote" class="small"></span>
   </main>
+
   <script>
-    function getShortCode(){
-      const path = String(window.location.pathname || "");
-      const match = path.match(/\/r\/([^/?#]+)/i);
-      if (match && match[1]) return decodeURIComponent(match[1]);
-      const params = new URLSearchParams(window.location.search || "");
-      return String(params.get("code") || params.get("c") || "").trim();
-    }
-    async function openShortLink(){
-      const code = getShortCode();
-      const status = document.getElementById("status");
-      const fallback = document.getElementById("fallbackLink");
-      if (!code) { status.textContent = "This short link is missing a code."; fallback.hidden = false; return; }
-      try {
-        const link = window.DeerCampCloud && typeof DeerCampCloud.getShortLink === "function" ? await DeerCampCloud.getShortLink(code) : null;
-        if (!link || !link.destinationUrl || link.active === false) {
-          status.textContent = "This DeerCamp short link was not found or is no longer active.";
-          fallback.hidden = false;
-          return;
-        }
-        try { await DeerCampCloud.recordShortLinkClick(code, { path: window.location.pathname, referrer: document.referrer }); } catch (error) {}
-        status.textContent = "Opening DeerCamp now...";
-        window.location.replace(link.destinationUrl);
-      } catch (error) {
-        console.warn(error);
-        status.textContent = "Could not open this DeerCamp short link. Try the main DeerCamp builder.";
-        fallback.hidden = false;
+    (function redirectDeerCampCampaignLink() {
+      const pathParts = window.location.pathname.split('/').filter(Boolean);
+      const rawSlug = pathParts[pathParts.length - 1] || '';
+      const slug = rawSlug.trim().toLowerCase();
+      const campaignId = slug ? slug.toUpperCase() : '';
+
+      const existing = new URLSearchParams(window.location.search || '');
+      const params = new URLSearchParams();
+
+      if (campaignId) {
+        params.set('ref', campaignId);
+        params.set('campaignId', campaignId);
+        params.set('cid', campaignId);
+        params.set('dc_campaign', campaignId);
+        params.set('utm_content', campaignId);
+        params.set('prospectId', campaignId);
       }
-    }
-    openShortLink();
+
+      const isWiTavern = /^wi-tavern-\d{3}$/i.test(slug);
+      if (isWiTavern) {
+        params.set('utm_source', 'wi-tavern');
+        params.set('utm_medium', 'qr-poster');
+        params.set('utm_campaign', 'wi-tavern-partners');
+        params.set('utm_term', 'partner-qr');
+        params.set('channel', 'qr');
+        params.set('source', 'wi-tavern');
+        params.set('medium', 'qr-poster');
+        params.set('campaignName', 'WI Tavern Partners');
+        params.set('campaignType', 'Tavern Partner QR Poster');
+      } else if (slug) {
+        params.set('utm_source', 'partner');
+        params.set('utm_medium', 'short-link');
+        params.set('utm_campaign', slug);
+        params.set('channel', 'short-link');
+        params.set('source', 'partner');
+        params.set('medium', 'short-link');
+      }
+
+      existing.forEach((value, key) => {
+        if (value && !params.has(key)) params.set(key, value);
+      });
+
+      const destination = new URL('/build.html', window.location.origin);
+      params.forEach((value, key) => destination.searchParams.set(key, value));
+
+      const link = document.getElementById('redirectLink');
+      const note = document.getElementById('redirectNote');
+      if (link) link.setAttribute('href', destination.pathname + destination.search);
+      if (note) note.textContent = campaignId ? `Campaign: ${campaignId}` : 'No campaign code found.';
+
+      window.location.replace(destination.toString());
+    })();
   </script>
 </body>
 </html>
