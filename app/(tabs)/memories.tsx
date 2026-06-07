@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  SafeAreaView,
   StyleSheet,
   Text,
   View,
@@ -13,7 +14,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
 import { auth } from "@/lib/firebase";
-import { getLocalMemories, type LocalMemoryItem } from "@/lib/localMemories";
+import {
+  getLocalMemories,
+  hasConfirmedCampFeedPublish,
+  type LocalMemoryItem,
+} from "@/lib/localMemories";
 import {
   getUploadQueueTotals,
   type UploadQueueTotals,
@@ -33,22 +38,28 @@ function formatWhen(item: EntryItem) {
   return "";
 }
 
+function isConfirmedPublished(item?: EntryItem | null) {
+  return hasConfirmedCampFeedPublish(item);
+}
+
 function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
-    if (item.syncStatus === "synced") return "Photo published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Photo safely stored.";
-    if (item.syncStatus === "failed") return "Photo saved locally. Retry when connected.";
-    return "Photo saved on this phone. DeerCamp will publish it when service is available.";
+    if (isConfirmedPublished(item)) return "Photo published to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "synced") return "Photo saved locally. Publish confirmation is missing. Tap Retry Publish.";
+    if (item.syncStatus === "publishing") return "Photo is publishing to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "failed") return "Photo saved locally. Publish needs retry when connected.";
+    return "Photo saved locally. DeerCamp will publish it when service is available.";
   }
 
   if (item.type === "fieldMemory") {
-    if (item.syncStatus === "synced") return "Photo + voice published to CampFeed.";
-    if (item.syncStatus === "publishing") return "Field Memory safely stored.";
-    if (item.syncStatus === "failed") return "Field Memory saved locally. Retry when connected.";
-    return "Photo + voice saved on this phone. DeerCamp will publish it when service is available.";
+    if (isConfirmedPublished(item)) return "Photo + voice published to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "synced") return "Photo + voice saved locally. Publish confirmation is missing. Tap Retry Publish.";
+    if (item.syncStatus === "publishing") return "Field Memory is publishing to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "failed") return "Field Memory saved locally. Publish needs retry when connected.";
+    return "Photo + voice saved locally. DeerCamp will publish it when service is available.";
   }
 
-  return item.details?.trim() || "Saved on this phone.";
+  return item.details?.trim() || "Saved locally.";
 }
 
 const emptyUploadTotals: UploadQueueTotals = {
@@ -255,7 +266,7 @@ export default function MemoriesScreen() {
   );
 
   const latestFieldMemory = visibleFieldMemories[0] ?? null;
-  const latestFieldMemoryPublished = latestFieldMemory?.syncStatus === "synced";
+  const latestFieldMemoryPublished = isConfirmedPublished(latestFieldMemory);
   const latestFieldMemoryFailed = latestFieldMemory?.syncStatus === "failed";
   const latestFieldMemoryPending =
     latestFieldMemory?.syncStatus === "pending" ||
@@ -263,11 +274,15 @@ export default function MemoriesScreen() {
 
   const allVisibleFieldMemoriesPublished =
     visibleFieldMemories.length > 0 &&
-    visibleFieldMemories.every((item) => item.syncStatus === "synced");
+    visibleFieldMemories.every((item) => isConfirmedPublished(item));
 
   const hasLocalPublishing = latestFieldMemory?.syncStatus === "publishing";
   const hasLocalPending = latestFieldMemory?.syncStatus === "pending";
-  const hasFailedWork = latestFieldMemoryFailed;
+  const hasUnconfirmedSyncedMemory =
+    latestFieldMemory?.syncStatus === "synced" &&
+    !isConfirmedPublished(latestFieldMemory);
+
+  const hasFailedWork = latestFieldMemoryFailed || hasUnconfirmedSyncedMemory;
 
   // The header represents the current/latest capture. Older local test debris
   // should not keep "Working behind the curtain" cycling after the latest
@@ -292,12 +307,11 @@ export default function MemoriesScreen() {
         ? "Uploading to CampFeed…"
         : hasFailedWork
           ? "Some field memories need retry."
-          : latestFieldMemoryPublished ||
-              allVisibleFieldMemoriesPublished ||
-              uploadTotals.uploaded > 0 ||
-              visibleFieldMemories.some((item) => item.syncStatus === "synced")
+          : latestFieldMemoryPublished || allVisibleFieldMemoriesPublished
             ? "All Field Memories published to CampFeed."
-            : "No field memories waiting.";
+            : latestFieldMemoryPending || hasLocalPending || hasLocalPublishing
+              ? "Field Memory saved locally. DeerCamp will publish when service is available."
+              : "No field memories waiting.";
 
   const activeUploadKey = latestFieldMemory?.id || "field-memory-upload-queue";
 
@@ -343,9 +357,9 @@ export default function MemoriesScreen() {
     const statusLabel =
       item.syncStatus === "publishing"
         ? "Publishing to CampFeed"
-        : item.syncStatus === "synced"
+        : isConfirmedPublished(item)
           ? "Published to CampFeed"
-          : item.syncStatus === "failed"
+          : item.syncStatus === "synced" || item.syncStatus === "failed"
             ? "Upload needs retry"
             : "Ready to upload";
 
@@ -377,7 +391,14 @@ export default function MemoriesScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.topNav}>
+        <Pressable style={styles.backBtn} onPress={goAdd}>
+          <Ionicons name="arrow-back" size={18} color="white" />
+          <Text style={styles.backBtnText}>Back</Text>
+        </Pressable>
+      </View>
+
       <Text style={styles.title}>Upload Field Memories</Text>
 
       <Pressable
@@ -445,12 +466,36 @@ export default function MemoriesScreen() {
           ListFooterComponent={<View style={{ height: 90 }} />}
         />
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B0E12", padding: 16 },
+  container: { flex: 1, backgroundColor: "#0B0E12", paddingHorizontal: 16, paddingBottom: 16 },
+
+  topNav: {
+    alignItems: "flex-start",
+    paddingTop: 8,
+    marginBottom: 6,
+  },
+
+  backBtn: {
+    minHeight: 40,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+  },
+
+  backBtnText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "900",
+  },
 
   title: {
     color: "white",

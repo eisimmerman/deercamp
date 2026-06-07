@@ -51,6 +51,9 @@ export type PublishedFeedResult = {
   audioUrl?: string;
   title: string;
   caption: string;
+  audioDurationMs?: number;
+  audioDurationSeconds?: number;
+  platform?: string;
 };
 
 function requireSignedInUser() {
@@ -249,6 +252,20 @@ async function uriToBlob(uri: string): Promise<Blob> {
   return await response.blob();
 }
 
+function assertUsableBlob(blob: Blob, label: string, uri: string) {
+  if (!blob || Number(blob.size || 0) <= 0) {
+    throw new Error(`${label} local file is empty or unreadable: ${uri}`);
+  }
+}
+
+function assertDownloadUrl(value: string, label: string) {
+  const clean = String(value || "").trim();
+  if (!clean) {
+    throw new Error(`${label} upload did not return a Firebase Storage download URL.`);
+  }
+  return clean;
+}
+
 function trimOrFallback(value: string | null | undefined, fallback: string) {
   const clean = String(value || "").trim();
   return clean || fallback;
@@ -425,13 +442,24 @@ export async function publishUploadedMemoryToFeed(
     })
   );
 
+  const feedDocId = String(docRef?.id || "").trim();
+  if (!feedDocId) {
+    throw new Error("CampFeed publish was not confirmed because Firestore did not return a feed post id.");
+  }
+
+  const audioDurationMs = audioUrl ? getMemoryAudioDurationMs(memory) : 0;
+  const platform = getMemoryPlatform(memory);
+
   return {
-    feedDocId: docRef.id,
+    feedDocId,
     campId,
     imageUrl,
     audioUrl: audioUrl || undefined,
     title,
     caption,
+    audioDurationMs: audioDurationMs || undefined,
+    audioDurationSeconds: audioDurationMs ? Math.max(1, Math.round(audioDurationMs / 1000)) : undefined,
+    platform,
   };
 }
 
@@ -473,13 +501,14 @@ export async function publishMemoryToFeed(
   const imageContentType = getImageContentType(imageExt);
   const imagePath = `feed/${campId}/${user.uid}/${memory.id}/photo.${imageExt}`;
   const imageBlob = await uriToBlob(imageUri);
+  assertUsableBlob(imageBlob, "Photo", imageUri);
   const imageRef = ref(storage, imagePath);
 
   await uploadBytes(imageRef, imageBlob, {
     contentType: imageContentType,
   });
 
-  const imageUrl = await getDownloadURL(imageRef);
+  const imageUrl = assertDownloadUrl(await getDownloadURL(imageRef), "Photo");
 
   let audioUrl = "";
   let audioPath = "";
@@ -489,13 +518,14 @@ export async function publishMemoryToFeed(
     const audioContentType = getAudioContentType(audioExt);
     audioPath = `feed/${campId}/${user.uid}/${memory.id}/audio.${audioExt}`;
     const audioBlob = await uriToBlob(audioUri);
+    assertUsableBlob(audioBlob, "Voice memory", audioUri);
     const audioRef = ref(storage, audioPath);
 
     await uploadBytes(audioRef, audioBlob, {
       contentType: audioContentType,
     });
 
-    audioUrl = await getDownloadURL(audioRef);
+    audioUrl = assertDownloadUrl(await getDownloadURL(audioRef), "Voice memory");
   }
 
   const docRef = await addDoc(
@@ -513,12 +543,23 @@ export async function publishMemoryToFeed(
     })
   );
 
+  const feedDocId = String(docRef?.id || "").trim();
+  if (!feedDocId) {
+    throw new Error("CampFeed publish was not confirmed because Firestore did not return a feed post id.");
+  }
+
+  const audioDurationMs = audioUrl ? getMemoryAudioDurationMs(memory) : 0;
+  const platform = getMemoryPlatform(memory);
+
   return {
-    feedDocId: docRef.id,
+    feedDocId,
     campId,
     imageUrl,
     audioUrl: audioUrl || undefined,
     title: baseTitle,
     caption: baseCaption,
+    audioDurationMs: audioDurationMs || undefined,
+    audioDurationSeconds: audioDurationMs ? Math.max(1, Math.round(audioDurationMs / 1000)) : undefined,
+    platform,
   };
 }

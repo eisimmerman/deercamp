@@ -109,8 +109,33 @@ function resolveMemoryCampName(campId?: string | null, value?: string | null) {
   return "Selected DeerCamp";
 }
 
-function normalizeMemory(item: any): LocalMemoryItem {
+
+export function hasConfirmedCampFeedPublish(item?: Partial<LocalMemoryItem> | null) {
+  if (!item || item.syncStatus !== "synced") return false;
+
+  const feedDocId = String(item.feedDocId || "").trim();
+  const photoUrl = String(item.photoUrl || "").trim();
+
+  return Boolean(feedDocId && photoUrl);
+}
+
+function withPublishGuard(item: LocalMemoryItem): LocalMemoryItem {
+  if (item.syncStatus !== "synced" || hasConfirmedCampFeedPublish(item)) {
+    return item;
+  }
+
   return {
+    ...item,
+    syncStatus: "failed",
+    details: "Saved locally. Publish confirmation is missing. Tap Retry Publish when service is available.",
+    publishError:
+      item.publishError ||
+      "CampFeed publish was not confirmed. No feed post id and photo URL were saved locally.",
+  };
+}
+
+function normalizeMemory(item: any): LocalMemoryItem {
+  const normalized: LocalMemoryItem = {
     ...item,
     campId: resolveMemoryCampId(item?.campId),
     targetCampName: resolveMemoryCampName(item?.campId, item?.targetCampName),
@@ -123,6 +148,8 @@ function normalizeMemory(item: any): LocalMemoryItem {
       (Array.isArray(item?.segments) ? item.segments.length : undefined),
     transcriptionStatus: item?.transcriptionStatus ?? undefined,
   };
+
+  return withPublishGuard(normalized);
 }
 
 async function readAll(): Promise<LocalMemoryItem[]> {
@@ -218,9 +245,10 @@ export async function saveLocalMemory(item: LocalMemoryItem) {
   };
 
   const items = await readAll();
-  const next = [normalized, ...items.filter((existing) => existing.id !== item.id)];
+  const guarded = withPublishGuard(normalized);
+  const next = [guarded, ...items.filter((existing) => existing.id !== item.id)];
   await writeAll(next);
-  return normalized;
+  return guarded;
 }
 
 export async function removeLocalMemory(id: string) {
@@ -240,7 +268,7 @@ export async function updateLocalMemory(
       : {}),
   };
   const next = items.map((item) =>
-    item.id === id ? { ...item, ...sanitizedPatch } : item
+    item.id === id ? withPublishGuard({ ...item, ...sanitizedPatch }) : item
   );
   await writeAll(next);
 }
@@ -292,6 +320,7 @@ export async function setActiveCampId(campId?: string | null, campName?: string 
 export async function markMemoryPublishing(id: string) {
   await updateLocalMemory(id, {
     syncStatus: "publishing",
+    details: "Publishing to CampFeed. Saved locally as backup until upload completes.",
     publishError: undefined,
   });
 }
@@ -301,19 +330,33 @@ export async function markMemoryPublished(
   data: {
     feedDocId: string;
     campId?: string;
-  targetCampName?: string;
+    targetCampName?: string;
     photoUrl?: string;
     audioUrl?: string;
     voiceUrl?: string;
   }
 ) {
+  const feedDocId = String(data.feedDocId || "").trim();
+  const photoUrl = String(data.photoUrl || "").trim();
+
+  if (!feedDocId || !photoUrl) {
+    const message = !feedDocId
+      ? "CampFeed publish was not confirmed because the feed post id is missing."
+      : "CampFeed publish was not confirmed because the uploaded photo URL is missing.";
+
+    await markMemoryPublishFailed(id, message);
+    throw new Error(message);
+  }
+
   await updateLocalMemory(id, {
     syncStatus: "synced",
-    feedDocId: data.feedDocId,
+    feedDocId,
     campId: data.campId,
-    photoUrl: data.photoUrl,
+    targetCampName: data.targetCampName,
+    photoUrl,
     audioUrl: data.audioUrl,
     voiceUrl: data.voiceUrl || data.audioUrl,
+    details: "Published to CampFeed. Saved locally as backup.",
     publishedAt: Date.now(),
     publishError: undefined,
   });
@@ -322,6 +365,7 @@ export async function markMemoryPublished(
 export async function markMemoryPublishFailed(id: string, message: string) {
   await updateLocalMemory(id, {
     syncStatus: "failed",
+    details: "Saved locally. Publish needs retry when service is available.",
     publishError: String(message || "Publish failed.").trim() || "Publish failed.",
   });
 }
