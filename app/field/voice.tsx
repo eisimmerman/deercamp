@@ -379,7 +379,7 @@ export default function FieldVoiceScreen() {
     await saveLocalMemory({
       id: memoryId,
       title: "Field Photo",
-      details: "Photo saved on this phone. DeerCamp will publish it when service is available.",
+      details: "Photo saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
       authorName,
@@ -433,7 +433,7 @@ export default function FieldVoiceScreen() {
     const payload: any = {
       id: memoryId,
       title: "Field Memory",
-      details: "Photo + voice saved on this phone. DeerCamp will publish it when service is available.",
+      details: "Photo + voice saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
       authorName,
@@ -557,7 +557,7 @@ export default function FieldVoiceScreen() {
 
   function onGoBack() {
     clearSegmentTimer();
-    router.back();
+    router.replace("/(tabs)/memories");
   }
 
   if (!user || user.isAnonymous) {
@@ -605,7 +605,7 @@ export default function FieldVoiceScreen() {
           <Text style={styles.primaryBtnText}>Allow Camera</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ marginTop: 14 }}>
+        <Pressable onPress={onGoBack} style={{ marginTop: 14 }}>
           <Text style={styles.secondaryText}>Cancel</Text>
         </Pressable>
       </View>
@@ -630,7 +630,7 @@ export default function FieldVoiceScreen() {
           <Text style={styles.primaryBtnText}>Allow Microphone</Text>
         </Pressable>
 
-        <Pressable onPress={() => router.back()} style={{ marginTop: 14 }}>
+        <Pressable onPress={onGoBack} style={{ marginTop: 14 }}>
           <Text style={styles.secondaryText}>Back</Text>
         </Pressable>
       </View>

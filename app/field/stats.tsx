@@ -5,6 +5,7 @@ import {
   Alert,
   Animated,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -82,6 +83,7 @@ async function saveStandNames(campId: string, names: string[]) {
 const STAT_OPTIONS: CampStatType[] = ["buckAm", "doeAm", "buckPm", "doePm"];
 
 const MAX_SIGHTING_COUNT = 99;
+const COUNT_OPTIONS = Array.from({ length: MAX_SIGHTING_COUNT + 1 }, (_, index) => index);
 
 export default function CampStatsMgrScreen() {
   const user = auth.currentUser;
@@ -261,15 +263,12 @@ export default function CampStatsMgrScreen() {
     );
   }
 
-  function changeSightingCount(delta: number) {
+  function selectSightingCount(nextCount: number) {
     setLastSaved("");
     setUnsavedWarning("");
     setCountSaved(false);
     setCountReadyToSave(true);
-    setSightingCount((current) => {
-      const next = current + delta;
-      return Math.min(MAX_SIGHTING_COUNT, Math.max(0, next));
-    });
+    setSightingCount(Math.min(MAX_SIGHTING_COUNT, Math.max(0, nextCount)));
   }
 
   function updateStandName(index: number, value: string) {
@@ -401,11 +400,12 @@ export default function CampStatsMgrScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.topRow}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
           <Text style={styles.backButtonText}>Back</Text>
@@ -544,39 +544,48 @@ export default function CampStatsMgrScreen() {
           {selectedStand?.name || "Selected stand"} • {CAMP_STAT_LABELS[selectedStatType]}
         </Text>
 
-        <View style={styles.counterRow}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.counterButton,
-              sightingCount <= 0 && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-            disabled={saving || sightingCount <= 0}
-            onPress={() => changeSightingCount(-1)}
-          >
-            <Text style={styles.counterButtonText}>−</Text>
-          </Pressable>
-
+        <View style={styles.counterPickerWrap}>
           <View style={styles.counterDisplay}>
             <Text style={styles.counterNumber}>{sightingCount}</Text>
             <Text style={styles.counterLabel}>seen</Text>
           </View>
 
-          <Pressable
-            style={({ pressed }) => [
-              styles.counterButton,
-              sightingCount >= MAX_SIGHTING_COUNT && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-            disabled={saving || sightingCount >= MAX_SIGHTING_COUNT}
-            onPress={() => changeSightingCount(1)}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.counterWheel}
           >
-            <Text style={styles.counterButtonText}>+</Text>
-          </Pressable>
+            {COUNT_OPTIONS.map((count) => {
+              const selected = sightingCount === count;
+
+              return (
+                <Pressable
+                  key={`count-${count}`}
+                  style={({ pressed }) => [
+                    styles.countWheelOption,
+                    selected && styles.countWheelOptionSelected,
+                    pressed && styles.pressed,
+                    saving && styles.disabled,
+                  ]}
+                  disabled={saving}
+                  onPress={() => selectSightingCount(count)}
+                >
+                  <Text
+                    style={[
+                      styles.countWheelOptionText,
+                      selected && styles.countWheelOptionTextSelected,
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
 
         <Text style={styles.saveHint}>
-          Set the number seen, including zero when you saw none, then save once for each sighting type you counted.
+          Spin the number row, tap the number seen, then save once for each sighting type you counted.
         </Text>
 
         {!!unsavedWarning && (
@@ -686,11 +695,17 @@ export default function CampStatsMgrScreen() {
           <Text style={styles.clearTestDataButtonText}>Clear Local CSM Test Data</Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#0B0E12",
+  },
+
   screen: {
     flex: 1,
     backgroundColor: "#0B0E12",
@@ -698,7 +713,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 18,
-    paddingTop: 14,
+    paddingTop: 8,
     paddingBottom: 30,
   },
 
@@ -719,23 +734,26 @@ const styles = StyleSheet.create({
 
   topRow: {
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 12,
+    zIndex: 20,
+    elevation: 20,
   },
 
   backButton: {
-    minHeight: 40,
+    minHeight: 48,
+    minWidth: 92,
     borderRadius: 999,
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(255,255,255,0.14)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.22)",
   },
 
   backButtonText: {
     color: "white",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "900",
   },
 
@@ -973,36 +991,14 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  counterRow: {
-    flexDirection: "row",
-    alignItems: "stretch",
-    justifyContent: "center",
+  counterPickerWrap: {
     gap: 12,
     marginBottom: 14,
   },
 
-  counterButton: {
-    width: 82,
-    minHeight: 82,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.10)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-  },
-
-  counterButtonText: {
-    color: "white",
-    fontSize: 42,
-    fontWeight: "900",
-    lineHeight: 48,
-  },
-
   counterDisplay: {
-    flex: 1,
-    minHeight: 82,
-    borderRadius: 24,
+    minHeight: 92,
+    borderRadius: 26,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.92)",
@@ -1012,9 +1008,9 @@ const styles = StyleSheet.create({
 
   counterNumber: {
     color: "#0B0E12",
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: "900",
-    lineHeight: 54,
+    lineHeight: 62,
   },
 
   counterLabel: {
@@ -1024,6 +1020,42 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1,
     textTransform: "uppercase",
+  },
+
+  counterWheel: {
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+    gap: 8,
+  },
+
+  countWheelOption: {
+    width: 58,
+    minHeight: 58,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.13)",
+  },
+
+  countWheelOptionSelected: {
+    width: 72,
+    minHeight: 72,
+    borderRadius: 22,
+    backgroundColor: "#D0B17A",
+    borderColor: "#D0B17A",
+  },
+
+  countWheelOptionText: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+
+  countWheelOptionTextSelected: {
+    color: "#0B0E12",
+    fontSize: 30,
   },
 
   saveHint: {
