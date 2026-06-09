@@ -1,6 +1,7 @@
 // app/(tabs)/index.tsx
 import React from "react";
 import {
+  Animated,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +16,56 @@ export default function HomeScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const signedIn = !!user && !user.isAnonymous;
+  const [showIntro, setShowIntro] = React.useState(false);
+  const introOpacity = React.useRef(new Animated.Value(1)).current;
+  const hoofScale = React.useRef(new Animated.Value(1)).current;
+
+  React.useEffect(() => {
+    if (!signedIn) {
+      setShowIntro(false);
+      introOpacity.setValue(1);
+      hoofScale.setValue(1);
+      return undefined;
+    }
+
+    setShowIntro(true);
+    introOpacity.setValue(1);
+    hoofScale.setValue(1);
+
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(hoofScale, {
+          toValue: 1.08,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+        Animated.timing(hoofScale, {
+          toValue: 1,
+          duration: 650,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    pulse.start();
+
+    const fadeTimer = setTimeout(() => {
+      Animated.timing(introOpacity, {
+        toValue: 0,
+        duration: 450,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          setShowIntro(false);
+        }
+      });
+    }, 2000);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      pulse.stop();
+    };
+  }, [hoofScale, introOpacity, signedIn]);
 
   if (!signedIn) {
     return (
@@ -35,11 +86,12 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
       <View style={styles.header}>
         <Text style={styles.brand}>DeerCamp</Text>
         <Text style={styles.appName}>CampFieldApp</Text>
@@ -143,7 +195,32 @@ export default function HomeScreen() {
           <Text style={styles.quickActionSecondaryText}>Saved Memories</Text>
         </Pressable>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {showIntro && (
+        <Animated.View
+          style={[styles.introOverlay, { opacity: introOpacity }]}
+          pointerEvents="auto"
+        >
+          <Text style={styles.introBrand}>DeerCamp</Text>
+          <Text style={styles.introAppName}>CampFieldApp</Text>
+          <Text style={styles.introSectionLabel}>FIELD MODE</Text>
+
+          <Animated.View
+            style={[styles.introHoofPulse, { transform: [{ scale: hoofScale }] }]}
+          >
+            <View style={styles.hoofMark}>
+              <View style={[styles.hoofToe, styles.hoofToeLeft]} />
+              <View style={[styles.hoofToe, styles.hoofToeRight]} />
+              <View style={[styles.hoofDewClaw, styles.hoofDewClawLeft]} />
+              <View style={[styles.hoofDewClaw, styles.hoofDewClawRight]} />
+            </View>
+          </Animated.View>
+
+          <Text style={styles.introSubtext}>Capture memories. Log field stats.</Text>
+        </Animated.View>
+      )}
+    </View>
   );
 }
 
@@ -151,6 +228,115 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#0B0E12",
+  },
+
+  introOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    elevation: 20,
+    backgroundColor: "#0B0E12",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 26,
+  },
+
+  introBrand: {
+    color: "white",
+    fontSize: 52,
+    fontWeight: "900",
+    letterSpacing: -1,
+    textAlign: "center",
+  },
+
+  introAppName: {
+    marginTop: 8,
+    color: "#D0B17A",
+    fontSize: 29,
+    fontWeight: "900",
+    letterSpacing: -0.2,
+    textAlign: "center",
+  },
+
+  introSectionLabel: {
+    marginTop: 18,
+    color: "rgba(255,255,255,0.44)",
+    fontSize: 15,
+    fontWeight: "900",
+    letterSpacing: 5,
+    textAlign: "center",
+  },
+
+  introHoofPulse: {
+    marginTop: 42,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 2,
+    borderColor: "rgba(208,177,122,0.56)",
+    backgroundColor: "rgba(208,177,122,0.10)",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#D0B17A",
+    shadowOpacity: 0.34,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 0 },
+  },
+
+  hoofMark: {
+    width: 84,
+    height: 104,
+    position: "relative",
+  },
+
+  hoofToe: {
+    position: "absolute",
+    top: 0,
+    width: 31,
+    height: 74,
+    borderRadius: 24,
+    backgroundColor: "#D0B17A",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.72)",
+  },
+
+  hoofToeLeft: {
+    left: 7,
+    transform: [{ rotate: "-9deg" }],
+  },
+
+  hoofToeRight: {
+    right: 7,
+    transform: [{ rotate: "9deg" }],
+  },
+
+  hoofDewClaw: {
+    position: "absolute",
+    bottom: 2,
+    width: 23,
+    height: 33,
+    borderRadius: 18,
+    backgroundColor: "#D0B17A",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.68)",
+  },
+
+  hoofDewClawLeft: {
+    left: 14,
+    transform: [{ rotate: "-20deg" }],
+  },
+
+  hoofDewClawRight: {
+    right: 14,
+    transform: [{ rotate: "20deg" }],
+  },
+
+  introSubtext: {
+    marginTop: 34,
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 23,
+    textAlign: "center",
   },
 
   content: {
