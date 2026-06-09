@@ -266,6 +266,7 @@ export default function MemoriesScreen() {
   );
 
   const latestFieldMemory = visibleFieldMemories[0] ?? null;
+  const latestPublishError = String(latestFieldMemory?.publishError || "").trim();
   const latestFieldMemoryPublished = isConfirmedPublished(latestFieldMemory);
   const latestFieldMemoryFailed = latestFieldMemory?.syncStatus === "failed";
   const latestFieldMemoryPending =
@@ -304,7 +305,7 @@ export default function MemoriesScreen() {
     uploadBusy && showDeferredUploadMessage
       ? "Field Memory safely stored."
       : uploadBusy
-        ? "Uploading to CampFeed…"
+        ? "Uploading to CampFeedâ€¦"
         : hasFailedWork
           ? "Some field memories need retry."
           : latestFieldMemoryPublished || allVisibleFieldMemoriesPublished
@@ -379,13 +380,19 @@ export default function MemoriesScreen() {
             {title}
           </Text>
           <Text style={styles.cardMeta} numberOfLines={1}>
-            {metaBits.join(" • ")}
+            {metaBits.join(" â€¢ ")}
           </Text>
         </View>
 
         <Text style={styles.cardBody} numberOfLines={2}>
           {details}
         </Text>
+
+        {item.publishError ? (
+          <Text style={styles.cardError} numberOfLines={4}>
+            Publish error: {item.publishError}
+          </Text>
+        ) : null}
       </Pressable>
     );
   };
@@ -424,10 +431,16 @@ export default function MemoriesScreen() {
 
         <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
+        {latestPublishError ? (
+          <Text style={styles.publishErrorText} numberOfLines={4}>
+            Last publish error: {latestPublishError}
+          </Text>
+        ) : null}
+
         {uploadBusy && !showDeferredUploadMessage ? (
           <View style={styles.publishingRow}>
             <ActivityIndicator color="white" />
-            <Text style={styles.publishingText}>Working behind the curtain…</Text>
+            <Text style={styles.publishingText}>Working behind the curtainâ€¦</Text>
           </View>
         ) : null}
 
@@ -533,6 +546,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "800",
     lineHeight: 20,
+    marginBottom: 12,
+  },
+
+  publishErrorText: {
+    color: "#FCA5A5",
+    fontSize: 12,
+    fontWeight: "800",
+    lineHeight: 17,
+    marginTop: -4,
     marginBottom: 12,
   },
 
@@ -668,5 +690,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
+  },
+
+  cardError: {
+    color: "#FCA5A5",
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "800",
   },
 });
