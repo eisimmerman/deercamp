@@ -21,6 +21,47 @@ import {
 
 let uploadWorkerRunning = false;
 
+function compactUriForDebug(uri?: string | null) {
+  const clean = String(uri || "").trim();
+  if (!clean) return "missing-uri";
+
+  const scheme = clean.includes(":") ? clean.split(":")[0] : "unknown";
+  const tail = clean.length > 72 ? clean.slice(-72) : clean;
+  return `${scheme}:...${tail}`;
+}
+
+function getErrorMessage(error: any) {
+  const pieces = [
+    error?.code ? `code=${error.code}` : "",
+    error?.name ? `name=${error.name}` : "",
+    error?.message || String(error || ""),
+  ]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  return pieces.join(" | ") || "Unknown upload error.";
+}
+
+function buildDetailedUploadError(params: {
+  item: UploadQueueItem;
+  stage: string;
+  storagePath?: string;
+  error: any;
+}) {
+  const rawMessage = getErrorMessage(params.error);
+  const mediaType = params.item.mediaType || "unknown-media";
+  const uri = compactUriForDebug(params.item.uri);
+  const storagePath = String(params.storagePath || "not-created").trim();
+
+  return [
+    `Upload failed during ${params.stage}.`,
+    `Media: ${mediaType}.`,
+    `Storage path: ${storagePath}.`,
+    `Local URI: ${uri}.`,
+    `Error: ${rawMessage}`,
+  ].join(" ");
+}
+
 async function uriToBlobWithXhr(uri: string): Promise<Blob> {
   return await new Promise<Blob>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -327,14 +368,20 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
     const results = [];
 
     for (const item of items) {
+      let stage = "starting upload queue item";
+      let storagePath = "";
+
       try {
+        stage = "marking queue item uploading";
         await markUploadItemUploading(item.id);
         await patchMemoryUploading(item);
         await updateMemoryUploadState(item.memoryId);
 
+        stage = "reading local file into blob";
         const blob = await uriToBlob(item.uri);
 
-        const storagePath = getStoragePath({
+        stage = "building Firebase Storage path";
+        storagePath = getStoragePath({
           authorId: item.authorId,
           memoryId: item.memoryId,
           segmentId: item.segmentId,
@@ -343,6 +390,7 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
 
         const storageRef = ref(storage, storagePath);
 
+        stage = "uploading blob to Firebase Storage";
         await uploadBytes(storageRef, blob, {
           contentType: getContentType(item.mediaType),
           customMetadata: {
@@ -354,8 +402,10 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
           },
         });
 
+        stage = "getting Firebase Storage download URL";
         const uploadedUrl = await getDownloadURL(storageRef);
 
+        stage = "patching local memory after upload";
         await markUploadItemUploaded(item.id, uploadedUrl);
         await patchMemoryAfterUpload(item, uploadedUrl);
         await updateMemoryUploadState(item.memoryId);
@@ -366,10 +416,27 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
           uploadedUrl,
         });
       } catch (error: any) {
-        const message =
-          error?.message || error?.code || "Segment upload failed.";
+        const message = buildDetailedUploadError({
+          item,
+          stage,
+          storagePath,
+          error,
+        });
 
-        console.error("upload queue item failed:", item.id, message);
+        console.error(
+          "upload queue item failed:",
+          JSON.stringify({
+            id: item.id,
+            memoryId: item.memoryId,
+            mediaType: item.mediaType,
+            segmentId: item.segmentId,
+            segmentIndex: item.segmentIndex,
+            stage,
+            storagePath,
+            uri: compactUriForDebug(item.uri),
+            error: getErrorMessage(error),
+          })
+        );
 
         await markUploadItemFailed(item.id, message);
         await patchMemoryAfterFailure(item, message);
