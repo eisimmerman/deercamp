@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
@@ -35,6 +36,70 @@ import {
 import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
+
+const FIELD_MEMORY_DIR = `${FileSystem.documentDirectory || ""}deercamp-field-memories/`;
+
+function getUriExtension(uri: string, fallback: string) {
+  const clean = String(uri || "").split("?")[0]?.split("#")[0] || "";
+  const match = clean.match(/\.([a-zA-Z0-9]+)$/);
+  return match?.[1]?.toLowerCase() || fallback;
+}
+
+async function ensureDirectoryExists(directoryUri: string) {
+  const info = await FileSystem.getInfoAsync(directoryUri);
+  if (!info.exists) {
+    await FileSystem.makeDirectoryAsync(directoryUri, { intermediates: true });
+  }
+}
+
+async function persistFileForUpload(params: {
+  sourceUri: string;
+  memoryId: string;
+  fileName: string;
+}) {
+  const sourceUri = String(params.sourceUri || "").trim();
+  const memoryId = String(params.memoryId || "").trim();
+  const fileName = String(params.fileName || "").trim();
+
+  if (!sourceUri) {
+    throw new Error("Cannot persist upload file because source URI is missing.");
+  }
+
+  if (!memoryId || !fileName) {
+    throw new Error("Cannot persist upload file because memory id or file name is missing.");
+  }
+
+  const sourceInfo = await FileSystem.getInfoAsync(sourceUri, { size: true });
+  if (!sourceInfo.exists) {
+    throw new Error(`Cannot persist upload file because source file does not exist: ${sourceUri}`);
+  }
+
+  const memoryDirectory = `${FIELD_MEMORY_DIR}${memoryId}/`;
+  await ensureDirectoryExists(FIELD_MEMORY_DIR);
+  await ensureDirectoryExists(memoryDirectory);
+
+  const destinationUri = `${memoryDirectory}${fileName}`;
+
+  if (sourceUri !== destinationUri) {
+    const destinationInfo = await FileSystem.getInfoAsync(destinationUri);
+    if (destinationInfo.exists) {
+      await FileSystem.deleteAsync(destinationUri, { idempotent: true });
+    }
+
+    await FileSystem.copyAsync({
+      from: sourceUri,
+      to: destinationUri,
+    });
+  }
+
+  const copiedInfo = await FileSystem.getInfoAsync(destinationUri, { size: true });
+  if (!copiedInfo.exists) {
+    throw new Error(`Cannot persist upload file because copy was not created: ${destinationUri}`);
+  }
+
+  return destinationUri;
+}
+
 
 function getFieldMemoryPlatformLabel() {
   if (Platform.OS === "ios") return "iOS";
@@ -375,6 +440,11 @@ export default function FieldVoiceScreen() {
     const memoryId = `local-photo-${authorId}-${Date.now()}`;
     const now = Date.now();
     const campId = await getActiveCampId();
+    const persistedPhotoUri = await persistFileForUpload({
+      sourceUri: photoUri,
+      memoryId,
+      fileName: "photo.jpg",
+    });
 
     await saveLocalMemory({
       id: memoryId,
@@ -385,7 +455,7 @@ export default function FieldVoiceScreen() {
       authorName,
       syncStatus: "pending",
       type: "photo",
-      photoUri,
+      photoUri: persistedPhotoUri,
       captureVersion: 2,
       isSegmented: false,
       segmentCount: 0,
@@ -401,7 +471,7 @@ export default function FieldVoiceScreen() {
         memoryId,
         segmentId: "photo-main",
         segmentIndex: -1,
-        uri: photoUri,
+        uri: persistedPhotoUri,
         mediaType: "photo" as const,
         campId,
         authorId,
@@ -421,7 +491,30 @@ export default function FieldVoiceScreen() {
       0;
     const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
     const now = Date.now();
-    const firstAudioUri = segments[0]?.uri?.trim() || "";
+    const persistedPhotoUri = await persistFileForUpload({
+      sourceUri: photoUri,
+      memoryId,
+      fileName: "photo.jpg",
+    });
+    const persistedSegments = await Promise.all(
+      segments.map(async (segment) => {
+        const sourceUri = String(segment.uri || "").trim();
+        if (!sourceUri) return segment;
+
+        const extension = getUriExtension(sourceUri, "m4a");
+        const persistedUri = await persistFileForUpload({
+          sourceUri,
+          memoryId,
+          fileName: `audio-${String(segment.index).padStart(3, "0")}.${extension}`,
+        });
+
+        return {
+          ...segment,
+          uri: persistedUri,
+        };
+      })
+    );
+    const firstAudioUri = persistedSegments[0]?.uri?.trim() || "";
     const audioContentType = firstAudioUri.toLowerCase().endsWith(".mp3")
       ? "audio/mpeg"
       : firstAudioUri.toLowerCase().endsWith(".wav")
@@ -439,7 +532,7 @@ export default function FieldVoiceScreen() {
       authorName,
       syncStatus: "pending",
       type: "fieldMemory",
-      photoUri,
+      photoUri: persistedPhotoUri,
       captureVersion: 2,
       isSegmented: segments.length > 0,
       segmentCount: segments.length,
@@ -451,7 +544,7 @@ export default function FieldVoiceScreen() {
       campId,
       targetCampName: await getActiveCampName(campId),
       ...buildFieldMemoryPlatformMeta(),
-      segments,
+      segments: persistedSegments,
     };
 
     if (firstAudioUri) {
@@ -467,12 +560,12 @@ export default function FieldVoiceScreen() {
         memoryId,
         segmentId: "photo-main",
         segmentIndex: -1,
-        uri: photoUri,
+        uri: persistedPhotoUri,
         mediaType: "photo" as const,
         campId,
         authorId,
       },
-      ...segments.map((segment) => ({
+      ...persistedSegments.map((segment) => ({
         id: `${memoryId}-upload-${String(segment.index).padStart(3, "0")}`,
         memoryId,
         segmentId: segment.id,
