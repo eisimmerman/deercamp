@@ -407,7 +407,7 @@ export default function CampStatsMgrScreen() {
         showsVerticalScrollIndicator={false}
       >
       <View style={styles.topRow}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.backButtonText}>Back</Text>
         </Pressable>
       </View>
@@ -1238,4 +1238,5 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
 });
+
 

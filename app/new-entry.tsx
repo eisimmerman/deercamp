@@ -50,7 +50,7 @@ export default function NewEntryScreen() {
       await addDoc(collection(db, "entries"), payload);
 
       Alert.alert("Saved", "Your memory was saved.");
-      router.back();
+      router.replace("/(tabs)");
     } catch (e: any) {
       console.error("Save memory failed:", e);
       Alert.alert("Save failed", e?.message ?? "Please try again.");
@@ -83,7 +83,7 @@ export default function NewEntryScreen() {
       />
 
       <View style={styles.row}>
-        <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => router.back()} disabled={saving}>
+        <Pressable style={[styles.btn, styles.btnGhost]} onPress={() => router.replace("/(tabs)")} disabled={saving}>
           <Text style={styles.btnGhostText}>Cancel</Text>
         </Pressable>
 
@@ -126,3 +126,4 @@ const styles = StyleSheet.create({
 
   btnDisabled: { opacity: 0.45 },
 });
+

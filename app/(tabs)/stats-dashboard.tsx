@@ -307,7 +307,7 @@ export default function CampStatsDashboardScreen() {
       </View>
 
       <View style={styles.actionRow}>
-        <Pressable style={styles.secondaryBtn} onPress={() => router.back()}>
+        <Pressable style={styles.secondaryBtn} onPress={() => router.replace("/(tabs)")}>
           <Text style={styles.secondaryBtnText}>Back</Text>
         </Pressable>
         <Pressable style={styles.primaryBtn} onPress={() => router.push("/field/stats")}>
@@ -807,3 +807,4 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
 });
+
