@@ -1,15 +1,21 @@
 // app/(tabs)/memories.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -39,7 +45,8 @@ function toSortMs(item: EntryItem) {
 }
 
 function formatWhen(item: EntryItem) {
-  if (item.clientCreatedAt) return new Date(item.clientCreatedAt).toLocaleString();
+  if (item.clientCreatedAt)
+    return new Date(item.clientCreatedAt).toLocaleString();
   return "";
 }
 
@@ -49,18 +56,26 @@ function isConfirmedPublished(item?: EntryItem | null) {
 
 function getMemorySummary(item: EntryItem) {
   if (item.type === "photo") {
-    if (isConfirmedPublished(item)) return "Photo published to CampFeed. Saved locally as backup.";
-    if (item.syncStatus === "synced") return "Photo saved locally. Publish confirmation is missing. Tap Retry Publish.";
-    if (item.syncStatus === "publishing") return "Photo is publishing to CampFeed. Saved locally as backup.";
-    if (item.syncStatus === "failed") return "Photo saved locally. Publish needs retry when connected.";
+    if (isConfirmedPublished(item))
+      return "Photo published to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "synced")
+      return "Photo saved locally. Publish confirmation is missing. Tap Retry Publish.";
+    if (item.syncStatus === "publishing")
+      return "Photo is publishing to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "failed")
+      return "Photo saved locally. Publish needs retry when connected.";
     return "Photo saved locally. DeerCamp will publish it when service is available.";
   }
 
   if (item.type === "fieldMemory") {
-    if (isConfirmedPublished(item)) return "Photo + voice published to CampFeed. Saved locally as backup.";
-    if (item.syncStatus === "synced") return "Photo + voice saved locally. Publish confirmation is missing. Tap Retry Publish.";
-    if (item.syncStatus === "publishing") return "Field Memory is publishing to CampFeed. Saved locally as backup.";
-    if (item.syncStatus === "failed") return "Field Memory saved locally. Publish needs retry when connected.";
+    if (isConfirmedPublished(item))
+      return "Photo + voice published to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "synced")
+      return "Photo + voice saved locally. Publish confirmation is missing. Tap Retry Publish.";
+    if (item.syncStatus === "publishing")
+      return "Field Memory is publishing to CampFeed. Saved locally as backup.";
+    if (item.syncStatus === "failed")
+      return "Field Memory saved locally. Publish needs retry when connected.";
     return "Photo + voice saved locally. DeerCamp will publish it when service is available.";
   }
 
@@ -87,8 +102,11 @@ export default function MemoriesScreen() {
   const [uploadTotals, setUploadTotals] =
     useState<UploadQueueTotals>(emptyUploadTotals);
   const [uploadingFieldMemories, setUploadingFieldMemories] = useState(false);
-  const [showDeferredUploadMessage, setShowDeferredUploadMessage] = useState(false);
-  const [uploadBusySinceMs, setUploadBusySinceMs] = useState<number | null>(null);
+  const [showDeferredUploadMessage, setShowDeferredUploadMessage] =
+    useState(false);
+  const [uploadBusySinceMs, setUploadBusySinceMs] = useState<number | null>(
+    null,
+  );
   const [uploadBusyKey, setUploadBusyKey] = useState<string | null>(null);
   const silentPublishRef = useRef(false);
 
@@ -131,7 +149,7 @@ export default function MemoriesScreen() {
         if (showLoading) setLoading(false);
       }
     },
-    [refreshUploadTotals, user?.uid]
+    [refreshUploadTotals, user?.uid],
   );
 
   const runUploadPass = useCallback(async () => {
@@ -149,11 +167,7 @@ export default function MemoriesScreen() {
 
       const after = await refreshUploadTotals();
 
-      if (
-        after.pending === 0 &&
-        after.uploading === 0 &&
-        after.failed === 0
-      ) {
+      if (after.pending === 0 && after.uploading === 0 && after.failed === 0) {
         await loadLocal(false);
       }
     } catch (error) {
@@ -196,7 +210,7 @@ export default function MemoriesScreen() {
 
           await runUploadPass();
           await new Promise((resolve) =>
-            setTimeout(resolve, source === "auto" ? 1200 : 900)
+            setTimeout(resolve, source === "auto" ? 1200 : 900),
           );
           await loadLocal(false);
         }
@@ -216,7 +230,7 @@ export default function MemoriesScreen() {
         await loadLocal(false);
       }
     },
-    [loadLocal, refreshUploadTotals, runUploadPass]
+    [loadLocal, refreshUploadTotals, runUploadPass],
   );
 
   useFocusEffect(
@@ -252,7 +266,7 @@ export default function MemoriesScreen() {
         active = false;
         clearInterval(interval);
       };
-    }, [loadLocal, refreshUploadTotals, uploadFieldMemories])
+    }, [loadLocal, refreshUploadTotals, uploadFieldMemories]),
   );
 
   const items = useMemo(() => {
@@ -263,15 +277,17 @@ export default function MemoriesScreen() {
 
   const showEmpty = useMemo(
     () => !loading && items.length === 0,
-    [loading, items.length]
+    [loading, items.length],
   );
 
   const visibleFieldMemories = items.filter(
-    (item) => item.type === "photo" || item.type === "fieldMemory"
+    (item) => item.type === "photo" || item.type === "fieldMemory",
   );
 
   const latestFieldMemory = visibleFieldMemories[0] ?? null;
-  const latestPublishError = String(latestFieldMemory?.publishError || "").trim();
+  const latestPublishError = String(
+    latestFieldMemory?.publishError || "",
+  ).trim();
   const latestFieldMemoryPublished = isConfirmedPublished(latestFieldMemory);
   const latestFieldMemoryFailed = latestFieldMemory?.syncStatus === "failed";
   const latestFieldMemoryPending =
@@ -304,7 +320,10 @@ export default function MemoriesScreen() {
 
   const uploadBusy =
     !latestFieldMemoryPublished &&
-    (uploadingFieldMemories || hasPendingWork || hasLocalPublishing || hasLocalPending);
+    (uploadingFieldMemories ||
+      hasPendingWork ||
+      hasLocalPublishing ||
+      hasLocalPending);
 
   const uploadStatusLabel =
     uploadBusy && showDeferredUploadMessage
@@ -356,8 +375,6 @@ export default function MemoriesScreen() {
     }
   }, [latestFieldMemory?.id, router]);
 
-
-
   const removeFailedFieldMemory = useCallback(
     async (memoryId: string) => {
       const cleanMemoryId = String(memoryId || "").trim();
@@ -372,7 +389,7 @@ export default function MemoriesScreen() {
         console.error("remove failed field memory failed:", error);
       }
     },
-    [loadLocal, refreshUploadTotals]
+    [loadLocal, refreshUploadTotals],
   );
 
   const retryFailedFieldMemory = useCallback(
@@ -388,7 +405,7 @@ export default function MemoriesScreen() {
         console.error("retry failed field memory failed:", error);
       }
     },
-    [refreshUploadTotals, uploadFieldMemories]
+    [refreshUploadTotals, uploadFieldMemories],
   );
 
   const renderItem = ({ item }: { item: EntryItem }) => {
@@ -406,7 +423,9 @@ export default function MemoriesScreen() {
 
     const mediaLabel = item.type === "photo" ? "Photo" : "Photo + Voice";
 
-    const metaBits = [statusLabel, formatWhen(item), mediaLabel].filter(Boolean);
+    const metaBits = [statusLabel, formatWhen(item), mediaLabel].filter(
+      Boolean,
+    );
 
     return (
       <Pressable
@@ -434,7 +453,7 @@ export default function MemoriesScreen() {
           </Text>
         ) : null}
 
-        {(item.syncStatus === "failed" || item.publishError) ? (
+        {item.syncStatus === "failed" || item.publishError ? (
           <View style={styles.cardActions}>
             <Pressable
               style={styles.cardActionBtn}
@@ -462,100 +481,116 @@ export default function MemoriesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.topNav}>
-        <Pressable style={styles.backBtn} onPress={goAdd}>
-          <Ionicons name="arrow-back" size={18} color="white" />
-          <Text style={styles.backBtnText}>Back</Text>
-        </Pressable>
-      </View>
-
-      <Text
-        style={styles.title}
-        numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.75}
-      >
-        Upload Field Memories
-      </Text>
-
-      <Pressable
-        style={styles.uploadCard}
-        disabled={!showDeferredUploadMessage || !latestFieldMemory?.id}
-        onPress={openLatestFieldMemoryDetails}
-      >
-        <View style={styles.uploadHeaderRow}>
-          <Text style={styles.uploadTitle}>Field Memories</Text>
-
-          <View
-            style={[
-              styles.uploadStatusDot,
-              latestFieldMemoryPublished ||
-              allVisibleFieldMemoriesPublished
-                ? styles.uploadDotGood
-                : hasWorkToUpload
-                  ? styles.uploadDotUploading
-                  : styles.uploadDotIdle,
-            ]}
-          />
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <View style={styles.topNav}>
+          <Pressable style={styles.backBtn} onPress={goAdd}>
+            <Ionicons name="arrow-back" size={18} color="white" />
+            <Text style={styles.backBtnText}>Back</Text>
+          </Pressable>
         </View>
 
-        <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
+        <Text
+          style={styles.title}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.75}
+        >
+          Upload Field Memories
+        </Text>
 
-        {latestPublishError ? (
-          <Text style={styles.publishErrorText} numberOfLines={4}>
-            Last publish error: {latestPublishError}
-          </Text>
-        ) : null}
+        <Pressable
+          style={styles.uploadCard}
+          disabled={!showDeferredUploadMessage || !latestFieldMemory?.id}
+          onPress={openLatestFieldMemoryDetails}
+        >
+          <View style={styles.uploadHeaderRow}>
+            <Text style={styles.uploadTitle}>Field Memories</Text>
 
-        {uploadBusy && !showDeferredUploadMessage ? (
-          <View style={styles.publishingRow}>
-            <ActivityIndicator color="white" />
-            <Text style={styles.publishingText}>Working behind the curtain...</Text>
+            <View
+              style={[
+                styles.uploadStatusDot,
+                latestFieldMemoryPublished || allVisibleFieldMemoriesPublished
+                  ? styles.uploadDotGood
+                  : hasWorkToUpload
+                    ? styles.uploadDotUploading
+                    : styles.uploadDotIdle,
+              ]}
+            />
           </View>
-        ) : null}
 
-        {uploadBusy && showDeferredUploadMessage ? (
-          <Text style={styles.tapDetailsText}>Enjoy the moment. DeerCamp will publish it automatically when service is available.</Text>
-        ) : null}
+          <Text style={styles.uploadStatusText}>{uploadStatusLabel}</Text>
 
-        {hasFailedWork && !uploadBusy ? (
-          <Pressable
-            style={styles.uploadBtn}
-            onPress={() => uploadFieldMemories("manual")}
-          >
-            <Text style={styles.uploadBtnText}>Retry Publish</Text>
-          </Pressable>
-        ) : null}
-      </Pressable>
+          {latestPublishError ? (
+            <Text style={styles.publishErrorText} numberOfLines={4}>
+              Last publish error: {latestPublishError}
+            </Text>
+          ) : null}
 
-      {showEmpty ? (
-        <View style={styles.emptyWrap}>
-          <Text style={styles.emptyTitle}>No field memories yet</Text>
-          <Text style={styles.emptyText}>
-            Tap the badge on the Field Mode screen to record a memory.
-          </Text>
+          {uploadBusy && !showDeferredUploadMessage ? (
+            <View style={styles.publishingRow}>
+              <ActivityIndicator color="white" />
+              <Text style={styles.publishingText}>
+                Working behind the curtain...
+              </Text>
+            </View>
+          ) : null}
 
-          <Pressable style={styles.addBtn} onPress={goAdd}>
-            <Ionicons name="arrow-back" size={20} color="#0B0E12" />
-            <Text style={styles.addBtnText}>Back to Field Mode</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={items}
-          keyExtractor={(m) => m.id}
-          renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
-          ListFooterComponent={<View style={{ height: 90 }} />}
-        />
-      )}
+          {uploadBusy && showDeferredUploadMessage ? (
+            <Text style={styles.tapDetailsText}>
+              Enjoy the moment. DeerCamp will publish it automatically when
+              service is available.
+            </Text>
+          ) : null}
+
+          {hasFailedWork && !uploadBusy ? (
+            <Pressable
+              style={styles.uploadBtn}
+              onPress={() => uploadFieldMemories("manual")}
+            >
+              <Text style={styles.uploadBtnText}>Retry Publish</Text>
+            </Pressable>
+          ) : null}
+        </Pressable>
+
+        {showEmpty ? (
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>No field memories yet</Text>
+            <Text style={styles.emptyText}>
+              Tap the badge on the Field Mode screen to record a memory.
+            </Text>
+
+            <Pressable style={styles.addBtn} onPress={goAdd}>
+              <Ionicons name="arrow-back" size={20} color="#0B0E12" />
+              <Text style={styles.addBtnText}>Back to Field Mode</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={items}
+            keyExtractor={(m) => m.id}
+            renderItem={renderItem}
+            contentContainerStyle={styles.listContent}
+            ListFooterComponent={<View style={{ height: 90 }} />}
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0B0E12", paddingHorizontal: 16, paddingBottom: 16 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#0B0E12",
+  },
+
+  container: {
+    flex: 1,
+    backgroundColor: "#0B0E12",
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+  },
 
   topNav: {
     alignItems: "flex-start",
@@ -583,10 +618,10 @@ const styles = StyleSheet.create({
 
   title: {
     color: "white",
-    fontSize: 30,
-    lineHeight: 36,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: "900",
-    marginTop: 8,
+    marginTop: 6,
     marginBottom: 12,
     letterSpacing: -0.4,
   },
@@ -738,22 +773,20 @@ const styles = StyleSheet.create({
   },
 
   cardTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
+    gap: 4,
   },
 
   cardTitle: {
     color: "white",
     fontSize: 16,
     fontWeight: "900",
-    flex: 1,
   },
 
   cardMeta: {
     color: "rgba(255,255,255,0.5)",
     fontSize: 12,
     fontWeight: "700",
+    lineHeight: 17,
   },
 
   cardBody: {
@@ -763,7 +796,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: "700",
   },
-
 
   cardActions: {
     flexDirection: "row",
