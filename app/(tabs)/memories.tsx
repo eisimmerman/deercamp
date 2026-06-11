@@ -93,7 +93,7 @@ export default function MemoriesScreen() {
   const silentPublishRef = useRef(false);
 
   const goAdd = useCallback(() => {
-    router.push("/");
+    router.replace("/(tabs)");
   }, [router]);
 
   const refreshUploadTotals = useCallback(async () => {
@@ -470,7 +470,14 @@ export default function MemoriesScreen() {
         </Pressable>
       </View>
 
-      <Text style={styles.title}>Upload Field Memories</Text>
+      <Text
+        style={styles.title}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+      >
+        Upload Field Memories
+      </Text>
 
       <Pressable
         style={styles.uploadCard}
@@ -576,7 +583,8 @@ const styles = StyleSheet.create({
 
   title: {
     color: "white",
-    fontSize: 32,
+    fontSize: 30,
+    lineHeight: 36,
     fontWeight: "900",
     marginTop: 8,
     marginBottom: 12,

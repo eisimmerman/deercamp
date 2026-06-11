@@ -4,6 +4,7 @@ import {
   Animated,
   Image,
   Pressable,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -58,7 +59,7 @@ export default function HomeScreen() {
 
   if (!signedIn) {
     return (
-      <View style={styles.centerGate}>
+      <SafeAreaView style={styles.centerGate}>
         <Text style={styles.brand}>DeerCamp</Text>
         <Text style={styles.appName}>CampFieldApp</Text>
         <Text style={styles.gateTitle}>Sign in required.</Text>
@@ -70,12 +71,12 @@ export default function HomeScreen() {
         >
           <Text style={styles.primaryBtnText}>Go to Sign In</Text>
         </Pressable>
-      </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <SafeAreaView style={styles.screen}>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={styles.content}
@@ -199,7 +200,7 @@ export default function HomeScreen() {
           />
         </Animated.View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
 
   content: {
     paddingHorizontal: 18,
-    paddingTop: 18,
+    paddingTop: 32,
     paddingBottom: 30,
   },
 
@@ -238,13 +239,13 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: "center",
-    marginTop: 4,
+    marginTop: 10,
     marginBottom: 18,
   },
 
   brand: {
     color: "white",
-    fontSize: 44,
+    fontSize: 42,
     fontWeight: "900",
     letterSpacing: -0.8,
     textAlign: "center",

@@ -650,7 +650,7 @@ export default function FieldVoiceScreen() {
 
   function onGoBack() {
     clearSegmentTimer();
-    router.replace("/(tabs)/memories");
+    router.replace("/(tabs)");
   }
 
   if (!user || user.isAnonymous) {
