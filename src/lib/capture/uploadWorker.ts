@@ -409,20 +409,8 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
         const storageRef = ref(storage, storagePath);
         const contentType = getContentType(item.mediaType);
 
-        console.log(
-          "upload queue item starting Firebase Storage upload:",
-          JSON.stringify({
-            id: item.id,
-            memoryId: item.memoryId,
-            mediaType: item.mediaType,
-            segmentId: item.segmentId,
-            segmentIndex: item.segmentIndex,
-            storagePath,
-            contentType,
-            blobSize,
-            uri: compactUriForDebug(item.uri),
-          })
-        );
+        // Debug log removed to reduce Expo console noise during normal uploads.
+        // Storage upload still proceeds normally below.
 
         stage = "uploading blob to Firebase Storage";
         await uploadBytes(storageRef, blob, {
