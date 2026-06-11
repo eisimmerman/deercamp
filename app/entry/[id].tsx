@@ -169,7 +169,7 @@ export default function LocalEntryDetailScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.topRow}>
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+        <Pressable style={styles.backBtn} onPress={() => router.replace("/(tabs)/memories")}>
           <Ionicons name="arrow-back" size={18} color="white" />
           <Text style={styles.backBtnText}>Back</Text>
         </Pressable>
