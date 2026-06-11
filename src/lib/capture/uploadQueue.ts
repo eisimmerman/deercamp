@@ -22,6 +22,7 @@ export type UploadQueueItem = {
 
 const UPLOAD_QUEUE_KEY = "deercamp.uploadQueue.v1";
 const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
+const FAILED_UPLOAD_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function resolveQueueCampId(value?: string | null) {
   const clean = String(value || "").trim();
@@ -210,6 +211,47 @@ export async function removeUploadQueueItem(id: string) {
 export async function removeUploadQueueItemsForMemory(memoryId: string) {
   const items = await readQueue();
   await writeQueue(items.filter((item) => item.memoryId !== memoryId));
+}
+
+export async function clearStaleFailedUploadQueueItems(maxAgeMs = FAILED_UPLOAD_STALE_MS) {
+  const now = Date.now();
+  const items = await readQueue();
+  const next = items.filter((item) => {
+    if (item.status !== "failed") return true;
+    const createdAt = Number(item.createdAt || item.updatedAt || now);
+    return now - createdAt <= maxAgeMs;
+  });
+
+  if (next.length !== items.length) {
+    await writeQueue(next);
+  }
+
+  return items.length - next.length;
+}
+
+export async function resetFailedUploadQueueItemsForMemory(memoryId: string) {
+  const cleanMemoryId = String(memoryId || "").trim();
+  if (!cleanMemoryId) return 0;
+
+  const items = await readQueue();
+  let resetCount = 0;
+
+  const next = items.map((item) => {
+    if (item.memoryId !== cleanMemoryId || item.status !== "failed") return item;
+    resetCount += 1;
+    return {
+      ...item,
+      status: "pending" as const,
+      updatedAt: Date.now(),
+      lastError: undefined,
+    };
+  });
+
+  if (resetCount > 0) {
+    await writeQueue(next);
+  }
+
+  return resetCount;
 }
 
 export async function clearUploadedQueueItems() {

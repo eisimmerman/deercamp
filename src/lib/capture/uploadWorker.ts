@@ -3,6 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "@/lib/firebase";
 import { publishUploadedMemoryToFeed } from "@/lib/publishMemory";
 import {
+  clearStaleFailedUploadQueueItems,
   getPendingUploadQueueItems,
   getUploadQueueItemsForMemory,
   markUploadItemFailed,
@@ -35,6 +36,8 @@ function getErrorMessage(error: any) {
     error?.code ? `code=${error.code}` : "",
     error?.name ? `name=${error.name}` : "",
     error?.message || String(error || ""),
+    error?.serverResponse ? `serverResponse=${error.serverResponse}` : "",
+    error?.customData ? `customData=${JSON.stringify(error.customData)}` : "",
   ]
     .map((part) => String(part || "").trim())
     .filter(Boolean);
@@ -354,6 +357,15 @@ async function patchMemoryUploading(item: UploadQueueItem) {
   });
 }
 
+function shouldLogUploadDiagnostics(error: any) {
+  return Boolean(error?.code || error?.message || error?.serverResponse);
+}
+
+function getBlobSize(blob: Blob) {
+  const size = Number(blob?.size || 0);
+  return Number.isFinite(size) ? size : 0;
+}
+
 export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
   if (uploadWorkerRunning) {
     return [];
@@ -362,6 +374,7 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
   uploadWorkerRunning = true;
 
   try {
+    await clearStaleFailedUploadQueueItems();
     const pending = await getPendingUploadQueueItems(memoryId);
     const items = pending.slice(0, limit);
 
@@ -379,6 +392,11 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
 
         stage = "reading local file into blob";
         const blob = await uriToBlob(item.uri);
+        const blobSize = getBlobSize(blob);
+
+        if (blobSize <= 0) {
+          throw new Error("Local file read returned an empty blob.");
+        }
 
         stage = "building Firebase Storage path";
         storagePath = getStoragePath({
@@ -389,10 +407,26 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
         });
 
         const storageRef = ref(storage, storagePath);
+        const contentType = getContentType(item.mediaType);
+
+        console.log(
+          "upload queue item starting Firebase Storage upload:",
+          JSON.stringify({
+            id: item.id,
+            memoryId: item.memoryId,
+            mediaType: item.mediaType,
+            segmentId: item.segmentId,
+            segmentIndex: item.segmentIndex,
+            storagePath,
+            contentType,
+            blobSize,
+            uri: compactUriForDebug(item.uri),
+          })
+        );
 
         stage = "uploading blob to Firebase Storage";
         await uploadBytes(storageRef, blob, {
-          contentType: getContentType(item.mediaType),
+          contentType,
           customMetadata: {
             memoryId: item.memoryId,
             segmentId: item.segmentId,
@@ -434,9 +468,23 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
             stage,
             storagePath,
             uri: compactUriForDebug(item.uri),
+            firebaseCode: error?.code || "",
+            firebaseName: error?.name || "",
+            firebaseMessage: error?.message || "",
+            firebaseServerResponse: error?.serverResponse || "",
             error: getErrorMessage(error),
           })
         );
+
+        if (shouldLogUploadDiagnostics(error)) {
+          console.error("firebase storage upload diagnostics:", {
+            code: error?.code,
+            name: error?.name,
+            message: error?.message,
+            serverResponse: error?.serverResponse,
+            storagePath,
+          });
+        }
 
         await markUploadItemFailed(item.id, message);
         await patchMemoryAfterFailure(item, message);

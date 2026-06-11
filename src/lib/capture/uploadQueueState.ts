@@ -1,5 +1,9 @@
 // src/lib/capture/uploadQueueState.ts
-import { getUploadQueue, type UploadQueueItem } from "@/lib/capture/uploadQueue";
+import {
+  clearStaleFailedUploadQueueItems,
+  getUploadQueue,
+  type UploadQueueItem,
+} from "@/lib/capture/uploadQueue";
 
 export type UploadQueueTotals = {
   total: number;
@@ -29,6 +33,7 @@ export function calculateUploadQueueTotals(
 }
 
 export async function getUploadQueueTotals() {
+  await clearStaleFailedUploadQueueItems();
   const items = await getUploadQueue();
   return calculateUploadQueueTotals(items);
 }

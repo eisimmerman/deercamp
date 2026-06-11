@@ -16,6 +16,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { auth } from "@/lib/firebase";
 import {
   getLocalMemories,
+  removeLocalMemory,
   hasConfirmedCampFeedPublish,
   type LocalMemoryItem,
 } from "@/lib/localMemories";
@@ -23,6 +24,10 @@ import {
   getUploadQueueTotals,
   type UploadQueueTotals,
 } from "@/lib/capture/uploadQueueState";
+import {
+  removeUploadQueueItemsForMemory,
+  resetFailedUploadQueueItemsForMemory,
+} from "@/lib/capture/uploadQueue";
 import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
 type EntryItem = LocalMemoryItem & {
@@ -305,7 +310,7 @@ export default function MemoriesScreen() {
     uploadBusy && showDeferredUploadMessage
       ? "Field Memory safely stored."
       : uploadBusy
-        ? "Uploading to CampFeedâ€¦"
+        ? "Uploading to CampFeed..."
         : hasFailedWork
           ? "Some field memories need retry."
           : latestFieldMemoryPublished || allVisibleFieldMemoriesPublished
@@ -351,6 +356,41 @@ export default function MemoriesScreen() {
     }
   }, [latestFieldMemory?.id, router]);
 
+
+
+  const removeFailedFieldMemory = useCallback(
+    async (memoryId: string) => {
+      const cleanMemoryId = String(memoryId || "").trim();
+      if (!cleanMemoryId) return;
+
+      try {
+        await removeUploadQueueItemsForMemory(cleanMemoryId);
+        await removeLocalMemory(cleanMemoryId);
+        await refreshUploadTotals();
+        await loadLocal(false);
+      } catch (error) {
+        console.error("remove failed field memory failed:", error);
+      }
+    },
+    [loadLocal, refreshUploadTotals]
+  );
+
+  const retryFailedFieldMemory = useCallback(
+    async (memoryId: string) => {
+      const cleanMemoryId = String(memoryId || "").trim();
+      if (!cleanMemoryId) return;
+
+      try {
+        await resetFailedUploadQueueItemsForMemory(cleanMemoryId);
+        await refreshUploadTotals();
+        await uploadFieldMemories("manual");
+      } catch (error) {
+        console.error("retry failed field memory failed:", error);
+      }
+    },
+    [refreshUploadTotals, uploadFieldMemories]
+  );
+
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
     const details = getMemorySummary(item);
@@ -380,7 +420,7 @@ export default function MemoriesScreen() {
             {title}
           </Text>
           <Text style={styles.cardMeta} numberOfLines={1}>
-            {metaBits.join(" â€¢ ")}
+            {metaBits.join(" - ")}
           </Text>
         </View>
 
@@ -392,6 +432,30 @@ export default function MemoriesScreen() {
           <Text style={styles.cardError} numberOfLines={4}>
             Publish error: {item.publishError}
           </Text>
+        ) : null}
+
+        {(item.syncStatus === "failed" || item.publishError) ? (
+          <View style={styles.cardActions}>
+            <Pressable
+              style={styles.cardActionBtn}
+              onPress={(event) => {
+                event.stopPropagation();
+                void retryFailedFieldMemory(item.id);
+              }}
+            >
+              <Text style={styles.cardActionText}>Retry</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.cardActionBtn, styles.cardActionDanger]}
+              onPress={(event) => {
+                event.stopPropagation();
+                void removeFailedFieldMemory(item.id);
+              }}
+            >
+              <Text style={styles.cardActionText}>Remove Failed Upload</Text>
+            </Pressable>
+          </View>
         ) : null}
       </Pressable>
     );
@@ -440,7 +504,7 @@ export default function MemoriesScreen() {
         {uploadBusy && !showDeferredUploadMessage ? (
           <View style={styles.publishingRow}>
             <ActivityIndicator color="white" />
-            <Text style={styles.publishingText}>Working behind the curtainâ€¦</Text>
+            <Text style={styles.publishingText}>Working behind the curtain...</Text>
           </View>
         ) : null}
 
@@ -690,6 +754,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
+  },
+
+
+  cardActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 10,
+  },
+
+  cardActionBtn: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+  },
+
+  cardActionDanger: {
+    backgroundColor: "rgba(252,165,165,0.14)",
+    borderColor: "rgba(252,165,165,0.32)",
+  },
+
+  cardActionText: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "900",
   },
 
   cardError: {

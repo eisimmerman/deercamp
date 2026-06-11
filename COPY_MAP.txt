@@ -1,0 +1,29 @@
+CFA Publish Guard Fix - Copy Map
+
+Copy these files into your DeerCamp repo:
+
+1) src/lib/localMemories.ts
+   -> src/lib/localMemories.ts
+
+2) src/lib/publishMemory.ts
+   -> src/lib/publishMemory.ts
+
+3) app/(tabs)/memories.tsx
+   -> app/(tabs)/memories.tsx
+
+What changed:
+- A memory is only treated as Published after it has BOTH a CampFeed Firestore doc id and a Firebase Storage photo URL.
+- Existing local memories marked synced without publish confirmation are downgraded to failed/retry instead of showing Published.
+- markMemoryPublished now throws and marks failed if feedDocId or photoUrl is missing.
+- publishMemoryToFeed now verifies local photo/audio blobs are readable and non-empty before uploading.
+- publishMemoryToFeed now verifies Firebase Storage returned download URLs and Firestore returned a doc id.
+- Upload Field Memories screen now uses confirmed publish status, not syncStatus alone.
+
+Suggested quick test:
+1. Copy files into repo.
+2. npm run lint, if configured.
+3. npx expo start --clear
+4. Capture a new Field Memory.
+5. Confirm Firebase Storage has the new photo.
+6. Confirm Firestore feedItems has the new doc.
+7. Confirm the app only shows Published after those exist.
