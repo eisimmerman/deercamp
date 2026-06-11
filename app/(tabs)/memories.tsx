@@ -111,7 +111,7 @@ export default function MemoriesScreen() {
   const silentPublishRef = useRef(false);
 
   const goAdd = useCallback(() => {
-    router.replace("/(tabs)");
+    router.replace("/");
   }, [router]);
 
   const refreshUploadTotals = useCallback(async () => {
@@ -832,3 +832,4 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 });
+
