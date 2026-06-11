@@ -1780,9 +1780,9 @@ function firestoreTimestampToMs(value){
 }
 function mapAppFeedDocToCampFeedItem(doc){
   const item = doc && typeof doc.data === "function" ? doc.data() : {};
-  const createdAtMs = Number(item.clientCreatedAt || firestoreTimestampToMs(item.createdAt));
+  const createdAtMs = Number(item.createdAtMs || item.clientCreatedAt || firestoreTimestampToMs(item.createdAt));
   const id = String((doc && doc.id) || item.id || item.localMemoryId || `app-feed-${createdAtMs}`).trim();
-  const mediaType = String(item.mediaType || item.type || "photo").trim().toLowerCase();
+  const mediaType = String(item.mediaType || item.type || item.category || "photo").trim().toLowerCase();
   const hasAudio = Boolean(String(item.audioUrl || item.voiceUrl || "").trim());
   const platform = getFieldMemoryPlatform(item);
   const baseTags = hasAudio ? ["Picture","Voice","Field Memory"] : ["Picture","Field Memory"];
@@ -1792,8 +1792,8 @@ function mapAppFeedDocToCampFeedItem(doc){
     id,
     title: String(item.title || (hasAudio ? "Field Memory" : "Field Photo")).trim(),
     body: String(item.caption || item.details || (hasAudio ? "Photo + voice captured in DeerCamp Field Mode." : "Photo captured in DeerCamp Field Mode.")).trim(),
-    image: String(item.imageUrl || item.photoUrl || item.thumbnailUrl || "").trim(),
-    displayUrl: String(item.imageUrl || item.photoUrl || "").trim(),
+    image: String(item.thumbUrl || item.thumbnailUrl || item.thumbnail || item.displayUrl || item.imageUrl || item.photoUrl || "").trim(),
+    displayUrl: String(item.displayUrl || item.imageUrl || item.photoUrl || "").trim(),
     audioUrl: String(item.audioUrl || item.voiceUrl || "").trim(),
     voiceUrl: String(item.voiceUrl || item.audioUrl || "").trim(),
     audioContentType: String(item.audioContentType || item.voiceContentType || "").trim(),
@@ -1810,57 +1810,88 @@ function mapAppFeedDocToCampFeedItem(doc){
     devicePlatform: platform,
     sourcePlatform: platform,
     appPlatform: platform,
-    mediaType: mediaType === "fieldmemory" ? "photo" : mediaType,
+    mediaType: mediaType === "fieldmemory" || mediaType === "field-note" || mediaType === "photo-voice" ? "photo" : mediaType,
     source: "app",
     appFeedDocId: id,
     storageProvider: "firebase",
     published: item.published !== false
   };
 }
+
+function mergeAppCampFeedEntrySources(...sources){
+  const byId = new Map();
+  sources.forEach(source => {
+    (Array.isArray(source) ? source : []).forEach(entry => {
+      if(!entry || entry.published === false || !entry.image) return;
+      const id = String(entry.id || entry.appFeedDocId || "").trim();
+      const key = id || [entry.title || "", entry.image || "", entry.createdAtMs || ""].join("|");
+      const existing = byId.get(key);
+      if(!existing || Number(entry.createdAtMs || 0) >= Number(existing.createdAtMs || 0)){
+        byId.set(key, entry);
+      }
+    });
+  });
+  return Array.from(byId.values()).sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+}
+
+function syncAppCampFeedEntries(){
+  appCampFeedEntries = mergeAppCampFeedEntrySources(appCampFeedTopLevelEntries, appCampFeedCampEntries);
+  if(typeof renderFeed === "function") renderFeed();
+  if(typeof renderRecentUpdates === "function") renderRecentUpdates();
+  if(typeof syncFeedButtons === "function") syncFeedButtons();
+}
+
+function mapSnapshotToAppCampFeedEntries(snapshot){
+  const entries = [];
+  if(!snapshot || typeof snapshot.forEach !== "function") return entries;
+  snapshot.forEach(doc => {
+    const mapped = mapAppFeedDocToCampFeedItem(doc);
+    if(mapped.image && mapped.published !== false) entries.push(mapped);
+  });
+  return entries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+}
+
 async function hydrateCampFeedItemsFromCloud(){
   try{
     const cleanCampId = String(activeCampId || "").trim();
     if(!cleanCampId || !window.firebase || typeof firebase.firestore !== "function") return [];
-    const snap = await firebase.firestore()
-      .collection("feedItems")
-      .where("campId", "==", cleanCampId)
-      .where("published", "==", true)
-      .limit(50)
-      .get();
-    appCampFeedEntries = [];
-    snap.forEach(doc => {
-      const mapped = mapAppFeedDocToCampFeedItem(doc);
-      if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
-    });
-    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
+
+    const db = firebase.firestore();
+    const [topLevelSnapshot, campFeedSnapshot] = await Promise.all([
+      db.collection("feedItems")
+        .where("campId", "==", cleanCampId)
+        .where("published", "==", true)
+        .get()
+        .catch(error => {
+          console.warn("Top-level app feedItems could not load.", error);
+          return null;
+        }),
+      db.collection("camps")
+        .doc(cleanCampId)
+        .collection("campfeed")
+        .get()
+        .catch(error => {
+          console.warn("Camp subcollection campfeed items could not load.", error);
+          return null;
+        })
+    ]);
+
+    appCampFeedTopLevelEntries = mapSnapshotToAppCampFeedEntries(topLevelSnapshot);
+    appCampFeedCampEntries = mapSnapshotToAppCampFeedEntries(campFeedSnapshot);
+    appCampFeedEntries = mergeAppCampFeedEntrySources(appCampFeedTopLevelEntries, appCampFeedCampEntries);
     return appCampFeedEntries;
   }catch(error){
     console.warn("App CampFeed items could not load.", error);
+    appCampFeedTopLevelEntries = [];
+    appCampFeedCampEntries = [];
     appCampFeedEntries = [];
     return [];
   }
 }
 
-
 let appCampFeedUnsubscribe = null;
-
-function renderAppCampFeedSnapshot(snapshot){
-  try{
-    appCampFeedEntries = [];
-    if(snapshot && typeof snapshot.forEach === "function"){
-      snapshot.forEach(doc => {
-        const mapped = mapAppFeedDocToCampFeedItem(doc);
-        if(mapped.image && mapped.published !== false) appCampFeedEntries.push(mapped);
-      });
-    }
-    appCampFeedEntries.sort((a,b)=>Number(b.createdAtMs||0)-Number(a.createdAtMs||0));
-    renderFeed();
-    if(typeof renderRecentUpdates === "function") renderRecentUpdates();
-    if(typeof syncFeedButtons === "function") syncFeedButtons();
-  }catch(error){
-    console.warn("Realtime App CampFeed render skipped.", error);
-  }
-}
+let appCampFeedTopLevelEntries = [];
+let appCampFeedCampEntries = [];
 
 function subscribeToAppCampFeedItems(){
   try{
@@ -1872,13 +1903,40 @@ function subscribeToAppCampFeedItems(){
       appCampFeedUnsubscribe = null;
     }
 
-    appCampFeedUnsubscribe = firebase.firestore()
-      .collection("feedItems")
-      .where("campId", "==", cleanCampId)
-      .where("published", "==", true)
-      .onSnapshot(renderAppCampFeedSnapshot, error => {
-        console.warn("Realtime App CampFeed subscription failed.", error);
+    const db = firebase.firestore();
+    const unsubscribers = [];
+
+    unsubscribers.push(
+      db.collection("feedItems")
+        .where("campId", "==", cleanCampId)
+        .where("published", "==", true)
+        .onSnapshot(snapshot => {
+          appCampFeedTopLevelEntries = mapSnapshotToAppCampFeedEntries(snapshot);
+          syncAppCampFeedEntries();
+        }, error => {
+          console.warn("Realtime top-level App CampFeed subscription failed.", error);
+        })
+    );
+
+    unsubscribers.push(
+      db.collection("camps")
+        .doc(cleanCampId)
+        .collection("campfeed")
+        .onSnapshot(snapshot => {
+          appCampFeedCampEntries = mapSnapshotToAppCampFeedEntries(snapshot);
+          syncAppCampFeedEntries();
+        }, error => {
+          console.warn("Realtime camp subcollection CampFeed subscription failed.", error);
+        })
+    );
+
+    appCampFeedUnsubscribe = () => {
+      unsubscribers.forEach(unsubscribe => {
+        if(typeof unsubscribe === "function"){
+          try{ unsubscribe(); }catch{}
+        }
       });
+    };
 
     return true;
   }catch(error){
