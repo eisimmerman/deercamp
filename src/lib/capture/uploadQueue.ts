@@ -23,6 +23,7 @@ export type UploadQueueItem = {
 const UPLOAD_QUEUE_KEY = "deercamp.uploadQueue.v1";
 const DEFAULT_ACTIVE_CAMP_ID = "camp-swede-cornell-wi-54732";
 const FAILED_UPLOAD_STALE_MS = 7 * 24 * 60 * 60 * 1000;
+const UPLOADING_ITEM_STALE_MS = 2 * 60 * 1000;
 
 function resolveQueueCampId(value?: string | null) {
   const clean = String(value || "").trim();
@@ -227,6 +228,33 @@ export async function clearStaleFailedUploadQueueItems(maxAgeMs = FAILED_UPLOAD_
   }
 
   return items.length - next.length;
+}
+
+export async function resetStaleUploadingUploadQueueItems(maxAgeMs = UPLOADING_ITEM_STALE_MS) {
+  const now = Date.now();
+  const items = await readQueue();
+  let resetCount = 0;
+
+  const next = items.map((item) => {
+    if (item.status !== "uploading") return item;
+
+    const updatedAt = Number(item.updatedAt || item.createdAt || now);
+    if (now - updatedAt <= maxAgeMs) return item;
+
+    resetCount += 1;
+    return {
+      ...item,
+      status: "pending" as const,
+      updatedAt: now,
+      lastError: undefined,
+    };
+  });
+
+  if (resetCount > 0) {
+    await writeQueue(next);
+  }
+
+  return resetCount;
 }
 
 export async function resetFailedUploadQueueItemsForMemory(memoryId: string) {

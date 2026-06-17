@@ -9,6 +9,7 @@ import {
   markUploadItemFailed,
   markUploadItemUploaded,
   markUploadItemUploading,
+  resetStaleUploadingUploadQueueItems,
   type UploadQueueItem,
 } from "@/lib/capture/uploadQueue";
 import {
@@ -375,6 +376,7 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
 
   try {
     await clearStaleFailedUploadQueueItems();
+    await resetStaleUploadingUploadQueueItems();
     const pending = await getPendingUploadQueueItems(memoryId);
     const items = pending.slice(0, limit);
 

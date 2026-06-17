@@ -34,6 +34,7 @@ import {
   type SegmentManagerState,
 } from "@/lib/capture/segmentManager";
 import { enqueueUploadItems } from "@/lib/capture/uploadQueue";
+import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
 const PHOTO_CAPTURE_COUNT_KEY = "deercamp.globalPhotoCaptureCount.v1";
 
@@ -124,6 +125,18 @@ function buildFieldMemoryPlatformMeta() {
     },
   };
 }
+
+function startImmediateUploadPass(memoryId: string) {
+  const cleanMemoryId = String(memoryId || "").trim();
+  if (!cleanMemoryId) return;
+
+  setTimeout(() => {
+    void processUploadQueueOnce(10, cleanMemoryId).catch((error) => {
+      console.error("immediate field memory upload pass failed:", error);
+    });
+  }, 250);
+}
+
 
 function isKeepAwakeActivationError(error: unknown) {
   const message = String(
@@ -477,6 +490,8 @@ export default function FieldVoiceScreen() {
         authorId,
       },
     ]);
+
+    return memoryId;
   }
 
   async function queueVoiceMemory(photoUri: string) {
@@ -578,6 +593,8 @@ export default function FieldVoiceScreen() {
     ];
 
     await enqueueUploadItems(uploadItems);
+
+    return memoryId;
   }
 
   async function onTakePhoto() {
@@ -589,7 +606,8 @@ export default function FieldVoiceScreen() {
 
       if (photoOnly) {
         setSaving(true);
-        await queuePhotoOnlyMemory(photoUri);
+        const memoryId = await queuePhotoOnlyMemory(photoUri);
+        startImmediateUploadPass(memoryId);
         router.replace("/(tabs)/memories");
       }
     } catch (error: any) {
@@ -636,7 +654,8 @@ export default function FieldVoiceScreen() {
         });
       } catch {}
 
-      await queueVoiceMemory(capturedUri);
+      const memoryId = await queueVoiceMemory(capturedUri);
+      startImmediateUploadPass(memoryId);
       router.replace("/(tabs)/memories");
     } catch (error: any) {
       console.error("stop and save recording failed:", error);

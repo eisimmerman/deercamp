@@ -2,6 +2,7 @@
 import {
   clearStaleFailedUploadQueueItems,
   getUploadQueue,
+  resetStaleUploadingUploadQueueItems,
   type UploadQueueItem,
 } from "@/lib/capture/uploadQueue";
 
@@ -34,6 +35,7 @@ export function calculateUploadQueueTotals(
 
 export async function getUploadQueueTotals() {
   await clearStaleFailedUploadQueueItems();
+  await resetStaleUploadingUploadQueueItems();
   const items = await getUploadQueue();
   return calculateUploadQueueTotals(items);
 }
