@@ -1006,7 +1006,22 @@ let drivePosterLegendEntries = [];
 function setDrivePosterNumberedLabels(enabled){
   drivePosterNumberedLabels = Boolean(enabled) && isScoutDriveBuilder();
   document.body.classList.toggle('drive-poster-numbered', drivePosterNumberedLabels);
+  refreshCurrentDriveRoleIconsForPoster();
   if(!drivePosterNumberedLabels) drivePosterLegendEntries = [];
+}
+function refreshCurrentDriveRoleIconsForPoster(){
+  try{
+    if(!isScoutDriveBuilder()) return;
+    const compact = Boolean(drivePosterNumberedLabels);
+    [...drivers, ...standers].forEach(item => {
+      const marker = allLayers[item.id];
+      if(marker && typeof marker.setIcon === 'function'){
+        marker.setIcon(roleIcon(item.role, item.mapLabel || item.initial || item.slot, compact));
+      }
+    });
+  }catch(error){
+    console.warn('Drive role icon resize skipped.', error);
+  }
 }
 function resetDrivePosterLegendEntries(){
   drivePosterLegendEntries = [];
@@ -1847,13 +1862,25 @@ function toggleMapFreeze(){
     if(btn) btn.textContent='📌 Freeze Map';
   }
 }
-function roleIcon(role, label=''){
+function roleIcon(role, label='', compact=false){
   const cfg = role==='driver'
     ? {bg:'#2b6cb0', color:'#fff', fallback:'D'}
     : {bg:'#f4d03f', color:'#231a13', fallback:'S'};
   const display = String(label || cfg.fallback).trim().slice(0,3).toUpperCase() || cfg.fallback;
-  const fontSize = display.length >= 3 ? 9 : (display.length === 2 ? 12 : 14);
-  return L.divIcon({html:`<div style="width:34px;height:34px;border-radius:999px;background:${cfg.bg};border:2px solid #f0e8d8;color:${cfg.color};display:flex;align-items:center;justify-content:center;font:700 ${fontSize}px IBM Plex Mono,monospace;box-shadow:0 4px 12px rgba(0,0,0,.45)">${display}</div>`, className:'', iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-14]});
+  const size = compact ? 22 : 34;
+  const border = compact ? 1.5 : 2;
+  const shadow = compact ? '0 2px 8px rgba(0,0,0,.35)' : '0 4px 12px rgba(0,0,0,.45)';
+  const fontSize = compact
+    ? (display.length >= 3 ? 6.8 : (display.length === 2 ? 8 : 9))
+    : (display.length >= 3 ? 9 : (display.length === 2 ? 12 : 14));
+  const anchor = size / 2;
+  return L.divIcon({
+    html:`<div style="width:${size}px;height:${size}px;border-radius:999px;background:${cfg.bg};border:${border}px solid #f0e8d8;color:${cfg.color};display:flex;align-items:center;justify-content:center;font:700 ${fontSize}px IBM Plex Mono,monospace;box-shadow:${shadow}">${display}</div>`,
+    className:'',
+    iconSize:[size,size],
+    iconAnchor:[anchor,anchor],
+    popupAnchor:[0,-anchor]
+  });
 }
 function rolePopupHTML(rec){
   const title = rec.role==='driver' ? 'Driver/Pusher' : 'Stander/Blocker';
@@ -1865,7 +1892,7 @@ ${rec.windLabel?`<div class="pu-coords">💨 ${rec.windLabel}</div>`:''}
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${rec.role}')">Delete</button></div>`;
 }
 function addRoleMarkerRecord(rec){
-  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.mapLabel || rec.initial), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
+  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.mapLabel || rec.initial, drivePosterNumberedLabels), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
   marker.on('dragend', evt=>{
     const ll = evt.target.getLatLng();
     rec.lat = ll.lat;
