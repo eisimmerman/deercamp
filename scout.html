@@ -83,8 +83,6 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .map-title-sub{font-family:'IBM Plex Mono',monospace;font-size:.56rem;letter-spacing:.8px;text-transform:uppercase;color:var(--tan);text-align:center;}
 .drive-name-map-label{background:transparent;border:0;}
 .drive-name-map-label .drive-name-pill{display:inline-flex;align-items:center;justify-content:center;max-width:220px;padding:5px 10px;border-radius:999px;background:rgba(18,10,2,.86);border:1px solid rgba(240,232,216,.34);color:#fff8ef;font:800 11px 'IBM Plex Mono',monospace;line-height:1.15;text-align:center;white-space:normal;box-shadow:0 5px 14px rgba(0,0,0,.34);text-shadow:0 1px 2px rgba(0,0,0,.55);}
-body.drive-poster-numbered .drive-name-map-label .drive-name-pill{width:24px;height:24px;min-width:24px;max-width:24px;padding:0;border-radius:999px;background:rgba(255,248,239,.98);color:#111;border:2px solid #111;box-shadow:0 3px 12px rgba(0,0,0,.45);font:900 10px 'IBM Plex Mono',monospace;line-height:1;text-shadow:none;white-space:nowrap;}
-body.drive-poster-numbered .drive-showall-point-label .drive-showall-point-pill{width:20px;height:20px;font-size:8.5px;border:1.5px solid rgba(255,255,255,.94);box-shadow:0 2px 8px rgba(0,0,0,.36);}
 .drive-showall-point-label{background:transparent;border:0;}
 .drive-showall-point-label .drive-showall-point-pill{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;border:1px solid rgba(255,255,255,.82);font:800 10px 'IBM Plex Mono',monospace;box-shadow:0 3px 10px rgba(0,0,0,.36);}
 .drive-showall-point-label .drive-showall-point-pill.driver{background:#2f6fa8;color:#fff;}
@@ -388,6 +386,9 @@ body.scout-preprint-layout #print-legend{display:block!important;width:10.84in;m
 body.scout-preprint-layout .map-title-badge{display:flex!important;position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.94);border:1.5px solid #444;box-shadow:none;backdrop-filter:none;}
 body.scout-preprint-layout .map-title-main{color:#111;font-size:16px;}
 body.scout-preprint-layout .map-title-sub{color:#444;font-size:8px;letter-spacing:1px;}
+body.drive-poster-numbered .scout-role-marker{width:18px!important;height:18px!important;border-width:1px!important;font-size:7px!important;box-shadow:none!important;line-height:1!important;}
+body.drive-poster-numbered .leaflet-marker-icon{overflow:visible!important;}
+body.scout-preprint-layout.drive-poster-numbered .scout-role-marker{width:18px!important;height:18px!important;border-width:1px!important;font-size:7px!important;box-shadow:none!important;}
 @page{size:landscape;margin:0;}
 @media print{
   html,body{overflow:visible!important;height:auto!important;background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -1006,22 +1007,7 @@ let drivePosterLegendEntries = [];
 function setDrivePosterNumberedLabels(enabled){
   drivePosterNumberedLabels = Boolean(enabled) && isScoutDriveBuilder();
   document.body.classList.toggle('drive-poster-numbered', drivePosterNumberedLabels);
-  refreshCurrentDriveRoleIconsForPoster();
   if(!drivePosterNumberedLabels) drivePosterLegendEntries = [];
-}
-function refreshCurrentDriveRoleIconsForPoster(){
-  try{
-    if(!isScoutDriveBuilder()) return;
-    const compact = Boolean(drivePosterNumberedLabels);
-    [...drivers, ...standers].forEach(item => {
-      const marker = allLayers[item.id];
-      if(marker && typeof marker.setIcon === 'function'){
-        marker.setIcon(roleIcon(item.role, item.mapLabel || item.initial || item.slot, compact));
-      }
-    });
-  }catch(error){
-    console.warn('Drive role icon resize skipped.', error);
-  }
 }
 function resetDrivePosterLegendEntries(){
   drivePosterLegendEntries = [];
@@ -1237,7 +1223,7 @@ async function fitStandBuilderMapForPrint(options = {}){
 }
 
 
-function showAllDrives(){
+function showAllDrives(options = {}){
   if(blockScoutLimitFeature('show_all_drives')) return;
   clearShowAllDriveOverlays();
   const savedSources = getSavedCampDriveSources();
@@ -1248,11 +1234,15 @@ function showAllDrives(){
     document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
     return;
   }
-  fitBuilderMapToPrintedContent({padRatio:.20, maxZoom:17, afterMs:260}).catch(error => console.warn('Show all drives fit skipped.', error));
+  if(!options.skipFit){
+    fitBuilderMapToPrintedContent({padRatio:.20, maxZoom:17, afterMs:260}).catch(error => console.warn('Show all drives fit skipped.', error));
+  }
   activeScoutMapTitleOverride = '';
   revealMapTitleBadge('show-all-drives');
-  document.getElementById('status-bar').innerHTML=`Showing all saved drive points/routes (${pts.length}).`;
-  showScoutToast(savedCount > 1 ? `Showing ${savedCount} saved drives.` : 'Showing saved drive.', 2800);
+  if(!options.silent){
+    document.getElementById('status-bar').innerHTML=`Showing all saved drive points/routes (${pts.length}).`;
+    showScoutToast(savedCount > 1 ? `Showing ${savedCount} saved drives.` : 'Showing saved drive.', 2800);
+  }
 }
 
 async function openBuilderPosterPreview(){
@@ -1268,7 +1258,7 @@ async function openBuilderPosterPreview(){
   }
   await fitBuilderMapToPrintedContent({padRatio:.42, maxZoom:16, afterMs:620});
   updatePrintableCampBranding({forceVisible:true});
-  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Poster output uses numbered map labels plus a legend to avoid overlap.`;
+  document.getElementById('status-bar').innerHTML = `${SCOUT_BUILDER_MODE === 'drive' ? 'Drive' : 'Stand'} poster preview is ready. Stand posters use numbered pins plus a legend to avoid label overlap.`;
 }
 
 async function externalPrintSave(){
@@ -1323,6 +1313,23 @@ async function capturePosterElementToCanvas(element, scale){
     imageTimeout:0
   });
 }
+function forceLeafletPosterOverlayRedraw(){
+  try{ map.invalidateSize(true); }catch(e){}
+  try{
+    Object.values(allLayers || {}).forEach(layer => {
+      try{ if(layer && typeof layer.redraw === 'function') layer.redraw(); }catch(e){}
+      try{ if(layer && typeof layer.eachLayer === 'function') layer.eachLayer(child => { if(child && typeof child.redraw === 'function') child.redraw(); }); }catch(e){}
+    });
+  }catch(e){}
+}
+async function rebuildDrivePosterOverlaysForExport(){
+  if(!isScoutDriveBuilder()) return;
+  clearShowAllDriveOverlays();
+  showAllDrives({skipFit:true, silent:true});
+  forceLeafletPosterOverlayRedraw();
+  await waitForScoutPrint(260);
+  forceLeafletPosterOverlayRedraw();
+}
 async function buildPosterPngCanvas(){
   const shouldRestoreStandLabels = isScoutStandBuilder();
   try{
@@ -1340,7 +1347,9 @@ async function buildPosterPngCanvas(){
     setScoutPreprintLayout(true);
     await waitForScoutPrint(160);
     await refitScoutPrintMap({padRatio:isScoutStandBuilder() ? .26 : .34, maxZoom:16, beforeMs:260, afterMs:1150});
-    await waitForScoutPrint(220);
+    if(isScoutDriveBuilder()) await rebuildDrivePosterOverlaysForExport();
+    await waitForScoutPrint(520);
+    forceLeafletPosterOverlayRedraw();
     buildPrintLegend();
     const renderScale = Math.max(2.25, Math.min(3, window.devicePixelRatio || 1));
     const mapCanvas = await capturePosterElementToCanvas(document.getElementById('map'), renderScale);
@@ -1862,25 +1871,13 @@ function toggleMapFreeze(){
     if(btn) btn.textContent='📌 Freeze Map';
   }
 }
-function roleIcon(role, label='', compact=false){
+function roleIcon(role, label=''){
   const cfg = role==='driver'
     ? {bg:'#2b6cb0', color:'#fff', fallback:'D'}
     : {bg:'#f4d03f', color:'#231a13', fallback:'S'};
   const display = String(label || cfg.fallback).trim().slice(0,3).toUpperCase() || cfg.fallback;
-  const size = compact ? 22 : 34;
-  const border = compact ? 1.5 : 2;
-  const shadow = compact ? '0 2px 8px rgba(0,0,0,.35)' : '0 4px 12px rgba(0,0,0,.45)';
-  const fontSize = compact
-    ? (display.length >= 3 ? 6.8 : (display.length === 2 ? 8 : 9))
-    : (display.length >= 3 ? 9 : (display.length === 2 ? 12 : 14));
-  const anchor = size / 2;
-  return L.divIcon({
-    html:`<div style="width:${size}px;height:${size}px;border-radius:999px;background:${cfg.bg};border:${border}px solid #f0e8d8;color:${cfg.color};display:flex;align-items:center;justify-content:center;font:700 ${fontSize}px IBM Plex Mono,monospace;box-shadow:${shadow}">${display}</div>`,
-    className:'',
-    iconSize:[size,size],
-    iconAnchor:[anchor,anchor],
-    popupAnchor:[0,-anchor]
-  });
+  const fontSize = display.length >= 3 ? 9 : (display.length === 2 ? 12 : 14);
+  return L.divIcon({html:`<div class="scout-role-marker ${role==='driver'?'driver':'stander'}" style="width:34px;height:34px;border-radius:999px;background:${cfg.bg};border:2px solid #f0e8d8;color:${cfg.color};display:flex;align-items:center;justify-content:center;font:700 ${fontSize}px IBM Plex Mono,monospace;box-shadow:0 4px 12px rgba(0,0,0,.45)">${display}</div>`, className:'scout-role-marker-icon', iconSize:[34,34], iconAnchor:[17,17], popupAnchor:[0,-14]});
 }
 function rolePopupHTML(rec){
   const title = rec.role==='driver' ? 'Driver/Pusher' : 'Stander/Blocker';
@@ -1892,7 +1889,7 @@ ${rec.windLabel?`<div class="pu-coords">💨 ${rec.windLabel}</div>`:''}
 <div class="pu-acts"><button class="pu-btn pu-del" onclick="deleteRoleMarker(${rec.id}, '${rec.role}')">Delete</button></div>`;
 }
 function addRoleMarkerRecord(rec){
-  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.mapLabel || rec.initial, drivePosterNumberedLabels), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
+  const marker = L.marker([rec.lat,rec.lng], {icon: roleIcon(rec.role, rec.mapLabel || rec.initial), draggable:true}).addTo(map).bindPopup(rolePopupHTML(rec));
   marker.on('dragend', evt=>{
     const ll = evt.target.getLatLng();
     rec.lat = ll.lat;
@@ -4954,6 +4951,7 @@ async function printMap(){
   setScoutPreprintLayout(true);
   await waitForScoutPrint(120);
   await refitScoutPrintMap({padRatio:isScoutStandBuilder() ? .26 : .34, maxZoom:16, beforeMs:320, afterMs:1350});
+  if(isScoutDriveBuilder()) await rebuildDrivePosterOverlaysForExport();
   const d=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
   document.getElementById('print-date').textContent=d;
   const sub=[];
@@ -4968,6 +4966,8 @@ async function printMap(){
   document.getElementById('print-sub').textContent=sub.join(' · ');
   buildPrintLegend();
   await refitScoutPrintMap({padRatio:isScoutStandBuilder() ? .26 : .34, maxZoom:16, beforeMs:240, afterMs:1100});
+  if(isScoutDriveBuilder()) await rebuildDrivePosterOverlaysForExport();
+  buildPrintLegend();
   window.print();
   setTimeout(()=>setScoutPreprintLayout(false), 1800);
 }
@@ -4979,6 +4979,7 @@ window.addEventListener('beforeprint',()=>{
     if(isScoutDriveBuilder()) setDrivePosterNumberedLabels(true);
     updatePrintableCampBranding({forceVisible:true});
     buildPrintLegend();
+    if(isScoutDriveBuilder()){ clearShowAllDriveOverlays(); showAllDrives({skipFit:true, silent:true}); forceLeafletPosterOverlayRedraw(); }
     map.invalidateSize(true);
     const bounds = getBuilderPrintBounds();
     if(bounds){
