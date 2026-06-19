@@ -710,15 +710,12 @@ export default function FieldVoiceScreen() {
         />
         <Text style={styles.gateTitle}>Camera access needed</Text>
         <Text style={styles.gateText}>
-          DeerCamp needs camera permission to capture field memories.
+          DeerCamp uses your camera only when you choose to capture a private
+          field memory.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={requestCameraPermission}>
           <Text style={styles.primaryBtnText}>Allow Camera</Text>
-        </Pressable>
-
-        <Pressable onPress={onGoBack} style={{ marginTop: 14 }}>
-          <Text style={styles.secondaryText}>Cancel</Text>
         </Pressable>
       </View>
     );
