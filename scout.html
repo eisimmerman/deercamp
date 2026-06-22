@@ -1076,7 +1076,10 @@ let drivePosterLegendEntries = [];
 function setDrivePosterNumberedLabels(enabled){
   drivePosterNumberedLabels = Boolean(enabled) && isScoutDriveBuilder();
   document.body.classList.toggle('drive-poster-numbered', drivePosterNumberedLabels);
-  if(!drivePosterNumberedLabels) drivePosterLegendEntries = [];
+  if(!drivePosterNumberedLabels){
+    drivePosterLegendEntries = [];
+    restoreCurrentDriveBaseLayersForPoster();
+  }
 }
 function resetDrivePosterLegendEntries(){
   drivePosterLegendEntries = [];
@@ -1106,6 +1109,40 @@ function getDrivePosterMapLabel(title = ''){
   return String(entry?.number || drivePosterLegendEntries.length || '');
 }
 let showAllDriveOverlayLayerIds = [];
+let hiddenDrivePosterBaseLayerIds = [];
+function getCurrentDriveBaseLayerIdsForPoster(){
+  const ids = [];
+  try{ (drivers || []).forEach(item => { if(item?.id) ids.push(item.id); }); }catch(e){}
+  try{ (standers || []).forEach(item => { if(item?.id) ids.push(item.id); }); }catch(e){}
+  try{ (Array.isArray(deerDrivePlan?.autoRouteIds) ? deerDrivePlan.autoRouteIds : []).forEach(id => { if(id) ids.push(id); }); }catch(e){}
+  try{ (routes || []).forEach(item => { if(item?.id && item.generated === 'deerdrive') ids.push(item.id); }); }catch(e){}
+  return [...new Set(ids.map(id => String(id)).filter(Boolean))];
+}
+function hideCurrentDriveBaseLayersForPoster(){
+  if(!isScoutDriveBuilder() || !drivePosterNumberedLabels) return;
+  getCurrentDriveBaseLayerIdsForPoster().forEach(id => {
+    const layer = allLayers[id];
+    if(layer){
+      try{
+        if(map.hasLayer(layer)){
+          map.removeLayer(layer);
+          if(!hiddenDrivePosterBaseLayerIds.includes(id)) hiddenDrivePosterBaseLayerIds.push(id);
+        }
+      }catch(error){}
+    }
+  });
+}
+function restoreCurrentDriveBaseLayersForPoster(){
+  if(!hiddenDrivePosterBaseLayerIds.length) return;
+  const ids = hiddenDrivePosterBaseLayerIds.slice();
+  hiddenDrivePosterBaseLayerIds = [];
+  ids.forEach(id => {
+    const layer = allLayers[id];
+    if(layer){
+      try{ if(!map.hasLayer(layer)) layer.addTo(map); }catch(error){}
+    }
+  });
+}
 function clearShowAllDriveOverlays(){
   if(drivePosterNumberedLabels) resetDrivePosterLegendEntries();
   showAllDriveOverlayLayerIds.forEach(id => {
@@ -1297,6 +1334,7 @@ async function fitStandBuilderMapForPrint(options = {}){
 function showAllDrives(options = {}){
   if(blockScoutLimitFeature('show_all_drives')) return;
   clearShowAllDriveOverlays();
+  if(drivePosterNumberedLabels) hideCurrentDriveBaseLayersForPoster();
   const savedSources = getSavedCampDriveSources();
   let savedCount = 0;
   savedSources.forEach((item, idx) => { if(renderSavedDriveGeometryOverlay(item, idx)) savedCount += 1; });
@@ -1374,15 +1412,20 @@ function getPosterExportBaseFileName(){
 async function capturePosterElementToCanvas(element, scale){
   if(!window.html2canvas) throw new Error('Poster image export library did not load.');
   if(!element) throw new Error('Poster element not found for export.');
-  return await window.html2canvas(element, {
+  const opts = {
     backgroundColor:'#ffffff',
     useCORS:true,
     logging:false,
     allowTaint:false,
-    scale,
     removeContainer:true,
-    imageTimeout:0
-  });
+    imageTimeout:15000
+  };
+  try{
+    return await window.html2canvas(element, Object.assign({}, opts, {scale}));
+  }catch(firstError){
+    console.warn('Poster canvas capture retrying at lower scale.', firstError);
+    return await window.html2canvas(element, Object.assign({}, opts, {scale:Math.max(1.25, Math.min(1.75, Number(scale) || 1.5))}));
+  }
 }
 function forceLeafletPosterOverlayRedraw(){
   try{ map.invalidateSize(true); }catch(e){}
@@ -1397,6 +1440,7 @@ async function rebuildDrivePosterOverlaysForExport(){
   if(!isScoutDriveBuilder()) return;
   clearShowAllDriveOverlays();
   setDrivePosterNumberedLabels(true);
+  hideCurrentDriveBaseLayersForPoster();
   showAllDrives({skipFit:true, silent:true});
   hidePosterPngTransientLabels();
   forceLeafletPosterOverlayRedraw();
@@ -1467,6 +1511,7 @@ async function buildPosterPngCanvas(){
     if(SCOUT_BUILDER_MODE === 'drive') {
       setStandPosterNumberedLabels(false);
       setDrivePosterNumberedLabels(true);
+      hideCurrentDriveBaseLayersForPoster();
       showAllDrives({skipFit:true, silent:true});
       hidePosterPngTransientLabels();
     } else {
@@ -1541,7 +1586,11 @@ async function exportPosterPng(){
     const posterCanvas = await buildPosterPngCanvas();
     const fileName = `${getPosterExportBaseFileName()}.png`;
     const blob = await new Promise((resolve, reject)=>{
-      posterCanvas.toBlob(blob=>blob ? resolve(blob) : reject(new Error('PNG export failed.')), 'image/png');
+      try{
+        posterCanvas.toBlob(blob=>blob ? resolve(blob) : reject(new Error('PNG export failed.')), 'image/png');
+      }catch(error){
+        reject(error);
+      }
     });
     downloadBlob(blob, fileName);
     document.getElementById('status-bar').innerHTML = 'Poster PNG downloaded. Use the PNG file for print-ready image output.';
