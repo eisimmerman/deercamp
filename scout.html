@@ -97,6 +97,12 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 
 /* MAP */
 #map{flex:1;z-index:1;position:relative;}
+/* Scout startup hold: hide route/marker flashes while Drive Builder restores saved geometry and final map bounds. */
+body.scout-startup-hold #map::after{content:'Loading DeerDrive map…';position:absolute;inset:0;z-index:1800;display:flex;align-items:center;justify-content:center;background:#10210f;color:#9fb68a;font:700 11px 'IBM Plex Mono',monospace;letter-spacing:.8px;text-transform:uppercase;pointer-events:none;}
+body.scout-startup-hold #map .leaflet-pane,
+body.scout-startup-hold #map .leaflet-control-container,
+body.scout-startup-hold #map .map-title-badge{visibility:hidden!important;opacity:0!important;}
+body.scout-startup-ready #map::after{display:none!important;}
 .leaflet-container{background:#1a2810;}
 
 /* Scout map tile-loading background: prevent the temporary blaze-orange/amber flash while saved DeerDrive layers appear before satellite tiles finish loading. */
@@ -107,22 +113,6 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .leaflet-layer,
 .leaflet-tile-container{background:#10210f!important;}
 .leaflet-tile{background:transparent!important;}
-
-/* Scout startup mask: cover the map immediately while Leaflet tiles and saved-drive overlays hydrate.
-   This avoids the transient blaze-orange route flash before the final Drive Builder state settles. */
-body:not(.scout-startup-ready) #map::after,
-body.scout-startup-hold #map::after{
-  content:'';
-  position:absolute;
-  inset:0;
-  z-index:1200;
-  pointer-events:none;
-  background:#10210f;
-  opacity:1;
-  transition:opacity .18s ease;
-}
-body:not(.scout-startup-ready) .map-title-badge,
-body.scout-startup-hold .map-title-badge{visibility:hidden;}
 .leaflet-control-zoom a{background:var(--wood)!important;color:var(--tan)!important;border-color:var(--moss)!important;font-family:'IBM Plex Mono',monospace!important;}
 .leaflet-control-zoom a:hover{background:var(--moss)!important;}
 .leaflet-control-attribution{background:rgba(18,10,2,.7)!important;color:#4a3a20!important;font-size:8px!important;}
@@ -459,7 +449,7 @@ body.scout-preprint-layout.drive-poster-numbered .drive-name-map-label{display:n
 #print-legend .pl-stats{margin-top:3px;padding-top:3px;border-top:1px solid #eee;font-size:6.8px;color:#555;display:flex;gap:14px;}
 </style>
 </head>
-<body>
+<body class="scout-startup-hold">
 
 <!-- Print header (hidden screen, shown on print) -->
 <div id="print-header">
@@ -941,18 +931,28 @@ const SCOUT_BUILDER_MODE = (() => {
   }
 })();
 document.body.classList.add(SCOUT_BUILDER_MODE === 'drive' ? 'builder-drive' : 'builder-stand');
-if(SCOUT_BUILDER_MODE === 'drive') document.body.classList.add('scout-startup-hold');
+holdScoutStartupIfNeeded();
 function isScoutStandBuilder(){ return SCOUT_BUILDER_MODE === 'stand'; }
 function isScoutDriveBuilder(){ return SCOUT_BUILDER_MODE === 'drive'; }
 function releaseScoutStartupHold(delayMs = 0){
   const release = () => {
     try{
-      document.body.classList.remove('scout-startup-hold');
       document.body.classList.add('scout-startup-ready');
+      document.body.classList.remove('scout-startup-hold');
     }catch(e){}
   };
-  if(delayMs > 0) setTimeout(release, delayMs);
+  if(delayMs && delayMs > 0) setTimeout(release, delayMs);
   else release();
+}
+function holdScoutStartupIfNeeded(){
+  try{
+    if(isScoutDriveBuilder()){
+      document.body.classList.add('scout-startup-hold');
+      document.body.classList.remove('scout-startup-ready');
+    }else{
+      releaseScoutStartupHold(250);
+    }
+  }catch(e){ releaseScoutStartupHold(500); }
 }
 
 function getScoutCampIdForSecurity(){
@@ -1627,7 +1627,6 @@ function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
     const badgeX = Math.round(mapX + ((mapW - badgeW) / 2));
     const badgeY = Math.round(mapY + 36);
     const r = 22;
-    const cx = badgeX + (badgeW / 2);
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,.22)';
     ctx.shadowBlur = 18;
@@ -1648,20 +1647,21 @@ function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    ctx.shadowColor = 'transparent';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#f5efe2';
     ctx.font = "700 46px 'Playfair Display', Georgia, serif";
-    ctx.fillText(title, cx, badgeY + 42, badgeW - 70);
+    ctx.fillText(title, badgeX + (badgeW / 2), badgeY + 40);
     ctx.fillStyle = '#d8c7a3';
-    ctx.font = "700 16px 'IBM Plex Mono', Arial, sans-serif";
-    ctx.fillText(sub, cx, badgeY + 84, badgeW - 70);
+    ctx.font = "700 16px 'IBM Plex Mono', monospace";
+    ctx.fillText(sub, badgeX + (badgeW / 2), badgeY + 82);
     ctx.restore();
   }catch(e){
-    console.warn('PNG title badge draw skipped.', e);
+    console.warn('PNG title draw skipped.', e);
+    try{ ctx.restore(); }catch(_e){}
   }
 }
+
 async function buildPosterPngCanvas(){
   const shouldRestoreStandLabels = isScoutStandBuilder();
   try{
@@ -4400,6 +4400,7 @@ function hydrateScoutDriveFromCampItem(item = {}){
   renderPanel();
   if(geometry.points.length){
     try{ map.fitBounds(L.latLngBounds(geometry.points).pad(.18), {maxZoom:17, animate:false}); }catch(e){}
+    releaseScoutStartupHold(900);
     document.getElementById('status-bar').innerHTML = `Opened drive: ${title}`;
     return true;
   }
@@ -5561,23 +5562,25 @@ try{
     const validPts = allPts.filter(pt => Number.isFinite(Number(pt[0])) && Number.isFinite(Number(pt[1])));
     if(validPts.length){
       revealMapTitleBadge('saved-map-content');
-      if(!hasScoutDeepLink) map.flyToBounds(validPts,{padding:[60,60]});
+      if(!hasScoutDeepLink){
+        try{
+          const b = L.latLngBounds(validPts);
+          if(isScoutDriveBuilder()){
+            map.fitBounds(b.pad(.18), {padding:[60,60], maxZoom:17, animate:false});
+          }else{
+            map.flyToBounds(validPts,{padding:[60,60]});
+          }
+        }catch(e){
+          try{ map.fitBounds(validPts,{padding:[60,60], animate:false}); }catch(_e){}
+        }
+      }
     }
   }
 }catch(e){}
 applyScoutBuilderMode();enforceScoutDcPlusGate();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();
+if(isScoutDriveBuilder()) releaseScoutStartupHold(2200); else releaseScoutStartupHold(350);
 runDeepLinkedScoutEditRetries();
-if(isScoutDriveBuilder()){
-  // Hold longer in Drive Builder because saved routes can render before satellite tiles settle.
-  map.whenReady(() => releaseScoutStartupHold(3200));
-  window.addEventListener('load', () => releaseScoutStartupHold(4200));
-  setTimeout(() => releaseScoutStartupHold(), 6500);
-}else{
-  map.whenReady(() => releaseScoutStartupHold(600));
-  window.addEventListener('load', () => releaseScoutStartupHold(900));
-  setTimeout(() => releaseScoutStartupHold(), 1600);
-}
-window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
+window.addEventListener('load', () => { setTimeout(runDeepLinkedScoutEditRetries, 300); if(isScoutDriveBuilder()) releaseScoutStartupHold(4200); });
 </script>
 </body>
 </html>
