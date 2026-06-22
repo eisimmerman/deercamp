@@ -108,18 +108,21 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .leaflet-tile-container{background:#10210f!important;}
 .leaflet-tile{background:transparent!important;}
 
-/* Drive Builder startup mask: hide transient saved-drive route overlays until tiles and initial drive hydration settle. */
-body.builder-drive.scout-startup-hold #map::after{
+/* Scout startup mask: cover the map immediately while Leaflet tiles and saved-drive overlays hydrate.
+   This avoids the transient blaze-orange route flash before the final Drive Builder state settles. */
+body:not(.scout-startup-ready) #map::after,
+body.scout-startup-hold #map::after{
   content:'';
   position:absolute;
   inset:0;
-  z-index:980;
+  z-index:1200;
   pointer-events:none;
   background:#10210f;
   opacity:1;
   transition:opacity .18s ease;
 }
-body.builder-drive.scout-startup-hold .map-title-badge{visibility:hidden;}
+body:not(.scout-startup-ready) .map-title-badge,
+body.scout-startup-hold .map-title-badge{visibility:hidden;}
 .leaflet-control-zoom a{background:var(--wood)!important;color:var(--tan)!important;border-color:var(--moss)!important;font-family:'IBM Plex Mono',monospace!important;}
 .leaflet-control-zoom a:hover{background:var(--moss)!important;}
 .leaflet-control-attribution{background:rgba(18,10,2,.7)!important;color:#4a3a20!important;font-size:8px!important;}
@@ -943,7 +946,10 @@ function isScoutStandBuilder(){ return SCOUT_BUILDER_MODE === 'stand'; }
 function isScoutDriveBuilder(){ return SCOUT_BUILDER_MODE === 'drive'; }
 function releaseScoutStartupHold(delayMs = 0){
   const release = () => {
-    try{ document.body.classList.remove('scout-startup-hold'); }catch(e){}
+    try{
+      document.body.classList.remove('scout-startup-hold');
+      document.body.classList.add('scout-startup-ready');
+    }catch(e){}
   };
   if(delayMs > 0) setTimeout(release, delayMs);
   else release();
@@ -5562,9 +5568,14 @@ try{
 applyScoutBuilderMode();enforceScoutDcPlusGate();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();
 runDeepLinkedScoutEditRetries();
 if(isScoutDriveBuilder()){
-  map.whenReady(() => releaseScoutStartupHold(1400));
-  window.addEventListener('load', () => releaseScoutStartupHold(2200));
-  setTimeout(() => releaseScoutStartupHold(), 4200);
+  // Hold longer in Drive Builder because saved routes can render before satellite tiles settle.
+  map.whenReady(() => releaseScoutStartupHold(3200));
+  window.addEventListener('load', () => releaseScoutStartupHold(4200));
+  setTimeout(() => releaseScoutStartupHold(), 6500);
+}else{
+  map.whenReady(() => releaseScoutStartupHold(600));
+  window.addEventListener('load', () => releaseScoutStartupHold(900));
+  setTimeout(() => releaseScoutStartupHold(), 1600);
 }
 window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
 </script>
