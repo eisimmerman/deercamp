@@ -1460,6 +1460,7 @@ async function capturePosterElementToCanvas(element, scale){
   const rect = element.getBoundingClientRect ? element.getBoundingClientRect() : null;
   const captureW = Math.max(1, Math.round((rect && rect.width) || element.offsetWidth || element.scrollWidth || 1));
   const captureH = Math.max(1, Math.round((rect && rect.height) || element.offsetHeight || element.scrollHeight || 1));
+  const isCleanMapPngCapture = element && element.id === 'map' && !!window.__scoutPosterPngCleanMapCapture;
   const opts = {
     backgroundColor:'#ffffff',
     useCORS:true,
@@ -1472,7 +1473,20 @@ async function capturePosterElementToCanvas(element, scale){
     windowWidth:Math.max(document.documentElement.clientWidth || 0, captureW),
     windowHeight:Math.max(document.documentElement.clientHeight || 0, captureH),
     scrollX:0,
-    scrollY:0
+    scrollY:0,
+    ignoreElements: isCleanMapPngCapture ? (el => {
+      try{
+        if(!el || !el.classList) return false;
+        return el.classList.contains('leaflet-control-container') ||
+          el.classList.contains('leaflet-control') ||
+          el.classList.contains('leaflet-overlay-pane') ||
+          el.classList.contains('leaflet-marker-pane') ||
+          el.classList.contains('leaflet-shadow-pane') ||
+          el.classList.contains('leaflet-tooltip-pane') ||
+          el.classList.contains('leaflet-popup-pane') ||
+          el.classList.contains('leaflet-zoom-animated') && !el.classList.contains('leaflet-tile-pane');
+      }catch(e){ return false; }
+    }) : undefined
   };
   const attemptCapture = async (attemptScale) => {
     const canvas = await window.html2canvas(element, Object.assign({}, opts, {scale:attemptScale}));
@@ -1533,13 +1547,16 @@ function hideLeafletPanesForPosterPng(){
     '.leaflet-shadow-pane',
     '.leaflet-tooltip-pane',
     '.leaflet-popup-pane',
-    '.leaflet-control-container'
+    '.leaflet-control-container',
+    '.leaflet-control-zoom',
+    '.leaflet-control-attribution'
   ];
   const saved = [];
   try{
     document.querySelectorAll(selectors.join(',')).forEach(el => {
-      saved.push({el, visibility:el.style.visibility, display:el.style.display, opacity:el.style.opacity});
+      saved.push({el, visibility:el.style.visibility, display:el.style.display, opacity:el.style.opacity, pointerEvents:el.style.pointerEvents});
       el.style.visibility = 'hidden';
+      el.style.display = 'none';
       el.style.opacity = '0';
       el.style.pointerEvents = 'none';
     });
@@ -1552,7 +1569,7 @@ function hideLeafletPanesForPosterPng(){
         item.el.style.visibility = item.visibility;
         item.el.style.display = item.display;
         item.el.style.opacity = item.opacity;
-        item.el.style.pointerEvents = '';
+        item.el.style.pointerEvents = item.pointerEvents;
       }catch(e){}
     });
   };
@@ -1576,17 +1593,11 @@ function getDrivePosterPngGeometrySnapshot(){
   }
   sourceList.forEach((item, sourceIdx) => {
     const geometry = getDriveGeometryFromSavedCampItem(item);
-    geometry.routes.forEach((route, routeIdx) => {
-      const pts = getDriveGeometryRoutePoints(route).map(toContainerPoint).filter(Boolean);
-      if(pts.length < 2) return;
-      const key = pts.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join('|');
-      if(seenRoutes.has(key)) return;
-      seenRoutes.add(key);
-      snapshot.routes.push({pts, sourceIdx, routeIdx});
-    });
+    const sourceMarkerPts = [];
     geometry.drivers.forEach((driver, idx) => {
       const pt = toContainerPoint(driver);
       if(!pt) return;
+      sourceMarkerPts.push(pt);
       const label = `D${driver.slot || driver.label || idx + 1}`;
       const key = `d|${label}|${Math.round(pt.x)}|${Math.round(pt.y)}`;
       if(seenPoints.has(key)) return;
@@ -1596,11 +1607,31 @@ function getDrivePosterPngGeometrySnapshot(){
     geometry.standers.forEach((stander, idx) => {
       const pt = toContainerPoint(stander);
       if(!pt) return;
+      sourceMarkerPts.push(pt);
       const label = `S${stander.slot || stander.label || idx + 1}`;
       const key = `s|${label}|${Math.round(pt.x)}|${Math.round(pt.y)}`;
       if(seenPoints.has(key)) return;
       seenPoints.add(key);
       snapshot.standers.push({pt, label});
+    });
+    geometry.routes.forEach((route, routeIdx) => {
+      const pts = getDriveGeometryRoutePoints(route).map(toContainerPoint).filter(Boolean);
+      if(pts.length < 2) return;
+      // PNG export redraws routes manually. Drop stale route fragments that do not
+      // line up with any D/P or S/B marker for that saved drive; those fragments
+      // were the source of left-shifted orange route ghosts in PNG output.
+      if(sourceMarkerPts.length){
+        const nearAnyMarker = pts.some(pt => sourceMarkerPts.some(mp => {
+          const dx = pt.x - mp.x;
+          const dy = pt.y - mp.y;
+          return Math.sqrt((dx * dx) + (dy * dy)) <= 95;
+        }));
+        if(!nearAnyMarker) return;
+      }
+      const key = pts.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join('|');
+      if(seenRoutes.has(key)) return;
+      seenRoutes.add(key);
+      snapshot.routes.push({pts, sourceIdx, routeIdx});
     });
   });
   return snapshot;
@@ -1732,9 +1763,13 @@ async function buildPosterPngCanvas(){
     try{
       if(titleBadgeForPng) titleBadgeForPng.style.visibility = 'hidden';
       hidePosterPngTransientLabels();
-      if(isScoutDriveBuilder()) restoreHiddenPanes = hideLeafletPanesForPosterPng();
+      if(isScoutDriveBuilder()){
+        restoreHiddenPanes = hideLeafletPanesForPosterPng();
+        window.__scoutPosterPngCleanMapCapture = true;
+      }
       mapCanvas = await capturePosterElementToCanvas(document.getElementById('map'), renderScale);
     } finally {
+      window.__scoutPosterPngCleanMapCapture = false;
       if(typeof restoreHiddenPanes === 'function') restoreHiddenPanes();
       if(titleBadgeForPng) titleBadgeForPng.style.visibility = previousTitleBadgeVisibility;
     }
