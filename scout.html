@@ -1462,6 +1462,134 @@ function hidePosterPngTransientLabels(){
   }
 }
 
+function hideLeafletPanesForPosterPng(){
+  const selectors = [
+    '.leaflet-overlay-pane',
+    '.leaflet-marker-pane',
+    '.leaflet-shadow-pane',
+    '.leaflet-tooltip-pane',
+    '.leaflet-popup-pane',
+    '.leaflet-control-container'
+  ];
+  const saved = [];
+  try{
+    document.querySelectorAll(selectors.join(',')).forEach(el => {
+      saved.push({el, visibility:el.style.visibility, display:el.style.display, opacity:el.style.opacity});
+      el.style.visibility = 'hidden';
+      el.style.opacity = '0';
+      el.style.pointerEvents = 'none';
+    });
+  }catch(e){
+    console.warn('PNG pane hide skipped.', e);
+  }
+  return function restoreLeafletPanesForPosterPng(){
+    saved.forEach(item => {
+      try{
+        item.el.style.visibility = item.visibility;
+        item.el.style.display = item.display;
+        item.el.style.opacity = item.opacity;
+        item.el.style.pointerEvents = '';
+      }catch(e){}
+    });
+  };
+}
+
+function getDrivePosterPngGeometrySnapshot(){
+  if(!isScoutDriveBuilder()) return {routes:[], drivers:[], standers:[]};
+  const snapshot = {routes:[], drivers:[], standers:[]};
+  const sources = getSavedCampDriveSources();
+  const sourceList = sources.length ? sources : [{driveGeometry:{drivers, standers, routes:getBuilderVisibleDriveRoutes()}}];
+  const seenRoutes = new Set();
+  const seenPoints = new Set();
+  function toContainerPoint(pair){
+    const safe = normalizeScoutLatLngPair(pair);
+    if(!Number.isFinite(safe[0]) || !Number.isFinite(safe[1])) return null;
+    try{
+      const pt = map.latLngToContainerPoint(L.latLng(safe[0], safe[1]));
+      if(!pt || !Number.isFinite(pt.x) || !Number.isFinite(pt.y)) return null;
+      return {x:pt.x, y:pt.y};
+    }catch(e){ return null; }
+  }
+  sourceList.forEach((item, sourceIdx) => {
+    const geometry = getDriveGeometryFromSavedCampItem(item);
+    geometry.routes.forEach((route, routeIdx) => {
+      const pts = getDriveGeometryRoutePoints(route).map(toContainerPoint).filter(Boolean);
+      if(pts.length < 2) return;
+      const key = pts.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join('|');
+      if(seenRoutes.has(key)) return;
+      seenRoutes.add(key);
+      snapshot.routes.push({pts, sourceIdx, routeIdx});
+    });
+    geometry.drivers.forEach((driver, idx) => {
+      const pt = toContainerPoint(driver);
+      if(!pt) return;
+      const label = `D${driver.slot || driver.label || idx + 1}`;
+      const key = `d|${label}|${Math.round(pt.x)}|${Math.round(pt.y)}`;
+      if(seenPoints.has(key)) return;
+      seenPoints.add(key);
+      snapshot.drivers.push({pt, label});
+    });
+    geometry.standers.forEach((stander, idx) => {
+      const pt = toContainerPoint(stander);
+      if(!pt) return;
+      const label = `S${stander.slot || stander.label || idx + 1}`;
+      const key = `s|${label}|${Math.round(pt.x)}|${Math.round(pt.y)}`;
+      if(seenPoints.has(key)) return;
+      seenPoints.add(key);
+      snapshot.standers.push({pt, label});
+    });
+  });
+  return snapshot;
+}
+
+function drawDrivePosterPngGeometry(ctx, geometry, mapX, mapY, cssToPageScale){
+  if(!geometry || !isScoutDriveBuilder()) return;
+  const scale = Number(cssToPageScale) || 1;
+  const toPage = pt => ({x:mapX + (pt.x * scale), y:mapY + (pt.y * scale)});
+  try{
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#d4820a';
+    ctx.globalAlpha = .92;
+    ctx.lineWidth = Math.max(4, Math.min(7, 2.2 * scale));
+    ctx.setLineDash([Math.max(14, 7 * scale), Math.max(10, 5 * scale)]);
+    (geometry.routes || []).forEach(route => {
+      const pts = (route.pts || []).map(toPage);
+      if(pts.length < 2) return;
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      pts.slice(1).forEach(pt => ctx.lineTo(pt.x, pt.y));
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+    const markerR = Math.max(14, Math.min(22, 7 * scale));
+    const fontSize = Math.max(9, Math.min(13, 4.1 * scale));
+    function drawMarker(item, fill, textColor){
+      const pt = toPage(item.pt);
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, markerR, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, markerR * .13);
+      ctx.strokeStyle = 'rgba(255,255,255,.88)';
+      ctx.stroke();
+      ctx.fillStyle = textColor;
+      ctx.font = `900 ${fontSize}px 'IBM Plex Mono', Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(item.label || '').slice(0,3), pt.x, pt.y + 0.5);
+    }
+    (geometry.drivers || []).forEach(item => drawMarker(item, '#2f6fa8', '#ffffff'));
+    (geometry.standers || []).forEach(item => drawMarker(item, '#f4d33d', '#231a13'));
+    ctx.restore();
+  }catch(e){
+    console.warn('Manual PNG drive geometry draw skipped.', e);
+    try{ ctx.restore(); }catch(_e){}
+  }
+}
+
 function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
   try{
     const title = String(getActiveCampDisplayName() || activeScoutMapTitleOverride || 'DeerCamp').trim() || 'DeerCamp';
@@ -1532,12 +1660,16 @@ async function buildPosterPngCanvas(){
     const renderScale = Math.max(2.25, Math.min(3, window.devicePixelRatio || 1));
     const titleBadgeForPng = document.getElementById('map-title-badge');
     const previousTitleBadgeVisibility = titleBadgeForPng ? titleBadgeForPng.style.visibility : '';
+    const manualDriveGeometry = isScoutDriveBuilder() ? getDrivePosterPngGeometrySnapshot() : null;
+    let restoreHiddenPanes = null;
     let mapCanvas;
     try{
       if(titleBadgeForPng) titleBadgeForPng.style.visibility = 'hidden';
       hidePosterPngTransientLabels();
+      if(isScoutDriveBuilder()) restoreHiddenPanes = hideLeafletPanesForPosterPng();
       mapCanvas = await capturePosterElementToCanvas(document.getElementById('map'), renderScale);
     } finally {
+      if(typeof restoreHiddenPanes === 'function') restoreHiddenPanes();
       if(titleBadgeForPng) titleBadgeForPng.style.visibility = previousTitleBadgeVisibility;
     }
     const legendCanvas = await capturePosterElementToCanvas(document.getElementById('print-legend'), renderScale);
@@ -1562,6 +1694,12 @@ async function buildPosterPngCanvas(){
     const contentH = targetMapH + gapY + targetLegendH;
     const topY = Math.max(44, Math.round((pageCanvas.height - contentH) / 2));
     ctx.drawImage(mapCanvas, marginX, topY, targetMapW, targetMapH);
+    if(isScoutDriveBuilder()){
+      const mapEl = document.getElementById('map');
+      const mapRect = mapEl ? mapEl.getBoundingClientRect() : null;
+      const cssToPageScale = targetMapW / Math.max(mapRect?.width || (mapCanvas.width / renderScale) || 1, 1);
+      drawDrivePosterPngGeometry(ctx, manualDriveGeometry, marginX, topY, cssToPageScale);
+    }
     drawCenteredPosterPngTitle(ctx, pageCanvas, marginX, topY, targetMapW);
     ctx.drawImage(legendCanvas, marginX, topY + targetMapH + gapY, targetMapW, targetLegendH);
     return pageCanvas;
