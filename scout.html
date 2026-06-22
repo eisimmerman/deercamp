@@ -1437,22 +1437,58 @@ function getPosterExportBaseFileName(){
   const stamp = new Date().toISOString().slice(0,10);
   return `${campName}-${modeLabel}-${stamp}`;
 }
+function releasePosterPngStartupMaskForCapture(){
+  try{
+    document.body.classList.add('scout-startup-ready');
+    document.body.classList.remove('scout-startup-hold');
+    document.querySelectorAll('.leaflet-overlay-pane,.leaflet-marker-pane,.leaflet-tooltip-pane,.leaflet-shadow-pane,.leaflet-control-container').forEach(el=>{
+      el.style.visibility = '';
+      el.style.opacity = '';
+      el.style.display = '';
+    });
+  }catch(e){
+    console.warn('PNG startup-mask release skipped.', e);
+  }
+}
+
 async function capturePosterElementToCanvas(element, scale){
   if(!window.html2canvas) throw new Error('Poster image export library did not load.');
   if(!element) throw new Error('Poster element not found for export.');
+  releasePosterPngStartupMaskForCapture();
+  try{ map.invalidateSize(true); }catch(_e){}
+  await waitForScoutPrint(80);
+  const rect = element.getBoundingClientRect ? element.getBoundingClientRect() : null;
+  const captureW = Math.max(1, Math.round((rect && rect.width) || element.offsetWidth || element.scrollWidth || 1));
+  const captureH = Math.max(1, Math.round((rect && rect.height) || element.offsetHeight || element.scrollHeight || 1));
   const opts = {
     backgroundColor:'#ffffff',
     useCORS:true,
     logging:false,
     allowTaint:false,
     removeContainer:true,
-    imageTimeout:15000
+    imageTimeout:15000,
+    width:captureW,
+    height:captureH,
+    windowWidth:Math.max(document.documentElement.clientWidth || 0, captureW),
+    windowHeight:Math.max(document.documentElement.clientHeight || 0, captureH),
+    scrollX:0,
+    scrollY:0
+  };
+  const attemptCapture = async (attemptScale) => {
+    const canvas = await window.html2canvas(element, Object.assign({}, opts, {scale:attemptScale}));
+    if(!canvas || !canvas.width || !canvas.height){
+      throw new Error(`Poster capture returned empty canvas (${canvas ? canvas.width : 'missing'}x${canvas ? canvas.height : 'missing'}) for ${element.id || element.tagName}.`);
+    }
+    return canvas;
   };
   try{
-    return await window.html2canvas(element, Object.assign({}, opts, {scale}));
+    return await attemptCapture(scale);
   }catch(firstError){
     console.warn('Poster canvas capture retrying at lower scale.', firstError);
-    return await window.html2canvas(element, Object.assign({}, opts, {scale:Math.max(1.25, Math.min(1.75, Number(scale) || 1.5))}));
+    releasePosterPngStartupMaskForCapture();
+    try{ map.invalidateSize(true); }catch(_e){}
+    await waitForScoutPrint(180);
+    return await attemptCapture(Math.max(1.25, Math.min(1.75, Number(scale) || 1.5)));
   }
 }
 function forceLeafletPosterOverlayRedraw(){
@@ -1664,6 +1700,7 @@ function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
 
 async function buildPosterPngCanvas(){
   const shouldRestoreStandLabels = isScoutStandBuilder();
+  releasePosterPngStartupMaskForCapture();
   try{
     if(SCOUT_BUILDER_MODE === 'drive') {
       setStandPosterNumberedLabels(false);
@@ -1748,6 +1785,7 @@ async function buildPosterPngCanvas(){
 }
 async function exportPosterPng(){
   if(blockScoutLimitFeature('poster_export')) return;
+  releasePosterPngStartupMaskForCapture();
   try{
     showScoutToast('Building high-resolution poster PNG…', 3600);
     const posterCanvas = await buildPosterPngCanvas();
