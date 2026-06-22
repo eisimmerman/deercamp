@@ -107,6 +107,19 @@ body.builder-drive .menu-badges.drive-builder-only{display:flex!important;}
 .leaflet-layer,
 .leaflet-tile-container{background:#10210f!important;}
 .leaflet-tile{background:transparent!important;}
+
+/* Drive Builder startup mask: hide transient saved-drive route overlays until tiles and initial drive hydration settle. */
+body.builder-drive.scout-startup-hold #map::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  z-index:980;
+  pointer-events:none;
+  background:#10210f;
+  opacity:1;
+  transition:opacity .18s ease;
+}
+body.builder-drive.scout-startup-hold .map-title-badge{visibility:hidden;}
 .leaflet-control-zoom a{background:var(--wood)!important;color:var(--tan)!important;border-color:var(--moss)!important;font-family:'IBM Plex Mono',monospace!important;}
 .leaflet-control-zoom a:hover{background:var(--moss)!important;}
 .leaflet-control-attribution{background:rgba(18,10,2,.7)!important;color:#4a3a20!important;font-size:8px!important;}
@@ -925,8 +938,17 @@ const SCOUT_BUILDER_MODE = (() => {
   }
 })();
 document.body.classList.add(SCOUT_BUILDER_MODE === 'drive' ? 'builder-drive' : 'builder-stand');
+if(SCOUT_BUILDER_MODE === 'drive') document.body.classList.add('scout-startup-hold');
 function isScoutStandBuilder(){ return SCOUT_BUILDER_MODE === 'stand'; }
 function isScoutDriveBuilder(){ return SCOUT_BUILDER_MODE === 'drive'; }
+function releaseScoutStartupHold(delayMs = 0){
+  const release = () => {
+    try{ document.body.classList.remove('scout-startup-hold'); }catch(e){}
+  };
+  if(delayMs > 0) setTimeout(release, delayMs);
+  else release();
+}
+
 function getScoutCampIdForSecurity(){
   try { return String(new URLSearchParams(window.location.search).get('campId') || localStorage.getItem('deercamp.activeCampId') || '').trim(); }
   catch(error){ return String(localStorage.getItem('deercamp.activeCampId') || '').trim(); }
@@ -1593,17 +1615,18 @@ function drawDrivePosterPngGeometry(ctx, geometry, mapX, mapY, cssToPageScale){
 function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
   try{
     const title = String(getActiveCampDisplayName() || activeScoutMapTitleOverride || 'DeerCamp').trim() || 'DeerCamp';
-    const sub = isScoutDriveBuilder() ? 'HUNT PROPERTY MAP' : 'HUNT PROPERTY MAP';
-    const badgeW = Math.min(Math.round(mapW * 0.34), 720);
-    const badgeH = 76;
+    const sub = 'HUNT PROPERTY MAP';
+    const badgeW = Math.min(Math.round(mapW * 0.40), 980);
+    const badgeH = 120;
     const badgeX = Math.round(mapX + ((mapW - badgeW) / 2));
-    const badgeY = Math.round(mapY + 34);
-    const r = 16;
+    const badgeY = Math.round(mapY + 36);
+    const r = 22;
+    const cx = badgeX + (badgeW / 2);
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,.25)';
+    ctx.shadowColor = 'rgba(0,0,0,.22)';
     ctx.shadowBlur = 18;
     ctx.shadowOffsetY = 6;
-    ctx.fillStyle = 'rgba(18,10,2,.92)';
+    ctx.fillStyle = 'rgba(18,10,2,.94)';
     ctx.strokeStyle = 'rgba(240,232,216,.24)';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -1622,12 +1645,12 @@ function drawCenteredPosterPngTitle(ctx, pageCanvas, mapX, mapY, mapW){
     ctx.shadowColor = 'transparent';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#f0e8d8';
-    ctx.font = "700 28px Georgia, 'Times New Roman', serif";
-    ctx.fillText(title, mapX + (mapW / 2), badgeY + 29, badgeW - 40);
-    ctx.fillStyle = '#c4a97a';
-    ctx.font = "700 12px 'IBM Plex Mono', Arial, sans-serif";
-    ctx.fillText(sub, mapX + (mapW / 2), badgeY + 53, badgeW - 40);
+    ctx.fillStyle = '#f5efe2';
+    ctx.font = "700 46px 'Playfair Display', Georgia, serif";
+    ctx.fillText(title, cx, badgeY + 42, badgeW - 70);
+    ctx.fillStyle = '#d8c7a3';
+    ctx.font = "700 16px 'IBM Plex Mono', Arial, sans-serif";
+    ctx.fillText(sub, cx, badgeY + 84, badgeW - 70);
     ctx.restore();
   }catch(e){
     console.warn('PNG title badge draw skipped.', e);
@@ -5538,6 +5561,11 @@ try{
 }catch(e){}
 applyScoutBuilderMode();enforceScoutDcPlusGate();syncRecUI();renderPanel();updateCompass();syncHelperToggleSide();updatePrintableCampBranding();if(recWind) runRecommender();
 runDeepLinkedScoutEditRetries();
+if(isScoutDriveBuilder()){
+  map.whenReady(() => releaseScoutStartupHold(1400));
+  window.addEventListener('load', () => releaseScoutStartupHold(2200));
+  setTimeout(() => releaseScoutStartupHold(), 4200);
+}
 window.addEventListener('load', () => setTimeout(runDeepLinkedScoutEditRetries, 300));
 </script>
 </body>
