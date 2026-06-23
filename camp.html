@@ -2073,7 +2073,9 @@ function localCampSourceLooksDcPlusActive(source = {}){
   const tier = String(billing.tier || source.tier || source.membershipTier || "").trim().toLowerCase();
   const status = String(billing.status || billing.subscriptionStatus || source.billingStatus || source.subscriptionStatus || "").trim().toLowerCase();
   const dcPlusTier = ["dc_plus","dc+","plus","deercamp_plus","dcp","premium","deercamp_premium"].includes(tier);
-  return dcPlusTier && (["active","trialing"].includes(status) || Boolean(source.checkoutLastSyncedAt || billing.checkoutLastSyncedAt));
+  return dcPlusTier &&
+    ["active","trialing"].includes(status) &&
+    Boolean(billing.currentPeriodEnd || source.currentPeriodEnd);
 }
 
 function markLocalDcPlusActiveFromCheckout(source = {}){
