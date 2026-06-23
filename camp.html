@@ -2753,7 +2753,11 @@ function renderCampBillingButton(){
   if(!buttons.length) return;
   const billingInfo=getCampBillingInfo();
   const isPlus=billingInfo.active;
-  if(isPlus) markLocalDcPlusActiveFromCheckout(data || {});
+  // Only write a local DC+ checkout override when the loaded billing data has no paid-through date.
+  // This prevents a stale local override from replacing Firestore/Stripe currentPeriodEnd.
+  if(isPlus && !(data && data.billing && data.billing.currentPeriodEnd)){
+    markLocalDcPlusActiveFromCheckout(data || {});
+  }
   const role = getCurrentSecurityRole();
   const label=getCampBillingButtonLabel(billingInfo);
   buttons.forEach(btn=>{
