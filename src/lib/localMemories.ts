@@ -334,6 +334,7 @@ export async function markMemoryPublished(
     photoUrl?: string;
     audioUrl?: string;
     voiceUrl?: string;
+    transcriptionStatus?: "pending" | "complete" | "failed" | "not_applicable";
   }
 ) {
   const feedDocId = String(data.feedDocId || "").trim();
@@ -356,7 +357,15 @@ export async function markMemoryPublished(
     photoUrl,
     audioUrl: data.audioUrl,
     voiceUrl: data.voiceUrl || data.audioUrl,
-    details: "Published to CampFeed. Saved locally as backup.",
+    transcriptionStatus:
+      data.transcriptionStatus || (data.audioUrl || data.voiceUrl ? "pending" : undefined),
+    transcript: undefined,
+    transcriptPreview: undefined,
+    transcriptionError: undefined,
+    details:
+      data.audioUrl || data.voiceUrl
+        ? "Published to CampFeed. Transcript is being prepared."
+        : "Published to CampFeed. Saved locally as backup.",
     publishedAt: Date.now(),
     publishError: undefined,
   });

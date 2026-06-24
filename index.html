@@ -3,1069 +3,135 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DeerCamp</title>
+  <title>DeerCamp | Preserve the memories of deer camp</title>
   <style>
-    :root {
-      --parchment: #ddd3c3;
-      --paper: #f7f1e5;
-      --ink: #231a13;
-      --brown: #6a4427;
-      --brown-deep: #402717;
-      --card: rgba(247, 241, 229, 0.94);
-      --shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
-      --radius: 24px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top, rgba(255,255,255,0.2), transparent 40%),
-        linear-gradient(180deg, #d9cfbe 0%, #d0c4b0 100%);
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .page-shell {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .home-header {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      background:
-        linear-gradient(rgba(35, 20, 11, 0.18), rgba(35, 20, 11, 0.18)),
-        url("assets/branding/header-wood.jpg") center/cover no-repeat,
-        linear-gradient(180deg, #7a5636 0%, #5e3b22 100%);
-      color: #fff;
-      border-bottom: 1px solid rgba(255,255,255,0.18);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-    }
-
-    .header-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 14px 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      min-width: 0;
-    }
-
-    .brand-mark {
-      width: 52px;
-      height: 52px;
-      border-radius: 12px;
-      overflow: hidden;
-      flex: 0 0 auto;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.24);
-      background: rgba(255,255,255,0.08);
-    }
-
-    .brand-mark img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-
-    .brand-text h1 {
-      margin: 0;
-      font-size: clamp(1.7rem, 2.2vw, 2.3rem);
-      line-height: 1;
-      letter-spacing: 0.02em;
-    }
-
-    .brand-text p {
-      margin: 4px 0 0;
-      font-size: 0.98rem;
-      opacity: 0.92;
-    }
-
-    .header-cta-group {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .header-cta {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 12px 18px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.92);
-      color: var(--brown-deep);
-      font-weight: 700;
-      white-space: nowrap;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-      transition: transform 0.18s ease, box-shadow 0.18s ease;
-    }
-
-    button.header-cta,
-    button.cta,
-    button.cta-secondary {
-      border: 0;
-      font: inherit;
-      cursor: pointer;
-    }
-
-    .header-cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 10px 22px rgba(0,0,0,0.2);
-    }
-
-    .hero-home {
-      position: relative;
-      overflow: hidden;
-      padding: 84px 20px 72px;
-      background:
-        linear-gradient(rgba(33, 21, 12, 0.42), rgba(33, 21, 12, 0.42)),
-        url("assets/heroes/classic.jpg") center/cover no-repeat,
-        linear-gradient(180deg, #86603d 0%, #56402d 100%);
-      color: #fff;
-      border-bottom: 1px solid rgba(0,0,0,0.12);
-    }
-
-    .hero-home::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background:
-        radial-gradient(circle at center, rgba(255,255,255,0.08), transparent 40%),
-        linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.18) 100%);
-      pointer-events: none;
-    }
-
-    .hero-inner {
-      position: relative;
-      z-index: 1;
-      max-width: 1280px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
-      gap: 28px;
-      align-items: center;
-    }
-
-    .hero-copy {
-      max-width: 720px;
-    }
-
-    .eyebrow {
-      display: inline-block;
-      margin-bottom: 14px;
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.14);
-      border: 1px solid rgba(255,255,255,0.18);
-      font-size: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .hero-copy h2 {
-      margin: 0 0 16px;
-      font-size: clamp(2.2rem, 4vw, 4rem);
-      line-height: 1.02;
-    }
-
-    .hero-copy p {
-      margin: 0 0 26px;
-      font-size: clamp(1.05rem, 1.7vw, 1.28rem);
-      line-height: 1.6;
-      max-width: 650px;
-      color: rgba(255,255,255,0.95);
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin-bottom: 18px;
-    }
-
-    .hero-includes {
-      display: grid;
-      gap: 12px;
-      max-width: 620px;
-      margin-bottom: 20px;
-    }
-
-    .hero-includes-link {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      justify-self: start;
-      min-height: 52px;
-      padding: 14px 22px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.14);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.22);
-      font-weight: 700;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-    }
-
-    .hero-includes-link:hover {
-      background: rgba(255,255,255,0.18);
-      transform: translateY(-1px);
-    }
-
-    .cta,
-    .cta-secondary {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 52px;
-      padding: 14px 22px;
-      border-radius: 999px;
-      font-weight: 700;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-    }
-
-    .cta {
-      background: #fff;
-      color: var(--brown-deep);
-      box-shadow: 0 12px 24px rgba(0,0,0,0.22);
-    }
-
-    .cta:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 16px 28px rgba(0,0,0,0.24);
-    }
-
-    .cta-secondary {
-      background: rgba(255,255,255,0.14);
-      color: #fff;
-      border: 1px solid rgba(255,255,255,0.22);
-    }
-
-    .cta-secondary:hover {
-      background: rgba(255,255,255,0.18);
-      transform: translateY(-1px);
-    }
-
-    .hero-points {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, max-content));
-      gap: 10px 14px;
-      align-items: start;
-      justify-content: start;
-    }
-
-    .hero-point {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 10px 14px;
-      border-radius: 999px;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.16);
-      font-size: 0.95rem;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .hero-card {
-      justify-self: end;
-      width: min(100%, 430px);
-      padding: 22px;
-      border-radius: 28px;
-      background: rgba(35, 20, 11, 0.54);
-      border: 1px solid rgba(255,255,255,0.14);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(4px);
-    }
-
-    .hero-card-sign {
-      border-radius: 22px;
-      overflow: hidden;
-      background: rgba(255,255,255,0.06);
-      box-shadow: 0 10px 24px rgba(0,0,0,0.24);
-    }
-
-    .hero-card-sign img {
-      display: block;
-      width: 100%;
-      height: auto;
-      object-fit: cover;
-    }
-
-    .hero-card-copy {
-      margin-top: 16px;
-    }
-
-    .hero-card-copy h3 {
-      margin: 0 0 8px;
-      font-size: 1.35rem;
-      color: #fff;
-    }
-
-    .hero-card-copy p {
-      margin: 0;
-      color: rgba(255,255,255,0.88);
-      line-height: 1.5;
-      font-size: 0.98rem;
-    }
-
-
-    .live-demo {
-      padding: 24px 20px 10px;
-    }
-
-    .live-demo-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 22px;
-      align-items: center;
-      padding: 24px;
-      border-radius: 30px;
-      background:
-        linear-gradient(180deg, rgba(248,242,232,0.97), rgba(239,230,214,0.97));
-      border: 1px solid rgba(108, 75, 42, 0.12);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-    }
-
-    .live-demo-kicker {
-      display: inline-flex;
-      width: max-content;
-      margin-bottom: 10px;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: rgba(47, 93, 58, 0.12);
-      color: #27411e;
-      font-size: 0.78rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .live-demo h2 {
-      margin: 0 0 10px;
-      color: var(--brown-deep);
-      font-size: clamp(1.8rem, 3vw, 2.8rem);
-      line-height: 1.05;
-    }
-
-    .live-demo p {
-      margin: 0;
-      max-width: 800px;
-      color: #5a4331;
-      font-size: 1.03rem;
-      line-height: 1.65;
-    }
-
-    .live-demo-actions {
-      display: grid;
-      gap: 10px;
-      justify-items: stretch;
-      min-width: 210px;
-    }
-
-    .live-demo-note {
-      display: block;
-      color: #6a6157;
-      font-size: 0.86rem;
-      font-weight: 700;
-      line-height: 1.35;
-      text-align: center;
-    }
-
-    .features {
-      padding: 24px 20px 16px;
-    }
-
-    .features-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 20px 24px;
-      border-radius: 30px;
-      background:
-        linear-gradient(180deg, rgba(248,242,232,0.96), rgba(239,230,214,0.96));
-      border: 1px solid rgba(108, 75, 42, 0.12);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-    }
-
-    .features-title {
-      margin: 0 0 12px;
-      font-size: clamp(1.7rem, 2.4vw, 2.35rem);
-      text-align: center;
-      color: var(--brown-deep);
-    }
-
-    .features-sub {
-      max-width: 860px;
-      margin: 0 auto 16px;
-      text-align: center;
-      font-size: 1.05rem;
-      line-height: 1.7;
-      color: #5a4331;
-    }
-
-    .feature-grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .feature-card {
-      padding: 24px 22px;
-      border-radius: var(--radius);
-      background: var(--card);
-      border: 1px solid rgba(108, 75, 42, 0.1);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-      min-height: 182px;
-      display: flex;
-      flex-direction: column;
-      justify-content: flex-start;
-    }
-
-    .feature-card.highlight {
-      background:
-        linear-gradient(180deg, rgba(116, 76, 41, 0.97), rgba(80, 49, 25, 0.97));
-      color: #fff;
-      border-color: rgba(255,255,255,0.06);
-      box-shadow: 0 16px 30px rgba(0,0,0,0.16);
-    }
-
-    .feature-card .icon {
-      font-size: 1.9rem;
-      line-height: 1;
-      margin-bottom: 14px;
-    }
-
-    .feature-card h3 {
-      margin: 0 0 10px;
-      font-size: 1.4rem;
-      line-height: 1.15;
-    }
-
-    .feature-card p {
-      margin: 0;
-      line-height: 1.6;
-      font-size: 1rem;
-      color: inherit;
-    }
-
-    .coming-soon {
-      display: inline-block;
-      margin-top: 14px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 0.86rem;
-      font-weight: 700;
-      color: #734b27;
-      background: rgba(183, 122, 47, 0.12);
-    }
-
-    .feature-card.highlight .coming-soon {
-      color: #fff;
-      background: rgba(255,255,255,0.14);
-    }
-
-    .feature-card-cta {
-      margin-top: 14px;
-      display: inline-flex;
-      align-self: flex-start;
-      min-height: 44px;
-      padding: 10px 18px;
-      background: #fff;
-      color: var(--brown-deep);
-      box-shadow: 0 10px 22px rgba(0,0,0,0.16);
-    }
-
-
-    .partner-outreach {
-      padding: 18px 20px 10px;
-    }
-
-    .partner-inner {
-      max-width: 1280px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: minmax(0, 0.95fr) minmax(320px, 1.05fr);
-      gap: 18px;
-      align-items: stretch;
-      padding: 24px;
-      border-radius: 30px;
-      background: linear-gradient(180deg, rgba(247,241,229,0.96), rgba(239,230,214,0.96));
-      border: 1px solid rgba(108, 75, 42, 0.12);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.08);
-    }
-
-    .partner-copy {
-      display: grid;
-      gap: 12px;
-      align-content: center;
-    }
-
-    .partner-kicker {
-      display: inline-flex;
-      width: max-content;
-      padding: 7px 12px;
-      border-radius: 999px;
-      background: rgba(106,68,39,0.10);
-      color: var(--brown-deep);
-      font-size: 0.78rem;
-      font-weight: 800;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-    }
-
-    .partner-copy h2 {
-      margin: 0;
-      color: var(--brown-deep);
-      font-size: clamp(1.8rem, 3vw, 2.8rem);
-      line-height: 1.05;
-    }
-
-    .partner-copy p {
-      margin: 0;
-      color: #5a4331;
-      font-size: 1.02rem;
-      line-height: 1.65;
-    }
-
-    .partner-benefits {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .partner-benefit {
-      padding: 16px;
-      border-radius: 20px;
-      background: rgba(255,255,255,0.66);
-      border: 1px solid rgba(108,75,42,0.10);
-    }
-
-    .partner-benefit strong {
-      display: block;
-      margin-bottom: 6px;
-      color: var(--brown-deep);
-      font-size: 1rem;
-    }
-
-    .partner-benefit span {
-      display: block;
-      color: #5a4331;
-      line-height: 1.45;
-      font-size: 0.92rem;
-    }
-
-    .partner-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 4px;
-    }
-
-    .footer {
-      padding: 10px 20px 20px;
-      text-align: center;
-      color: #4d3828;
-    }
-
-    .footer-logo {
-      display: block;
-      width: min(100%, 1040px);
-      margin: 0 auto 4px;
-      object-fit: contain;
-    }
-
-    .footer p {
-      margin: 0;
-      font-weight: 700;
-      letter-spacing: 0.03em;
-      font-size: 1.15rem;
-    }
-
-    .pricing-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 22px;
-      background: rgba(20, 12, 7, 0.68);
-      backdrop-filter: blur(5px);
-    }
-
-    .pricing-modal.is-open {
-      display: flex;
-    }
-
-    .pricing-modal-card {
-      width: min(100%, 560px);
-      max-height: min(92vh, 760px);
-      overflow-y: auto;
-      padding: 26px;
-      border-radius: 30px;
-      background:
-        linear-gradient(180deg, rgba(248,242,232,0.98), rgba(239,230,214,0.98));
-      border: 1px solid rgba(255,255,255,0.34);
-      box-shadow: 0 24px 70px rgba(0,0,0,0.34);
-      color: var(--ink);
-    }
-
-    .pricing-modal-brand {
-      display: grid;
-      justify-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      text-align: center;
-    }
-
-    .pricing-modal-brand img {
-      width: 82px;
-      height: 82px;
-      border-radius: 20px;
-      object-fit: cover;
-      box-shadow: 0 10px 24px rgba(0,0,0,0.22);
-    }
-
-    .pricing-modal-brand h2 {
-      margin: 0;
-      color: var(--brown-deep);
-      font-size: clamp(2rem, 5vw, 3rem);
-      line-height: 1;
-    }
-
-    .pricing-options {
-      display: grid;
-      gap: 14px;
-      margin: 0 0 22px;
-      padding: 0;
-      list-style: none;
-    }
-
-    .pricing-option {
-      padding: 18px;
-      border-radius: 22px;
-      background: rgba(255,255,255,0.66);
-      border: 1px solid rgba(108,75,42,0.12);
-      box-shadow: 0 8px 18px rgba(0,0,0,0.06);
-      line-height: 1.55;
-    }
-
-    .pricing-option strong {
-      display: block;
-      margin-bottom: 4px;
-      color: var(--brown-deep);
-      font-size: 1.08rem;
-    }
-
-    .pricing-modal-close {
-      width: 100%;
-      color: #fff;
-      background: linear-gradient(180deg, #7a5636 0%, #5e3b22 100%);
-      box-shadow: 0 12px 26px rgba(0,0,0,0.18);
-    }
-
-    body.modal-open {
-      overflow: hidden;
-    }
-
-    @media (max-width: 1080px) {
-      .hero-inner {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-card {
-        justify-self: stretch;
-        width: 100%;
-        max-width: 560px;
-      }
-
-      .feature-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .partner-inner {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    @media (max-width: 720px) {
-      .header-inner {
-        flex-direction: column;
-        align-items: stretch;
-      }
-
-      .brand {
-        justify-content: center;
-        text-align: center;
-      }
-
-      .header-cta-group {
-        width: 100%;
-        flex-direction: column;
-      }
-
-      .header-cta {
-        width: 100%;
-      }
-
-      .hero-home {
-        padding-top: 62px;
-        padding-bottom: 58px;
-      }
-
-      .hero-copy h2 {
-        font-size: 2.2rem;
-      }
-
-      .hero-actions {
-        flex-direction: column;
-      }
-
-      .hero-includes-link {
-        width: 100%;
-      }
-
-      .hero-points {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .hero-point {
-        white-space: normal;
-        text-align: center;
-      }
-
-      .live-demo-inner {
-        grid-template-columns: 1fr;
-        padding: 20px 16px;
-      }
-
-      .live-demo-actions {
-        min-width: 0;
-      }
-
-      .live-demo-note {
-        text-align: left;
-      }
-
-      .cta,
-      .cta-secondary {
-        width: 100%;
-      }
-
-      .features-inner {
-        padding: 20px 16px;
-      }
-
-      .feature-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .partner-inner {
-        padding: 20px 16px;
-      }
-
-      .partner-benefits {
-        grid-template-columns: 1fr;
-      }
-
-      .partner-actions {
-        flex-direction: column;
-      }
-
-      .bottom-cta {
-        grid-template-columns: 1fr;
-      }
-
-      .bottom-cta .cta {
-        grid-column: 1;
-        width: 100%;
-      }
-
-      .footer {
-        padding: 16px 16px 28px;
-      }
-
-      .footer-logo {
-        width: min(100%, 900px);
-      }
-    }
+    :root{
+      --ink:#20140c; --cream:#f7f0e2; --paper:#fbf5e9; --tan:#d9c9b3;
+      --brown:#6b4325; --deep:#321b0f; --gold:#e9bf72; --green:#1d2a16;
+      --shadow:0 22px 55px rgba(0,0,0,.24); --radius:28px;
+    }
+    *{box-sizing:border-box} html{scroll-behavior:smooth} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:linear-gradient(180deg,#d7c9b4,#cdbfa8)}
+    a{text-decoration:none;color:inherit} img,video{max-width:100%;display:block}.page{overflow:hidden}.wrap{max-width:1240px;margin:0 auto;padding:0 22px}
+    .topbar{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,#6e4426,#4a2a17);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.22)}
+    .nav{height:78px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:13px}.brand img{width:52px;height:52px;border-radius:13px;object-fit:cover}.brand h1{margin:0;font-size:2rem;line-height:1}.brand p{margin:3px 0 0;opacity:.9}.navlinks{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;padding:14px 19px;font-weight:800;cursor:pointer;background:#fff;color:var(--deep);box-shadow:0 10px 24px rgba(0,0,0,.18)}.btn.dark{background:linear-gradient(180deg,#7d4f2e,#4a2b19);color:#fff}.btn.ghost{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.2);box-shadow:none}.btn:hover{transform:translateY(-1px)}
+    .hero{position:relative;color:#fff;background:linear-gradient(rgba(31,17,8,.58),rgba(31,17,8,.64)),url('assets/cards/first-snow.png') center 42%/cover no-repeat;padding:88px 0 72px}.hero:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 78% 22%,rgba(244,176,77,.24),transparent 28%),linear-gradient(180deg,transparent,rgba(0,0,0,.20));pointer-events:none}.hero-grid{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.02fr) minmax(340px,.9fr);gap:38px;align-items:center}.eyebrow{display:inline-flex;border-radius:999px;padding:9px 14px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.22);font-weight:900;letter-spacing:.08em;text-transform:uppercase;font-size:.82rem}.hero h2{font-size:clamp(2.65rem,5.2vw,5.7rem);line-height:.96;margin:18px 0 18px;letter-spacing:-.04em}.hero p{font-size:clamp(1.08rem,1.75vw,1.32rem);line-height:1.55;max-width:690px;color:rgba(255,255,255,.94);margin:0 0 26px}.hero-actions{display:flex;gap:13px;flex-wrap:wrap}.hero-video-card{background:rgba(28,16,9,.68);border:1px solid rgba(255,255,255,.16);border-radius:32px;padding:18px;box-shadow:var(--shadow);backdrop-filter:blur(6px)}.video-frame{position:relative;border-radius:24px;overflow:hidden;background:#000;aspect-ratio:16/9}.video-frame video{width:100%;height:100%;object-fit:cover}.play-label{position:absolute;inset:auto 18px 18px 18px;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 15px;border-radius:18px;background:rgba(25,14,8,.72);backdrop-filter:blur(5px);color:#fff}.play-dot{width:48px;height:48px;border-radius:999px;background:#fff;color:#3a2011;display:grid;place-items:center;font-weight:900}.hero-video-card h3{font-size:1.45rem;margin:15px 4px 5px}.hero-video-card p{font-size:.98rem;margin:0 4px 2px;line-height:1.45;color:rgba(255,255,255,.88)}
+    section{padding:52px 0}.storyteller{background:linear-gradient(180deg,#29170d,#3a2112);color:#fff;text-align:center}.storyteller .wrap{max-width:980px}.storyteller h2{font-size:clamp(2rem,3.6vw,3.8rem);margin:0 0 18px}.story-lines{font-size:clamp(1.25rem,2.2vw,2rem);line-height:1.55;color:#ffe7bc}.story-lines strong{color:#fff}.storyteller .question{font-size:clamp(1.6rem,3vw,3rem);font-weight:900;margin-top:22px;color:#fff}
+    .section-head{text-align:center;margin:0 auto 26px;max-width:880px}.section-head .kicker{display:inline-flex;padding:8px 13px;border-radius:999px;background:rgba(105,67,38,.12);color:#5b351e;font-weight:900;letter-spacing:.08em;text-transform:uppercase;font-size:.78rem}.section-head h2{font-size:clamp(2rem,3.2vw,3.4rem);line-height:1.05;margin:12px 0 10px;color:var(--deep)}.section-head p{font-size:1.08rem;line-height:1.62;color:#5b4634;margin:0}.video-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.video-card,.feature-card{background:rgba(251,245,233,.95);border:1px solid rgba(89,58,33,.12);border-radius:28px;padding:16px;box-shadow:0 12px 30px rgba(0,0,0,.09)}.video-card h3{font-size:1.35rem;margin:12px 4px 6px;color:var(--deep)}.video-card p{margin:0 4px 12px;color:#5d4431;line-height:1.5}.watch{display:inline-flex;margin:0 4px 4px;padding:10px 14px;border-radius:999px;background:#6b4325;color:#fff;font-weight:900}
+    .camp-stories{background:linear-gradient(180deg,#efe4d2,#d5c3aa)}.card-scroll{display:flex;gap:18px;overflow-x:auto;padding:8px 4px 22px;scroll-snap-type:x mandatory}.camp-card{scroll-snap-align:start;flex:0 0 285px;background:#20140c;border-radius:24px;padding:10px;box-shadow:var(--shadow);color:#fff;cursor:pointer;border:1px solid rgba(255,255,255,.12)}.camp-card img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:18px}.camp-card-body{padding:12px 8px 6px}.camp-card h3{margin:0 0 7px;font-size:1.18rem}.camp-card p{margin:0;color:rgba(255,255,255,.82);font-size:.92rem;line-height:1.4}.listen{margin-top:11px;display:flex;align-items:center;justify-content:space-between;gap:8px;color:#ffe4b0;font-weight:900}.no-audio{opacity:.65}.features{background:#f1e7d7}.feature-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.feature-card{padding:24px}.feature-card .icon{font-size:2rem}.feature-card h3{font-size:1.35rem;margin:12px 0 8px}.feature-card p{line-height:1.58;color:#594330;margin:0}.app-section{background:linear-gradient(180deg,#332014,#23140b);color:#fff}.app-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:28px;align-items:center}.app-copy h2{font-size:clamp(2rem,3.5vw,3.6rem);line-height:1.05;margin:0 0 14px}.app-copy p{font-size:1.12rem;line-height:1.62;color:rgba(255,255,255,.88)}.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:18px}.step{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.13);border-radius:20px;padding:14px;font-weight:900;text-align:center}.sample{background:#eadfcc}.sample-box{display:grid;grid-template-columns:1fr auto;align-items:center;gap:20px;background:rgba(251,245,233,.94);border-radius:30px;padding:28px;box-shadow:0 12px 32px rgba(0,0,0,.1)}.sample h2{margin:0 0 8px;font-size:clamp(1.8rem,3vw,3rem);color:var(--deep)}.sample p{margin:0;color:#594330;line-height:1.6}.partners{padding-top:30px}.partner-box{background:rgba(251,245,233,.82);border-radius:28px;padding:24px;display:grid;grid-template-columns:1fr 1fr;gap:18px}.partner-box h2{margin:0 0 10px;color:var(--deep)}.partner-box p{line-height:1.6;color:#594330}.final-cta{position:relative;text-align:center;color:#fff;background:linear-gradient(rgba(25,13,7,.7),rgba(25,13,7,.75)),url('assets/cards/campfire-camaraderie.png') center/cover no-repeat}.final-cta h2{font-size:clamp(2rem,4vw,4rem);margin:0 0 12px}.final-cta p{font-size:1.15rem;color:rgba(255,255,255,.9);margin:0 0 24px}.footer{text-align:center;padding:25px 20px;color:#4a3322;font-weight:800}.footer img{max-width:300px;margin:0 auto 10px;border-radius:18px}
+    .modal{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(18,10,5,.78);backdrop-filter:blur(6px)}.modal.open{display:flex}.modal-card{width:min(100%,980px);max-height:92vh;overflow:auto;background:#f8efe0;border-radius:30px;box-shadow:0 30px 90px rgba(0,0,0,.45);padding:18px}.modal-grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(0,1fr);gap:20px;align-items:start}.modal-card img{border-radius:22px;width:100%}.modal-copy{padding:8px}.modal-copy h3{font-size:2rem;margin:0 0 8px;color:var(--deep)}.modal-copy p{line-height:1.62;color:#594330}.modal audio{width:100%;margin:12px 0}.close{float:right;border:0;border-radius:999px;background:#4b2b19;color:#fff;font-size:1.4rem;width:42px;height:42px;cursor:pointer}.pricing-modal{position:fixed;inset:0;z-index:101;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(20,12,7,.7)}.pricing-modal.is-open{display:flex}.pricing-modal-card{width:min(100%,560px);background:#f8efe0;border-radius:28px;padding:24px;box-shadow:var(--shadow)}.pricing-modal-card h2{margin-top:0;color:var(--deep)}.pricing-option{background:#fff8ee;border-radius:18px;padding:14px;margin:10px 0}.pricing-modal-close{width:100%;margin-top:10px}
+    @media(max-width:950px){.hero-grid,.app-grid,.sample-box,.partner-box{grid-template-columns:1fr}.hero-video-card{max-width:680px}.video-grid,.feature-grid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr 1fr}}
+    @media(max-width:680px){.nav{height:auto;padding:12px 0;align-items:flex-start;flex-direction:column}.navlinks{width:100%}.navlinks .btn{width:100%}.hero{padding:58px 0}.hero h2{font-size:2.55rem}.hero-actions .btn{width:100%}.video-grid,.feature-grid,.modal-grid{grid-template-columns:1fr}.camp-card{flex-basis:245px}.steps{grid-template-columns:1fr}.brand h1{font-size:1.8rem}}
   </style>
 </head>
-
 <body>
-  <div class="page-shell">
+<div class="page">
+  <header class="topbar">
+    <div class="wrap nav">
+      <a class="brand" href="#top" aria-label="DeerCamp home"><img src="assets/branding/deercamp-icon.png" alt="DeerCamp"><div><h1>DeerCamp</h1><p>Preserve the memories of deer camp</p></div></a>
+      <nav class="navlinks"><a class="btn" href="build.html">Build Your Camp Free</a><button class="btn ghost" data-open-pricing>See Pricing</button><a class="btn ghost" href="camp.html?campId=camp-swede-cornell-wi-54732">View Sample Camp</a></nav>
+    </div>
+  </header>
 
-    <header class="home-header">
-      <div class="header-inner">
-        <div class="brand">
-          <div class="brand-mark">
-            <img src="assets/branding/deer-track.png" alt="DeerCamp mark" />
-          </div>
-          <div class="brand-text">
-            <h1>DeerCamp</h1>
-            <p>Preserve the Tradition</p>
-          </div>
-        </div>
-        <div class="header-cta-group">
-          <a href="build.html" class="header-cta">Build Your Camp for Free!</a>
-          <button type="button" class="header-cta" data-open-pricing>See Pricing</button>
-          <a href="deercamp-sample-camp-mobile-tour.html" class="header-cta">View Sample Camp</a>
-        </div>
-      </div>
-    </header>
-
-    <section class="hero-home">
-      <div class="hero-inner">
+  <main id="top">
+    <section class="hero">
+      <div class="wrap hero-grid">
         <div class="hero-copy">
-          <div class="eyebrow">Built for deer camp families</div>
-          <h2>Build Your Deer Camp in 5 Minutes</h2>
-          <p>
-            Capture your camp. Share your story. Preserve traditions, recipes,
-            field memories, deer drives, stand knowledge, and roles for the next generation.
-          </p>
-
-
-          <div class="hero-actions">
-            <a href="build.html" class="cta">Build Your Camp for Free!</a>
-            <button type="button" class="cta-secondary" data-open-pricing>See Pricing</button>
-            <a href="deercamp-sample-camp-mobile-tour.html" class="cta">View Sample Camp</a>
-          </div>
-
-          <div class="hero-includes">
-            <a href="#features" class="hero-includes-link">Explore DeerCamp</a>
-            <div class="hero-points">
-              <span class="hero-point">Members & steward roles</span>
-              <span class="hero-point">Traditions & recipes</span>
-              <span class="hero-point">Camp sign builder</span>
-              <span class="hero-point">CampFieldApp memories</span>
-            </div>
-          </div>
-
+          <span class="eyebrow">Built for deer camp families</span>
+          <h2>Every deer camp has stories worth preserving.</h2>
+          <p>DeerCamp helps hunting camps capture memories, preserve traditions, and keep camp connected for the next generation.</p>
+          <div class="hero-actions"><a class="btn" href="#videos">▶ Watch the Stories</a><a class="btn dark" href="build.html">Build Your Camp Free</a></div>
         </div>
+        <article class="hero-video-card">
+          <div class="video-frame"><video src="assets/videos/founders-story-rev2.mp4" preload="metadata" controls playsinline poster="assets/cards/first-coffee.png"></video><div class="play-label"><span>Founder's Story</span><span class="play-dot">▶</span></div></div>
+          <h3>Why DeerCamp Exists</h3><p>A short story about preserving the people, traditions, and memories that make camp feel like home.</p>
+        </article>
+      </div>
+    </section>
 
-        <div class="hero-card">
-          <div class="hero-card-sign">
-            <img src="assets/heroes/midwest-deer-camp-sign.png" alt="Sample DeerCamp sign" />
-          </div>
-          <div class="hero-card-copy">
-            <h3>Your camp. Your Story.<br>Preserved forever.</h3>
-          </div>
+    <section class="storyteller">
+      <div class="wrap">
+        <h2>What happens when the storytellers are gone?</h2>
+        <div class="story-lines">Every hunting camp has someone who remembers everything.<br><strong>The first buck.</strong><br><strong>The old traditions.</strong><br><strong>The stories nobody wrote down.</strong></div>
+        <div class="question">DeerCamp gives those stories a home.</div>
+      </div>
+    </section>
+
+    <section id="videos" class="videos">
+      <div class="wrap">
+        <div class="section-head"><span class="kicker">DeerCamp Stories</span><h2>Watch the DeerCamp story</h2><p>Three short videos explain why DeerCamp exists, why Facebook is not enough, and how a day at camp becomes part of your camp history.</p></div>
+        <div class="video-grid">
+          <article class="video-card"><div class="video-frame"><video src="assets/videos/founders-story-rev2.mp4" controls preload="metadata" playsinline poster="assets/cards/first-coffee.png"></video></div><h3>Founder's Story</h3><p>Why DeerCamp was created.</p><span class="watch">▶ Watch Story</span></article>
+          <article class="video-card"><div class="video-frame"><video src="assets/videos/facebook-vs-deercamp-rev5.mp4" controls preload="metadata" playsinline poster="assets/cards/grandpas-biggest-buck.png"></video></div><h3>Facebook vs DeerCamp</h3><p>Facebook remembers posts. DeerCamp remembers camps.</p><span class="watch">▶ Watch Video</span></article>
+          <article class="video-card"><div class="video-frame"><video src="assets/videos/a-day-with-deercamp-final.mp4" controls preload="metadata" playsinline poster="assets/cards/bens-first-buck.png"></video></div><h3>A Day With DeerCamp</h3><p>See how DeerCamp captures, organizes, and preserves camp life.</p><span class="watch">▶ Watch Demo</span></article>
         </div>
       </div>
     </section>
 
+    <section class="camp-stories" id="campcards">
+      <div class="wrap">
+        <div class="section-head"><span class="kicker">Featured CampCards</span><h2>Listen to a DeerCamp story</h2><p>CampCards turn memories into visual story cards with optional audio, transcripts, and photos. Start with static cards now; add more audio as the library grows.</p></div>
+        <div class="card-scroll" id="cardScroll"></div>
+      </div>
+    </section>
 
     <section class="features" id="features">
-      <div class="features-inner">
-        <h2 class="features-title">Everything your camp needs to start — with room to grow</h2>
-        <p class="features-sub">
-          Available now: your camp page, CampFeed, CampUpdate, CampMembers, CampCalendar,
-          CampTraditions, CampRecipes, CampFieldApp, CampDeerStands, CampDeerDrives,
-          maps, exports, and advanced planning tools.
-        </p>
-
+      <div class="wrap">
+        <div class="section-head"><span class="kicker">How DeerCamp Works</span><h2>Capture. Preserve. Organize.</h2><p>The tools support the story: memories, camp history, traditions, members, calendars, stands, drives, recipes, and field notes in one private place.</p></div>
         <div class="feature-grid">
-          <div class="feature-card">
-            <div class="icon">🏕️</div>
-            <h3>Build Your Camp</h3>
-            <p>Create a digital home for your hunting camp with a custom sign hero, members, roles, and camp identity.</p>
-            <span class="coming-soon">Available Now</span>
-          </div>
-
-          <div class="feature-card">
-            <div class="icon">📸</div>
-            <h3>CampFeed + CampUpdate</h3>
-            <p>Share photos, updates, comments, and camp memories in one simple running feed.</p>
-            <span class="coming-soon">Available Now</span>
-          </div>
-
-          <div class="feature-card">
-            <div class="icon">🎙️</div>
-            <h3>CampFieldApp</h3>
-            <p>Capture photo + voice memories from the field and send them back to your DeerCamp CampFeed when connectivity is available.</p>
-            <span class="coming-soon">Available Now</span>
-          </div>
-
-          <div class="feature-card">
-            <div class="icon">👥</div>
-            <h3>CampMembers + CampCalendar</h3>
-            <p>Bring your crew together with steward-managed roles, member profiles, invites, important dates, and camp events.</p>
-            <span class="coming-soon">Available Now</span>
-          </div>
-
-          <div class="feature-card highlight">
-            <div class="icon">🚀</div>
-            <h3>Start Free</h3>
-            <p>Get your camp online fast, then expand into richer sections and member tools as your camp grows.</p>
-            <a href="build.html" class="cta feature-card-cta">Start Building</a>
-          </div>
-
-          <div class="feature-card">
-            <div class="icon">🦌</div>
-            <h3>Stands, Drives + Maps</h3>
-            <p>Create and manage deer stands, deer drives, maps, notes, exports, and shared hunting knowledge for your camp.</p>
-            <span class="coming-soon">Available Now</span>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-
-    <section class="partner-outreach" id="partners">
-      <div class="partner-inner">
-        <div class="partner-copy">
-          <span class="partner-kicker">For processors, taxidermists & outdoor businesses</span>
-          <h2>Give your customers a free DeerCamp tool to take home.</h2>
-          <p>
-            DeerCamp helps hunters privately save camp stories, photos, recipes, stand history, deer drives, and season memories. A simple poster or QR code gives your customers something useful after they visit your business.
-          </p>
-          <div class="partner-actions">
-            <a href="build.html" class="cta">Build Your Camp</a>
-            <button type="button" class="cta-secondary" data-open-pricing>See Pricing</button>
-            <a href="https://ourdeercamp.com" class="cta-secondary">Share DeerCamp</a>
-          </div>
-        </div>
-        <div class="partner-benefits" aria-label="Partner benefits">
-          <div class="partner-benefit"><strong>Customer value</strong><span>Hunters leave with a private camp tool built specifically for deer camps.</span></div>
-          <div class="partner-benefit"><strong>Simple touchpoint</strong><span>No cost, no obligation, and nothing for your business to manage.</span></div>
-          <div class="partner-benefit"><strong>Future fit</strong><span>Trusted hunting businesses can be positioned for future DeerCamp partnership opportunities.</span></div>
+          <article class="feature-card"><div class="icon">🎙️</div><h3>Capture Memories</h3><p>Use CampFieldApp to capture photo + voice memories from the field and send them back to camp.</p></article>
+          <article class="feature-card"><div class="icon">🔥</div><h3>Preserve Stories</h3><p>CampCards, CampFeed, CampUpdate, traditions, recipes, and Wall of Fame help preserve what makes camp special.</p></article>
+          <article class="feature-card"><div class="icon">🗺️</div><h3>Plan Camp</h3><p>Members, calendar, stands, drives, maps, exports, and shared camp knowledge keep the camp organized.</p></article>
         </div>
       </div>
     </section>
 
-    <footer class="footer">
-      <img src="assets/branding/deercamp-footer.png" class="footer-logo" alt="DeerCamp" />
-      <p>Preserve the Tradition</p>
-    </footer>
-
-    <div class="pricing-modal" id="pricingModal" role="dialog" aria-modal="true" aria-labelledby="pricingModalTitle" aria-hidden="true">
-      <div class="pricing-modal-card">
-        <div class="pricing-modal-brand">
-          <img src="assets/branding/deer-track.png" alt="DeerCamp hoof mark" />
-          <h2 id="pricingModalTitle">Pricing</h2>
-        </div>
-
-        <ul class="pricing-options">
-          <li class="pricing-option">
-            <strong>DeerCamp Free</strong>
-            Start your camp, explore the basics, and invite your first members.
-          </li>
-          <li class="pricing-option">
-            <strong>DeerCamp Plus — $9.99/month or $79/year</strong>
-            Unlock premium camp tools including expanded memories, member activity, photos, traditions, recipes, deer stands, deer drives, maps, and future camp planning features.
-          </li>
-          <li class="pricing-option">
-            <strong>Guided Steward Setup — $179 one-time</strong>
-            A personal DeerCamp launch session. We'll help you configure your camp, review your setup, assist with member invites, and answer questions so your camp is ready to launch with confidence.
-            <br><br>
-            <strong>Includes first year of DC+ ($79 value).</strong>
-            <br><br>
-            <a
-              href="https://buy.stripe.com/8x2bJ3gFocZ7gPv9WX0Fi00"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="cta"
-              style="display:inline-flex;"
-            >
-              Book Guided Steward Setup
-            </a>
-          </li>
-        </ul>
-
-        <button type="button" class="cta pricing-modal-close" data-close-pricing>Close</button>
+    <section class="app-section">
+      <div class="wrap app-grid">
+        <div class="app-copy"><span class="eyebrow">CampFieldApp</span><h2>Capture it before it's gone.</h2><p>The best memories often happen away from Wi-Fi. Take a photo, record a voice note, and let DeerCamp send it back to your private camp when connectivity is available.</p><div class="steps"><div class="step">Photo</div><div class="step">Voice</div><div class="step">Upload Later</div><div class="step">CampFeed</div></div></div>
+        <div class="hero-video-card"><div class="video-frame"><video src="assets/videos/a-day-with-deercamp-final.mp4" controls preload="metadata" playsinline poster="assets/cards/fall-scouting.png"></video></div><h3>A Day With DeerCamp</h3><p>Product walkthrough focused on the everyday camp experience.</p></div>
       </div>
-    </div>
+    </section>
 
-  </div>
+    <section class="sample">
+      <div class="wrap sample-box"><div><h2>See a real camp example</h2><p>Camp Swede shows how a private DeerCamp page can bring together memories, traditions, members, and field tools.</p></div><div class="hero-actions"><a class="btn dark" href="camp.html?campId=camp-swede-cornell-wi-54732">Visit Camp Swede</a><a class="btn" href="build.html">Build Your Camp</a></div></div>
+    </section>
 
-  <script>
-    const pricingModal = document.getElementById('pricingModal');
-    const openPricingButtons = document.querySelectorAll('[data-open-pricing]');
-    const closePricingButtons = document.querySelectorAll('[data-close-pricing]');
+    <section class="partners">
+      <div class="wrap partner-box"><div><span class="eyebrow" style="background:rgba(106,67,38,.12);color:#5b351e">For processors, taxidermists & outdoor businesses</span><h2>Give your customers a free DeerCamp tool to take home.</h2><p>A simple poster or QR code gives hunters something useful after they visit your business.</p></div><div class="feature-grid" style="grid-template-columns:1fr"><article class="feature-card"><h3>Customer value</h3><p>Hunters leave with a private camp tool built specifically for deer camps.</p></article></div></div>
+    </section>
 
-    function openPricingModal() {
-      pricingModal.classList.add('is-open');
-      pricingModal.setAttribute('aria-hidden', 'false');
-      document.body.classList.add('modal-open');
-    }
+    <section class="final-cta">
+      <div class="wrap"><h2>Start preserving your camp's story today.</h2><p>Your camp. Your people. Your stories. Preserved forever.</p><div class="hero-actions" style="justify-content:center"><a class="btn" href="build.html">Build Your Camp Free</a><a class="btn ghost" href="camp.html?campId=camp-swede-cornell-wi-54732">View Sample Camp</a></div></div>
+    </section>
+  </main>
+  <footer class="footer"><img src="assets/branding/deercamp-logo-url.png" alt="DeerCamp"><div>www.ourdeercamp.com</div></footer>
+</div>
 
-    function closePricingModal() {
-      pricingModal.classList.remove('is-open');
-      pricingModal.setAttribute('aria-hidden', 'true');
-      document.body.classList.remove('modal-open');
-    }
+<div class="modal" id="storyModal" aria-hidden="true"><div class="modal-card"><button class="close" id="closeStory" aria-label="Close">×</button><div class="modal-grid"><img id="modalImg" alt=""><div class="modal-copy"><h3 id="modalTitle"></h3><p id="modalText"></p><audio id="modalAudio" controls></audio><p><strong>Draft note:</strong> Cards without audio are ready for audio files in the next pass.</p></div></div></div></div>
 
-    openPricingButtons.forEach((button) => {
-      button.addEventListener('click', openPricingModal);
-    });
-
-    closePricingButtons.forEach((button) => {
-      button.addEventListener('click', closePricingModal);
-    });
-
-    pricingModal.addEventListener('click', (event) => {
-      if (event.target === pricingModal) {
-        closePricingModal();
-      }
-    });
-
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && pricingModal.classList.contains('is-open')) {
-        closePricingModal();
-      }
-    });
-  </script>
+<div class="pricing-modal" id="pricingModal" aria-hidden="true"><div class="pricing-modal-card"><h2>DeerCamp Pricing</h2><div class="pricing-option"><strong>Free Camp</strong><br>Start your camp page and begin preserving stories.</div><div class="pricing-option"><strong>DC+ Monthly — $9.99</strong><br>Premium camp tools, exports, and planning features.</div><div class="pricing-option"><strong>DC+ Annual — $79</strong><br>Best value for camps ready to preserve and organize year-round.</div><button type="button" class="btn dark pricing-modal-close" data-close-pricing>Close</button></div></div>
 
 <script>
-(function preserveDeerCampCampaignParamsOnBuildLinks(){
-  try {
-    const incoming = new URLSearchParams(window.location.search || "");
-    const keys = ["ref","campaignId","cid","dc_campaign","dcCampaign","campaignName","campaignType","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_audience","channel","source","medium","content","term","prospectId","prospect","pid","leadId","businessId"];
-    const hasAttribution = keys.some(key => String(incoming.get(key) || "").trim());
-    if (!hasAttribution) return;
-    document.querySelectorAll('a[href]').forEach(link => {
-      const rawHref = String(link.getAttribute("href") || "").trim();
-      if (!rawHref || !rawHref.includes("build.html")) return;
-      const url = new URL(rawHref, window.location.href);
-      keys.forEach(key => {
-        const value = String(incoming.get(key) || "").trim();
-        if (value && !url.searchParams.get(key)) url.searchParams.set(key, value);
-      });
-      link.setAttribute("href", `${url.pathname}${url.search}${url.hash}`);
-    });
-  } catch (error) {
-    console.warn("Could not preserve DeerCamp campaign parameters.", error);
-  }
-})();
+const cards=[
+ {title:"Grandpa's Biggest Buck",img:"assets/cards/grandpas-biggest-buck.png",audio:"",text:"The buck everybody talks about long after the season closes."},
+ {title:"Ben's First Buck",img:"assets/cards/bens-first-buck.png",audio:"assets/audio/bens-first-buck.mp3",text:"A first buck, a proud dad, and the kind of memory a camp should never lose."},
+ {title:"Brittney's First Deer",img:"assets/cards/brittneys-first-deer.png",audio:"assets/audio/brittneys-first-deer.mp3",text:"A first deer and the joy of sharing the moment with family."},
+ {title:"Campfire Camaraderie",img:"assets/cards/campfire-camaraderie.png",audio:"assets/audio/campfire-camaraderie.mp3",text:"The campfire, the annual tradition, and everyone together again."},
+ {title:"Camp Tracker",img:"assets/cards/camp-tracker.png",audio:"assets/audio/camp-tracker.mp3",text:"A memory about finding the deer, following sign, and sharing credit back at camp."},
+ {title:"Fall Scouting",img:"assets/cards/fall-scouting.png",audio:"assets/audio/fall-scouting.mp3",text:"A scouting walk that becomes part of camp knowledge."},
+ {title:"Campfire Card Games",img:"assets/cards/campfire-card-games.png",audio:"",text:"The card games, mugs, laughter, and cabin nights that make camp feel like camp."},
+ {title:"First Coffee",img:"assets/cards/first-coffee.png",audio:"",text:"The camp was holding its breath before first light."},
+ {title:"First Snow",img:"assets/cards/first-snow.png",audio:"",text:"A quiet first snow at camp, remembered before it melts away."},
+ {title:"Grandma's Kitchen",img:"assets/cards/grandmas-kitchen.png",audio:"",text:"Recipes and kitchen memories are camp history too."}
+];
+const scroll=document.getElementById('cardScroll');
+scroll.innerHTML=cards.map((c,i)=>`<article class="camp-card" data-i="${i}"><img src="${c.img}" alt="${c.title}"><div class="camp-card-body"><h3>${c.title}</h3><p>${c.text}</p><div class="listen ${c.audio?'':'no-audio'}">${c.audio?'▶ Listen to Story':'Audio coming soon'}<span>›</span></div></div></article>`).join('');
+const modal=document.getElementById('storyModal'), img=document.getElementById('modalImg'), title=document.getElementById('modalTitle'), text=document.getElementById('modalText'), audio=document.getElementById('modalAudio');
+scroll.addEventListener('click',e=>{const card=e.target.closest('.camp-card'); if(!card)return; const c=cards[Number(card.dataset.i)]; img.src=c.img; img.alt=c.title; title.textContent=c.title; text.textContent=c.text; if(c.audio){audio.style.display='block'; audio.src=c.audio;}else{audio.pause();audio.removeAttribute('src');audio.style.display='none';} modal.classList.add('open'); modal.setAttribute('aria-hidden','false');});
+document.getElementById('closeStory').onclick=()=>{modal.classList.remove('open');modal.setAttribute('aria-hidden','true');audio.pause();};
+modal.addEventListener('click',e=>{if(e.target===modal)document.getElementById('closeStory').click();});
+const pricingModal=document.getElementById('pricingModal');document.querySelectorAll('[data-open-pricing]').forEach(b=>b.onclick=()=>pricingModal.classList.add('is-open'));document.querySelectorAll('[data-close-pricing]').forEach(b=>b.onclick=()=>pricingModal.classList.remove('is-open'));pricingModal.addEventListener('click',e=>{if(e.target===pricingModal)pricingModal.classList.remove('is-open')});
+(function preserveDeerCampCampaignParamsOnBuildLinks(){try{const incoming=new URLSearchParams(window.location.search||"");const keys=["ref","campaignId","cid","dc_campaign","dcCampaign","campaignName","campaignType","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_audience","channel","source","medium","content","term","prospectId","prospect","pid","leadId","businessId"];if(!keys.some(k=>String(incoming.get(k)||"").trim()))return;document.querySelectorAll('a[href]').forEach(link=>{const raw=String(link.getAttribute('href')||'').trim();if(!raw||!raw.includes('build.html'))return;const url=new URL(raw,window.location.href);keys.forEach(k=>{const v=String(incoming.get(k)||'').trim();if(v&&!url.searchParams.get(k))url.searchParams.set(k,v)});link.setAttribute('href',`${url.pathname}${url.search}${url.hash}`)})}catch(e){console.warn('Could not preserve DeerCamp campaign parameters.',e)}})();
 </script>
-
 </body>
 </html>

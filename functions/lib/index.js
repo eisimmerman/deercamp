@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.enrichPublishedMemory = void 0;
+exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -963,6 +963,23 @@ function makeTranscriptPreview(value, maxLength = 180) {
         return clean;
     return `${clean.slice(0, maxLength - 1).trim()}…`;
 }
+function extractFirebaseStoragePathFromUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw)
+        return "";
+    try {
+        const marker = "/o/";
+        const markerIndex = raw.indexOf(marker);
+        if (markerIndex < 0)
+            return "";
+        const afterMarker = raw.slice(markerIndex + marker.length);
+        const encodedPath = (afterMarker.split("?")[0] || "").split("#")[0] || "";
+        return decodeURIComponent(encodedPath).trim();
+    }
+    catch (error) {
+        return "";
+    }
+}
 function safeGeneratedTitle(value, fallback) {
     const cleaned = cleanSpaces(value)
         .replace(/^[-–—:;,]+/, "")
@@ -1056,14 +1073,15 @@ exports.enrichPublishedMemory = (0, firestore_2.onDocumentCreated)({
     if (String(data.transcriptionStatus || "pending") !== "pending") {
         return;
     }
-    const audioPath = String(data.audioPath || "").trim();
+    const audioPath = String(data.audioPath || data.voicePath || "").trim() ||
+        extractFirebaseStoragePathFromUrl(data.audioUrl || data.voiceUrl);
     const currentTitle = String(data.title || "Field Memory").trim() || "Field Memory";
     const currentCaption = String(data.caption || "Captured in DeerCamp Field Mode.").trim() ||
         "Captured in DeerCamp Field Mode.";
     if (!audioPath) {
         await snapshot.ref.update({
             transcriptionStatus: "failed",
-            transcriptionError: "Missing audio path for cloud transcription.",
+            transcriptionError: "Missing audio storage path for cloud transcription.",
             aiUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
         });
         return;
@@ -1123,4 +1141,87 @@ exports.enrichPublishedMemory = (0, firestore_2.onDocumentCreated)({
         await node_fs_2.promises.rm(tmpDir, { recursive: true, force: true });
     }
 });
+
+exports.transcribeCampStory = (0, firestore_2.onDocumentCreated)({
+    document: "campStories/{storyId}",
+    region: "us-central1",
+    timeoutSeconds: 180,
+    memory: "1GiB",
+    secrets: [OPENAI_API_KEY],
+}, async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
+    const storyId = event.params.storyId;
+    const data = snapshot.data() || {};
+    if (String(data.transcriptionStatus || "").trim() !== "pending") {
+        return;
+    }
+    const audioPath = String(data.audioPath || data.voicePath || "").trim() ||
+        extractFirebaseStoragePathFromUrl(data.audioUrl || data.voiceUrl);
+    if (!audioPath) {
+        await snapshot.ref.update({
+            transcriptionStatus: "failed",
+            transcriptionError: "Missing story audio storage path for transcription.",
+            aiUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        });
+        return;
+    }
+    const tmpDir = await node_fs_2.promises.mkdtemp(node_path_1.default.join(node_os_1.default.tmpdir(), "deercamp-story-audio-"));
+    const ext = node_path_1.default.extname(audioPath) || ".webm";
+    const localAudioPath = node_path_1.default.join(tmpDir, `story${ext}`);
+    try {
+        await bucket.file(audioPath).download({ destination: localAudioPath });
+        const openai = new openai_1.default({ apiKey: OPENAI_API_KEY.value() });
+        const transcript = await transcribeAudio(openai, localAudioPath);
+        if (!transcript) {
+            await snapshot.ref.update({
+                transcriptionStatus: "failed",
+                transcriptionError: "No usable speech detected.",
+                transcript: "",
+                transcriptPreview: "",
+                aiUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
+                updatedAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+            return;
+        }
+        const transcriptPreview = makeTranscriptPreview(transcript, 240);
+        const summary = makeTranscriptPreview(transcript, 220);
+        const existingBody = cleanSpaces(data.body || data.text || "");
+        await snapshot.ref.update(Object.assign({
+            transcript,
+            transcriptPreview,
+            summary,
+            transcriptionStatus: "complete",
+            transcriptionError: "",
+            aiUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        }, existingBody ? {} : {
+            body: transcript,
+            text: transcript,
+        }));
+        await snapshot.ref.collection("ai").doc("transcript").set({
+            transcript,
+            summary,
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        }, { merge: true });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error("Camp story transcription failed.", {
+            storyId,
+            error: error instanceof Error ? error.message : String(error),
+        });
+        await snapshot.ref.update({
+            transcriptionStatus: "failed",
+            transcriptionError: error instanceof Error ? error.message : "Camp story transcription failed.",
+            aiUpdatedAt: firestore_1.FieldValue.serverTimestamp(),
+            updatedAt: firestore_1.FieldValue.serverTimestamp(),
+        });
+    }
+    finally {
+        await node_fs_2.promises.rm(tmpDir, { recursive: true, force: true });
+    }
+});
+
 //# sourceMappingURL=index.js.map

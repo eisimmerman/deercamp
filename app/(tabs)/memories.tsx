@@ -82,6 +82,27 @@ function getMemorySummary(item: EntryItem) {
   return item.details?.trim() || "Saved locally.";
 }
 
+
+function getTranscriptionSummary(item: EntryItem) {
+  const status = String(item.transcriptionStatus || "").trim();
+  const transcriptPreview = String(item.transcriptPreview || item.transcript || "").trim();
+
+  if (status === "complete" && transcriptPreview) {
+    return `Transcript: ${transcriptPreview}`;
+  }
+
+  if (status === "pending") {
+    return "Transcript is being prepared for CampFeed.";
+  }
+
+  if (status === "failed") {
+    const error = String(item.transcriptionError || "").trim();
+    return error ? `Transcript unavailable: ${error}` : "Transcript unavailable.";
+  }
+
+  return "";
+}
+
 const emptyUploadTotals: UploadQueueTotals = {
   total: 0,
   pending: 0,
@@ -411,6 +432,7 @@ export default function MemoriesScreen() {
   const renderItem = ({ item }: { item: EntryItem }) => {
     const title = item.title?.trim() || "Field Memory";
     const details = getMemorySummary(item);
+    const transcriptionSummary = getTranscriptionSummary(item);
 
     const statusLabel =
       item.syncStatus === "publishing"
@@ -446,6 +468,12 @@ export default function MemoriesScreen() {
         <Text style={styles.cardBody} numberOfLines={2}>
           {details}
         </Text>
+
+        {transcriptionSummary ? (
+          <Text style={styles.cardTranscript} numberOfLines={3}>
+            {transcriptionSummary}
+          </Text>
+        ) : null}
 
         {item.publishError ? (
           <Text style={styles.cardError} numberOfLines={4}>
@@ -795,6 +823,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: "700",
+  },
+
+  cardTranscript: {
+    color: "#f6d58f",
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: "800",
   },
 
   cardActions: {

@@ -13,6 +13,10 @@ export type PublishableMemory = {
   voiceUri?: string | null;
   voiceUrl?: string | null;
   audioUrl?: string | null;
+  imagePath?: string | null;
+  photoPath?: string | null;
+  audioPath?: string | null;
+  voicePath?: string | null;
   title?: string | null;
   caption?: string | null;
   details?: string | null;
@@ -54,6 +58,7 @@ export type PublishedFeedResult = {
   audioDurationMs?: number;
   audioDurationSeconds?: number;
   platform?: string;
+  transcriptionStatus?: "pending" | "not_applicable";
 };
 
 function requireSignedInUser() {
@@ -96,6 +101,52 @@ function pickUploadedAudioUrl(memory: PublishableMemory) {
     .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))[0];
 
   return String(uploadedAudio?.uploadUrl || "").trim();
+}
+
+function extractFirebaseStoragePathFromUrl(value?: string | null) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  try {
+    const marker = "/o/";
+    const markerIndex = raw.indexOf(marker);
+    if (markerIndex < 0) return "";
+
+    const afterMarker = raw.slice(markerIndex + marker.length);
+    const encodedPath = afterMarker.split("?")[0]?.split("#")[0] || "";
+    return decodeURIComponent(encodedPath).trim();
+  } catch (error) {
+    return "";
+  }
+}
+
+function pickUploadedImagePath(memory: PublishableMemory, imageUrl?: string | null) {
+  const direct = String(memory.imagePath || memory.photoPath || "").trim();
+  if (direct) return direct;
+  return extractFirebaseStoragePathFromUrl(imageUrl || pickUploadedImageUrl(memory));
+}
+
+function pickUploadedAudioPath(memory: PublishableMemory, audioUrl?: string | null) {
+  const direct = String(memory.audioPath || memory.voicePath || "").trim();
+  if (direct) return direct;
+
+  const segments = Array.isArray(memory.segments) ? memory.segments : [];
+  const uploadedAudio = segments
+    .filter((segment: any) =>
+      String(segment?.uploadPath || segment?.storagePath || segment?.path || segment?.fullPath || "").trim()
+    )
+    .sort((a, b) => Number(a.index || 0) - Number(b.index || 0))[0] as any;
+
+  const segmentPath = String(
+    uploadedAudio?.uploadPath ||
+      uploadedAudio?.storagePath ||
+      uploadedAudio?.path ||
+      uploadedAudio?.fullPath ||
+      ""
+  ).trim();
+
+  if (segmentPath) return segmentPath;
+  return extractFirebaseStoragePathFromUrl(audioUrl || pickUploadedAudioUrl(memory));
 }
 
 function getFileExtension(uri: string, fallback: string) {
@@ -420,6 +471,8 @@ export async function publishUploadedMemoryToFeed(
 
   const imageUrl = pickUploadedImageUrl(memory);
   const audioUrl = pickUploadedAudioUrl(memory);
+  const imagePath = pickUploadedImagePath(memory, imageUrl);
+  const audioPath = audioUrl ? pickUploadedAudioPath(memory, audioUrl) : "";
 
   if (!memory?.id) {
     throw new Error("Memory is missing an id.");
@@ -439,6 +492,8 @@ export async function publishUploadedMemoryToFeed(
       caption,
       imageUrl,
       audioUrl: audioUrl || undefined,
+      imagePath: imagePath || undefined,
+      audioPath: audioPath || undefined,
     })
   );
 
@@ -460,6 +515,7 @@ export async function publishUploadedMemoryToFeed(
     audioDurationMs: audioDurationMs || undefined,
     audioDurationSeconds: audioDurationMs ? Math.max(1, Math.round(audioDurationMs / 1000)) : undefined,
     platform,
+    transcriptionStatus: audioUrl ? "pending" : "not_applicable",
   };
 }
 
@@ -561,5 +617,6 @@ export async function publishMemoryToFeed(
     audioDurationMs: audioDurationMs || undefined,
     audioDurationSeconds: audioDurationMs ? Math.max(1, Math.round(audioDurationMs / 1000)) : undefined,
     platform,
+    transcriptionStatus: audioUrl ? "pending" : "not_applicable",
   };
 }
