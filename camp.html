@@ -1572,10 +1572,20 @@
 
 <script>
 const CAMP_DATA_KEY="campData", ACTIVE_CAMP_KEY="deercamp.activeCampId", CAMP_SCOPE_PREFIX="deercamp.camps.", DASHBOARD_KEY="deerCampStewardDashboard";
+function isForcedVisitorView(){
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    return params.get("visitor") === "1" || params.get("view") === "visitor" || params.get("role") === "visitor";
+  } catch(error) {
+    return false;
+  }
+}
 function getCurrentSecurityRole(){
+  if(isForcedVisitorView()) return "visitor";
   try { return window.DeerCampSecurity?.getActorRole?.(activeCampId || "") || "visitor"; } catch(error) { return "visitor"; }
 }
 function isCurrentSteward(){
+  if(isForcedVisitorView()) return false;
   try { return window.DeerCampSecurity?.isSteward?.(activeCampId || "") || false; } catch(error) { return false; }
 }
 function requireCurrentSteward(message = "Only the Camp Steward can manage this."){
@@ -6152,5 +6162,6 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
 </script>
 </body>
 </html>
+
 
 
