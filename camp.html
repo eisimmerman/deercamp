@@ -5894,7 +5894,7 @@ function populateCalendarGrid(){
   for(let day=1;day<=days;day++){
     const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     const cell=document.createElement('button'); cell.type='button'; cell.setAttribute('data-date-key', dateKey); cell.className='day'+(selectedDateKey===dateKey?' selected':'');
-    const dots=(byDate[dateKey]||[]).slice(0,3).map(()=>'<span class="dot"></span>').join('');
+    const dots=(byDate[dateKey]||[]).length ? '<span class="dot"></span>' : '';
     cell.innerHTML=`<div class="day-num">${day}</div><div class="day-dots">${dots}</div>`;
     cell.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarEventsOffset = 0; refreshCalendarSelectedClasses(); renderCalendarEvents(); updateSelectedDateChip();}, event);});
     grid.appendChild(cell);
@@ -5928,7 +5928,7 @@ function renderCalendarLookahead(){
       const events=byDate[dateKey]||[];
       const btn=document.createElement('button'); btn.type='button'; btn.className='mini-day'+(events.length?' has-event':'')+(selectedDateKey===dateKey?' selected':''); btn.setAttribute('data-date-key',dateKey);
       btn.setAttribute('aria-label', `${formatDateHuman(dateKey)}${events.length?`: ${events.length} event${events.length===1?'':'s'}`:''}`);
-      btn.innerHTML=`<span>${day}</span><span class="mini-day-dots">${events.slice(0,3).map(()=>'<span class="mini-dot"></span>').join('')}</span>`;
+      btn.innerHTML=`<span>${day}</span><span class="mini-day-dots">${events.length ? '<span class="mini-dot"></span>' : ''}</span>`;
       btn.addEventListener('click',(event)=>{event.preventDefault(); preserveCalendarScroll(()=>{selectedDateKey=dateKey; calendarCursor=new Date(year,month,1); calendarEventsOffset=0; populateCalendarGrid(); renderCalendarLookahead(); renderCalendarEvents(); updateSelectedDateChip();}, event);});
       grid.appendChild(btn);
     }
