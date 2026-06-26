@@ -765,6 +765,23 @@
       padding-bottom:8px;
       border-bottom:1px solid rgba(69,42,22,.10);
     }
+    .calendar-selected-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      margin-bottom:6px;
+    }
+    .calendar-selected-head h4{
+      margin:0!important;
+    }
+    .calendar-selected-head .selected-date{
+      flex:0 0 auto;
+      min-height:30px;
+      padding:5px 10px;
+      font-size:.76rem;
+      white-space:nowrap;
+    }
     .calendar-side-card h4{
       margin:0 0 6px!important;
       font-size:.96rem;
@@ -1067,6 +1084,15 @@
     }
     .calendar-selected-block{
       padding-bottom:5px;
+    }
+    .calendar-selected-head{
+      margin-bottom:4px;
+    }
+    .calendar-selected-head .selected-date{
+      min-height:27px;
+      padding:4px 9px;
+      font-size:.68rem;
+      letter-spacing:.03em;
     }
     .calendar-event-list{
       min-height:34px;
@@ -4328,7 +4354,10 @@ visibleSections().forEach(section=>{
           </div>
           <div class="calendar-main calendar-side calendar-side-card">
             <div class="calendar-selected-block">
-              <h4 style="margin-top:0">Current / selected events</h4>
+              <div class="calendar-selected-head">
+                <h4 style="margin-top:0">Current / selected events</h4>
+                <div id="calendarSelectedDateHeader" class="selected-date calendar-selected-date-chip">Selected Date: None</div>
+              </div>
               <div class="calendar-event-shell">
                 <div id="calendarEventList" class="calendar-event-list"></div>
                 <div class="calendar-event-nav">
@@ -4345,7 +4374,7 @@ visibleSections().forEach(section=>{
                 </div>
                 <p class="section-helper" style="margin-top:0">Add prep days, work w/e&apos;s, scouting &amp; other events.</p>
                 <div class="calendar-add-meta-row">
-                  <div id="calendarSelectedDate" class="selected-date">Selected Date: None</div>
+                  <div id="calendarSelectedDate" class="selected-date calendar-selected-date-chip">Selected Date: None</div>
                   <label class="form-row calendar-added-by-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
                 </div>
                 <label class="form-row calendar-details-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
@@ -5936,7 +5965,10 @@ function renderCalendarLookahead(){
     shell.appendChild(card);
   }
 }
-function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
+function updateSelectedDateChip(){
+  const label = `Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`;
+  document.querySelectorAll('.calendar-selected-date-chip').forEach(chip=>{ chip.textContent = label; });
+}
 function preserveCalendarScroll(action, event){
   const beforeY = window.scrollY || document.documentElement.scrollTop || 0;
   const target = event && event.currentTarget ? event.currentTarget : document.activeElement;
