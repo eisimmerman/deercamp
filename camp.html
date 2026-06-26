@@ -5881,7 +5881,15 @@ function populateCalendarGrid(){
   const year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
   const first=new Date(year,month,1), offset=first.getDay(), days=new Date(year,month+1,0).getDate();
   const normalized = normalizeCalendarEvents(calendarEvents);
-  const byDate={}; normalized.forEach(ev=>{ if(ev && ev.date) (byDate[ev.date] ||= []).push(ev); });
+  const byDate={};
+  const dotSeen = new Set();
+  normalized.forEach(ev=>{
+    if(!ev || !ev.date) return;
+    const dotKey = [ev.date, String(ev.title || '').toLowerCase().replace(/\s+/g,' ').trim()].join('|');
+    if(dotSeen.has(dotKey)) return;
+    dotSeen.add(dotKey);
+    (byDate[ev.date] ||= []).push(ev);
+  });
   for(let i=0;i<offset;i++){const e=document.createElement('button');e.className='day empty';grid.appendChild(e)}
   for(let day=1;day<=days;day++){
     const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -5895,7 +5903,15 @@ function populateCalendarGrid(){
 function renderCalendarLookahead(){
   const shell=document.getElementById('calendarLookaheadGrid'); if(!shell) return;
   const normalized=normalizeCalendarEvents(calendarEvents);
-  const byDate={}; normalized.forEach(ev=>{ if(ev && ev.date) (byDate[ev.date] ||= []).push(ev); });
+  const byDate={};
+  const dotSeen = new Set();
+  normalized.forEach(ev=>{
+    if(!ev || !ev.date) return;
+    const dotKey = [ev.date, String(ev.title || '').toLowerCase().replace(/\s+/g,' ').trim()].join('|');
+    if(dotSeen.has(dotKey)) return;
+    dotSeen.add(dotKey);
+    (byDate[ev.date] ||= []).push(ev);
+  });
   const monthNames=[];
   shell.innerHTML='';
   for(let offset=1; offset<=6; offset++){
