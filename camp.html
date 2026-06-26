@@ -4341,14 +4341,14 @@ visibleSections().forEach(section=>{
               <form id="calendarMemberEventForm" class="calendar-event-compact-form">
                 <div class="calendar-add-head">
                   <h4 style="margin-top:0">Add a Camp Event</h4>
-                  <label class="form-row calendar-title-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Event title..."></label>
+                  <label class="form-row calendar-title-row"><span class="label">Event Title</span><input id="calendarMemberEventTitle" class="input" type="text" placeholder="Final Setup"></label>
                 </div>
                 <p class="section-helper" style="margin-top:0">Add prep days, work w/e&apos;s, scouting &amp; other events.</p>
                 <div class="calendar-add-meta-row">
                   <div id="calendarSelectedDate" class="selected-date">Selected Date: None</div>
                   <label class="form-row calendar-added-by-row"><span class="label">Added By</span><select id="calendarMemberSelect" class="select"></select></label>
                 </div>
-                <label class="form-row calendar-details-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Details..."></textarea></label>
+                <label class="form-row calendar-details-row"><span class="label">Details</span><textarea id="calendarMemberEventDetails" class="textarea" placeholder="Last stand checks, meal prep, and cabin cleanup before opener."></textarea></label>
                 <div class="form-actions-full"><button id="calendarMemberEventSubmit" class="btn" type="submit">Add Event</button><div id="calendarMemberEventFeedback" class="feedback">Tap any calendar day or look-ahead dot to select the date, then choose a camp member from the roster.</div></div>
               </form>
             </div>
@@ -5880,7 +5880,8 @@ function populateCalendarGrid(){
   ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(d=>{const w=document.createElement('div');w.className='weekday';w.textContent=d;grid.appendChild(w)});
   const year=calendarCursor.getFullYear(), month=calendarCursor.getMonth();
   const first=new Date(year,month,1), offset=first.getDay(), days=new Date(year,month+1,0).getDate();
-  const byDate={}; calendarEvents.forEach(ev=>{(byDate[ev.date] ||= []).push(ev)});
+  const normalized = normalizeCalendarEvents(calendarEvents);
+  const byDate={}; normalized.forEach(ev=>{ if(ev && ev.date) (byDate[ev.date] ||= []).push(ev); });
   for(let i=0;i<offset;i++){const e=document.createElement('button');e.className='day empty';grid.appendChild(e)}
   for(let day=1;day<=days;day++){
     const dateKey=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
@@ -5919,22 +5920,7 @@ function renderCalendarLookahead(){
     shell.appendChild(card);
   }
 }
-function selectedDateHasCalendarEvents(){
-  if(!selectedDateKey) return false;
-  return normalizeCalendarEvents(calendarEvents).some(ev => ev && ev.date === selectedDateKey);
-}
-function updateCalendarEventFormPlaceholders(){
-  const titleInput = document.getElementById('calendarMemberEventTitle');
-  const detailsInput = document.getElementById('calendarMemberEventDetails');
-  const hasEvents = selectedDateHasCalendarEvents();
-  if(titleInput) titleInput.placeholder = hasEvents ? "Add another event title..." : "Event title...";
-  if(detailsInput) detailsInput.placeholder = hasEvents ? "Optional details..." : "Details...";
-}
-function updateSelectedDateChip(){
-  const chip=document.getElementById('calendarSelectedDate');
-  if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`;
-  updateCalendarEventFormPlaceholders();
-}
+function updateSelectedDateChip(){const chip=document.getElementById('calendarSelectedDate'); if(chip) chip.textContent=`Selected Date: ${selectedDateKey?formatDateHuman(selectedDateKey):'None'}`}
 function preserveCalendarScroll(action, event){
   const beforeY = window.scrollY || document.documentElement.scrollTop || 0;
   const target = event && event.currentTarget ? event.currentTarget : document.activeElement;
@@ -5988,7 +5974,7 @@ if(document.getElementById('calendarPrev')){
     const createdAt=new Date().toISOString(), createdAtMs=Date.now();
     contentSubmissions.unshift({type:'event',member,title:`${title} -- added to CampCalendar`,summary:`${formatDateHuman(selectedDateKey)} • ${description || 'Camp event submitted.'}`,createdAt,createdAtMs});
     try{ persist(); }catch(error){ setCalendarFeedback('CampCalendar could not save that event. Please try again.', true); return; }
-    calendarEvents = normalizeCalendarEvents(calendarEvents); preserveCalendarScroll(()=>{populateCalendarGrid(); renderCalendarLookahead(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); updateSelectedDateChip();}, e); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset(); updateCalendarEventFormPlaceholders();
+    calendarEvents = normalizeCalendarEvents(calendarEvents); preserveCalendarScroll(()=>{populateCalendarGrid(); renderCalendarLookahead(); calendarEventsOffset = 0; renderCalendarEvents(); recentUpdatesOffset = 0; renderRecentUpdates(); updateSelectedDateChip();}, e); setCalendarFeedback(`${title} was added for ${formatDateHuman(selectedDateKey)} and posted to Recent CampUpdates.`); e.target.reset();
   });
 }
 
