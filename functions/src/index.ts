@@ -240,3 +240,16 @@ export const enrichPublishedMemory = onDocumentCreated(
     }
   }
 );
+
+const GOOGLE_MAPS_API_KEY = defineSecret("GOOGLE_MAPS_API_KEY");
+const { campResourcesHandler } = require("../campResources");
+
+export const campResources = onRequest(
+  {
+    region: "us-central1",
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    secrets: [GOOGLE_MAPS_API_KEY],
+  },
+  campResourcesHandler
+);
