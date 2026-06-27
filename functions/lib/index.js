@@ -1225,3 +1225,15 @@ exports.transcribeCampStory = (0, firestore_2.onDocumentCreated)({
 });
 
 //# sourceMappingURL=index.js.map
+const GOOGLE_MAPS_API_KEY = (0, params_1.defineSecret)("GOOGLE_MAPS_API_KEY");
+const { campResourcesHandler } = require("../campResources");
+
+exports.campResources = (0, https_1.onRequest)(
+  {
+    region: "us-central1",
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    secrets: [GOOGLE_MAPS_API_KEY],
+  },
+  campResourcesHandler
+);
