@@ -20,22 +20,17 @@ async function campResourcesHandler(req, res){
     if(!zip || !query) return res.status(400).json({ error: "Missing zip or query" });
 
     const origin = await geocodeZip(zip);
-    const radiusMeters = Math.min(Math.round(Number(radiusMiles || 25) * 1609.34), 160934);
+    const radiusNumber = Number(radiusMiles || 25);
+    const radiusMeters = Math.min(Math.round(radiusNumber * 1609.34), 80467);
 
-    const places = await searchPlacesText({
-      lat: origin.lat,
-      lng: origin.lng,
-      radiusMeters,
-      query
-    });
-
+    const places = await searchPlacesText({ lat: origin.lat, lng: origin.lng, radiusMeters, query });
     const results = places
       .map(place => normalizePlace(place, origin))
-      .filter(Boolean)
+      .filter(place => place && typeof place.distanceMiles === "number" && place.distanceMiles <= radiusNumber + 0.25)
       .sort((a, b) => (a.distanceMiles || 999) - (b.distanceMiles || 999))
       .slice(0, 20);
 
-    res.json({ zip, radiusMiles, results });
+    res.json({ zip, radiusMiles: radiusNumber, results });
   }catch(err){
     console.error("campResourcesHandler error", err);
     res.status(500).json({ error: err.message || "Failed to load camp resources" });
@@ -48,7 +43,6 @@ async function geocodeZip(zip){
   url.searchParams.set("address", String(zip));
   url.searchParams.set("components", "country:US|postal_code:" + String(zip));
   url.searchParams.set("key", GOOGLE_API_KEY);
-
   const response = await fetch(url);
   const data = await response.json();
   if(data?.error_message) throw new Error("Geocoding failed: " + data.error_message);
@@ -65,34 +59,17 @@ async function searchPlacesText({ lat, lng, radiusMeters, query }){
       "Content-Type": "application/json",
       "X-Goog-Api-Key": GOOGLE_API_KEY,
       "X-Goog-FieldMask": [
-        "places.id",
-        "places.displayName",
-        "places.formattedAddress",
-        "places.nationalPhoneNumber",
-        "places.websiteUri",
-        "places.rating",
-        "places.googleMapsUri",
-        "places.currentOpeningHours.openNow",
-        "places.location"
+        "places.id","places.displayName","places.formattedAddress","places.nationalPhoneNumber",
+        "places.websiteUri","places.rating","places.googleMapsUri","places.currentOpeningHours.openNow","places.location"
       ].join(",")
     },
     body: JSON.stringify({
       textQuery: query,
       maxResultCount: 20,
-      locationBias: {
-        circle: {
-          center: { latitude: lat, longitude: lng },
-          radius: radiusMeters
-        }
-      }
+      locationBias: { circle: { center: { latitude: lat, longitude: lng }, radius: radiusMeters } }
     })
   });
-
-  if(!response.ok){
-    const text = await response.text();
-    throw new Error("Places search failed: " + response.status + " " + text);
-  }
-
+  if(!response.ok) throw new Error("Places search failed: " + response.status + " " + await response.text());
   const data = await response.json();
   return data.places || [];
 }
@@ -112,16 +89,10 @@ function normalizePlace(place, origin){
     distanceMiles
   };
 }
-
 function haversineMiles(lat1, lon1, lat2, lon2){
-  const R = 3958.7613;
-  const toRad = d => Number(d) * Math.PI / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const R = 3958.7613, toRad = d => Number(d) * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-
 module.exports = { campResourcesHandler };
-
-// force redeploy config refresh
