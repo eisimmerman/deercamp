@@ -708,14 +708,14 @@ export default function FieldVoiceScreen() {
           color="white"
           style={{ marginBottom: 14 }}
         />
-        <Text style={styles.gateTitle}>Camera access needed</Text>
+        <Text style={styles.gateTitle}>Camera Access</Text>
         <Text style={styles.gateText}>
           DeerCamp uses your camera only when you choose to capture a private
           field memory.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={requestCameraPermission}>
-          <Text style={styles.primaryBtnText}>Allow Camera</Text>
+          <Text style={styles.primaryBtnText}>Continue</Text>
         </Pressable>
       </View>
     );
@@ -730,13 +730,13 @@ export default function FieldVoiceScreen() {
           color="white"
           style={{ marginBottom: 14 }}
         />
-        <Text style={styles.gateTitle}>Microphone access needed</Text>
+        <Text style={styles.gateTitle}>Microphone Access</Text>
         <Text style={styles.gateText}>
-          Record Memory starts audio automatically when the camera opens.
+          DeerCamp uses the microphone so you can add voice notes to your private field memories.
         </Text>
 
         <Pressable style={styles.primaryBtn} onPress={onRetryAudio}>
-          <Text style={styles.primaryBtnText}>Allow Microphone</Text>
+          <Text style={styles.primaryBtnText}>Continue</Text>
         </Pressable>
 
         <Pressable onPress={onGoBack} style={{ marginTop: 14 }}>
