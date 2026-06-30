@@ -1,7 +1,8 @@
 (function(){
   const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bar restaurant diner supper club ice"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
   let activeCategory=categories[0].id,activeStrategy="sah",didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
-  let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=false;
+  let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=true, stapleSerial=0;
+  const stapleCatalog=["Beer","Ice","Lighter fluid","Charcoal","Propane","Coffee","Creamer","Eggs","Bacon","Bread","Butter","Chips","Beef jerky","Summer sausage","String cheese","Paper towels","Toilet paper","Garbage bags","Paper plates","Plastic cups","Bottled water","Firewood","Matches","Cooking oil","Condiments"];
   function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));}
   function qs(id){return document.getElementById(id);}
   function setStatus(m){const s=qs("campResourcesStatus");if(s)s.textContent=m;}
@@ -163,42 +164,46 @@
   }
   function currentHunterKey(){const s=qs("campResourcesHunter");return String(s?.value||selectedHunterName()||"default").trim()||"default";}
   function stapleSlug(text){return String(text||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"item";}
-  function parseStaplesText(text){
-    return String(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,idx)=>({id:`staple-${idx}-${stapleSlug(text)}`,text}));
+  function buildStapleText(name,qty){name=String(name||"").trim();qty=String(qty||"").trim();return qty?`${name} - ${qty}`:name;}
+  function renderStapleLibrary(){
+    const wrap=qs("campResourcesStapleLibrary"); if(!wrap) return;
+    wrap.innerHTML=stapleCatalog.map(name=>`<button type="button" class="campresources-staple-chip" data-staple-name="${esc(name)}">${esc(name)}</button>`).join("");
+    wrap.querySelectorAll("[data-staple-name]").forEach(btn=>btn.addEventListener("click",()=>{
+      const input=qs("campResourcesStapleName"); if(input) input.value=btn.dataset.stapleName||"";
+      wrap.querySelectorAll(".campresources-staple-chip").forEach(b=>b.classList.toggle("active",b===btn));
+      qs("campResourcesStapleQty")?.focus();
+    }));
   }
-  function pruneAssignedStaples(){
-    const valid=new Set(masterStaples.map(i=>i.id));
-    Object.keys(assignedStaplesByHunter).forEach(key=>{assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).filter(i=>valid.has(i.id));});
-  }
-  function loadMasterStaples(){
-    masterStaples=parseStaplesText(qs("campResourcesMasterStaples")?.value||"");
-    laborLoaded=true;
-    pruneAssignedStaples();
+  function addStapleItem(){
+    const nameEl=qs("campResourcesStapleName"), qtyEl=qs("campResourcesStapleQty");
+    const name=String(nameEl?.value||"").trim(), qty=String(qtyEl?.value||"").trim();
+    const status=qs("campResourcesLaborStatus")||qs("campResourcesLoadedStatus");
+    if(!name){ if(status) status.textContent="Choose a staple or type a custom item first."; nameEl?.focus(); return; }
+    const text=buildStapleText(name,qty);
+    const id=`staple-${Date.now()}-${stapleSerial++}-${stapleSlug(text)}`;
+    masterStaples.push({id,text,name,qty});
+    if(nameEl) nameEl.value=""; if(qtyEl) qtyEl.value="";
+    document.querySelectorAll(".campresources-staple-chip.active").forEach(b=>b.classList.remove("active"));
+    if(status) status.textContent=`Added ${text} to Available Camp Staples.`;
     renderLaborBoard();
   }
   function assignedIds(){const ids=new Set();Object.values(assignedStaplesByHunter).forEach(list=>(list||[]).forEach(i=>ids.add(i.id)));return ids;}
   function getHunterAssignedStaples(){return assignedStaplesByHunter[currentHunterKey()]||[];}
   function updateLaborCounters(remaining,assigned,total){
     const remCount=qs("campResourcesRemainingCount"), hunterCount=qs("campResourcesHunterOrderCount"), loaded=qs("campResourcesLoadedStatus");
-    if(remCount) remCount.textContent=laborLoaded?`${remaining.length} remaining of ${total}`:"Not loaded";
+    if(remCount) remCount.textContent=`${remaining.length} remaining of ${total}`;
     if(hunterCount) hunterCount.textContent=`${assigned.length} assigned`;
-    if(loaded) loaded.textContent=laborLoaded?`Master list loaded: ${total} item${total===1?"":"s"}`:"Paste list, then tap Load Master List";
+    if(loaded) loaded.textContent=total?`Camp staples list: ${total} total • ${remaining.length} unassigned`:"Add staples to begin.";
   }
   function renderLaborBoard(){
     const rem=qs("campResourcesRemainingStaples"),order=qs("campResourcesHunterOrder");
     if(!rem||!order)return;
-    if(!laborLoaded){
-      const raw=String(qs("campResourcesMasterStaples")?.value||"").trim();
-      if(raw){ masterStaples=parseStaplesText(raw); laborLoaded=true; pruneAssignedStaples(); }
-    }
     const used=assignedIds();
     const remaining=masterStaples.filter(i=>!used.has(i.id));
     const assigned=getHunterAssignedStaples();
     updateLaborCounters(remaining,assigned,masterStaples.length);
-    if(!laborLoaded){
-      rem.innerHTML='<span class="campresources-muted">Paste the master camp shopping list, then tap Load Master List.</span>';
-    }else if(!masterStaples.length){
-      rem.innerHTML='<span class="campresources-muted">No camp staples loaded yet. Add one item per line above.</span>';
+    if(!masterStaples.length){
+      rem.innerHTML='<span class="campresources-muted">Add camp staples above. They will appear here with checkboxes for assignment.</span>';
     }else if(remaining.length){
       rem.innerHTML=remaining.map(i=>`<label class="campresources-labor-item campresources-labor-pick"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join("");
     }else{
@@ -211,7 +216,6 @@
     order.querySelectorAll("[data-staple-remove]").forEach(btn=>btn.addEventListener("click",()=>removeAssignedStaple(btn.dataset.stapleRemove||"")));
   }
   function assignSelectedStaples(){
-    if(!laborLoaded) loadMasterStaples();
     const picks=Array.from(document.querySelectorAll(".campresources-staple-pick:checked")).map(i=>i.value);
     const status=qs("campResourcesLaborStatus")||qs("campResourcesPackStatus")||qs("campResourcesStatus");
     if(!picks.length){ if(status) status.textContent="Check one or more Available Camp Staples, then tap Assign Checked Items."; return; }
@@ -231,9 +235,11 @@
     renderLaborBoard();
   }
   function bindLaborControls(){
-    qs("campResourcesLoadStaplesBtn")?.addEventListener("click",loadMasterStaples);
+    renderStapleLibrary();
+    qs("campResourcesAddStapleBtn")?.addEventListener("click",addStapleItem);
+    qs("campResourcesStapleQty")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStapleItem();}});
+    qs("campResourcesStapleName")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();qs("campResourcesStapleQty")?.focus();}});
     qs("campResourcesAssignStapleBtn")?.addEventListener("click",assignSelectedStaples);
-    qs("campResourcesMasterStaples")?.addEventListener("input",()=>{ laborLoaded=false; masterStaples=[]; renderLaborBoard(); });
     qs("campResourcesHunter")?.addEventListener("change",()=>{renderLaborBoard();populateMemberChecks();});
   }
   function bindMissionDateControls(){
@@ -366,6 +372,6 @@
   function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=missionLines(names);lines.push("Suggested Stops / Resource Pack");lines.push("-------------------------------");if(!pack.size){lines.push("No stops selected yet.");}Object.keys(grouped).sort().forEach(label=>{lines.push("");lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});});lines.push("");lines.push("Sent from DeerCamp CampResources Mission Center.");return lines.join("\n")}
   function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
   function clearPack(){pack.clear();renderPack();document.querySelectorAll(".campresources-result-check").forEach(i=>i.checked=false)}
-  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();loadMasterStaples();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
+  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
   window.initCampResources=initCampResources;window.loadCampResources=loadCampResources;if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initCampResources);else initCampResources(); setInterval(()=>{if(document.getElementById("campresources")){forceRecipientChecklist(); if(!document.querySelector(".campresources-member-recipient")) populateMemberChecks();}},2500);
 })();
