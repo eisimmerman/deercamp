@@ -1,7 +1,7 @@
 (function(){
   const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bar restaurant diner supper club ice"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
   let activeCategory=categories[0].id,activeStrategy="sah",didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
-  let masterStaples=[], assignedStaplesByHunter={};
+  let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=false;
   function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));}
   function qs(id){return document.getElementById(id);}
   function setStatus(m){const s=qs("campResourcesStatus");if(s)s.textContent=m;}
@@ -162,30 +162,59 @@
     qs("campResourcesClearBtn")?.addEventListener("click",clearPack);
   }
   function currentHunterKey(){const s=qs("campResourcesHunter");return String(s?.value||selectedHunterName()||"default").trim()||"default";}
-  function parseStaplesText(text){return String(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,idx)=>({id:`item-${idx}-${text.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")}`,text}));}
+  function stapleSlug(text){return String(text||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"item";}
+  function parseStaplesText(text){
+    return String(text||"").split(/\n+/).map(x=>x.trim()).filter(Boolean).map((text,idx)=>({id:`staple-${idx}-${stapleSlug(text)}`,text}));
+  }
+  function pruneAssignedStaples(){
+    const valid=new Set(masterStaples.map(i=>i.id));
+    Object.keys(assignedStaplesByHunter).forEach(key=>{assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).filter(i=>valid.has(i.id));});
+  }
   function loadMasterStaples(){
     masterStaples=parseStaplesText(qs("campResourcesMasterStaples")?.value||"");
+    laborLoaded=true;
+    pruneAssignedStaples();
     renderLaborBoard();
   }
   function assignedIds(){const ids=new Set();Object.values(assignedStaplesByHunter).forEach(list=>(list||[]).forEach(i=>ids.add(i.id)));return ids;}
   function getHunterAssignedStaples(){return assignedStaplesByHunter[currentHunterKey()]||[];}
+  function updateLaborCounters(remaining,assigned,total){
+    const remCount=qs("campResourcesRemainingCount"), hunterCount=qs("campResourcesHunterOrderCount"), loaded=qs("campResourcesLoadedStatus");
+    if(remCount) remCount.textContent=laborLoaded?`${remaining.length} remaining of ${total}`:"Not loaded";
+    if(hunterCount) hunterCount.textContent=`${assigned.length} assigned`;
+    if(loaded) loaded.textContent=laborLoaded?`Master list loaded: ${total} item${total===1?"":"s"}`:"Paste list, then tap Load Master List";
+  }
   function renderLaborBoard(){
     const rem=qs("campResourcesRemainingStaples"),order=qs("campResourcesHunterOrder");
     if(!rem||!order)return;
+    if(!laborLoaded){
+      const raw=String(qs("campResourcesMasterStaples")?.value||"").trim();
+      if(raw){ masterStaples=parseStaplesText(raw); laborLoaded=true; pruneAssignedStaples(); }
+    }
     const used=assignedIds();
     const remaining=masterStaples.filter(i=>!used.has(i.id));
-    rem.innerHTML=remaining.length?remaining.map(i=>`<label class="campresources-labor-item campresources-labor-pick"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join(""):'<span class="campresources-muted">All master list items have been assigned.</span>';
+    const assigned=getHunterAssignedStaples();
+    updateLaborCounters(remaining,assigned,masterStaples.length);
+    if(!laborLoaded){
+      rem.innerHTML='<span class="campresources-muted">Paste the master camp shopping list, then tap Load Master List.</span>';
+    }else if(!masterStaples.length){
+      rem.innerHTML='<span class="campresources-muted">No camp staples loaded yet. Add one item per line above.</span>';
+    }else if(remaining.length){
+      rem.innerHTML=remaining.map(i=>`<label class="campresources-labor-item campresources-labor-pick"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join("");
+    }else{
+      rem.innerHTML='<span class="campresources-complete">✅ 0 items remaining. All camp staples have been assigned.</span>';
+    }
     rem.querySelectorAll(".campresources-staple-pick").forEach(input=>{
       input.addEventListener("change",()=>input.closest(".campresources-labor-item")?.classList.toggle("is-selected",input.checked));
     });
-    const assigned=getHunterAssignedStaples();
-    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.text)}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet. Check items on the left, then tap Assign Checked Items.</span>';
+    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.text)}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span><button class="campresources-labor-remove" type="button" data-staple-remove="${esc(i.id)}" aria-label="Return ${esc(i.text)} to available staples">↩</button></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet. Check items on the left, then tap Assign Checked Items.</span>';
+    order.querySelectorAll("[data-staple-remove]").forEach(btn=>btn.addEventListener("click",()=>removeAssignedStaple(btn.dataset.stapleRemove||"")));
   }
   function assignSelectedStaples(){
-    if(!masterStaples.length) loadMasterStaples();
+    if(!laborLoaded) loadMasterStaples();
     const picks=Array.from(document.querySelectorAll(".campresources-staple-pick:checked")).map(i=>i.value);
-    const status=qs("campResourcesPackStatus")||qs("campResourcesStatus");
-    if(!picks.length){ if(status) status.textContent="Check one or more remaining master-list items, then tap Assign Checked Items."; return; }
+    const status=qs("campResourcesLaborStatus")||qs("campResourcesPackStatus")||qs("campResourcesStatus");
+    if(!picks.length){ if(status) status.textContent="Check one or more Available Camp Staples, then tap Assign Checked Items."; return; }
     const key=currentHunterKey();
     const existing=assignedStaplesByHunter[key]||[];
     const add=masterStaples.filter(i=>picks.includes(i.id));
@@ -194,10 +223,17 @@
     if(status) status.textContent=`Assigned ${add.length} item${add.length===1?"":"s"} to ${selectedHunterName()||"the selected hunter"}.`;
     renderLaborBoard();
   }
+  function removeAssignedStaple(id){
+    const key=currentHunterKey();
+    assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).filter(i=>i.id!==id);
+    const status=qs("campResourcesLaborStatus")||qs("campResourcesPackStatus")||qs("campResourcesStatus");
+    if(status) status.textContent=`Returned item to Available Camp Staples.`;
+    renderLaborBoard();
+  }
   function bindLaborControls(){
     qs("campResourcesLoadStaplesBtn")?.addEventListener("click",loadMasterStaples);
     qs("campResourcesAssignStapleBtn")?.addEventListener("click",assignSelectedStaples);
-    qs("campResourcesMasterStaples")?.addEventListener("input",()=>{ loadMasterStaples(); });
+    qs("campResourcesMasterStaples")?.addEventListener("input",()=>{ laborLoaded=false; masterStaples=[]; renderLaborBoard(); });
     qs("campResourcesHunter")?.addEventListener("change",()=>{renderLaborBoard();populateMemberChecks();});
   }
   function bindMissionDateControls(){
