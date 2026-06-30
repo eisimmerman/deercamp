@@ -1,10 +1,30 @@
 (function(){
   const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bar restaurant diner supper club ice"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
-  let activeCategory=categories[0].id,didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
+  let activeCategory=categories[0].id,activeStrategy="sah",didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
   function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));}
   function qs(id){return document.getElementById(id);}
   function setStatus(m){const s=qs("campResourcesStatus");if(s)s.textContent=m;}
-  function getSelectedZip(){return String(qs("campResourcesZip")?.value||"").trim();}
+  function getSelectedZip(){syncMissionZip();return String(qs("campResourcesZip")?.value||"").trim();}
+  function getStartZip(){return String(qs("campResourcesStartZip")?.value||"").trim();}
+  function getEndZip(){return String(qs("campResourcesEndZip")?.value||qs("campResourcesZip")?.value||"").trim();}
+  function getStrategyLabel(){return activeStrategy==="s2c"?"S2C - Shop to Camp":activeStrategy==="snc"?"SNC - Shop Near Camp":"SAH - Shop at Home";}
+  function syncMissionZip(){const hidden=qs("campResourcesZip"); if(!hidden)return; const start=getStartZip(),end=getEndZip(); hidden.value=activeStrategy==="snc"?end:(start||end);}
+  function updateStrategyUI(){
+    document.querySelectorAll("[data-strategy]").forEach(btn=>btn.classList.toggle("active",btn.dataset.strategy===activeStrategy));
+    const note=qs("campResourcesStrategyNote"),label=qs("campResourcesRadiusLabel"),radius=qs("campResourcesRadius");
+    if(activeStrategy==="s2c"){
+      if(note)note.textContent="S2C uses the hunter's route from Start ZIP to Camp ZIP. Current V2 searches from Start ZIP and prepares the email; route-corridor ranking is the next behind-the-curtain upgrade.";
+      if(label)label.textContent="Route Corridor";
+      if(radius && !["3","5","10"].includes(radius.value)) radius.value="10";
+    }else if(activeStrategy==="snc"){
+      if(note)note.textContent="SNC searches a circle around the Camp / End ZIP for near-camp stops.";
+      if(label)label.textContent="Search Radius";
+    }else{
+      if(note)note.textContent="SAH searches a circle around the hunter's starting ZIP.";
+      if(label)label.textContent="Search Radius";
+    }
+    syncMissionZip();
+  }
   function getRadiusMiles(){return Number(qs("campResourcesRadius")?.value||25);}
   function getActiveCategory(){return categories.find(c=>c.id===activeCategory)||categories[0];}
   function getCampId(){const p=new URLSearchParams(location.search);return p.get("campId")||p.get("camp")||window.activeCampId||window.currentCampId||"camp-swede-cornell-wi-54732";}
@@ -29,6 +49,15 @@
     const seen=new Set(),ded=[];
     items.forEach(m=>{const email=String(m.email||"").trim();const name=String(m.name||email||"").trim();const key=email.toLowerCase();if(!email.includes("@")||seen.has(key))return;seen.add(key);ded.push({name:name||email,email});});
     return ded;
+  }
+  function renderHunterOptions(members){
+    const select=qs("campResourcesHunter"); if(!select) return;
+    const current=select.value;
+    const ded=dedupeMembers(members||campMemberCache||[]);
+    select.innerHTML='<option value="">Select hunter</option>'+ded.map(m=>`<option value="${esc(m.email)}" data-name="${esc(m.name||m.email)}">${esc(m.name||m.email)}</option>`).join("");
+    if(current) select.value=current;
+    const selected=ded.find(m=>m.email===select.value)||ded[0];
+    if(!select.value && selected) select.value=selected.email;
   }
   function getFirebaseApiKey(){
     try{
@@ -90,6 +119,7 @@
     const wrap=qs("campResourcesMemberChecks");if(!wrap)return;
     const ded=dedupeMembers(members||[]);
     campMemberCache=ded;
+    renderHunterOptions(ded);
     const currentChecked=Array.from(document.querySelectorAll(".campresources-member-recipient:checked")).map(i=>String(i.value||"").toLowerCase());
     currentChecked.forEach(v=>{ if(v) selectedRecipientEmails.add(v); });
     if(!ded.length){wrap.innerHTML='<span class="campresources-muted">No camp member emails found yet. Use manual email.</span>';return;}
@@ -129,9 +159,39 @@
   function renderResults(items,radiusMiles,categoryLabel,showAll=false){const list=qs("campResourcesList"),cat=getActiveCategory();if(!list)return;if(!items.length){list.innerHTML="";setStatus(`No matching resources were found within ${radiusMiles} miles of your camp ZIP code. Increase the search radius to expand your results.`);return;}setStatus(`${items.length} ${categoryLabel.replace(/^[^A-Za-z0-9]+/,"")} found within ${radiusMiles} miles.`);const visible=showAll?items:items.slice(0,5);list.innerHTML=visible.map(p=>{const key=placeKey(p,cat.id);return `<article class="campresources-card"><label class="campresources-check"><input class="campresources-result-check" type="checkbox" value="${esc(key)}" ${pack.has(key)?"checked":""}></label><div><strong>${esc(p.name||"Unknown place")}</strong><p class="campresources-muted">${esc(p.address||"")}</p><p class="campresources-muted">${p.distanceMiles?`${Number(p.distanceMiles).toFixed(1)} miles away`:""}${p.openNow===true?" · Open now":p.openNow===false?" · Closed now":""}${p.rating?` · ⭐ ${esc(p.rating)}`:""}</p></div><div class="campresources-actions">${p.phone?`<a href="tel:${esc(p.phone)}">Call</a>`:""}${p.website?`<a href="${esc(p.website)}" target="_blank" rel="noopener">Website</a>`:""}${p.mapsUrl?`<a href="${esc(p.mapsUrl)}" target="_blank" rel="noopener">Directions</a>`:""}</div></article>`}).join("");list.querySelectorAll(".campresources-result-check").forEach((input,idx)=>input.addEventListener("change",()=>togglePack(visible[idx],cat)));if(!showAll&&items.length>5){const more=document.createElement("button");more.type="button";more.className="campresources-more";more.textContent=`See More... (${items.length-5} more)`;more.addEventListener("click",()=>renderResults(items,radiusMiles,categoryLabel,true));list.appendChild(more);}}
   async function loadCampResources(){const zip=getSelectedZip(),radiusMiles=getRadiusMiles(),cat=getActiveCategory(),list=qs("campResourcesList");if(list)list.innerHTML="";if(!zip){setStatus("Enter a camp ZIP code, then choose a category.");return;}setStatus("Searching nearby resources...");try{const res=await fetch("/api/campResources",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({zip,radiusMiles,categoryId:cat.id,query:cat.query})});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.error||"Resources could not load yet.");const results=(Array.isArray(data.results)?data.results:[]).filter(p=>!p.distanceMiles || Number(p.distanceMiles)<=radiusMiles+0.25);renderResults(results,radiusMiles,cat.label,false);}catch(e){console.error(e);setStatus("Resources could not load yet.");if(list)list.innerHTML=`<div class="campresources-error">${esc(String(e?.message||"The API needs a Google Places key and Functions deploy."))}</div>`;}}
   function recipients(){Array.from(document.querySelectorAll(".campresources-member-recipient")).forEach(i=>{const key=String(i.value||"").toLowerCase(); if(i.checked) selectedRecipientEmails.add(key); else selectedRecipientEmails.delete(key);}); const a=Array.from(document.querySelectorAll(".campresources-member-recipient:checked")).map(i=>({email:i.value,name:i.dataset.name||i.value}));const manual=String(qs("campResourcesManualEmail")?.value||"").trim();if(manual)a.push({email:manual,name:manual});const seen=new Set();return a.filter(r=>r.email&&r.email.includes("@")&&!seen.has(r.email.toLowerCase())&&seen.add(r.email.toLowerCase()));}
-  function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=[`DeerCamp Resource Pack for ZIP ${getSelectedZip()}`];if(names.length)lines.push(`Prepared for ${names.join(", ")}`);lines.push("");Object.keys(grouped).sort().forEach(label=>{lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});lines.push("")});lines.push("Sent from DeerCamp CampResources.");return lines.join("\n")}
-  function emailResourcePack(){const status=qs("campResourcesPackStatus");if(!pack.size){if(status)status.textContent="Select at least one result first.";return}const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp Resource Pack (${pack.size} places)`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
+  function selectedHunterName(){const s=qs("campResourcesHunter");const o=s?.selectedOptions?.[0];return (o?.dataset?.name||o?.textContent||"").trim();}
+  function missionLines(names){
+    const lines=[];
+    const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();
+    const startDate=String(qs("campResourcesMissionStart")?.value||"").trim();
+    const endDate=String(qs("campResourcesMissionEnd")?.value||"").trim();
+    const hunter=selectedHunterName();
+    lines.push(mission);lines.push("=".repeat(mission.length));
+    if(startDate||endDate)lines.push(`Dates: ${startDate||"TBD"}${endDate?` to ${endDate}`:""}`);
+    if(hunter)lines.push(`Hunter: ${hunter}`);
+    if(names.length)lines.push(`Recipients: ${names.join(", ")}`);
+    lines.push(`Shopping Strategy: ${getStrategyLabel()}`);
+    if(getStartZip())lines.push(`Start ZIP: ${getStartZip()}`);
+    if(getEndZip())lines.push(`Camp / End ZIP: ${getEndZip()}`);
+    lines.push(activeStrategy==="s2c"?`Search Corridor: ${getRadiusMiles()} miles from route centerline each side`:`Search Radius: ${getRadiusMiles()} miles`);
+    lines.push("");
+    const breakfast=String(qs("campResourcesBreakfast")?.value||"").trim();
+    const lunch=String(qs("campResourcesLunch")?.value||"").trim();
+    const dinner=String(qs("campResourcesDinner")?.value||"").trim();
+    const staples=String(qs("campResourcesStaples")?.value||"").trim();
+    const notes=String(qs("campResourcesStewardNotes")?.value||"").trim();
+    lines.push("Your Assignments");lines.push("----------------");
+    if(breakfast)lines.push(`Breakfast: ${breakfast}`);
+    if(lunch)lines.push(`Lunch: ${lunch}`);
+    if(dinner)lines.push(`Dinner: ${dinner}`);
+    if(staples){lines.push("");lines.push("Camp Staples / Resources:");staples.split(/\n+/).map(x=>x.trim()).filter(Boolean).forEach(x=>lines.push(`- ${x}`));}
+    if(notes){lines.push("");lines.push("Steward Notes:");lines.push(notes);}
+    lines.push("");
+    return lines;
+  }
+  function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=missionLines(names);lines.push("Suggested Stops / Resource Pack");lines.push("-------------------------------");if(!pack.size){lines.push("No stops selected yet.");}Object.keys(grouped).sort().forEach(label=>{lines.push("");lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});});lines.push("");lines.push("Sent from DeerCamp CampResources Mission Center.");return lines.join("\n")}
+  function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
   function clearPack(){pack.clear();renderPack();document.querySelectorAll(".campresources-result-check").forEach(i=>i.checked=false)}
-  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();qs("campResourcesRadius")?.addEventListener("change",loadCampResources);qs("campResourcesZip")?.addEventListener("change",loadCampResources);qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const input=qs("campResourcesZip");if(input&&!input.value.trim())input.value=getCampZip();if(input?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
+  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
   window.initCampResources=initCampResources;window.loadCampResources=loadCampResources;if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initCampResources);else initCampResources(); setInterval(()=>{if(document.getElementById("campresources")){forceRecipientChecklist(); if(!document.querySelector(".campresources-member-recipient")) populateMemberChecks();}},2500);
 })();
