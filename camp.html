@@ -4117,11 +4117,6 @@ function getAllRecipes(){
   return out;
 }
 
-
-window.DeerCampGetAllRecipes = function(){
-  try { return getAllRecipes(); } catch(error) { console.warn("CampCookbook recipes unavailable", error); return []; }
-};
-
 function ensureCampRulesRulebookModal(){
   let backdrop = document.getElementById("campRulesRulebookBackdrop");
   let modal = document.getElementById("campRulesRulebookModal");
@@ -4302,27 +4297,29 @@ visibleSections().forEach(section=>{
           <p class="section-helper">Create a Trip Prep Mission for each hunter, choose where they shop, attach meal/staple assignments, and build a Resource Pack from nearby stops.</p>
         </div>
         <div class="campresources-mission-stats" aria-label="Mission Center steps">
-          <span>1 Trip</span><span>2 Assignments</span><span>3 Resource Pack</span>
+          <span>1 Mission</span><span>2 Hunter</span><span>3 Meals</span><span>4 Inventory</span><span>5 Resource Pack</span>
         </div>
       </div>
       <div class="campresources-mission-grid">
         <aside class="campresources-mission-panel">
           <div class="campresources-panel-head">
-            <h3>Trip Prep Mission</h3>
-            <p>Simple for the steward. Useful for every hunter.</p>
+            <h3>Step 1 — Mission</h3>
+            <p>Create the hunter's stay at camp. Everything below supports this mission.</p>
           </div>
           <label class="form-row">
-            <span class="label">Mission Name</span>
-            <input id="campResourcesMissionName" class="input" type="text" value="Opening Weekend Mission" maxlength="80">
+            <span class="label">Mission</span>
+            <input id="campResourcesMissionName" class="input" type="text" value="Opening Weekend" list="campResourcesMissionPresets" maxlength="80">
+            <datalist id="campResourcesMissionPresets"><option value="Opening Weekend"></option><option value="Full Gun Season"></option><option value="Camp Nov 19–25"></option><option value="Camp Nov 27–29"></option><option value="Thanksgiving Hunt"></option><option value="Muzzleloader Weekend"></option></datalist>
           </label>
           <div class="campresources-date-row">
             <label class="form-row"><span class="label">Start Date</span><input id="campResourcesMissionStart" class="input" type="date"></label>
             <label class="form-row"><span class="label">End Date</span><input id="campResourcesMissionEnd" class="input" type="date"></label>
           </div>
           <label class="form-row">
-            <span class="label">Hunter</span>
+            <span class="label">Step 2 — Hunter</span>
             <select id="campResourcesHunter" class="select"><option value="">Select hunter</option></select>
           </label>
+          <div class="campresources-field-label">Step 3 — Shopping Strategy</div>
           <div class="campresources-strategy-tabs" role="tablist" aria-label="Shopping strategy">
             <button type="button" class="active" data-strategy="sah"><strong>SAH</strong><span>Shop at Home</span></button>
             <button type="button" data-strategy="s2c"><strong>S2C</strong><span>Shop to Camp</span></button>
@@ -4352,19 +4349,18 @@ visibleSections().forEach(section=>{
         </aside>
         <section class="campresources-assignment-panel">
           <div class="campresources-panel-head">
-            <h3>Hunter Assignments</h3>
-            <p>Pick meals from CampCookbook later; type assignments now.</p>
+            <h3>Step 4 — Meals from CampCookbook</h3>
+            <p>Choose meal names for this hunter. Ingredients stay behind the curtain and can be included in the Mission Brief.</p>
           </div>
           <div class="campresources-assignment-grid">
-            <label class="form-row"><span class="label">Breakfast</span><select id="campResourcesBreakfast" class="select campresources-recipe-picker" data-meal="breakfast"><option value="">Select from CampCookbook</option></select></label>
-            <label class="form-row"><span class="label">Lunch</span><select id="campResourcesLunch" class="select campresources-recipe-picker" data-meal="lunch"><option value="">Select from CampCookbook</option></select></label>
-            <label class="form-row"><span class="label">Dinner</span><select id="campResourcesDinner" class="select campresources-recipe-picker" data-meal="dinner"><option value="">Select from CampCookbook</option></select></label>
+            <label class="form-row"><span class="label">Breakfast</span><input id="campResourcesBreakfast" class="input" type="text" placeholder="Gene's Breakfast Burritos"></label>
+            <label class="form-row"><span class="label">Lunch</span><input id="campResourcesLunch" class="input" type="text" placeholder="Sandwiches / stand lunch"></label>
+            <label class="form-row"><span class="label">Dinner</span><input id="campResourcesDinner" class="input" type="text" placeholder="Venison Chili"></label>
           </div>
-          <div id="campResourcesRecipePreview" class="campresources-recipe-preview">Choose meals from CampCookbook to attach ingredients to this hunter's Mission Brief.</div>
           <div class="campresources-labor-board">
             <div class="campresources-panel-head">
-              <h3>Division of Labor</h3>
-              <p>Build a camp staples list from common items or custom supplies. Assign checked items to hunters and DeerCamp removes them from the available list.</p>
+              <h3>Step 5 — Camp Inventory & Division of Labor</h3>
+              <p>Build the full camp inventory, then assign partial quantities to each hunter based on capacity, cost, and length of stay.</p>
             </div>
             <div class="campresources-staples-builder" aria-label="Camp staples builder">
               <div>
@@ -4377,24 +4373,28 @@ visibleSections().forEach(section=>{
                   <input id="campResourcesStapleName" class="input" type="text" placeholder="Select a staple or type custom item">
                 </label>
                 <label class="form-row">
-                  <span class="label">Quantity / notes</span>
-                  <input id="campResourcesStapleQty" class="input" type="text" placeholder="e.g. 2 cases, 4 bags, 1 bottle">
+                  <span class="label">Total Needed</span>
+                  <input id="campResourcesStapleQty" class="input" type="number" min="0" step="1" placeholder="e.g. 8">
                 </label>
-                <button id="campResourcesAddStapleBtn" class="btn" type="button">Add to Available List</button>
+                <label class="form-row">
+                  <span class="label">Unit</span>
+                  <input id="campResourcesStapleUnit" class="input" type="text" placeholder="bags, cases, bottles">
+                </label>
+                <button id="campResourcesAddStapleBtn" class="btn" type="button">Add to Camp Inventory</button>
               </div>
-              <div class="campresources-staple-hint">Tip: pick from the library, add quantity, then assign checked items below to the selected hunter.</div>
+              <div class="campresources-staple-hint">Tip: enter the total needed for camp. Then assign smaller quantities to each hunter below.</div>
             </div>
             <div class="campresources-labor-status" id="campResourcesLoadedStatus">Add staples to begin.</div>
             <div class="campresources-labor-actions">
-              <button id="campResourcesAssignStapleBtn" class="btn" type="button">Assign Checked Items to Hunter</button>
+              <span class="campresources-muted">Use the quantity boxes below to assign part or all of each item to the selected hunter.</span>
             </div>
             <div class="campresources-labor-columns">
               <div class="campresources-labor-column">
-                <span class="label">Available Camp Staples <strong id="campResourcesRemainingCount" class="campresources-count-pill">0 remaining</strong></span>
+                <span class="label">Camp Inventory Remaining <strong id="campResourcesRemainingCount" class="campresources-count-pill">0 remaining</strong></span>
                 <div id="campResourcesRemainingStaples" class="campresources-labor-list"><span class="campresources-muted">Add staples above to begin assigning supplies.</span></div>
               </div>
               <div class="campresources-labor-column">
-                <span class="label">This Hunter's Assigned Staples <strong id="campResourcesHunterOrderCount" class="campresources-count-pill">0 assigned</strong></span>
+                <span class="label">This Hunter's Resource Pack <strong id="campResourcesHunterOrderCount" class="campresources-count-pill">0 assigned</strong></span>
                 <div id="campResourcesHunterOrder" class="campresources-labor-list"><span class="campresources-muted">Select a hunter, then assign items.</span></div>
               </div>
             </div>
@@ -4413,8 +4413,8 @@ visibleSections().forEach(section=>{
       <div class="campresources-sticky">
         <div class="campresources-top">
           <div class="campresources-intro">
-            <h2>Resource Pack Builder</h2>
-            <p class="section-helper">Choose resource categories, add stops to the hunter's mission, then send one useful email.</p>
+            <h2>Step 6 — Suggested Stops / Resource Pack</h2>
+            <p class="section-helper">Choose resource categories that match this hunter's assigned meals and staples, add useful stops, then send the Mission Brief.</p>
           </div>
         </div>
         <div id="campResourcesCategories" class="campresources-chips" aria-label="CampResources categories"></div>
