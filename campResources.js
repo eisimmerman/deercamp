@@ -174,24 +174,45 @@
     if(!rem||!order)return;
     const used=assignedIds();
     const remaining=masterStaples.filter(i=>!used.has(i.id));
-    rem.innerHTML=remaining.length?remaining.map(i=>`<label class="campresources-labor-item"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join(""):'<span class="campresources-muted">All master list items have been assigned.</span>';
+    rem.innerHTML=remaining.length?remaining.map(i=>`<label class="campresources-labor-item campresources-labor-pick"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join(""):'<span class="campresources-muted">All master list items have been assigned.</span>';
+    rem.querySelectorAll(".campresources-staple-pick").forEach(input=>{
+      input.addEventListener("change",()=>input.closest(".campresources-labor-item")?.classList.toggle("is-selected",input.checked));
+    });
     const assigned=getHunterAssignedStaples();
-    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.text)}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet.</span>';
+    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.text)}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet. Check items on the left, then tap Assign Checked Items.</span>';
   }
   function assignSelectedStaples(){
+    if(!masterStaples.length) loadMasterStaples();
     const picks=Array.from(document.querySelectorAll(".campresources-staple-pick:checked")).map(i=>i.value);
-    if(!picks.length)return;
+    const status=qs("campResourcesPackStatus")||qs("campResourcesStatus");
+    if(!picks.length){ if(status) status.textContent="Check one or more remaining master-list items, then tap Assign Checked Items."; return; }
     const key=currentHunterKey();
     const existing=assignedStaplesByHunter[key]||[];
     const add=masterStaples.filter(i=>picks.includes(i.id));
     const seen=new Set(existing.map(i=>i.id));
     assignedStaplesByHunter[key]=existing.concat(add.filter(i=>!seen.has(i.id)));
+    if(status) status.textContent=`Assigned ${add.length} item${add.length===1?"":"s"} to ${selectedHunterName()||"the selected hunter"}.`;
     renderLaborBoard();
   }
   function bindLaborControls(){
     qs("campResourcesLoadStaplesBtn")?.addEventListener("click",loadMasterStaples);
     qs("campResourcesAssignStapleBtn")?.addEventListener("click",assignSelectedStaples);
+    qs("campResourcesMasterStaples")?.addEventListener("input",()=>{ loadMasterStaples(); });
     qs("campResourcesHunter")?.addEventListener("change",()=>{renderLaborBoard();populateMemberChecks();});
+  }
+  function bindMissionDateControls(){
+    const start=qs("campResourcesMissionStart"), end=qs("campResourcesMissionEnd");
+    if(!start||!end||start.dataset.missionDateBound==="1") return;
+    start.dataset.missionDateBound="1";
+    start.addEventListener("change",()=>{
+      if(!start.value) return;
+      end.min=start.value;
+      if(!end.value || end.value < start.value) end.value=start.value;
+      try{ end.showPicker?.(); }catch(_){}
+    });
+    end.addEventListener("focus",()=>{
+      if(start.value){ end.min=start.value; if(!end.value || end.value < start.value) end.value=start.value; }
+    });
   }
   function renderCategories(){
     const w=qs("campResourcesCategories");
@@ -309,6 +330,6 @@
   function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=missionLines(names);lines.push("Suggested Stops / Resource Pack");lines.push("-------------------------------");if(!pack.size){lines.push("No stops selected yet.");}Object.keys(grouped).sort().forEach(label=>{lines.push("");lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});});lines.push("");lines.push("Sent from DeerCamp CampResources Mission Center.");return lines.join("\n")}
   function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
   function clearPack(){pack.clear();renderPack();document.querySelectorAll(".campresources-result-check").forEach(i=>i.checked=false)}
-  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
+  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();loadMasterStaples();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
   window.initCampResources=initCampResources;window.loadCampResources=loadCampResources;if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initCampResources);else initCampResources(); setInterval(()=>{if(document.getElementById("campresources")){forceRecipientChecklist(); if(!document.querySelector(".campresources-member-recipient")) populateMemberChecks();}},2500);
 })();
