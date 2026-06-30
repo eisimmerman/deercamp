@@ -1,7 +1,7 @@
 (function(){
   const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bar restaurant diner supper club ice"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
   let activeCategory=categories[0].id,activeStrategy="sah",didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
-  let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=true, stapleSerial=0, assignmentSerial=0;
+  let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=true, stapleSerial=0;
   const stapleCatalog=["Beer","Ice","Lighter fluid","Charcoal","Propane","Coffee","Creamer","Eggs","Bacon","Bread","Butter","Chips","Beef jerky","Summer sausage","String cheese","Paper towels","Toilet paper","Garbage bags","Paper plates","Plastic cups","Bottled water","Firewood","Matches","Cooking oil","Condiments"];
   function esc(v){return String(v??"").replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[s]));}
   function qs(id){return document.getElementById(id);}
@@ -164,16 +164,7 @@
   }
   function currentHunterKey(){const s=qs("campResourcesHunter");return String(s?.value||selectedHunterName()||"default").trim()||"default";}
   function stapleSlug(text){return String(text||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"item";}
-  function formatQty(qty,unit){
-    const n=Number(qty||0);
-    const clean=Number.isInteger(n)?String(n):String(n.toFixed(2)).replace(/\.00$/,'');
-    return `${clean}${unit?` ${unit}`:""}`.trim();
-  }
-  function itemTotalQty(item){return Math.max(0,Number(item.totalQty||0));}
-  function itemAssignedQty(itemId){
-    return Object.values(assignedStaplesByHunter).flat().filter(i=>i.stapleId===itemId).reduce((sum,i)=>sum+Number(i.qty||0),0);
-  }
-  function itemRemainingQty(item){return Math.max(0,itemTotalQty(item)-itemAssignedQty(item.id));}
+  function buildStapleText(name,qty){name=String(name||"").trim();qty=String(qty||"").trim();return qty?`${name} - ${qty}`:name;}
   function renderStapleLibrary(){
     const wrap=qs("campResourcesStapleLibrary"); if(!wrap) return;
     wrap.innerHTML=stapleCatalog.map(name=>`<button type="button" class="campresources-staple-chip" data-staple-name="${esc(name)}">${esc(name)}</button>`).join("");
@@ -183,98 +174,72 @@
       qs("campResourcesStapleQty")?.focus();
     }));
   }
-  function inferUnit(name){
-    const n=String(name||"").toLowerCase();
-    if(n.includes("ice")||n.includes("charcoal")||n.includes("jerky")||n.includes("chips")||n.includes("coffee")) return "bags";
-    if(n.includes("beer")) return "cases";
-    if(n.includes("fluid")||n.includes("tequila")||n.includes("brandy")||n.includes("wild turkey")) return "bottles";
-    if(n.includes("cheese")) return "packs";
-    if(n.includes("sausage")) return "sticks";
-    if(n.includes("propane")) return "tanks";
-    return "items";
-  }
   function addStapleItem(){
-    const nameEl=qs("campResourcesStapleName"), qtyEl=qs("campResourcesStapleQty"), unitEl=qs("campResourcesStapleUnit");
-    const name=String(nameEl?.value||"").trim();
-    let totalQty=Number(qtyEl?.value||0);
-    let unit=String(unitEl?.value||"").trim()||inferUnit(name);
+    const nameEl=qs("campResourcesStapleName"), qtyEl=qs("campResourcesStapleQty");
+    const name=String(nameEl?.value||"").trim(), qty=String(qtyEl?.value||"").trim();
     const status=qs("campResourcesLaborStatus")||qs("campResourcesLoadedStatus");
     if(!name){ if(status) status.textContent="Choose a staple or type a custom item first."; nameEl?.focus(); return; }
-    if(!Number.isFinite(totalQty)||totalQty<=0){ if(status) status.textContent="Enter the total quantity needed for camp."; qtyEl?.focus(); return; }
-    const id=`staple-${Date.now()}-${stapleSerial++}-${stapleSlug(name)}`;
-    masterStaples.push({id,name,totalQty,unit});
-    if(nameEl) nameEl.value=""; if(qtyEl) qtyEl.value=""; if(unitEl) unitEl.value="";
+    const text=buildStapleText(name,qty);
+    const id=`staple-${Date.now()}-${stapleSerial++}-${stapleSlug(text)}`;
+    masterStaples.push({id,text,name,qty});
+    if(nameEl) nameEl.value=""; if(qtyEl) qtyEl.value="";
     document.querySelectorAll(".campresources-staple-chip.active").forEach(b=>b.classList.remove("active"));
-    if(status) status.textContent=`Added ${name} — ${formatQty(totalQty,unit)} to Camp Inventory.`;
+    if(status) status.textContent=`Added ${text} to Available Camp Staples.`;
     renderLaborBoard();
   }
+  function assignedIds(){const ids=new Set();Object.values(assignedStaplesByHunter).forEach(list=>(list||[]).forEach(i=>ids.add(i.id)));return ids;}
   function getHunterAssignedStaples(){return assignedStaplesByHunter[currentHunterKey()]||[];}
-  function remainingItems(){return masterStaples.filter(i=>itemRemainingQty(i)>0);}
   function updateLaborCounters(remaining,assigned,total){
     const remCount=qs("campResourcesRemainingCount"), hunterCount=qs("campResourcesHunterOrderCount"), loaded=qs("campResourcesLoadedStatus");
-    const totalQty=masterStaples.reduce((sum,i)=>sum+itemTotalQty(i),0);
-    const remainingQty=masterStaples.reduce((sum,i)=>sum+itemRemainingQty(i),0);
-    if(remCount) remCount.textContent=`${remainingQty} remaining`;
+    if(remCount) remCount.textContent=`${remaining.length} remaining of ${total}`;
     if(hunterCount) hunterCount.textContent=`${assigned.length} assigned`;
-    if(loaded) loaded.textContent=total?`Camp inventory: ${total} item type${total===1?"":"s"} • ${remainingQty} units remaining of ${totalQty}`:"Add camp inventory to begin.";
+    if(loaded) loaded.textContent=total?`Camp staples list: ${total} total • ${remaining.length} unassigned`:"Add staples to begin.";
   }
   function renderLaborBoard(){
     const rem=qs("campResourcesRemainingStaples"),order=qs("campResourcesHunterOrder");
     if(!rem||!order)return;
-    const remaining=remainingItems();
+    const used=assignedIds();
+    const remaining=masterStaples.filter(i=>!used.has(i.id));
     const assigned=getHunterAssignedStaples();
     updateLaborCounters(remaining,assigned,masterStaples.length);
     if(!masterStaples.length){
-      rem.innerHTML='<span class="campresources-muted">Add camp inventory above. Each item will show remaining quantity and an assignment control.</span>';
+      rem.innerHTML='<span class="campresources-muted">Add camp staples above. They will appear here with checkboxes for assignment.</span>';
     }else if(remaining.length){
-      rem.innerHTML=remaining.map(i=>{
-        const r=itemRemainingQty(i);
-        return `<div class="campresources-labor-item campresources-qty-row"><span><strong>${esc(i.name)}</strong><small>${esc(formatQty(r,i.unit))} remaining of ${esc(formatQty(i.totalQty,i.unit))}</small></span><div class="campresources-assign-controls"><button class="campresources-assign-step" type="button" data-assign-step="-1" data-assign-target="${esc(i.id)}">−</button><label class="campresources-assign-qty"><span>Assign</span><input class="input" type="number" min="0" max="${esc(r)}" step="1" value="${esc(Math.min(r,1)||0)}" data-staple-assign-qty="${esc(i.id)}"></label><button class="campresources-assign-step" type="button" data-assign-step="1" data-assign-target="${esc(i.id)}">+</button></div><button class="btn btn-secondary campresources-inline-btn" type="button" data-staple-assign="${esc(i.id)}">Add to Hunter</button></div>`;
-      }).join("");
+      rem.innerHTML=remaining.map(i=>`<label class="campresources-labor-item campresources-labor-pick"><input type="checkbox" class="campresources-staple-pick" value="${esc(i.id)}"><span>${esc(i.text)}</span></label>`).join("");
     }else{
-      rem.innerHTML='<span class="campresources-complete">✅ 0 units remaining. Camp inventory has been fully assigned.</span>';
+      rem.innerHTML='<span class="campresources-complete">✅ 0 items remaining. All camp staples have been assigned.</span>';
     }
-    rem.querySelectorAll("[data-assign-step]").forEach(btn=>btn.addEventListener("click",()=>{
-      const id=btn.dataset.assignTarget||"";
-      const input=document.querySelector(`[data-staple-assign-qty="${CSS.escape(id)}"]`);
-      const item=masterStaples.find(x=>x.id===id);
-      const max=item?itemRemainingQty(item):999;
-      const delta=Number(btn.dataset.assignStep||0);
-      const next=Math.max(0,Math.min(max,Number(input?.value||0)+delta));
-      if(input) input.value=String(next);
-    }));
-    rem.querySelectorAll("[data-staple-assign]").forEach(btn=>btn.addEventListener("click",()=>assignStapleQuantity(btn.dataset.stapleAssign||"")));
-    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.name)} — ${esc(formatQty(i.qty,i.unit))}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span><button class="campresources-labor-remove" type="button" data-staple-remove="${esc(i.assignmentId)}" aria-label="Return ${esc(i.name)} to available inventory">↩</button></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet. Enter quantities on the left, then tap Add to Hunter.</span>';
+    rem.querySelectorAll(".campresources-staple-pick").forEach(input=>{
+      input.addEventListener("change",()=>input.closest(".campresources-labor-item")?.classList.toggle("is-selected",input.checked));
+    });
+    order.innerHTML=assigned.length?assigned.map(i=>`<div class="campresources-labor-item is-assigned"><span>${esc(i.text)}<small>Assigned to ${esc(selectedHunterName()||"selected hunter")}</small></span><button class="campresources-labor-remove" type="button" data-staple-remove="${esc(i.id)}" aria-label="Return ${esc(i.text)} to available staples">↩</button></div>`).join(""):'<span class="campresources-muted">No staples/resources assigned to this hunter yet. Check items on the left, then tap Assign Checked Items.</span>';
     order.querySelectorAll("[data-staple-remove]").forEach(btn=>btn.addEventListener("click",()=>removeAssignedStaple(btn.dataset.stapleRemove||"")));
   }
-  function assignStapleQuantity(stapleId){
-    const item=masterStaples.find(i=>i.id===stapleId);
+  function assignSelectedStaples(){
+    const picks=Array.from(document.querySelectorAll(".campresources-staple-pick:checked")).map(i=>i.value);
     const status=qs("campResourcesLaborStatus")||qs("campResourcesPackStatus")||qs("campResourcesStatus");
-    if(!item){ if(status) status.textContent="Inventory item not found."; return; }
-    const input=document.querySelector(`[data-staple-assign-qty="${CSS.escape(stapleId)}"]`);
-    let qty=Number(input?.value||0);
-    const remaining=itemRemainingQty(item);
-    if(!Number.isFinite(qty)||qty<=0){ if(status) status.textContent="Enter a quantity greater than 0."; input?.focus(); return; }
-    if(qty>remaining) qty=remaining;
+    if(!picks.length){ if(status) status.textContent="Check one or more Available Camp Staples, then tap Assign Checked Items."; return; }
     const key=currentHunterKey();
-    const assignment={assignmentId:`assign-${Date.now()}-${assignmentSerial++}`,stapleId:item.id,name:item.name,qty,unit:item.unit,text:`${item.name} - ${formatQty(qty,item.unit)}`};
-    assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).concat([assignment]);
-    if(status) status.textContent=`Assigned ${formatQty(qty,item.unit)} of ${item.name} to ${selectedHunterName()||"the selected hunter"}. ${formatQty(itemRemainingQty(item),item.unit)} remaining.`;
+    const existing=assignedStaplesByHunter[key]||[];
+    const add=masterStaples.filter(i=>picks.includes(i.id));
+    const seen=new Set(existing.map(i=>i.id));
+    assignedStaplesByHunter[key]=existing.concat(add.filter(i=>!seen.has(i.id)));
+    if(status) status.textContent=`Assigned ${add.length} item${add.length===1?"":"s"} to ${selectedHunterName()||"the selected hunter"}.`;
     renderLaborBoard();
   }
-  function removeAssignedStaple(assignmentId){
+  function removeAssignedStaple(id){
     const key=currentHunterKey();
-    assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).filter(i=>i.assignmentId!==assignmentId);
+    assignedStaplesByHunter[key]=(assignedStaplesByHunter[key]||[]).filter(i=>i.id!==id);
     const status=qs("campResourcesLaborStatus")||qs("campResourcesPackStatus")||qs("campResourcesStatus");
-    if(status) status.textContent=`Returned assigned quantity to Camp Inventory.`;
+    if(status) status.textContent=`Returned item to Available Camp Staples.`;
     renderLaborBoard();
   }
   function bindLaborControls(){
     renderStapleLibrary();
     qs("campResourcesAddStapleBtn")?.addEventListener("click",addStapleItem);
     qs("campResourcesStapleQty")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStapleItem();}});
-    qs("campResourcesStapleUnit")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addStapleItem();}});
     qs("campResourcesStapleName")?.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();qs("campResourcesStapleQty")?.focus();}});
+    qs("campResourcesAssignStapleBtn")?.addEventListener("click",assignSelectedStaples);
     qs("campResourcesHunter")?.addEventListener("change",()=>{renderLaborBoard();populateMemberChecks();});
   }
   function bindMissionDateControls(){
@@ -290,56 +255,6 @@
     end.addEventListener("focus",()=>{
       if(start.value){ end.min=start.value; if(!end.value || end.value < start.value) end.value=start.value; }
     });
-  }
-  function getCookbookRecipes(){
-    try{
-      if(typeof window.getAllRecipes === "function") return window.getAllRecipes() || [];
-      if(Array.isArray(window.recipeModalData) && window.recipeModalData.length) return window.recipeModalData;
-    }catch(_){}
-    return [];
-  }
-  function mealMatches(recipe, meal){
-    const title=String(recipe?.title||recipe?.name||"").toLowerCase();
-    const text=(title+" "+String(recipe?.description||"")).toLowerCase();
-    if(meal==="breakfast") return /breakfast|egg|pancake|hash|biscuit|gravy|sausage/.test(text);
-    if(meal==="lunch") return /lunch|sandwich|wrap|flatbread|brat|soup|chili/.test(text);
-    if(meal==="dinner") return /dinner|steak|chili|stew|pasta|venison|backstrap|supper|foil/.test(text);
-    return true;
-  }
-  function populateRecipePickers(){
-    const recipes=getCookbookRecipes();
-    const configs=[['campResourcesBreakfast','breakfast','Choose breakfast from CampCookbook'],['campResourcesLunch','lunch','Choose lunch from CampCookbook'],['campResourcesDinner','dinner','Choose dinner from CampCookbook']];
-    configs.forEach(([id,meal,placeholder])=>{
-      const select=qs(id); if(!select || select.dataset.recipePickerBound==='1') return;
-      const preferred=recipes.filter(r=>mealMatches(r,meal));
-      const list=(preferred.length?preferred:recipes);
-      const current=select.value;
-      select.innerHTML=`<option value="">${esc(placeholder)}</option>`+list.map(r=>{
-        const title=String(r.title||r.name||'Camp Recipe').trim();
-        const ingredients=Array.isArray(r.ingredients)?r.ingredients.join(' | '):String(r.ingredients||'');
-        return `<option value="${esc(title)}" data-ingredients="${esc(ingredients)}">${esc(title)}</option>`;
-      }).join('');
-      if(current) select.value=current;
-      select.dataset.recipePickerBound='1';
-      select.addEventListener('change',renderMealSummary);
-    });
-    renderMealSummary();
-  }
-  function renderMealSummary(){
-    const wrap=qs('campResourcesMealSummary'); if(!wrap) return;
-    const meals=[['Breakfast',qs('campResourcesBreakfast')],['Lunch',qs('campResourcesLunch')],['Dinner',qs('campResourcesDinner')]]
-      .map(([label,el])=>({label,title:String(el?.value||'').trim()})).filter(m=>m.title);
-    wrap.innerHTML=meals.length?`<strong>Meals added to this hunter's Mission Brief:</strong><ul>${meals.map(m=>`<li>${esc(m.label)}: ${esc(m.title)}</li>`).join('')}</ul>`:'<span class="campresources-muted">Choose meals above. Ingredients will stay behind the curtain and be included in the Mission Brief.</span>';
-  }
-  function selectedMealIngredientLines(){
-    const out=[];
-    [['Breakfast',qs('campResourcesBreakfast')],['Lunch',qs('campResourcesLunch')],['Dinner',qs('campResourcesDinner')]].forEach(([label,el])=>{
-      const title=String(el?.value||'').trim(); if(!title) return;
-      const opt=el?.selectedOptions?.[0];
-      const ingredients=String(opt?.dataset?.ingredients||'').split('|').map(s=>s.trim()).filter(Boolean);
-      if(ingredients.length){ out.push({label,title,ingredients}); }
-    });
-    return out;
   }
   function renderCategories(){
     const w=qs("campResourcesCategories");
@@ -420,6 +335,59 @@
   }
   function recipients(){Array.from(document.querySelectorAll(".campresources-member-recipient")).forEach(i=>{const key=String(i.value||"").toLowerCase(); if(i.checked) selectedRecipientEmails.add(key); else selectedRecipientEmails.delete(key);}); const a=Array.from(document.querySelectorAll(".campresources-member-recipient:checked")).map(i=>({email:i.value,name:i.dataset.name||i.value}));const manual=String(qs("campResourcesManualEmail")?.value||"").trim();if(manual)a.push({email:manual,name:manual});const seen=new Set();return a.filter(r=>r.email&&r.email.includes("@")&&!seen.has(r.email.toLowerCase())&&seen.add(r.email.toLowerCase()));}
   function selectedHunterName(){const s=qs("campResourcesHunter");const o=s?.selectedOptions?.[0];return (o?.dataset?.name||o?.textContent||"").trim();}
+  function getCampCookbookRecipes(){
+    try{
+      if(typeof window.DeerCampGetAllRecipes === "function"){
+        return (window.DeerCampGetAllRecipes()||[]).filter(r=>r&&r.title);
+      }
+    }catch(error){console.warn("CampCookbook picker unavailable",error);}
+    return [];
+  }
+  function classifyMeal(title){
+    const t=String(title||"").toLowerCase();
+    if(/egg|pancake|breakfast|hash|biscuit|gravy|sausage/.test(t)) return "breakfast";
+    if(/wrap|sandwich|flatbread|lunch|shore/.test(t)) return "lunch";
+    if(/chili|steak|backstrap|pasta|stew|dinner|venison|foil/.test(t)) return "dinner";
+    return "any";
+  }
+  function selectedRecipeFor(id){
+    const sel=qs(id); if(!sel) return null;
+    const raw=sel.value||""; if(!raw) return null;
+    const recipes=getCampCookbookRecipes();
+    return recipes.find(r=>String(r.id||r.title)===raw) || {title:raw, ingredients:[]};
+  }
+  function selectedMealRecipes(){
+    return [
+      {meal:"Breakfast", id:"campResourcesBreakfast", recipe:selectedRecipeFor("campResourcesBreakfast")},
+      {meal:"Lunch", id:"campResourcesLunch", recipe:selectedRecipeFor("campResourcesLunch")},
+      {meal:"Dinner", id:"campResourcesDinner", recipe:selectedRecipeFor("campResourcesDinner")}
+    ].filter(x=>x.recipe&&x.recipe.title);
+  }
+  function renderRecipePreview(){
+    const box=qs("campResourcesRecipePreview"); if(!box) return;
+    const meals=selectedMealRecipes();
+    if(!meals.length){box.textContent="Choose meals from CampCookbook to attach ingredients to this hunter's Mission Brief.";return;}
+    box.innerHTML=meals.map(m=>{
+      const ingredients=Array.isArray(m.recipe.ingredients)?m.recipe.ingredients.filter(Boolean):[];
+      return `<div class="campresources-recipe-meal"><strong>${esc(m.meal)}: ${esc(m.recipe.title)}</strong>${ingredients.length?`<ul>${ingredients.slice(0,6).map(i=>`<li>${esc(i)}</li>`).join("")}${ingredients.length>6?`<li>+${ingredients.length-6} more ingredients</li>`:""}</ul>`:`<div class="campresources-muted">Ingredients can be added later in CampCookbook.</div>`}</div>`;
+    }).join("");
+  }
+  function populateRecipePickers(){
+    const recipes=getCampCookbookRecipes();
+    ["campResourcesBreakfast","campResourcesLunch","campResourcesDinner"].forEach(id=>{
+      const sel=qs(id); if(!sel || sel.dataset.loadedRecipes==="1") return;
+      const meal=sel.dataset.meal||"any";
+      const preferred=recipes.filter(r=>classifyMeal(r.title)===meal);
+      const rest=recipes.filter(r=>classifyMeal(r.title)!==meal);
+      const opts=[`<option value="">Select from CampCookbook</option>`];
+      if(preferred.length){opts.push(`<option disabled>— Suggested ${meal.charAt(0).toUpperCase()+meal.slice(1)} —</option>`);preferred.forEach(r=>opts.push(`<option value="${esc(r.id||r.title)}">${esc(r.title)}</option>`));}
+      if(rest.length){opts.push(`<option disabled>— Other CampCookbook Recipes —</option>`);rest.forEach(r=>opts.push(`<option value="${esc(r.id||r.title)}">${esc(r.title)}</option>`));}
+      sel.innerHTML=opts.join("");
+      sel.dataset.loadedRecipes="1";
+      sel.addEventListener("change",renderRecipePreview);
+    });
+    renderRecipePreview();
+  }
   function missionLines(names){
     const lines=[];
     const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();
@@ -435,21 +403,19 @@
     if(getEndZip())lines.push(`Camp / End ZIP: ${getEndZip()}`);
     lines.push(activeStrategy==="s2c"?`Search Corridor: ${getRadiusMiles()} miles from route centerline each side`:`Search Radius: ${getRadiusMiles()} miles`);
     lines.push("");
-    const breakfast=String(qs("campResourcesBreakfast")?.value||"").trim();
-    const lunch=String(qs("campResourcesLunch")?.value||"").trim();
-    const dinner=String(qs("campResourcesDinner")?.value||"").trim();
+    const mealRecipes=selectedMealRecipes();
     const staples=String(qs("campResourcesStaples")?.value||"").trim();
     const notes=String(qs("campResourcesStewardNotes")?.value||"").trim();
     const assigned=getHunterAssignedStaples();
     lines.push("Your Assignments");lines.push("----------------");
-    if(breakfast)lines.push(`Breakfast: ${breakfast}`);
-    if(lunch)lines.push(`Lunch: ${lunch}`);
-    if(dinner)lines.push(`Dinner: ${dinner}`);
-    const mealIngredients=selectedMealIngredientLines();
-    if(mealIngredients.length){
-      lines.push("");lines.push("Recipe Ingredients");lines.push("------------------");
-      mealIngredients.forEach(m=>{lines.push(`${m.label}: ${m.title}`);m.ingredients.forEach(x=>lines.push(`- ${x}`));lines.push("");});
-    }
+    mealRecipes.forEach(m=>{
+      lines.push(`${m.meal}: ${m.recipe.title}`);
+      const ingredients=Array.isArray(m.recipe.ingredients)?m.recipe.ingredients.filter(Boolean):[];
+      if(ingredients.length){
+        lines.push(`Ingredients for ${m.recipe.title}:`);
+        ingredients.forEach(i=>lines.push(`- ${i}`));
+      }
+    });
     if(assigned.length||staples){
       lines.push("");lines.push("Camp Staples / Resources:");
       assigned.forEach(i=>lines.push(`- ${i.text}`));
@@ -460,7 +426,7 @@
     return lines;
   }
   function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=missionLines(names);lines.push("Suggested Stops / Resource Pack");lines.push("-------------------------------");if(!pack.size){lines.push("No stops selected yet.");}Object.keys(grouped).sort().forEach(label=>{lines.push("");lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});});lines.push("");lines.push("Sent from DeerCamp CampResources Mission Center.");return lines.join("\n")}
-  function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp Mission Brief: ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
+  function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
   function clearPack(){pack.clear();renderPack();document.querySelectorAll(".campresources-result-check").forEach(i=>i.checked=false)}
   function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();populateRecipePickers();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
   window.initCampResources=initCampResources;window.loadCampResources=loadCampResources;if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initCampResources);else initCampResources(); setInterval(()=>{if(document.getElementById("campresources")){forceRecipientChecklist(); if(!document.querySelector(".campresources-member-recipient")) populateMemberChecks();}},2500);
