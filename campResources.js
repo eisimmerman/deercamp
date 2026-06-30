@@ -335,6 +335,59 @@
   }
   function recipients(){Array.from(document.querySelectorAll(".campresources-member-recipient")).forEach(i=>{const key=String(i.value||"").toLowerCase(); if(i.checked) selectedRecipientEmails.add(key); else selectedRecipientEmails.delete(key);}); const a=Array.from(document.querySelectorAll(".campresources-member-recipient:checked")).map(i=>({email:i.value,name:i.dataset.name||i.value}));const manual=String(qs("campResourcesManualEmail")?.value||"").trim();if(manual)a.push({email:manual,name:manual});const seen=new Set();return a.filter(r=>r.email&&r.email.includes("@")&&!seen.has(r.email.toLowerCase())&&seen.add(r.email.toLowerCase()));}
   function selectedHunterName(){const s=qs("campResourcesHunter");const o=s?.selectedOptions?.[0];return (o?.dataset?.name||o?.textContent||"").trim();}
+  function getCampCookbookRecipes(){
+    try{
+      if(typeof window.DeerCampGetAllRecipes === "function"){
+        return (window.DeerCampGetAllRecipes()||[]).filter(r=>r&&r.title);
+      }
+    }catch(error){console.warn("CampCookbook picker unavailable",error);}
+    return [];
+  }
+  function classifyMeal(title){
+    const t=String(title||"").toLowerCase();
+    if(/egg|pancake|breakfast|hash|biscuit|gravy|sausage/.test(t)) return "breakfast";
+    if(/wrap|sandwich|flatbread|lunch|shore/.test(t)) return "lunch";
+    if(/chili|steak|backstrap|pasta|stew|dinner|venison|foil/.test(t)) return "dinner";
+    return "any";
+  }
+  function selectedRecipeFor(id){
+    const sel=qs(id); if(!sel) return null;
+    const raw=sel.value||""; if(!raw) return null;
+    const recipes=getCampCookbookRecipes();
+    return recipes.find(r=>String(r.id||r.title)===raw) || {title:raw, ingredients:[]};
+  }
+  function selectedMealRecipes(){
+    return [
+      {meal:"Breakfast", id:"campResourcesBreakfast", recipe:selectedRecipeFor("campResourcesBreakfast")},
+      {meal:"Lunch", id:"campResourcesLunch", recipe:selectedRecipeFor("campResourcesLunch")},
+      {meal:"Dinner", id:"campResourcesDinner", recipe:selectedRecipeFor("campResourcesDinner")}
+    ].filter(x=>x.recipe&&x.recipe.title);
+  }
+  function renderRecipePreview(){
+    const box=qs("campResourcesRecipePreview"); if(!box) return;
+    const meals=selectedMealRecipes();
+    if(!meals.length){box.textContent="Choose meals from CampCookbook to attach ingredients to this hunter's Mission Brief.";return;}
+    box.innerHTML=meals.map(m=>{
+      const ingredients=Array.isArray(m.recipe.ingredients)?m.recipe.ingredients.filter(Boolean):[];
+      return `<div class="campresources-recipe-meal"><strong>${esc(m.meal)}: ${esc(m.recipe.title)}</strong>${ingredients.length?`<ul>${ingredients.slice(0,6).map(i=>`<li>${esc(i)}</li>`).join("")}${ingredients.length>6?`<li>+${ingredients.length-6} more ingredients</li>`:""}</ul>`:`<div class="campresources-muted">Ingredients can be added later in CampCookbook.</div>`}</div>`;
+    }).join("");
+  }
+  function populateRecipePickers(){
+    const recipes=getCampCookbookRecipes();
+    ["campResourcesBreakfast","campResourcesLunch","campResourcesDinner"].forEach(id=>{
+      const sel=qs(id); if(!sel || sel.dataset.loadedRecipes==="1") return;
+      const meal=sel.dataset.meal||"any";
+      const preferred=recipes.filter(r=>classifyMeal(r.title)===meal);
+      const rest=recipes.filter(r=>classifyMeal(r.title)!==meal);
+      const opts=[`<option value="">Select from CampCookbook</option>`];
+      if(preferred.length){opts.push(`<option disabled>— Suggested ${meal.charAt(0).toUpperCase()+meal.slice(1)} —</option>`);preferred.forEach(r=>opts.push(`<option value="${esc(r.id||r.title)}">${esc(r.title)}</option>`));}
+      if(rest.length){opts.push(`<option disabled>— Other CampCookbook Recipes —</option>`);rest.forEach(r=>opts.push(`<option value="${esc(r.id||r.title)}">${esc(r.title)}</option>`));}
+      sel.innerHTML=opts.join("");
+      sel.dataset.loadedRecipes="1";
+      sel.addEventListener("change",renderRecipePreview);
+    });
+    renderRecipePreview();
+  }
   function missionLines(names){
     const lines=[];
     const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();
@@ -350,16 +403,19 @@
     if(getEndZip())lines.push(`Camp / End ZIP: ${getEndZip()}`);
     lines.push(activeStrategy==="s2c"?`Search Corridor: ${getRadiusMiles()} miles from route centerline each side`:`Search Radius: ${getRadiusMiles()} miles`);
     lines.push("");
-    const breakfast=String(qs("campResourcesBreakfast")?.value||"").trim();
-    const lunch=String(qs("campResourcesLunch")?.value||"").trim();
-    const dinner=String(qs("campResourcesDinner")?.value||"").trim();
+    const mealRecipes=selectedMealRecipes();
     const staples=String(qs("campResourcesStaples")?.value||"").trim();
     const notes=String(qs("campResourcesStewardNotes")?.value||"").trim();
     const assigned=getHunterAssignedStaples();
     lines.push("Your Assignments");lines.push("----------------");
-    if(breakfast)lines.push(`Breakfast: ${breakfast}`);
-    if(lunch)lines.push(`Lunch: ${lunch}`);
-    if(dinner)lines.push(`Dinner: ${dinner}`);
+    mealRecipes.forEach(m=>{
+      lines.push(`${m.meal}: ${m.recipe.title}`);
+      const ingredients=Array.isArray(m.recipe.ingredients)?m.recipe.ingredients.filter(Boolean):[];
+      if(ingredients.length){
+        lines.push(`Ingredients for ${m.recipe.title}:`);
+        ingredients.forEach(i=>lines.push(`- ${i}`));
+      }
+    });
     if(assigned.length||staples){
       lines.push("");lines.push("Camp Staples / Resources:");
       assigned.forEach(i=>lines.push(`- ${i.text}`));
@@ -372,6 +428,6 @@
   function emailBody(names){const grouped={};Array.from(pack.values()).forEach(i=>{const label=i.categoryLabel.replace(/^[^A-Za-z0-9]+/,"").trim();(grouped[label]||=[]).push(i)});const lines=missionLines(names);lines.push("Suggested Stops / Resource Pack");lines.push("-------------------------------");if(!pack.size){lines.push("No stops selected yet.");}Object.keys(grouped).sort().forEach(label=>{lines.push("");lines.push(label);lines.push("-".repeat(label.length));grouped[label].forEach(i=>{lines.push(i.name);if(i.address)lines.push(`Address: ${i.address}`);if(i.distanceMiles)lines.push(`Distance: ${Number(i.distanceMiles).toFixed(1)} miles`);if(i.phone)lines.push(`Phone: ${i.phone}`);if(i.website)lines.push(`Website: ${i.website}`);if(i.mapsUrl)lines.push(`Directions: ${i.mapsUrl}`);lines.push("")});});lines.push("");lines.push("Sent from DeerCamp CampResources Mission Center.");return lines.join("\n")}
   function emailResourcePack(){const status=qs("campResourcesPackStatus");const rec=recipients();if(!rec.length){if(status)status.textContent="Choose at least one member or enter an email address.";return}const mission=String(qs("campResourcesMissionName")?.value||"Trip Prep Mission").trim();window.location.href=`mailto:${encodeURIComponent(rec.map(r=>r.email).join(","))}?subject=${encodeURIComponent(`DeerCamp ${mission}`)}&body=${encodeURIComponent(emailBody(rec.map(r=>r.name)))}`;}
   function clearPack(){pack.clear();renderPack();document.querySelectorAll(".campresources-result-check").forEach(i=>i.checked=false)}
-  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
+  function initCampResources(){const root=document.getElementById("campresources");if(!root)return;forceRecipientChecklist();if(boundRoot===root&&qs("campResourcesCategories")?.children?.length)return;boundRoot=root;renderCategories();populateMemberChecks();renderPack();bindLaborControls();bindMissionDateControls();populateRecipePickers();renderLaborBoard();document.querySelectorAll("[data-strategy]").forEach(btn=>btn.addEventListener("click",()=>{activeStrategy=btn.dataset.strategy||"sah";updateStrategyUI();loadCampResources();}));["campResourcesRadius","campResourcesStartZip","campResourcesEndZip"].forEach(id=>qs(id)?.addEventListener("change",()=>{syncMissionZip();loadCampResources();}));qs("campResourcesEmailBtn")?.addEventListener("click",emailResourcePack);qs("campResourcesClearBtn")?.addEventListener("click",clearPack);const end=qs("campResourcesEndZip"),hidden=qs("campResourcesZip");if(end&&!end.value.trim())end.value=getCampZip();if(hidden&&!hidden.value.trim())hidden.value=end?.value||getCampZip();updateStrategyUI();if(hidden?.value&&!didAutoSearch){didAutoSearch=true;setTimeout(loadCampResources,120)}}
   window.initCampResources=initCampResources;window.loadCampResources=loadCampResources;if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initCampResources);else initCampResources(); setInterval(()=>{if(document.getElementById("campresources")){forceRecipientChecklist(); if(!document.querySelector(".campresources-member-recipient")) populateMemberChecks();}},2500);
 })();
