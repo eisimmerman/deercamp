@@ -551,6 +551,17 @@
   .campresources-staple-tally-metrics b{color:#231a13;font-size:.9rem}
   @media (max-width:900px){.campresources-email-panel .campresources-pack-actions{grid-template-columns:1fr}.campresources-staple-tally{grid-template-columns:1fr}}
 
+
+  /* CampResources v4: email box + notes swap and per-staple quantity counters. */
+  .campresources-email-panel .campresources-intro h2{margin-bottom:6px!important}
+  .campresources-email-panel .campresources-pack-summary{margin-bottom:2px}
+  .campresources-trip-notes-block{margin-top:16px;padding-top:14px;border-top:1px solid rgba(69,42,22,.10)}
+  .campresources-trip-notes-block .campresources-panel-head{margin-bottom:10px}
+  .campresources-staple-tally-card strong{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .campresources-staple-tally-card small{color:#6b5644;font-size:.78rem;font-weight:800}
+  .campresources-staple-tally-metrics span{align-items:flex-start}
+  .campresources-staple-tally-metrics b{text-align:right;white-space:normal}
+
   /* CampCalendar desktop look-ahead layout: full month left, all details/actions right, six compact preview months below. */
 
   .campresources-assigned-head{
@@ -4505,18 +4516,33 @@ visibleSections().forEach(section=>{
             </select>
           </label>
           <div id="campResourcesStrategyNote" class="campresources-strategy-note">SAH searches a circle around the hunter's starting ZIP.</div>
+
+          <div class="campresources-trip-notes-block">
+            <div class="campresources-panel-head">
+              <h3>Hunter/Steward Notes</h3>
+              <p>Add extra pickup instructions and steward reminders that should ride along in the Trip Prep email.</p>
+            </div>
+            <label class="form-row">
+              <span class="label">Additional hunter order notes</span>
+              <textarea id="campResourcesStaples" class="textarea campresources-compact-textarea" placeholder="Optional extras not in the master list, e.g. pick up Dad's coffee mug or special supplies."></textarea>
+            </label>
+            <label class="form-row">
+              <span class="label">Steward Notes</span>
+              <textarea id="campResourcesStewardNotes" class="textarea campresources-compact-textarea" placeholder="Arrive by 7 PM Friday. Breakfast at 4:30 AM. Meet at the cabin before heading to stands."></textarea>
+            </label>
+          </div>
           <div class="campresources-sticky campresources-pack-builder-compact campresources-email-panel">
         <div class="campresources-top">
           <div class="campresources-intro">
-            <h2>Hunter Email Delivery</h2>
-            <p class="section-helper">Based on the shopping strategy and search radius above, DeerCamp will automatically include the top two providers in each staples category inside the hunter's email. Hunters can choose one of those or use a favorite provider.</p>
+            <h2>4. Hunter Email Delivery</h2>
+            <p class="section-helper">Choose who receives the Trip Prep email. DeerCamp will add the top two providers for each staple category behind the curtain based on the shopping strategy and search radius.</p>
           </div>
         </div>
         <div id="campResourcesCategories" class="campresources-chips" aria-label="CampResources categories" hidden></div>
         <div id="campResourcesPack" class="campresources-pack">
           <div class="campresources-pack-summary campresources-auto-provider-summary">
-            <strong>Automatic provider picks</strong>
-            <span>Provider choices are now handled behind the curtain and delivered by category in the hunter's Trip Prep email.</span>
+            <strong>Behind-the-curtain provider picks</strong>
+            <span>The hunter email will include two provider options per staple category. The steward does not need to choose providers here.</span>
           </div>
           <div class="campresources-pack-recipients">
             <div>
@@ -4574,10 +4600,10 @@ visibleSections().forEach(section=>{
               <div class="campresources-staple-hint"><strong>Tip</strong> - after picking item &amp; adding quantity tap “Add to Available List”.</div>
               <div class="campresources-quantity-summary-wrap">
                 <div class="campresources-quantity-summary-head">
-                  <span class="label">Quantity Chosen / Assigned / Left</span>
-                  <span class="campresources-muted">For each staple category, DeerCamp will track the quantity selected, assigned to hunters, and left to assign.</span>
+                  <span class="label">Staple Quantity Counters</span>
+                  <span class="campresources-muted">Each staple category tracks available quantity, assigned quantity, and remaining quantity.</span>
                 </div>
-                <div id="campResourcesStapleTally" class="campresources-staple-tally"><span class="campresources-muted">Quantity counters will appear here as staples are added.</span></div>
+                <div id="campResourcesStapleTally" class="campresources-staple-tally"><span class="campresources-muted">Available / Assigned / Remaining counters will appear here as staples are added.</span></div>
               </div>
             </div>
             
@@ -4593,18 +4619,7 @@ visibleSections().forEach(section=>{
             </div>
             <div id="campResourcesLaborStatus" class="campresources-labor-status"></div>
           </div>
-          <div class="campresources-panel-head campresources-email-notes">
-            <h3>4. Hunter Email Notes</h3>
-            <p>Add extra pickup instructions and steward reminders. DeerCamp will automatically place the top two providers for each category into the hunter's email based on the shopping strategy and radius.</p>
-          </div>
-          <label class="form-row">
-            <span class="label">Additional hunter order notes</span>
-            <textarea id="campResourcesStaples" class="textarea campresources-compact-textarea" placeholder="Optional extras not in the master list, e.g. pick up Dad's coffee mug or special supplies."></textarea>
-          </label>
-          <label class="form-row">
-            <span class="label">Steward Notes</span>
-            <textarea id="campResourcesStewardNotes" class="textarea campresources-compact-textarea" placeholder="Arrive by 7 PM Friday. Breakfast at 4:30 AM. Meet at the cabin before heading to stands."></textarea>
-          </label>
+
         </section>
       </div>
       <div class="campresources-results-wide">
@@ -6543,10 +6558,16 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
   <script src="/resourcePackEmailTemplate.js"></script>
   <script src="/campResources.js"></script>
 
+
 <script>
 (function(){
   function getText(el){ return (el && (el.innerText || el.textContent) || '').replace(/\s+/g,' ').trim(); }
   function normalizeName(name){ return String(name||'').replace(/\s+/g,' ').trim(); }
+  function escapeHtml(value){
+    return String(value ?? '').replace(/[&<>"']/g, s => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+    }[s]));
+  }
   function extractQtyInfo(qtyText){
     const text = String(qtyText || '').trim();
     const numMatch = text.match(/(\d+(?:\.\d+)?)/);
@@ -6555,13 +6576,18 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
     if(!unit) unit = 'units';
     return { amount, unit };
   }
+  function cleanStapleText(text){
+    return String(text || '')
+      .replace(/\b(Return|Remove|Undo|Unassign|Assign)\b.*$/i,'')
+      .replace(/\bAssigned to\b.*$/i,'')
+      .trim();
+  }
   function collectStaples(container){
     if(!container) return [];
     const rows = Array.from(container.children || []).filter(el => !el.classList.contains('campresources-muted'));
     return rows.map(el => {
-      let text = getText(el);
+      let text = cleanStapleText(getText(el));
       if(!text) return null;
-      text = text.replace(/(Return|Remove|Undo|Unassign|Assign).*$/i,'').trim();
       const match = text.match(/^(.+?)\s*-\s*(.+)$/);
       if(!match) return null;
       const name = normalizeName(match[1]);
@@ -6573,7 +6599,7 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
   function upsert(store, item, bucket){
     if(!item || !item.name) return;
     const key = item.name.toLowerCase();
-    const existing = store.get(key) || { name:item.name, unit:item.unit, chosen:0, assigned:0, left:0 };
+    const existing = store.get(key) || { name:item.name, unit:item.unit, available:0, assigned:0, remaining:0 };
     if(!existing.unit && item.unit) existing.unit = item.unit;
     existing[bucket] += Number(item.amount) || 0;
     store.set(key, existing);
@@ -6590,32 +6616,32 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
     const assignedCount = document.getElementById('campResourcesHunterOrderCount');
     if(!tallyEl) return;
 
-    const available = collectStaples(remainingList);
-    const assigned = collectStaples(assignedList);
+    const remainingItems = collectStaples(remainingList);
+    const assignedItems = collectStaples(assignedList);
     const store = new Map();
 
-    available.forEach(item => { upsert(store, item, 'left'); upsert(store, item, 'chosen'); });
-    assigned.forEach(item => { upsert(store, item, 'assigned'); upsert(store, item, 'chosen'); });
+    remainingItems.forEach(item => { upsert(store, item, 'remaining'); upsert(store, item, 'available'); });
+    assignedItems.forEach(item => { upsert(store, item, 'assigned'); upsert(store, item, 'available'); });
 
     const entries = Array.from(store.values()).sort((a,b) => a.name.localeCompare(b.name));
     if(!entries.length){
-      tallyEl.innerHTML = '<span class="campresources-muted">Quantity counters will appear here as staples are added.</span>';
+      tallyEl.innerHTML = '<span class="campresources-muted">Available / Assigned / Remaining counters will appear here as staples are added.</span>';
     } else {
       tallyEl.innerHTML = entries.map(entry => `
         <div class="campresources-staple-tally-card">
-          <strong>${entry.name}</strong>
+          <strong>${escapeHtml(entry.name)} <small>${escapeHtml(entry.unit || 'units')}</small></strong>
           <div class="campresources-staple-tally-metrics">
-            <span>Chosen <b>${formatAmount(entry.chosen, entry.unit)}</b></span>
-            <span>Assigned <b>${formatAmount(entry.assigned, entry.unit)}</b></span>
-            <span>Left <b>${formatAmount(entry.left, entry.unit)}</b></span>
+            <span>Available <b>${escapeHtml(formatAmount(entry.available, entry.unit))}</b></span>
+            <span>Assigned <b>${escapeHtml(formatAmount(entry.assigned, entry.unit))}</b></span>
+            <span>Remaining <b>${escapeHtml(formatAmount(entry.remaining, entry.unit))}</b></span>
           </div>
         </div>`).join('');
     }
 
-    const totalChosen = entries.reduce((sum, entry) => sum + entry.chosen, 0);
+    const totalAvailable = entries.reduce((sum, entry) => sum + entry.available, 0);
     const totalAssigned = entries.reduce((sum, entry) => sum + entry.assigned, 0);
-    const totalLeft = entries.reduce((sum, entry) => sum + entry.left, 0);
-    if(remainingCount) remainingCount.textContent = `${totalLeft} left of ${totalChosen}`;
+    const totalRemaining = entries.reduce((sum, entry) => sum + entry.remaining, 0);
+    if(remainingCount) remainingCount.textContent = `${totalRemaining} remaining of ${totalAvailable}`;
     if(assignedCount) assignedCount.textContent = `${totalAssigned} assigned`;
   }
   function initCampResourcesAdjustments(){
