@@ -68,7 +68,49 @@ function composeTripPrepEmail(payload, to) {
   const tripName = clean(payload.tripName) || "Trip Prep";
   const hunterName = clean(payload.hunterName) || "Hunter";
 
-  const subject = `DeerCamp Trip Prep — ${tripName}`;
+  const subject = clean(payload.subject) || `DeerCamp Trip Prep - ${tripName}`;
+  const bodyText = clean(payload.bodyText || payload.textBody || payload.text);
+
+  if (bodyText) {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>${htmlEscape(subject)}</title></head>
+<body style="margin:0;padding:0;background:#f5f1e8;font-family:Arial,Helvetica,sans-serif;color:#2f2a24;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f5f1e8;margin:0;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#ffffff;border-radius:16px;overflow:hidden;">
+        <tr>
+          <td style="padding:28px 24px 18px 24px;background:#452a16;color:#fff8ef;">
+            <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#ffe1a0;">${htmlEscape(campName)}</div>
+            <h1 style="margin:8px 0 6px 0;font-size:28px;line-height:1.15;">${htmlEscape(tripName)}</h1>
+            <div style="font-size:16px;line-height:1.5;">Trip Prep for ${htmlEscape(hunterName)}</div>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:22px 24px;font-size:15px;line-height:1.55;color:#3b342c;">
+            <pre style="margin:0;font-family:Arial,Helvetica,sans-serif;white-space:pre-wrap;line-height:1.55;">${htmlEscape(bodyText)}</pre>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    return {
+      to,
+      from: process.env.WELCOME_FROM || DEFAULT_FROM,
+      replyTo: process.env.WELCOME_REPLY_TO || DEFAULT_REPLY_TO,
+      subject,
+      html,
+      text: bodyText,
+      attachments: [],
+      tags: [
+        { name: "flow", value: "campresources-trip-prep" },
+        { name: "environment", value: process.env.VERCEL_ENV || "firebase" },
+      ],
+    };
+  }
 
   const meals = payload.meals || {};
   const mealRows = [
@@ -203,3 +245,5 @@ module.exports = async function sendTripPrepEmailHandler(req, res) {
     });
   }
 };
+
+
