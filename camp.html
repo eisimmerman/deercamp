@@ -1323,6 +1323,96 @@
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
 <script src="firebase-web.js"></script>
   <link rel="stylesheet" href="/campResources.css">
+
+<style id="campresources-layout-v3">
+  /* CampResources layout v3: pack builder moves into left mission column; results go full-width under Steward Notes. */
+  .campresources-mission-grid{
+    align-items:start;
+  }
+  .campresources-pack-builder-compact{
+    position:static!important;
+    top:auto!important;
+    margin:16px 0 0!important;
+    padding:14px!important;
+    border-radius:20px!important;
+    background:rgba(255,250,244,.72)!important;
+    border:1px solid rgba(69,42,22,.10)!important;
+    box-shadow:none!important;
+  }
+  .campresources-pack-builder-compact .campresources-top{
+    display:block!important;
+    margin:0 0 10px!important;
+  }
+  .campresources-pack-builder-compact .campresources-intro h2{
+    margin:0 0 4px!important;
+    font-size:1.12rem!important;
+    line-height:1.15!important;
+  }
+  .campresources-pack-builder-compact .section-helper{
+    margin:0!important;
+    font-size:.88rem!important;
+    line-height:1.35!important;
+  }
+  .campresources-pack-builder-compact .campresources-chips{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    gap:8px!important;
+    margin-top:10px!important;
+  }
+  .campresources-pack-builder-compact .campresources-chip{
+    min-height:36px!important;
+    padding:7px 9px!important;
+    border-radius:999px!important;
+    font-size:.82rem!important;
+    line-height:1.1!important;
+  }
+  .campresources-pack-builder-compact .campresources-pack{
+    margin-top:10px!important;
+    padding:12px!important;
+    border-radius:18px!important;
+  }
+  .campresources-pack-builder-compact .campresources-pack-recipients{
+    grid-template-columns:1fr!important;
+    gap:10px!important;
+  }
+  .campresources-pack-builder-compact .campresources-pack-actions{
+    display:grid!important;
+    grid-template-columns:1fr!important;
+    gap:8px!important;
+  }
+  .campresources-pack-builder-compact .campresources-pack-actions .btn{
+    width:100%!important;
+    min-height:42px!important;
+  }
+  .campresources-results-wide{
+    margin-top:10px;
+    padding:14px;
+    border-radius:22px;
+    background:rgba(255,250,244,.72);
+    border:1px solid rgba(69,42,22,.10);
+  }
+  .campresources-results-wide #campResourcesStatus{
+    margin:0 0 10px;
+  }
+  .campresources-results-wide .campresources-list{
+    width:100%;
+  }
+  @media (min-width:1101px){
+    .campresources-mission-grid{
+      grid-template-columns:minmax(300px,.45fr) minmax(560px,.55fr)!important;
+      gap:14px!important;
+    }
+  }
+  @media (max-width:1100px){
+    .campresources-pack-builder-compact .campresources-chips{
+      grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    }
+  }
+  @media (max-width:640px){
+    .campresources-pack-builder-compact .campresources-chips{
+      grid-template-columns:repeat(2,minmax(0,1fr))!important;
+    }
+  }
+</style>
 </head>
 <body>
 <section class="mobile-hero-header" id="mobileHeroHeader" aria-label="Camp mobile hero">
@@ -4349,6 +4439,39 @@ visibleSections().forEach(section=>{
             </select>
           </label>
           <div id="campResourcesStrategyNote" class="campresources-strategy-note">SAH searches a circle around the hunter's starting ZIP.</div>
+          <div class="campresources-sticky campresources-pack-builder-compact">
+        <div class="campresources-top">
+          <div class="campresources-intro">
+            <h2>Resource Pack Builder</h2>
+            <p class="section-helper">Choose resource categories, add stops to the hunter's mission, then send one useful email.</p>
+          </div>
+        </div>
+        <div id="campResourcesCategories" class="campresources-chips" aria-label="CampResources categories"></div>
+        <div id="campResourcesPack" class="campresources-pack" hidden>
+          <div class="campresources-pack-summary">
+            <strong id="campResourcesPackCount">0 selected</strong>
+            <span>Build a Resource Pack from multiple categories, then email the Trip Prep Mission to hunter(s).</span>
+          </div>
+          <div class="campresources-pack-recipients">
+            <div>
+              <span class="label">Send to camp member(s)</span>
+              <div id="campResourcesMemberChecks" class="campresources-member-checks">
+                <span class="campresources-muted">Loading camp members...</span>
+              </div>
+            </div>
+            <label class="campresources-pack-manual">
+              <span class="label">Or email</span>
+              <input id="campResourcesManualEmail" class="input" type="email" placeholder="name@example.com">
+            </label>
+          </div>
+          <div class="campresources-pack-actions">
+            <button id="campResourcesEmailBtn" class="btn" type="button">Send Trip Prep Mission</button>
+            <button id="campResourcesClearBtn" class="btn btn-secondary" type="button">Clear Pack</button>
+          </div>
+          <div id="campResourcesPackList" class="campresources-pack-list"></div>
+          <div id="campResourcesPackStatus" class="feedback"></div>
+        </div>
+      </div>
         </aside>
         <section class="campresources-assignment-panel">
           <div class="campresources-panel-head">
@@ -4410,41 +4533,10 @@ visibleSections().forEach(section=>{
           </label>
         </section>
       </div>
-      <div class="campresources-sticky">
-        <div class="campresources-top">
-          <div class="campresources-intro">
-            <h2>Resource Pack Builder</h2>
-            <p class="section-helper">Choose resource categories, add stops to the hunter's mission, then send one useful email.</p>
-          </div>
-        </div>
-        <div id="campResourcesCategories" class="campresources-chips" aria-label="CampResources categories"></div>
-        <div id="campResourcesPack" class="campresources-pack" hidden>
-          <div class="campresources-pack-summary">
-            <strong id="campResourcesPackCount">0 selected</strong>
-            <span>Build a Resource Pack from multiple categories, then email the Trip Prep Mission to hunter(s).</span>
-          </div>
-          <div class="campresources-pack-recipients">
-            <div>
-              <span class="label">Send to camp member(s)</span>
-              <div id="campResourcesMemberChecks" class="campresources-member-checks">
-                <span class="campresources-muted">Loading camp members...</span>
-              </div>
-            </div>
-            <label class="campresources-pack-manual">
-              <span class="label">Or email</span>
-              <input id="campResourcesManualEmail" class="input" type="email" placeholder="name@example.com">
-            </label>
-          </div>
-          <div class="campresources-pack-actions">
-            <button id="campResourcesEmailBtn" class="btn" type="button">Send Trip Prep Mission</button>
-            <button id="campResourcesClearBtn" class="btn btn-secondary" type="button">Clear Pack</button>
-          </div>
-          <div id="campResourcesPackList" class="campresources-pack-list"></div>
-          <div id="campResourcesPackStatus" class="feedback"></div>
-        </div>
-      </div>
-      <div id="campResourcesStatus" class="feedback">Loading nearby resources...</div>
-      <div id="campResourcesList" class="campresources-list"></div>`;
+      <div class="campresources-results-wide">
+        <div id="campResourcesStatus" class="feedback">Loading nearby resources...</div>
+        <div id="campResourcesList" class="campresources-list"></div>
+      </div>`;
     setTimeout(()=>{ try{ window.initCampResources?.(); }catch(error){ console.warn("CampResources init failed", error); } }, 0);
   } else if(section.key==="camphonors"){
     container.innerHTML=`
