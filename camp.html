@@ -562,6 +562,28 @@
   .campresources-staple-tally-metrics span{align-items:flex-start}
   .campresources-staple-tally-metrics b{text-align:right;white-space:normal}
 
+
+  /* CampResources v5: compact Trip fields, alpha staple library, partial assignment, streamlined email delivery. */
+  .campresources-trip-name-helper{display:none!important}
+  .campresources-trip-inline-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
+  .campresources-trip-inline-row .input,.campresources-trip-inline-row .select{min-height:46px}
+  .campresources-strategy-note{display:none!important}
+  .campresources-auto-provider-summary{display:none!important}
+  .campresources-email-panel .campresources-pack-recipients{display:grid!important;grid-template-columns:1fr!important;gap:12px!important}
+  .campresources-email-send-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,1fr);gap:10px;align-items:end}
+  .campresources-email-send-row .campresources-pack-manual{min-width:0}
+  .campresources-email-send-row .btn{width:100%;min-height:46px}
+  .campresources-email-panel .campresources-pack-actions{display:block!important}
+  .campresources-email-panel #campResourcesClearBtn{width:100%;margin-top:10px}
+  .campresources-partial-assign-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;margin:0 0 10px}
+  .campresources-partial-assign-row input{min-height:42px;padding:0 12px;border-radius:14px;border:1px solid rgba(98,72,44,.18);background:rgba(255,255,255,.92);color:#3f2a15}
+  .campresources-partial-assign-row .campresources-mini-note{grid-column:1/-1;color:#6b5644;font-size:.82rem;font-weight:700;line-height:1.35}
+  .campresources-staple-library .campresources-custom-staple-field{min-width:190px;flex:1 1 210px}
+  .campresources-custom-staple-field input{width:100%;min-height:34px;padding:6px 12px;border-radius:999px;border:1px solid rgba(98,72,44,.18);background:#fff;color:#3f2a15;font-size:.9rem;font-weight:700}
+  @media (max-width:900px){
+    .campresources-trip-inline-row,.campresources-email-send-row,.campresources-partial-assign-row{grid-template-columns:1fr}
+  }
+
   /* CampCalendar desktop look-ahead layout: full month left, all details/actions right, six compact preview months below. */
 
   .campresources-assigned-head{
@@ -4479,8 +4501,8 @@ visibleSections().forEach(section=>{
           </div>
           <label class="form-row">
             <span class="label">Trip Name</span>
-            <input id="campResourcesMissionName" class="input" type="text" value="" placeholder="e.g., Opening Weekend Trip" maxlength="80">
-            <small class="campresources-field-helper">e.g., Opening Weekend Trip</small>
+            <input id="campResourcesMissionName" class="input" type="text" value="" placeholder="e.g., Opening Weekend" maxlength="80">
+            <small class="campresources-field-helper campresources-trip-name-helper">e.g., Opening Weekend</small>
           </label>
           <div class="campresources-date-row">
             <label class="form-row"><span class="label">Start Date</span><input id="campResourcesMissionStart" class="input" type="date"></label>
@@ -4495,7 +4517,7 @@ visibleSections().forEach(section=>{
             <button type="button" data-strategy="s2c"><strong>S2C</strong><span>Shop to Camp</span></button>
             <button type="button" data-strategy="snc"><strong>SNC</strong><span>Shop Near Camp</span></button>
           </div>
-          <div class="campresources-zip-row">
+          <div class="campresources-trip-inline-row">
             <label class="form-row">
               <span class="label">Start ZIP</span>
               <input id="campResourcesStartZip" class="input" type="text" inputmode="numeric" placeholder="e.g., 55121" maxlength="10">
@@ -4504,17 +4526,17 @@ visibleSections().forEach(section=>{
               <span class="label">Camp / End ZIP</span>
               <input id="campResourcesEndZip" class="input" type="text" inputmode="numeric" placeholder="e.g., 54732" maxlength="10">
             </label>
+            <label class="form-row campresources-radius-field">
+              <span class="label" id="campResourcesRadiusLabel">Route Corridor</span>
+              <select id="campResourcesRadius" class="select">
+                <option value="10">10 miles</option>
+                <option value="20" selected>20 miles</option>
+                <option value="30">30 miles</option>
+                <option value="50">50 miles</option>
+              </select>
+            </label>
           </div>
           <input id="campResourcesZip" type="hidden">
-          <label class="form-row campresources-radius-field">
-            <span class="label" id="campResourcesRadiusLabel">Search Radius</span>
-            <select id="campResourcesRadius" class="select">
-              <option value="10">10 miles</option>
-              <option value="20" selected>20 miles</option>
-              <option value="30">30 miles</option>
-              <option value="50">50 miles</option>
-            </select>
-          </label>
           <div id="campResourcesStrategyNote" class="campresources-strategy-note">SAH searches a circle around the hunter's starting ZIP.</div>
 
           <div class="campresources-trip-notes-block">
@@ -4540,10 +4562,6 @@ visibleSections().forEach(section=>{
         </div>
         <div id="campResourcesCategories" class="campresources-chips" aria-label="CampResources categories" hidden></div>
         <div id="campResourcesPack" class="campresources-pack">
-          <div class="campresources-pack-summary campresources-auto-provider-summary">
-            <strong>Behind-the-curtain provider picks</strong>
-            <span>The hunter email will include two provider options per staple category. The steward does not need to choose providers here.</span>
-          </div>
           <div class="campresources-pack-recipients">
             <div>
               <span class="label">Send to camp member(s)</span>
@@ -4551,13 +4569,15 @@ visibleSections().forEach(section=>{
                 <span class="campresources-muted">Loading camp members...</span>
               </div>
             </div>
-            <label class="campresources-pack-manual">
-              <span class="label">Or email</span>
-              <input id="campResourcesManualEmail" class="input" type="email" placeholder="name@example.com">
-            </label>
+            <div class="campresources-email-send-row">
+              <label class="campresources-pack-manual">
+                <span class="label">Or email</span>
+                <input id="campResourcesManualEmail" class="input" type="email" placeholder="name@example.com">
+              </label>
+              <button id="campResourcesEmailBtn" class="btn" type="button">Send Trip Prep Email</button>
+            </div>
           </div>
           <div class="campresources-pack-actions">
-            <button id="campResourcesEmailBtn" class="btn" type="button">Send Trip Prep Email</button>
             <button id="campResourcesClearBtn" class="btn btn-secondary" type="button">Reset Email Setup</button>
           </div>
           <div id="campResourcesPackList" class="campresources-pack-list" hidden></div>
@@ -6559,8 +6579,16 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
   <script src="/campResources.js"></script>
 
 
+
 <script>
 (function(){
+  const STAPLE_LIBRARY_V5 = [
+    "Bacon","Beef jerky","Beer","Bottled water","Bread","Butter","Charcoal","Chips",
+    "Coffee","Cooking oil","Eggs","Firewood","Garbage bags","Ice","Lighter fluid",
+    "Liquor","Paper plates","Paper towels","Plastic cups","Propane","String cheese",
+    "Summer sausage","Toilet paper"
+  ];
+
   function getText(el){ return (el && (el.innerText || el.textContent) || '').replace(/\s+/g,' ').trim(); }
   function normalizeName(name){ return String(name||'').replace(/\s+/g,' ').trim(); }
   function escapeHtml(value){
@@ -6568,33 +6596,32 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
     }[s]));
   }
-  function extractQtyInfo(qtyText){
+  function splitQty(qtyText){
     const text = String(qtyText || '').trim();
-    const numMatch = text.match(/(\d+(?:\.\d+)?)/);
-    const amount = numMatch ? Number(numMatch[1]) : 1;
+    const match = text.match(/(\d+(?:\.\d+)?)/);
+    const amount = match ? Number(match[1]) : 1;
     let unit = text.replace(/^[^0-9]*\d+(?:\.\d+)?\s*/, '').trim();
     if(!unit) unit = 'units';
     return { amount, unit };
   }
-  function cleanStapleText(text){
-    return String(text || '')
+  function formatQty(amount, unit){
+    const clean = String(unit || 'units').trim();
+    return `${amount} ${clean}`.trim();
+  }
+  function parseStapleText(text){
+    const cleaned = String(text || '')
       .replace(/\b(Return|Remove|Undo|Unassign|Assign)\b.*$/i,'')
       .replace(/\bAssigned to\b.*$/i,'')
       .trim();
+    const match = cleaned.match(/^(.+?)\s*-\s*(.+)$/);
+    if(!match) return null;
+    const qty = splitQty(match[2].trim());
+    return { name: normalizeName(match[1]), amount: qty.amount, unit: qty.unit, qtyText: match[2].trim() };
   }
   function collectStaples(container){
     if(!container) return [];
     const rows = Array.from(container.children || []).filter(el => !el.classList.contains('campresources-muted'));
-    return rows.map(el => {
-      let text = cleanStapleText(getText(el));
-      if(!text) return null;
-      const match = text.match(/^(.+?)\s*-\s*(.+)$/);
-      if(!match) return null;
-      const name = normalizeName(match[1]);
-      const qtyText = match[2].trim();
-      const qty = extractQtyInfo(qtyText);
-      return { name, qtyText, amount: qty.amount, unit: qty.unit };
-    }).filter(Boolean);
+    return rows.map(el => parseStapleText(getText(el))).filter(Boolean);
   }
   function upsert(store, item, bucket){
     if(!item || !item.name) return;
@@ -6603,10 +6630,6 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
     if(!existing.unit && item.unit) existing.unit = item.unit;
     existing[bucket] += Number(item.amount) || 0;
     store.set(key, existing);
-  }
-  function formatAmount(amount, unit){
-    const cleanUnit = String(unit || 'units').trim();
-    return `${amount} ${cleanUnit}`.trim();
   }
   function renderStapleTally(){
     const tallyEl = document.getElementById('campResourcesStapleTally');
@@ -6631,9 +6654,9 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
         <div class="campresources-staple-tally-card">
           <strong>${escapeHtml(entry.name)} <small>${escapeHtml(entry.unit || 'units')}</small></strong>
           <div class="campresources-staple-tally-metrics">
-            <span>Available <b>${escapeHtml(formatAmount(entry.available, entry.unit))}</b></span>
-            <span>Assigned <b>${escapeHtml(formatAmount(entry.assigned, entry.unit))}</b></span>
-            <span>Remaining <b>${escapeHtml(formatAmount(entry.remaining, entry.unit))}</b></span>
+            <span>Available <b>${escapeHtml(formatQty(entry.available, entry.unit))}</b></span>
+            <span>Assigned <b>${escapeHtml(formatQty(entry.assigned, entry.unit))}</b></span>
+            <span>Remaining <b>${escapeHtml(formatQty(entry.remaining, entry.unit))}</b></span>
           </div>
         </div>`).join('');
     }
@@ -6644,6 +6667,94 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
     if(remainingCount) remainingCount.textContent = `${totalRemaining} remaining of ${totalAvailable}`;
     if(assignedCount) assignedCount.textContent = `${totalAssigned} assigned`;
   }
+
+  function renderStapleLibraryV5(){
+    const library = document.getElementById('campResourcesStapleLibrary');
+    if(!library || library.dataset.v5Rendered === '1') return;
+    library.dataset.v5Rendered = '1';
+    library.innerHTML = STAPLE_LIBRARY_V5.map(item => `<button type="button" class="campresources-staple-chip" data-staple="${escapeHtml(item)}">${escapeHtml(item)}</button>`).join('') +
+      `<label class="campresources-custom-staple-field"><input id="campResourcesCustomStapleInline" type="text" placeholder="type staple name"></label>`;
+
+    library.querySelectorAll('[data-staple]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('campResourcesStapleName');
+        if(input) input.value = btn.dataset.staple || btn.textContent.trim();
+      });
+    });
+    const custom = document.getElementById('campResourcesCustomStapleInline');
+    custom?.addEventListener('input', () => {
+      const input = document.getElementById('campResourcesStapleName');
+      if(input) input.value = custom.value;
+    });
+  }
+
+  function ensurePartialAssignControl(){
+    const assignBtn = document.getElementById('campResourcesAssignStapleBtn');
+    const header = assignBtn?.closest('.campresources-assigned-head');
+    if(!assignBtn || !header || document.getElementById('campResourcesAssignQty')) return;
+    const row = document.createElement('div');
+    row.className = 'campresources-partial-assign-row';
+    row.innerHTML = `
+      <input id="campResourcesAssignQty" type="text" placeholder="quantity to assign, e.g. 2 cases">
+      <button id="campResourcesPartialAssignBtn" class="btn" type="button">Assign Quantity</button>
+      <span class="campresources-mini-note">Check one available staple, enter the quantity for this hunter, then tap Assign Quantity. Leave blank to assign the full checked amount.</span>`;
+    header.insertAdjacentElement('afterend', row);
+    document.getElementById('campResourcesPartialAssignBtn')?.addEventListener('click', handlePartialAssign);
+  }
+
+  function getSelectedAvailableRow(){
+    const list = document.getElementById('campResourcesRemainingStaples');
+    if(!list) return null;
+    return Array.from(list.querySelectorAll('input[type="checkbox"]')).find(cb => cb.checked)?.closest('.campresources-labor-item, label, div');
+  }
+
+  function getSelectedHunterName(){
+    const select = document.getElementById('campResourcesHunter');
+    return select?.selectedOptions?.[0]?.textContent?.trim() || 'hunter';
+  }
+
+  function appendAssignedItem(item){
+    const list = document.getElementById('campResourcesHunterOrder');
+    if(!list) return;
+    if(list.querySelector('.campresources-muted')) list.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = 'campresources-labor-item';
+    div.innerHTML = `<strong>${escapeHtml(item.name)} - ${escapeHtml(formatQty(item.amount, item.unit))}</strong><br><small>Assigned to ${escapeHtml(getSelectedHunterName())}</small>`;
+    list.appendChild(div);
+  }
+
+  function handlePartialAssign(event){
+    event?.preventDefault?.();
+    const row = getSelectedAvailableRow();
+    const status = document.getElementById('campResourcesLaborStatus');
+    if(!row){
+      if(status) status.textContent = 'Check one Available Camp Staples item first.';
+      return;
+    }
+    const current = parseStapleText(getText(row));
+    if(!current) return;
+    const qtyInput = document.getElementById('campResourcesAssignQty');
+    const desired = splitQty(qtyInput?.value || '');
+    const assignAmount = qtyInput?.value?.trim() ? Math.min(desired.amount, current.amount) : current.amount;
+    if(assignAmount <= 0){
+      if(status) status.textContent = 'Enter a quantity greater than zero.';
+      return;
+    }
+
+    appendAssignedItem({ name: current.name, amount: assignAmount, unit: current.unit });
+
+    const remaining = Math.max(current.amount - assignAmount, 0);
+    if(remaining > 0){
+      row.innerHTML = `<input type="checkbox"> <strong>${escapeHtml(current.name)} - ${escapeHtml(formatQty(remaining, current.unit))}</strong>`;
+    } else {
+      row.remove();
+    }
+
+    if(qtyInput) qtyInput.value = '';
+    if(status) status.textContent = `Assigned ${formatQty(assignAmount, current.unit)} of ${current.name} to ${getSelectedHunterName()}.`;
+    renderStapleTally();
+  }
+
   function initCampResourcesAdjustments(){
     const tripName = document.getElementById('campResourcesMissionName');
     if(tripName && tripName.value === 'Opening Weekend Trip') tripName.value = '';
@@ -6653,18 +6764,22 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
     if(packList) packList.hidden = true;
     const categories = document.getElementById('campResourcesCategories');
     if(categories) categories.hidden = true;
+    renderStapleLibraryV5();
+    ensurePartialAssignControl();
     renderStapleTally();
     ['campResourcesRemainingStaples','campResourcesHunterOrder'].forEach(id => {
       const node = document.getElementById(id);
-      if(!node) return;
+      if(!node || node.dataset.tallyObserved === '1') return;
+      node.dataset.tallyObserved = '1';
       const observer = new MutationObserver(() => renderStapleTally());
       observer.observe(node, { childList:true, subtree:true, characterData:true });
     });
   }
+
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', () => setTimeout(initCampResourcesAdjustments, 250));
+    document.addEventListener('DOMContentLoaded', () => setTimeout(initCampResourcesAdjustments, 350));
   } else {
-    setTimeout(initCampResourcesAdjustments, 250);
+    setTimeout(initCampResourcesAdjustments, 350);
   }
 })();
 </script>
