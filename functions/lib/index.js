@@ -19,6 +19,7 @@ const params_1 = require("firebase-functions/params");
 const openai_1 = __importDefault(require("openai"));
 const stripe_1 = __importDefault(require("stripe"));
 const sendStewardWelcomeHandler = require("../api/send-steward-welcome");
+const sendTripPrepEmailHandler = require("../api/send-trip-prep-email");
 const { sendViaResend } = require("./steward-welcome-email");
 (0, app_1.initializeApp)();
 const OPENAI_API_KEY = (0, params_1.defineSecret)("OPENAI_API_KEY");
@@ -938,6 +939,11 @@ exports.stripeWebhook = (0, https_1.onRequest)({
         return res.status(500).send("Webhook handler failed.");
     }
 });
+exports.sendTripPrepEmail = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+    secrets: ["RESEND_API_KEY"],
+}, sendTripPrepEmailHandler);
 exports.sendStewardWelcome = (0, https_1.onRequest)({
     region: "us-central1",
     cors: true,
@@ -1237,3 +1243,5 @@ exports.campResources = (0, https_1.onRequest)(
   },
   campResourcesHandler
 );
+
+
