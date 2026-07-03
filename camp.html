@@ -4447,7 +4447,30 @@ function getAllRecipes(){
 window.DeerCampGetAllRecipes = function(options){
   try {
     const includeAllStarter = options === true || !!(options && (options.includeAllStarter || options.forTripPrepPicker));
-    return includeAllStarter ? getAllRecipesForTripPrepPickers() : getAllRecipes();
+    if(!includeAllStarter) return getAllRecipes();
+
+    const out = [];
+    const seen = new Set();
+    [...STARTER_RECIPES, ...customRecipes].forEach((r,idx)=>{
+      const rec = typeof r === "string" ? {id:`custom-${idx}`, title:r} : r;
+      const title = String(rec.title||rec.name||"Camp Recipe").trim();
+      if(!title || seen.has(title.toLowerCase())) return;
+      seen.add(title.toLowerCase());
+      out.push({
+        id:String(rec.id||`recipe-${idx}`),
+        title,
+        description:String(rec.description||"Member-submitted camp recipe.").trim(),
+        time:String(rec.time||"—").trim()||"—",
+        serves:String(rec.serves||"—").trim()||"—",
+        difficulty:String(rec.difficulty||"—").trim()||"—",
+        ingredients:Array.isArray(rec.ingredients)?rec.ingredients.filter(Boolean):(String(rec.ingredients||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+        steps:Array.isArray(rec.steps)?rec.steps.filter(Boolean):(String(rec.steps||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+        serving:Array.isArray(rec.serving)?rec.serving.filter(Boolean):(String(rec.serving||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+        tips:Array.isArray(rec.tips)?rec.tips.filter(Boolean):(String(rec.tips||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean)),
+        custom: !String(rec.id||"").startsWith("starter-recipe-")
+      });
+    });
+    return out;
   } catch(error) {
     console.warn("CampCookbook recipes unavailable", error);
     return [];
@@ -6990,4 +7013,6 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
 
 </body>
 </html>
+
+
 
