@@ -1,5 +1,5 @@
 (function(){
-  const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bar restaurant diner supper club ice"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
+  const categories=[["fuel","⛽ Fuel","gas station convenience store fuel"],["food","🍔 Food / Ice","bagged ice grocery store gas station convenience store"],["hunting","🏹 Hunting Gear","sporting goods hunting supplies bait tackle"],["beer","🥃 Beer & Liquor","liquor store beer wine spirits"],["groceries","🛒 Groceries","grocery store supermarket"],["auto","🚗 Auto Repair","auto repair tire service"],["general","🛍 General Store","department store walmart target general store"],["hardware","🔨 Hardware","hardware store farm fleet tractor supply"],["medical","🚑 Medical","urgent care hospital pharmacy"],["processors","🦌 Deer Processors","deer processing meat processor butcher"],["taxidermists","🏆 Taxidermists","taxidermist deer mounts"],["propane","🔥 Propane","propane firewood"]].map(([id,label,query])=>({id,label,query}));
   let activeCategory=categories[0].id,activeStrategy="sah",didAutoSearch=false,boundRoot=null,campMemberCache=[]; const pack=new Map(); const selectedRecipientEmails=new Set();
   let masterStaples=[], assignedStaplesByHunter={}, laborLoaded=true, stapleSerial=0;
   const stapleCatalog=["Beer","Ice","Lighter fluid","Charcoal","Propane","Coffee","Creamer","Eggs","Bacon","Bread","Butter","Chips","Beef jerky","Summer sausage","String cheese","Paper towels","Toilet paper","Garbage bags","Paper plates","Plastic cups","Bottled water","Firewood","Matches","Cooking oil","Condiments"];
@@ -56,8 +56,19 @@
     return out;
   }
   function dedupeMembers(items){
-    const seen=new Set(),ded=[];
-    items.forEach(m=>{const email=String(m.email||"").trim();const name=String(m.name||email||"").trim();const key=email.toLowerCase();if(!email.includes("@")||seen.has(key))return;seen.add(key);ded.push({name:name||email,email});});
+    const seenEmails=new Set(), seenNames=new Set(), ded=[];
+    items.forEach(m=>{
+      const email=String(m.email||"").trim();
+      const name=String(m.name||email||"").replace(/\s+/g," ").trim();
+      if(!email.includes("@")) return;
+      const emailKey=email.toLowerCase();
+      const nameKey=name.toLowerCase();
+      if(seenEmails.has(emailKey)) return;
+      if(nameKey && seenNames.has(nameKey)) return;
+      seenEmails.add(emailKey);
+      if(nameKey) seenNames.add(nameKey);
+      ded.push({name:name||email,email});
+    });
     return ded;
   }
   function renderHunterOptions(members){
@@ -189,6 +200,41 @@
   }
   function assignedIds(){const ids=new Set();Object.values(assignedStaplesByHunter).forEach(list=>(list||[]).forEach(i=>ids.add(i.id)));return ids;}
   function getHunterAssignedStaples(){return assignedStaplesByHunter[currentHunterKey()]||[];}
+  function visibleAssignedStaplesForEmail(){
+    const out=[];
+    const seen=new Set((getHunterAssignedStaples()||[]).map(i=>String(i.id||i.text||"").toLowerCase()));
+    const selectors=[
+      "#campResourcesHunterOrder .campresources-labor-item.is-assigned",
+      "#campResourcesHunterOrder .campresources-labor-item",
+      "[data-staple-remove]"
+    ];
+    document.querySelectorAll(selectors.join(",")).forEach(node=>{
+      const row=node.closest ? (node.closest(".campresources-labor-item")||node) : node;
+      const clone=row.cloneNode(true);
+      clone.querySelectorAll("button,small,input,select,textarea").forEach(el=>el.remove());
+      let text=String(clone.textContent||"").replace(/Assigned to .+$/i,"").replace(/\s+/g," ").trim();
+      text=text.replace(/^Assigned\s*:?\s*/i,"").trim();
+      if(!text) return;
+      const key=text.toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      out.push({id:"visible-"+key,text,name:text,qty:""});
+    });
+    return out;
+  }
+  function getAllHunterAssignedStaplesForEmail(){
+    const combined=[];
+    const seen=new Set();
+    (getHunterAssignedStaples()||[]).concat(visibleAssignedStaplesForEmail()).forEach(item=>{
+      const text=String(item?.text||item?.name||"").replace(/\s+/g," ").trim();
+      if(!text) return;
+      const key=String(item?.id||text).toLowerCase();
+      if(seen.has(key)) return;
+      seen.add(key);
+      combined.push(Object.assign({},item,{text}));
+    });
+    return combined;
+  }
   function stapleUnits(item){
     const raw=String(item?.qty||item?.text||"").trim();
     const match=raw.match(/\b(\d+(?:\.\d+)?)\b/);
@@ -200,21 +246,52 @@
     return Number.isInteger(rounded)?String(rounded):String(rounded);
   }
   function sumStapleUnits(list){return (list||[]).reduce((sum,item)=>sum+stapleUnits(item),0);}
+  function stapleBucketName(item){
+    return String(item?.name||item?.text||"Staple").replace(/\s+-\s+.*$/," ").replace(/\s+/g," ").trim()||"Staple";
+  }
+  function renderStapleTally(){
+    const wrap=qs("campResourcesStapleTally");
+    if(!wrap) return;
+    if(!masterStaples.length){
+      wrap.innerHTML='<span class="campresources-muted">Available / Assigned / Remaining counters will appear here as staples are added.</span>';
+      return;
+    }
+    const used=assignedIds();
+    const rows=new Map();
+    function rowFor(name){
+      const cleanName=String(name||"Staple").replace(/\s+/g," ").trim()||"Staple";
+      const key=cleanName.toLowerCase();
+      if(!rows.has(key)) rows.set(key,{name:cleanName,total:0,assigned:0,remaining:0});
+      return rows.get(key);
+    }
+    masterStaples.forEach(item=>{
+      const row=rowFor(stapleBucketName(item));
+      const units=stapleUnits(item);
+      row.total+=units;
+      if(used.has(item.id)) row.assigned+=units;
+      else row.remaining+=units;
+    });
+    wrap.innerHTML=Array.from(rows.values()).sort((a,b)=>a.name.localeCompare(b.name)).map(row=>{
+      const done=row.remaining<=0;
+      return '<div class="campresources-staple-tally-row '+(done?'is-complete':'')+'"><strong>'+esc(row.name)+'</strong><span>Available: '+esc(formatUnitCount(row.total))+'</span><span>Assigned: '+esc(formatUnitCount(row.assigned))+'</span><span>Remaining: '+esc(formatUnitCount(row.remaining))+'</span></div>';
+    }).join("");
+  }
   function updateLaborCounters(remaining,assigned,total){
     const remCount=qs("campResourcesRemainingCount"), hunterCount=qs("campResourcesHunterOrderCount"), loaded=qs("campResourcesLoadedStatus");
     const totalUnits=sumStapleUnits(masterStaples);
     const remainingUnits=sumStapleUnits(remaining);
     const assignedUnits=sumStapleUnits(assigned);
-    if(remCount) remCount.textContent=`${formatUnitCount(remainingUnits)} remaining of ${formatUnitCount(totalUnits)}`;
-    if(hunterCount) hunterCount.textContent=`${formatUnitCount(assignedUnits)} assigned`;
-    if(loaded) loaded.textContent=total?`Camp staples list: ${formatUnitCount(totalUnits)} total • ${formatUnitCount(remainingUnits)} unassigned`:"";
+    if(remCount) remCount.textContent=formatUnitCount(remainingUnits)+" remaining of "+formatUnitCount(totalUnits);
+    if(hunterCount) hunterCount.textContent=formatUnitCount(assignedUnits)+" assigned";
+    if(loaded) loaded.textContent=total?"Camp staples list: "+formatUnitCount(totalUnits)+" total • "+formatUnitCount(remainingUnits)+" unassigned":"";
+    renderStapleTally();
   }
   function renderLaborBoard(){
     const rem=qs("campResourcesRemainingStaples"),order=qs("campResourcesHunterOrder");
     if(!rem||!order)return;
     const used=assignedIds();
     const remaining=masterStaples.filter(i=>!used.has(i.id));
-    const assigned=getHunterAssignedStaples();
+    const assigned=getAllHunterAssignedStaplesForEmail();
     updateLaborCounters(remaining,assigned,masterStaples.length);
     if(!masterStaples.length){
       rem.innerHTML='<span class="campresources-muted">Add camp staples above. They will appear here with checkboxes for assignment.</span>';
@@ -298,7 +375,7 @@
   }
   function inferProviderCategoryIds(){
     const textParts=[];
-    getHunterAssignedStaples().forEach(i=>textParts.push(i.text||i.name||""));
+    getAllHunterAssignedStaplesForEmail().forEach(i=>textParts.push(i.text||i.name||""));
     String(qs("campResourcesStaples")?.value||"").split(/\n+/).forEach(x=>textParts.push(x));
     selectedMealRecipes().forEach(m=>{
       textParts.push(m.recipe?.title||"");
@@ -309,7 +386,7 @@
     const has=(re)=>re.test(text);
     if(has(/\b(beer|liquor|whiskey|bourbon|brandy|vodka|rum|wine|spirits|case|cases)\b/)) ids.add("beer");
     if(has(/\b(bacon|egg|eggs|bread|butter|coffee|creamer|chips|jerky|sausage|cheese|water|paper plates|plastic cups|condiments|pancake|syrup|potato|potatoes|onion|venison|steak|steaks|pasta|marinara|flour|corn starch|flatbread|wraps|beans|tomatoes|chili)\b/)) ids.add("groceries");
-    if(has(/\b(ice|lunch|dinner|breakfast|restaurant|bar|supper|flatbread|wraps|chili)\b/)) ids.add("food");
+    if(has(/\b(ice|bagged ice|block ice)\b/)) ids.add("food");
     if(has(/\b(propane)\b/)) ids.add("propane");
     if(has(/\b(firewood|charcoal|lighter fluid|matches|hardware|battery|batteries|rope|tarp|tools)\b/)) ids.add("hardware");
     if(has(/\b(gas|fuel|diesel)\b/)) ids.add("fuel");
@@ -486,7 +563,7 @@
     const mealRecipes=selectedMealRecipes();
     const staples=String(qs("campResourcesStaples")?.value||"").trim();
     const notes=String(qs("campResourcesStewardNotes")?.value||"").trim();
-    const assigned=getHunterAssignedStaples();
+    const assigned=getAllHunterAssignedStaplesForEmail();
     lines.push("Your Assignments");lines.push("----------------");
     mealRecipes.forEach(m=>{
       lines.push(`${m.meal}: ${m.recipe.title}`);
@@ -496,9 +573,8 @@
         ingredients.forEach(i=>lines.push(`- ${i}`));
       }
     });
-    if(assigned.length||staples){
+    if(staples){
       lines.push("");lines.push("Camp Staples / Resources:");
-      assigned.forEach(i=>lines.push(`- ${i.text}`));
       staples.split(/\n+/).map(x=>x.trim()).filter(Boolean).forEach(x=>lines.push(`- ${x}`));
     }
     if(notes){lines.push("");lines.push("Steward Notes:");lines.push(notes);}
@@ -526,6 +602,7 @@
       if(status)status.textContent="Building Resource Pack providers...";
       await autoFillResourcePackFromAssignments();
       const bodyText=emailBody(rec.map(r=>r.name));
+      const assignedStaplesForEmail=getAllHunterAssignedStaplesForEmail();
       const payload={
         to:rec.map(r=>r.email),
         subject,
@@ -534,7 +611,9 @@
         tripName:mission,
         hunterName:selectedHunterName(),
         startDate:String(qs("campResourcesMissionStart")?.value||"").trim(),
-        endDate:String(qs("campResourcesMissionEnd")?.value||"").trim()
+        endDate:String(qs("campResourcesMissionEnd")?.value||"").trim(),
+        assignedStaples:getAllHunterAssignedStaplesForEmail().map(i=>({text:String(i.text||i.name||"").trim(),name:String(i.name||"").trim(),qty:String(i.qty||"").trim()})).filter(i=>i.text),
+        publicSiteUrl:String(location.origin||"https://www.ourdeercamp.com").replace(/\/$/,"")
       };
       if(status)status.textContent="Sending Trip Prep email...";
       const response=await fetch(getTripPrepFunctionUrl(),{
