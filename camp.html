@@ -4444,8 +4444,14 @@ function getAllRecipes(){
 }
 
 
-window.DeerCampGetAllRecipes = function(){
-  try { return getAllRecipes(); } catch(error) { console.warn("CampCookbook recipes unavailable", error); return []; }
+window.DeerCampGetAllRecipes = function(options){
+  try {
+    const includeAllStarter = options === true || !!(options && (options.includeAllStarter || options.forTripPrepPicker));
+    return includeAllStarter ? getAllRecipesForTripPrepPickers() : getAllRecipes();
+  } catch(error) {
+    console.warn("CampCookbook recipes unavailable", error);
+    return [];
+  }
 };
 
 function ensureCampRulesRulebookModal(){
@@ -6984,15 +6990,4 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
 
