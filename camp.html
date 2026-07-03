@@ -206,6 +206,15 @@
     font-size:.86rem;
     line-height:1.35;
   }
+
+  .camp-summary-more-btn{
+    min-height:36px;
+    padding:0 14px;
+    align-self:center;
+    margin:8px 0 0 2px;
+    font-size:.86rem;
+    font-weight:900;
+  }
   .camp-summary-preview-list .recipe-card .btn{
     min-height:34px;
     padding:0 12px;
@@ -6328,17 +6337,29 @@ document.getElementById('deerItemEditBackdrop')?.addEventListener('click', close
 document.getElementById('deerItemEditSave')?.addEventListener('click', saveDeerItemEdit);
 document.getElementById('deerItemEditDelete')?.addEventListener('click', deleteDeerItemEdit);
 
-function renderRecipes(){
+function renderRecipes(showAll=false){
   const grid=document.getElementById('recipesGrid'); if(!grid) return;
-  recipeModalData = getAllRecipes();
-  grid.innerHTML = recipeModalData.length ? recipeModalData.map((r,idx)=>`
-    <div class="recipe-card">
-      ${r.image||r.thumbUrl||r.displayUrl?`<img class="campupdate-card-image" src="${esc(r.thumbUrl||r.image||r.displayUrl)}" alt="${esc(r.title)}">`:''}
-      <p class="recipe-title">${esc(r.title)}</p>
-      <p class="recipe-body">${esc(r.description||'Camp recipe.')}</p>
-      <button type="button" class="btn btn-secondary" data-recipe-index="${idx}">Open Recipe</button>
-    </div>`).join('') : '<p class="empty">No camp recipes selected yet. Turn on recipe titles in the Steward Dashboard or add one through CampUpdate.</p>';
+  recipeModalData = (typeof window.DeerCampGetAllRecipes === "function")
+    ? window.DeerCampGetAllRecipes({includeAllStarter:true})
+    : getAllRecipes();
+
+  const visibleLimit = 3;
+  const visibleRecipes = showAll ? recipeModalData : recipeModalData.slice(0, visibleLimit);
+  const moreCount = Math.max(0, recipeModalData.length - visibleLimit);
+
+  grid.innerHTML = recipeModalData.length ? `
+    ${visibleRecipes.map((r,idx)=>`
+      <div class="recipe-card">
+        ${r.image||r.thumbUrl||r.displayUrl?`<img class="campupdate-card-image" src="${esc(r.thumbUrl||r.image||r.displayUrl)}" alt="${esc(r.title)}">`:''}
+        <p class="recipe-title">${esc(r.title)}</p>
+        <p class="recipe-body">${esc(r.description||'Camp recipe.')}</p>
+        <button type="button" class="btn btn-secondary" data-recipe-index="${idx}">Open Recipe</button>
+      </div>`).join('')}
+    ${(!showAll && moreCount > 0) ? `<button type="button" class="btn btn-secondary camp-summary-more-btn" data-recipe-show-more>+${moreCount} more</button>` : ""}
+  ` : '<p class="empty">No camp recipes selected yet. Turn on recipe titles in the Steward Dashboard or add one through CampUpdate.</p>';
+
   grid.querySelectorAll('[data-recipe-index]').forEach(btn=>btn.addEventListener('click',()=>openRecipeModal(Number(btn.dataset.recipeIndex))));
+  grid.querySelector('[data-recipe-show-more]')?.addEventListener('click',()=>renderRecipes(true));
 }
 function openRecipeModal(idx){
   const r=recipeModalData[idx]; if(!r) return;
@@ -6963,6 +6984,8 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
 
 </body>
 </html>
+
+
 
 
 
