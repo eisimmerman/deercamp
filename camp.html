@@ -167,6 +167,52 @@
   .empty{padding:18px;border-radius:18px;background:rgba(255,248,237,.8);color:#5a4331;line-height:1.55;box-shadow:inset 0 0 0 1px rgba(98,72,44,.08)}
   .recipes-grid,.traditions-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
   .recipe-card button,.feed-card button{justify-self:start}
+  /* CampCookbook + CampTraditions summary-card polish */
+  .camp-summary-card{margin-top:4px}
+  .camp-summary-preview-list{
+    display:flex!important;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:14px;
+  }
+  .camp-summary-preview-list.traditions-grid,
+  .camp-summary-preview-list.recipes-grid{
+    grid-template-columns:initial;
+  }
+  .camp-summary-preview-list .tradition-card,
+  .camp-summary-preview-list .recipe-card{
+    display:inline-grid;
+    gap:4px;
+    width:auto;
+    max-width:520px;
+    padding:8px 12px;
+    border-radius:999px;
+    background:rgba(73,102,71,.10);
+    border:1px solid rgba(73,102,71,.14);
+    box-shadow:none;
+  }
+  .camp-summary-preview-list .tradition-title,
+  .camp-summary-preview-list .recipe-title{
+    margin:0;
+    color:#173412;
+    font-size:.9rem;
+    font-weight:900;
+    line-height:1.25;
+  }
+  .camp-summary-preview-list .tradition-body,
+  .camp-summary-preview-list .recipe-body{
+    margin:0;
+    color:#4b3116;
+    font-size:.86rem;
+    line-height:1.35;
+  }
+  .camp-summary-preview-list .recipe-card .btn{
+    min-height:34px;
+    padding:0 12px;
+    font-size:.82rem;
+    justify-self:start;
+    margin-top:4px;
+  }
   .recipe-modal-backdrop,.member-modal-backdrop,.feed-modal-backdrop,.deerdrive-modal-backdrop,.deerdrive-image-backdrop{display:none;position:fixed;inset:0;background:rgba(24,18,12,.3);backdrop-filter:blur(1.5px);z-index:1292}
   .recipe-modal-backdrop.open,.member-modal-backdrop.open,.feed-modal-backdrop.open,.deerdrive-modal-backdrop.open,.deerdrive-image-backdrop.open{display:block}
   .recipe-modal,.member-modal,.feed-modal,.deerdrive-modal,.deerdrive-image-modal{display:none;position:fixed;inset:0;z-index:1302;padding:calc(var(--header-h) + 18px) 14px 18px;align-items:flex-start;justify-content:center}
@@ -4121,7 +4167,7 @@ function visibleSections(){
     {key:"campcalendar",title:"CampCalendar"},
     {key:"camprules",title:"CampRules"},
     {key:"camptraditions",title:"CampTraditions"},
-    {key:"camprecipes",title:"CampRecipes"},
+    {key:"camprecipes",title:"CampCookbook"},
     
     {key:"campresources",title:"CampResources"},{key:"camphonors",title:"CampHonors"},
     {key:"campdeerstands",title:"CampDeerStands"},
@@ -4561,9 +4607,31 @@ visibleSections().forEach(section=>{
           ${previewRules ? `<ul class="camprules-preview-list">${previewRules}${visibleRules.length > 3 ? `<li>+${visibleRules.length - 3} more</li>` : ""}</ul>` : ""}
         </article>` : `<div class="empty">No CampRules have been published yet.</div>`}`;
   } else if(section.key==="camptraditions"){
-    container.innerHTML=`<h2>CampTraditions</h2><p class="section-helper">Use the CampUpdate function to add the rituals that make this camp this camp.</p><div id="traditionsGrid" class="traditions-grid"></div>`;
+    container.innerHTML=`
+      <h2>CampTraditions</h2>
+      <p class="section-helper">The rituals, penalties, stories, and camp ways that make this camp this camp.</p>
+      <article class="camprules-summary-card camp-summary-card">
+        <div class="camprules-summary-head">
+          <div>
+            <h3 class="camprules-summary-title">Camp traditions</h3>
+            <p class="camprules-summary-copy">Opening morning rituals, camp penalties, good-luck routines, and the stories every member should know.</p>
+          </div>
+        </div>
+        <div id="traditionsGrid" class="camp-summary-preview-list traditions-grid"></div>
+      </article>`;
   } else if(section.key==="camprecipes"){
-    container.innerHTML=`<h2>CampCookbook</h2><p class="section-helper">Recipes, meals, snacks, drinks, and traditions contributed by camp members.</p><div id="recipesGrid" class="recipes-grid"></div>`;
+    container.innerHTML=`
+      <h2>CampCookbook</h2>
+      <p class="section-helper">Recipes, meals, snacks, drinks, and camp favorites contributed by members.</p>
+      <article class="camprules-summary-card camp-summary-card">
+        <div class="camprules-summary-head">
+          <div>
+            <h3 class="camprules-summary-title">Camp cookbook</h3>
+            <p class="camprules-summary-copy">Breakfasts, dinners, snacks, drinks, and the meals that bring the camp table together.</p>
+          </div>
+        </div>
+        <div id="recipesGrid" class="camp-summary-preview-list recipes-grid"></div>
+      </article>`;
   } else if(section.key==="campresources"){
     container.innerHTML=`
       <div class="campresources-mission-hero">
@@ -5041,9 +5109,9 @@ if(document.getElementById('updateType')){
       if(!title){setUpdateFeedback('Add a recipe title before saving.', true); return;}
       const rec={id:`recipe-${createdAtMs}`,title,description:String(document.getElementById('recipeDescription').value||'').trim()||`Recipe submitted by ${member}.`,time:String(document.getElementById('recipeTime').value||'').trim()||'—',serves:String(document.getElementById('recipeServes').value||'').trim()||'—',difficulty:String(document.getElementById('recipeDifficulty').value||'').trim()||'—',ingredients:String(document.getElementById('recipeIngredients').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),steps:String(document.getElementById('recipeSteps').value||'').split(/\r?\n/).map(s=>s.trim()).filter(Boolean),serving:[`Submitted by ${member}`],tips:["Member suggestion from the camp page."]};
       customRecipes.unshift(rec);
-      contentSubmissions.unshift({type:'recipe',member,title:`${title} -- added to CampRecipes`,summary:rec.description,createdAt,createdAtMs});
+      contentSubmissions.unshift({type:'recipe',member,title:`${title} -- added to CampCookbook`,summary:rec.description,createdAt,createdAtMs});
       try{ persist(); }catch(error){ setUpdateFeedback('CampUpdate could not post. Please try again.', true); return; }
-      renderRecipes(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to Recent CampUpdates and CampRecipes.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
+      renderRecipes(); recentUpdatesOffset = 0; renderRecentUpdates(); setUpdateFeedback(`${title} was added to Recent CampUpdates and CampCookbook.`); e.target.reset(); populateMemberSelects(); document.getElementById('updateType').value='photo'; setUpdatePanel('photo'); return;
     }
     const title=String(document.getElementById('traditionTitle').value||'').trim();
     if(!title){setUpdateFeedback('Add a tradition title before saving.', true); return;}
@@ -6895,6 +6963,10 @@ ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); 
 
 </body>
 </html>
+
+
+
+
 
 
 
