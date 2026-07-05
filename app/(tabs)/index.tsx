@@ -1,6 +1,8 @@
 // app/(tabs)/index.tsx
 import React from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Image,
   Pressable,
@@ -11,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { deleteUser, signOut } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
 
@@ -21,6 +24,7 @@ export default function HomeScreen() {
   const user = auth.currentUser;
   const signedIn = !!user && !user.isAnonymous;
   const [showIntro, setShowIntro] = React.useState(false);
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
   const introOpacity = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
@@ -56,6 +60,72 @@ export default function HomeScreen() {
       clearTimeout(fadeTimer);
     };
   }, [introOpacity, signedIn]);
+
+  const completeAccountDeletion = React.useCallback(async () => {
+    const currentUser = auth.currentUser;
+
+    if (!currentUser || currentUser.isAnonymous) {
+      router.replace("/sign-in");
+      return;
+    }
+
+    setDeletingAccount(true);
+
+    try {
+      await deleteUser(currentUser);
+
+      Alert.alert(
+        "Account deleted",
+        "Your DeerCamp account has been deleted.",
+        [{ text: "OK", onPress: () => router.replace("/sign-in") }],
+      );
+    } catch (error: any) {
+      const code = String(error?.code || "");
+
+      if (code === "auth/requires-recent-login") {
+        Alert.alert(
+          "Sign in again",
+          "For your security, please sign in again before deleting your account.",
+          [
+            {
+              text: "Go to Sign In",
+              onPress: async () => {
+                try {
+                  await signOut(auth);
+                } catch {}
+                router.replace("/sign-in");
+              },
+            },
+          ],
+        );
+        return;
+      }
+
+      Alert.alert(
+        "Account deletion failed",
+        "DeerCamp could not delete your account. Please try again.",
+      );
+    } finally {
+      setDeletingAccount(false);
+    }
+  }, [router]);
+
+  const confirmDeleteAccount = React.useCallback(() => {
+    if (deletingAccount) return;
+
+    Alert.alert(
+      "Delete your DeerCamp account?",
+      "This will remove your account access and delete your CampFieldApp account. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: completeAccountDeletion,
+        },
+      ],
+    );
+  }, [completeAccountDeletion, deletingAccount]);
 
   if (!signedIn) {
     return (
@@ -183,6 +253,30 @@ export default function HomeScreen() {
             accessibilityLabel="Access saved field memories"
           >
             <Text style={styles.quickActionSecondaryText}>Saved Memories</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.accountCard}>
+          <Text style={styles.accountTitle}>Account</Text>
+          <Text style={styles.accountText}>
+            You can permanently delete your DeerCamp account from this device.
+          </Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.deleteAccountBtn,
+              pressed && !deletingAccount && styles.quickActionBtnPressed,
+              deletingAccount && styles.deleteAccountBtnDisabled,
+            ]}
+            disabled={deletingAccount}
+            onPress={confirmDeleteAccount}
+            accessibilityLabel="Delete DeerCamp account"
+          >
+            {deletingAccount ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.deleteAccountText}>Delete Account</Text>
+            )}
           </Pressable>
         </View>
       </ScrollView>
@@ -432,6 +526,50 @@ const styles = StyleSheet.create({
   },
 
   quickActionSecondaryText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
+  accountCard: {
+    marginTop: 14,
+    backgroundColor: "rgba(252,165,165,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(252,165,165,0.22)",
+    borderRadius: 22,
+    padding: 16,
+    gap: 10,
+  },
+
+  accountTitle: {
+    color: "white",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+
+  accountText: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  deleteAccountBtn: {
+    marginTop: 4,
+    backgroundColor: "rgba(185,28,28,0.82)",
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 46,
+  },
+
+  deleteAccountBtnDisabled: {
+    opacity: 0.65,
+  },
+
+  deleteAccountText: {
     color: "white",
     fontSize: 14,
     fontWeight: "900",
