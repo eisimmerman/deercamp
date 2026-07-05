@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const signedIn = !!user && !user.isAnonymous;
   const [showIntro, setShowIntro] = React.useState(false);
   const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [signingOut, setSigningOut] = React.useState(false);
   const introOpacity = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
@@ -111,7 +112,7 @@ export default function HomeScreen() {
   }, [router]);
 
   const confirmDeleteAccount = React.useCallback(() => {
-    if (deletingAccount) return;
+    if (deletingAccount || signingOut) return;
 
     Alert.alert(
       "Delete your DeerCamp account?",
@@ -125,7 +126,25 @@ export default function HomeScreen() {
         },
       ],
     );
-  }, [completeAccountDeletion, deletingAccount]);
+  }, [completeAccountDeletion, deletingAccount, signingOut]);
+
+  const handleSignOut = React.useCallback(async () => {
+    if (signingOut || deletingAccount) return;
+
+    setSigningOut(true);
+
+    try {
+      await signOut(auth);
+      router.replace("/sign-in");
+    } catch {
+      Alert.alert(
+        "Sign out failed",
+        "DeerCamp could not sign you out. Please try again.",
+      );
+    } finally {
+      setSigningOut(false);
+    }
+  }, [deletingAccount, router, signingOut]);
 
   if (!signedIn) {
     return (
@@ -259,16 +278,33 @@ export default function HomeScreen() {
         <View style={styles.accountCard}>
           <Text style={styles.accountTitle}>Account</Text>
           <Text style={styles.accountText}>
-            You can permanently delete your DeerCamp account from this device.
+            Sign out to switch accounts, or permanently delete your DeerCamp account from this device.
           </Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.signOutBtn,
+              pressed && !signingOut && styles.quickActionBtnPressed,
+              signingOut && styles.accountBtnDisabled,
+            ]}
+            disabled={signingOut || deletingAccount}
+            onPress={handleSignOut}
+            accessibilityLabel="Sign out of DeerCamp"
+          >
+            {signingOut ? (
+              <ActivityIndicator color="#0B0E12" />
+            ) : (
+              <Text style={styles.signOutText}>Sign Out</Text>
+            )}
+          </Pressable>
 
           <Pressable
             style={({ pressed }) => [
               styles.deleteAccountBtn,
               pressed && !deletingAccount && styles.quickActionBtnPressed,
-              deletingAccount && styles.deleteAccountBtnDisabled,
+              deletingAccount && styles.accountBtnDisabled,
             ]}
-            disabled={deletingAccount}
+            disabled={deletingAccount || signingOut}
             onPress={confirmDeleteAccount}
             accessibilityLabel="Delete DeerCamp account"
           >
@@ -554,6 +590,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
+  signOutBtn: {
+    marginTop: 4,
+    backgroundColor: "white",
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 46,
+  },
+
+  signOutText: {
+    color: "#0B0E12",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+
   deleteAccountBtn: {
     marginTop: 4,
     backgroundColor: "rgba(185,28,28,0.82)",
@@ -565,7 +618,7 @@ const styles = StyleSheet.create({
     minHeight: 46,
   },
 
-  deleteAccountBtnDisabled: {
+  accountBtnDisabled: {
     opacity: 0.65,
   },
 
