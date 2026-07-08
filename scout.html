@@ -1146,8 +1146,8 @@ function getCurrentDriveBaseLayerIdsForPoster(){
   try{ (routes || []).forEach(item => { if(item?.id && item.generated === 'deerdrive') ids.push(item.id); }); }catch(e){}
   return [...new Set(ids.map(id => String(id)).filter(Boolean))];
 }
-function hideCurrentDriveBaseLayersForPoster(){
-  if(!isScoutDriveBuilder() || !drivePosterNumberedLabels) return;
+function hideCurrentDriveBaseLayersForPoster(force = false){
+  if(!isScoutDriveBuilder() || (!drivePosterNumberedLabels && !force)) return;
   getCurrentDriveBaseLayerIdsForPoster().forEach(id => {
     const layer = allLayers[id];
     if(layer){
@@ -1172,6 +1172,7 @@ function restoreCurrentDriveBaseLayersForPoster(){
   });
 }
 function clearShowAllDriveOverlays(){
+  restoreCurrentDriveBaseLayersForPoster();
   if(drivePosterNumberedLabels) resetDrivePosterLegendEntries();
   showAllDriveOverlayLayerIds.forEach(id => {
     const layer = allLayers[id];
@@ -1361,24 +1362,40 @@ async function fitStandBuilderMapForPrint(options = {}){
 
 function showAllDrives(options = {}){
   if(blockScoutLimitFeature('show_all_drives')) return;
+
   clearShowAllDriveOverlays();
-  if(drivePosterNumberedLabels) hideCurrentDriveBaseLayersForPoster();
+
+  // Show All Drives should display saved drive overlays, not the currently-active edit layers.
+  // This keeps the visible map and the status message aligned with what the button promises.
+  try { hideCurrentDriveBaseLayersForPoster(true); } catch(error) {}
+
   const savedSources = getSavedCampDriveSources();
   let savedCount = 0;
-  savedSources.forEach((item, idx) => { if(renderSavedDriveGeometryOverlay(item, idx)) savedCount += 1; });
+
+  savedSources.forEach((item, idx) => {
+    if(renderSavedDriveGeometryOverlay(item, idx)) savedCount += 1;
+  });
+
   const pts = getShowAllDrivePoints();
-  if(!pts.length){
-    document.getElementById('status-bar').innerHTML='No saved drive points/routes to show yet.';
+
+  if(!savedCount || !pts.length){
+    document.getElementById('status-bar').innerHTML = 'No saved drives to show.';
+    showScoutToast('No saved drives to show.', 2600);
     return;
   }
+
   if(!options.skipFit){
-    fitBuilderMapToPrintedContent({padRatio:.20, maxZoom:17, afterMs:260}).catch(error => console.warn('Show all drives fit skipped.', error));
+    fitBuilderMapToPrintedContent({padRatio:.24, maxZoom:17, afterMs:320})
+      .catch(error => console.warn('Show all drives fit skipped.', error));
   }
+
   activeScoutMapTitleOverride = '';
   revealMapTitleBadge('show-all-drives');
+
   if(!options.silent){
-    document.getElementById('status-bar').innerHTML=`Showing all saved drive points/routes (${pts.length}).`;
-    showScoutToast(savedCount > 1 ? `Showing ${savedCount} saved drives.` : 'Showing saved drive.', 2800);
+    const label = savedCount === 1 ? 'saved drive' : 'saved drives';
+    document.getElementById('status-bar').innerHTML = `Showing ${savedCount} ${label}.`;
+    showScoutToast(`Showing ${savedCount} ${label}.`, 2800);
   }
 }
 
