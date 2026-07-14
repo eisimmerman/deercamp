@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
+exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -1225,3 +1225,134 @@ exports.transcribeCampStory = (0, firestore_2.onDocumentCreated)({
 });
 
 //# sourceMappingURL=index.js.map
+
+function founderMetricMemberCandidates(camp) {
+    const candidates = [
+        camp.dashboardMembers,
+        camp.memberProfiles,
+        camp.dashboardPeople,
+        camp.members,
+        camp.campMembers,
+    ];
+    for (const candidate of candidates) {
+        if (Array.isArray(candidate)) {
+            return candidate;
+        }
+    }
+    return [];
+}
+function founderMetricMemberIdentity(member) {
+    if (!member || typeof member !== "object")
+        return "";
+    const email = String(member.email || "").trim().toLowerCase();
+    const name = String(member.name || member.displayName || "")
+        .trim()
+        .toLowerCase();
+    return email || name;
+}
+function founderMetricMemberIsActive(member) {
+    if (!member || typeof member !== "object")
+        return false;
+    const role = String(member.role || "").trim().toLowerCase();
+    const status = String(member.status || "").trim().toLowerCase();
+    if (role === "camp steward" || role === "steward") {
+        return false;
+    }
+    return (member.accepted === true ||
+        status === "active" ||
+        status === "accepted");
+}
+function founderMetricActiveMemberKeys(camp) {
+    const keys = new Set();
+    founderMetricMemberCandidates(camp).forEach((member) => {
+        if (!founderMetricMemberIsActive(member))
+            return;
+        const identity = founderMetricMemberIdentity(member);
+        if (identity)
+            keys.add(identity);
+    });
+    return keys;
+}
+function founderMetricSafeId(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index);
+        hash = Math.imul(hash, 16777619);
+    }
+    return Math.abs(hash >>> 0).toString(36);
+}
+exports.trackCampCreated = (0, firestore_2.onDocumentCreated)({
+    document: "camps/{campId}",
+    region: "us-central1",
+}, async (event) => {
+    const snapshot = event.data;
+    if (!snapshot)
+        return;
+    const campId = String(event.params.campId || "").trim();
+    if (!campId)
+        return;
+    const camp = snapshot.data();
+    const eventRef = db
+        .collection("campMetricsEvents")
+        .doc(`camp_created_${campId}`);
+    await db.runTransaction(async (transaction) => {
+        const existing = await transaction.get(eventRef);
+        if (existing.exists)
+            return;
+        transaction.create(eventRef, {
+            campId,
+            eventType: "camp_created",
+            source: "firestore-trigger",
+            tier: String(camp.tier ||
+                camp.membershipTier ||
+                camp.subscriptionTier ||
+                camp.installType ||
+                "dcf"),
+            createdAt: firestore_1.FieldValue.serverTimestamp(),
+            createdAtClient: new Date().toISOString(),
+            metricsSchemaVersion: 1,
+        });
+    });
+});
+exports.trackMemberJoined = (0, firestore_2.onDocumentUpdated)({
+    document: "camps/{campId}",
+    region: "us-central1",
+}, async (event) => {
+    var _a, _b;
+    const beforeSnapshot = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before;
+    const afterSnapshot = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after;
+    if (!beforeSnapshot || !afterSnapshot)
+        return;
+    const campId = String(event.params.campId || "").trim();
+    if (!campId)
+        return;
+    const beforeCamp = beforeSnapshot.data();
+    const afterCamp = afterSnapshot.data();
+    const beforeMembers = founderMetricActiveMemberKeys(beforeCamp);
+    const afterMembers = founderMetricActiveMemberKeys(afterCamp);
+    const newlyActive = Array.from(afterMembers).filter((identity) => !beforeMembers.has(identity));
+    if (!newlyActive.length)
+        return;
+    const acceptedAt = new Date().toISOString();
+    await Promise.all(newlyActive.map(async (identity) => {
+        const memberKey = founderMetricSafeId(identity);
+        const eventRef = db
+            .collection("campMetricsEvents")
+            .doc(`member_joined_${campId}_${memberKey}`);
+        await db.runTransaction(async (transaction) => {
+            const existing = await transaction.get(eventRef);
+            if (existing.exists)
+                return;
+            transaction.create(eventRef, {
+                campId,
+                eventType: "member_joined",
+                source: "firestore-trigger",
+                memberKey,
+                acceptedAt,
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+                createdAtClient: acceptedAt,
+                metricsSchemaVersion: 1,
+            });
+        });
+    }));
+});
