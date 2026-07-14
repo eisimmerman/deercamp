@@ -568,10 +568,240 @@ async function fetchIllinoisStatewideOpeners(currentEntry) {
   });
 }
 
+async function fetchMichiganStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.michigan.gov/dnr/things-to-do/hunting/hunting-season-calendar";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const deerSectionMatch = text.match(
+    /Deer hunting season calendar(.*?)(?:2026 Elk hunting season calendar|Elk hunting season calendar)/i
+  );
+
+  const section = deerSectionMatch
+    ? deerSectionMatch[1]
+    : text;
+
+  const archeryMatch = section.match(
+    /\bArchery\b[\s:]*([A-Za-z]+\.*\s+\d{1,2})/i
+  );
+
+  const firearmMatch = section.match(
+    /\bRegular firearm\b[\s:]*([A-Za-z]+\.*\s+\d{1,2})/i
+  );
+
+  const muzzleloaderMatch = section.match(
+    /\bMuzzleloading\b[\s:]*([A-Za-z]+\.*\s+\d{1,2})/i
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(
+        archeryMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Michigan Archery Deer Opener",
+      description:
+        `Official Michigan DNR statewide archery deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Michigan Regular Firearm Deer Opener",
+      description:
+        `Official Michigan DNR regular firearm deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        muzzleloaderMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Michigan Muzzleloading Deer Opener",
+      description:
+        `Official Michigan DNR statewide muzzleloading deer opener for ${TARGET_YEAR}. Michigan identifies this as a three-day December season.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Michigan",
+    source:
+      "Michigan Department of Natural Resources hunting season calendar",
+    sourceUrl,
+    seasons
+  });
+}
+
+async function fetchMissouriStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://mdc.mo.gov/hunting-trapping/seasons";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /Deer:\s*Archery\s+([A-Za-z]+\s+\d{1,2},\s*\d{4})\s*[-–]/
+  );
+
+  const firearmMatch = text.match(
+    /Deer:\s*Firearms:\s*November Portion\s+([A-Za-z]+\s+\d{1,2},\s*\d{4})\s*[-–]/
+  );
+
+  const alternativeMethodsMatch = text.match(
+    /Deer:\s*Firearms:\s*Alternative Methods\s+([A-Za-z]+\s+\d{1,2},\s*\d{4})\s*[-–]/
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(
+        archeryMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Missouri Archery Deer Opener",
+      description:
+        `Official Missouri Department of Conservation archery deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Missouri November Firearms Deer Opener",
+      description:
+        `Official Missouri Department of Conservation November firearms deer season opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (alternativeMethodsMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        alternativeMethodsMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Missouri Alternative Methods Deer Opener",
+      description:
+        `Official Missouri Department of Conservation Alternative Methods deer season opener for ${TARGET_YEAR}. DeerCamp maps this statewide season to the muzzleloader calendar slot; legal methods include more than muzzleloaders.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Missouri",
+    source:
+      "Missouri Department of Conservation hunting seasons",
+    sourceUrl,
+    validationStatus:
+      "verified_official_statewide_with_method_note",
+    seasons
+  });
+}
+
+async function fetchPennsylvaniaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.pa.gov/agencies/pgc/newsroom/final-2026-27-hunting-seasons-approved";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /DEER,\s*ARCHERY\s*\(Antlered and Antlerless\)\s*Statewide:\s*([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
+
+  const firearmMatch = text.match(
+    /DEER,\s*REGULAR FIREARMS\s*\(Antlered and Antlerless\)\s*Statewide:\s*([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
+
+  const muzzleloaderMatch = text.match(
+    /DEER,\s*ANTLERLESS MUZZLELOADER\s*\(Statewide\):\s*([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(
+        archeryMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Pennsylvania Statewide Archery Deer Opener",
+      description:
+        `Official Pennsylvania Game Commission statewide archery deer opener for the ${TARGET_YEAR}-${String(TARGET_YEAR + 1).slice(2)} season. Certain WMUs have an earlier opener and are not represented by this statewide date.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Pennsylvania Regular Firearms Deer Opener",
+      description:
+        `Official Pennsylvania Game Commission statewide regular firearms deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        muzzleloaderMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Pennsylvania Antlerless Muzzleloader Deer Opener",
+      description:
+        `Official Pennsylvania Game Commission statewide antlerless muzzleloader deer opener for ${TARGET_YEAR}. This season requires the applicable antlerless license or permit.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Pennsylvania",
+    source:
+      "Pennsylvania Game Commission final hunting seasons",
+    sourceUrl,
+    validationStatus:
+      "verified_official_statewide_with_wmu_notes",
+    seasons
+  });
+}
 const stateFetchers = {
   IA: fetchIowaStatewideOpeners,
   IL: fetchIllinoisStatewideOpeners,
+  MI: fetchMichiganStatewideOpeners,
   MN: fetchMinnesotaStatewideOpeners,
+  MO: fetchMissouriStatewideOpeners,
+  PA: fetchPennsylvaniaStatewideOpeners,
   WI: fetchWisconsinStatewideOpeners
 };
 
@@ -655,4 +885,7 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+
+
 
