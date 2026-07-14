@@ -8,6 +8,7 @@ const DEFAULT_BUILDER_PATH = '/buildyourcamp.html';
 const DEFAULT_REPLY_TO = 'welcome@ourdeercamp.com';
 const ICON_FILENAME = 'deercamp-icon.png';
 const ICON_CONTENT_ID = 'deercamp-icon.png';
+const PUBLIC_ICON_URL = 'https://ourdeercamp.com/email-assets/steward-welcome/deercamp-icon.png';
 
 function normalizeValue(value) {
   if (value === null || value === undefined) return '';
@@ -195,7 +196,7 @@ function getDefaultHtmlTemplate() {
           <tr>
             <td style="padding:32px 32px 12px 32px; text-align:left;">
               <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-                <img src="cid:${ICON_CONTENT_ID}" alt="DeerCamp" width="40" height="40" style="display:inline-block; vertical-align:middle; border:0;" />
+                <img src="${PUBLIC_ICON_URL}" alt="DeerCamp" width="40" height="40" style="display:inline-block; vertical-align:middle; border:0;" />
                 <div style="font-size:24px; line-height:1.2; font-weight:700; color:#1f1a15;">{{headline}}</div>
               </div>
               <div style="font-size:15px; line-height:1.7; color:#3b342c;">
@@ -207,7 +208,6 @@ function getDefaultHtmlTemplate() {
                 </p>
                 <p style="margin:0 0 16px 0;">{{fallback_copy}}</p>
                 <p style="margin:0 0 24px 0;"><a href="{{fallback_link}}" style="color:#2f5d3a; font-weight:700; text-decoration:underline;">{{fallback_link_label}}</a></p>
-                <p style="margin:0 0 16px 0;">Need help with your DeerCamp? Email <a href="mailto:support@ourdeercamp.com" style="color:#2f5d3a; font-weight:700; text-decoration:underline;">support@ourdeercamp.com</a>. DC+ Stewards receive priority support.</p>
                 <p style="margin:0 0 16px 0;">We’re glad to have you here, and thank you for getting started.</p>
                 <p style="margin:0 0 18px 0;">
                   <a href="https://ourdeercamp.com" style="display:inline-block; background:#ffffff; color:#2f5d3a; text-decoration:none; padding:12px 18px; border-radius:10px; font-weight:700; border:1px solid #2f5d3a;">Share DeerCamp</a>
@@ -221,11 +221,10 @@ function getDefaultHtmlTemplate() {
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="vertical-align:middle; padding-right:10px;">
-                    <img src="cid:${ICON_CONTENT_ID}" alt="DeerCamp" width="24" height="24" style="display:block; border:0;" />
+                    <img src="${PUBLIC_ICON_URL}" alt="DeerCamp" width="24" height="24" style="display:block; border:0;" />
                   </td>
                   <td style="vertical-align:middle; font-size:13px; line-height:1.6; color:#6a6157;">
                     Sent from <a href="mailto:welcome@ourdeercamp.com" style="color:#2f5d3a; text-decoration:none;">welcome@ourdeercamp.com</a><br />
-                    Support: <a href="mailto:support@ourdeercamp.com" style="color:#2f5d3a; text-decoration:none;">support@ourdeercamp.com</a><br />
                     {{footer_label}}
                   </td>
                 </tr>
@@ -254,8 +253,6 @@ function getDefaultTextTemplate() {
 {{fallback_link_label}}
 {{fallback_link}}
 
-Need help with your DeerCamp? Email support@ourdeercamp.com. DC+ Stewards receive priority support.
-
 We’re glad to have you here, and thank you for getting started.
 
 Share DeerCamp:
@@ -264,7 +261,6 @@ https://ourdeercamp.com
 — Eric Simmerman, Founder
 
 Sent from welcome@ourdeercamp.com
-Support: support@ourdeercamp.com
 {{footer_label}}
 `;
 }
@@ -539,7 +535,7 @@ async function composeStewardWelcomeEmail(payload = {}) {
   const fallbackLink = buildFallbackResumeLink(payload);
   const recipientName = getRecipientName(payload);
   const recipientEmail = getRecipientEmail(payload);
-  const { htmlTemplate, textTemplate, iconBase64 } = await loadWelcomeTemplates();
+  const { htmlTemplate, textTemplate } = await loadWelcomeTemplates();
   const copy = buildEmailCopy(payload);
   const fallbackLinkLabel = getFallbackLinkLabel(payload);
 
@@ -557,20 +553,12 @@ async function composeStewardWelcomeEmail(payload = {}) {
     '{{greeting_text}}': '{{greeting_text}}'
   };
 
-  const renderedHtml = renderTemplate(htmlTemplate, replacements);
+  const renderedHtml = renderTemplate(htmlTemplate, replacements)
+    .replace(/cid:deercamp-icon\.png/g, PUBLIC_ICON_URL);
   const renderedText = renderTemplate(textTemplate, replacements);
   const withGreeting = injectGreeting(renderedHtml, renderedText, recipientName);
 
   const attachments = [];
-  if (iconBase64) {
-    attachments.push({
-      filename: ICON_FILENAME,
-      content: iconBase64,
-      content_type: 'image/png',
-      content_id: ICON_CONTENT_ID,
-      content_disposition: 'inline',
-    });
-  }
 
   return {
     to: recipientEmail,
