@@ -795,12 +795,234 @@ async function fetchPennsylvaniaStatewideOpeners(currentEntry) {
     seasons
   });
 }
+async function fetchOhioStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://dam.assets.ohio.gov/image/upload/ohiodnr.gov/documents/wildlife/news/2026-27_Proposed_Hunting_Seasons_Chart_1.pdf";
+
+  const response = await fetch(sourceUrl, {
+    headers: {
+      accept: "application/pdf",
+      "user-agent":
+        "DeerCamp official deer opener updater/2.0"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Request failed ${response.status} for ${sourceUrl}`
+    );
+  }
+
+  const pdfBytes = Buffer.from(
+    await response.arrayBuffer()
+  );
+
+  const binaryText = pdfBytes.toString("latin1");
+
+  const seasons = [];
+
+  const hasArchery =
+    binaryText.includes("Sept. 26, 2026") ||
+    binaryText.includes("Sept 26, 2026");
+
+  const hasGun =
+    binaryText.includes("Nov. 30, 2026") ||
+    binaryText.includes("Nov 30, 2026");
+
+  const hasMuzzleloader =
+    binaryText.includes("Jan. 2, 2027") ||
+    binaryText.includes("Jan 2, 2027");
+
+  if (hasArchery) {
+    seasons.push({
+      type: "archery",
+      date: "2026-09-26",
+      title: "Ohio Deer Archery Opener",
+      description:
+        "Official Ohio Division of Wildlife statewide deer archery opener for the 2026-27 season.",
+      sourceUrl
+    });
+  }
+
+  if (hasGun) {
+    seasons.push({
+      type: "firearm",
+      date: "2026-11-30",
+      title: "Ohio Deer Gun Opener",
+      description:
+        "Official Ohio Division of Wildlife statewide deer gun opener for 2026. A separate gun weekend follows in December.",
+      sourceUrl
+    });
+  }
+
+  if (hasMuzzleloader) {
+    seasons.push({
+      type: "muzzleloader",
+      date: "2027-01-02",
+      title: "Ohio Deer Muzzleloader Opener",
+      description:
+        "Official Ohio Division of Wildlife statewide muzzleloader opener for the 2026-27 hunting season. The opener occurs in January 2027.",
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Ohio",
+    source:
+      "Ohio Department of Natural Resources Division of Wildlife season-date chart",
+    sourceUrl,
+    seasons
+  });
+}
+async function fetchIndianaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.in.gov/dnr/fish-and-wildlife/wildlife-resources/animals/white-tailed-deer/";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /Archery:\s*([A-Za-z]+\.*\s+\d{1,2},\s*\d{4})\s*[-–]/
+  );
+
+  const firearmMatch = text.match(
+    /Firearms?:\s*([A-Za-z]+\.*\s+\d{1,2})(?:,\s*\d{4})?\s*[-–]/
+  );
+
+  const muzzleloaderMatch = text.match(
+    /Muzzleloader:\s*([A-Za-z]+\.*\s+\d{1,2})(?:,\s*\d{4})?\s*[-–]/
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(archeryMatch[1]),
+      title: "Indiana Archery Deer Opener",
+      description:
+        `Official Indiana DNR statewide archery deer opener for the ${TARGET_YEAR}-${String(TARGET_YEAR + 1).slice(2)} season.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Indiana Firearms Deer Opener",
+      description:
+        `Official Indiana DNR statewide firearms deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        muzzleloaderMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Indiana Muzzleloader Deer Opener",
+      description:
+        `Official Indiana DNR statewide muzzleloader deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Indiana",
+    source:
+      "Indiana Department of Natural Resources white-tailed deer hunting seasons",
+    sourceUrl,
+    seasons
+  });
+}
+
+async function fetchKentuckyStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://fw.ky.gov/Hunt/Pages/Deer.aspx";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /\bArchery\b[\s|:,-]*([A-Za-z]+\.*\s+\d{1,2},?\s*\d{4})/i
+  );
+
+  const firearmMatch = text.match(
+    /\bModern Gun\b[\s|:,-]*([A-Za-z]+\.*\s+\d{1,2})(?:,?\s*(\d{4}))?/i
+  );
+
+  const muzzleloaderMatch = text.match(
+    /\bMuzzleloader\b[\s|:,-]*([A-Za-z]+\.*\s+\d{1,2})(?:,?\s*(\d{4}))?/i
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(archeryMatch[1]),
+      title: "Kentucky Archery Deer Opener",
+      description:
+        `Official Kentucky Department of Fish and Wildlife statewide archery deer opener for the ${TARGET_YEAR}-${String(TARGET_YEAR + 1).slice(2)} season.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Kentucky Modern Gun Deer Opener",
+      description:
+        `Official Kentucky Department of Fish and Wildlife statewide modern gun deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        muzzleloaderMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Kentucky Early Muzzleloader Deer Opener",
+      description:
+        `Official Kentucky Department of Fish and Wildlife early statewide muzzleloader deer opener for ${TARGET_YEAR}. A second muzzleloader period follows in December.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Kentucky",
+    source:
+      "Kentucky Department of Fish and Wildlife deer hunting seasons",
+    sourceUrl,
+    validationStatus:
+      "verified_official_statewide_with_zone_notes",
+    seasons
+  });
+}
 const stateFetchers = {
   IA: fetchIowaStatewideOpeners,
   IL: fetchIllinoisStatewideOpeners,
+  IN: fetchIndianaStatewideOpeners,
+  KY: fetchKentuckyStatewideOpeners,
   MI: fetchMichiganStatewideOpeners,
   MN: fetchMinnesotaStatewideOpeners,
   MO: fetchMissouriStatewideOpeners,
+
   PA: fetchPennsylvaniaStatewideOpeners,
   WI: fetchWisconsinStatewideOpeners
 };
@@ -885,6 +1107,13 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+
+
+
+
+
+
 
 
 
