@@ -1,16 +1,17 @@
-﻿
-/**
- * DeerCamp monthly deer opener updater
+﻿/**
+ * DeerCamp biweekly nationwide deer opener updater
  *
- * Draft status:
- * - Wisconsin fetcher: implemented against Wisconsin DNR deer season page
- * - Minnesota fetcher: implemented against Minnesota DNR season pages
- * - Other states: placeholders
+ * Batch 1 automated official-source states:
+ * - Iowa
+ * - Illinois
+ * - Minnesota
+ * - Wisconsin
  *
- * Safety rules for this updater:
- * - Only write officially published statewide opener dates
- * - Do not invent or extrapolate unpublished dates
- * - Preserve existing state data if a fetcher cannot confirm replacements
+ * Safety rules:
+ * - State wildlife agencies are the source of truth.
+ * - Publish only dates confirmed on official agency pages.
+ * - Partial state results are allowed.
+ * - Never delete previously verified data because a page fetch or parser fails.
  */
 
 import fs from "node:fs/promises";
@@ -18,9 +19,24 @@ import path from "node:path";
 import process from "node:process";
 
 const ROOT = process.cwd();
-const OPENERS_PATH = path.join(ROOT, "data", "us-state-deer-openers.json");
+const OPENERS_PATH = path.join(
+  ROOT,
+  "data",
+  "us-state-deer-openers.json"
+);
 
-const ALLOWED_TYPES = new Set(["archery", "firearm", "muzzleloader"]);
+const TARGET_YEAR = new Date().getFullYear();
+const ALLOWED_TYPES = new Set([
+  "archery",
+  "firearm",
+  "muzzleloader"
+]);
+
+const ICONS = {
+  archery: "\u{1F3F9}",
+  firearm: "\u{1F52B}",
+  muzzleloader: "\u{1F4A5}"
+};
 
 function isIsoDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
@@ -30,36 +46,214 @@ function stableStringify(value) {
   return JSON.stringify(value, null, 2) + "\n";
 }
 
-function currentSeasonYear() {
-  return new Date().getFullYear();
+function cleanText(value) {
+  return String(value || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/<\/?[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function monthIndex(value) {
+  const key = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, "");
+
+  const months = {
+    jan: 1,
+    january: 1,
+    feb: 2,
+    february: 2,
+    mar: 3,
+    march: 3,
+    apr: 4,
+    april: 4,
+    may: 5,
+    jun: 6,
+    june: 6,
+    jul: 7,
+    july: 7,
+    aug: 8,
+    august: 8,
+    sep: 9,
+    sept: 9,
+    september: 9,
+    oct: 10,
+    october: 10,
+    nov: 11,
+    november: 11,
+    dec: 12,
+    december: 12
+  };
+
+  return months[key] || 0;
+}
+
+function toIsoDate(year, month, day) {
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+function parseNamedDate(value, fallbackYear = TARGET_YEAR) {
+  const match = String(value || "").match(
+    /([A-Za-z]+)\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?/
+  );
+
+  if (!match) return null;
+
+  const month = monthIndex(match[1]);
+  const day = Number(match[2]);
+  const year = Number(match[3] || fallbackYear);
+
+  if (!month || !day || !year) return null;
+
+  return toIsoDate(year, month, day);
+}
+
+function parseSlashDate(value) {
+  const match = String(value || "").match(
+    /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/
+  );
+
+  if (!match) return null;
+
+  const month = Number(match[1]);
+  const day = Number(match[2]);
+  const rawYear = Number(match[3]);
+  const year = rawYear < 100 ? 2000 + rawYear : rawYear;
+
+  return toIsoDate(year, month, day);
 }
 
 function normalizeSeason(season) {
+  const type = String(season?.type || "")
+    .trim()
+    .toLowerCase();
+
   return {
-    type: String(season?.type || "").trim().toLowerCase(),
+    ...season,
+    type,
     date: String(season?.date || "").trim(),
     title: String(season?.title || "").trim(),
     description: String(season?.description || "").trim(),
-    icon: String(season?.icon || "").trim(),
-    ...(season?.scopeNote ? { scopeNote: String(season.scopeNote).trim() } : {})
+    icon: ICONS[type] || String(season?.icon || "").trim(),
+    sourceUrl: String(season?.sourceUrl || "").trim(),
+    ...(season?.scopeNote
+      ? { scopeNote: String(season.scopeNote).trim() }
+      : {})
   };
 }
 
 function validateStateEntry(stateCode, stateEntry) {
   if (!stateEntry || typeof stateEntry !== "object") {
-    throw new Error(`State ${stateCode}: entry must be an object`);
+    throw new Error(
+      `State ${stateCode}: entry must be an object`
+    );
   }
 
-  const seasons = Array.isArray(stateEntry.seasons) ? stateEntry.seasons : [];
+  const seasons = Array.isArray(stateEntry.seasons)
+    ? stateEntry.seasons
+    : [];
 
   for (const season of seasons) {
-    if (!ALLOWED_TYPES.has(String(season?.type || "").trim().toLowerCase())) {
-      throw new Error(`State ${stateCode}: invalid season type "${season?.type}"`);
+    const type = String(season?.type || "")
+      .trim()
+      .toLowerCase();
+
+    if (!ALLOWED_TYPES.has(type)) {
+      throw new Error(
+        `State ${stateCode}: invalid season type "${season?.type}"`
+      );
     }
+
     if (!isIsoDate(season?.date)) {
-      throw new Error(`State ${stateCode}: invalid date "${season?.date}"`);
+      throw new Error(
+        `State ${stateCode}: invalid date "${season?.date}"`
+      );
     }
   }
+}
+
+function uniqueSeasons(seasons) {
+  const byType = new Map();
+
+  seasons
+    .map(normalizeSeason)
+    .filter((season) => {
+      return (
+        ALLOWED_TYPES.has(season.type) &&
+        isIsoDate(season.date) &&
+        season.title
+      );
+    })
+    .forEach((season) => {
+      if (!byType.has(season.type)) {
+        byType.set(season.type, season);
+      }
+    });
+
+  return [...byType.values()];
+}
+
+function makeStateEntry({
+  currentEntry,
+  stateName,
+  source,
+  sourceUrl,
+  validationStatus = "verified_official_statewide",
+  seasons
+}) {
+  const confirmedSeasons = uniqueSeasons(seasons);
+
+  if (!confirmedSeasons.length) {
+    throw new Error(
+      `${stateName}: no official opener dates were confirmed.`
+    );
+  }
+
+  const existingSeasons = uniqueSeasons(
+    Array.isArray(currentEntry?.seasons)
+      ? currentEntry.seasons
+      : []
+  );
+
+  const mergedByType = new Map(
+    existingSeasons.map((season) => [
+      season.type,
+      season
+    ])
+  );
+
+  confirmedSeasons.forEach((season) => {
+    mergedByType.set(season.type, season);
+  });
+
+  const mergedSeasons = [
+    "archery",
+    "firearm",
+    "muzzleloader"
+  ]
+    .map((type) => mergedByType.get(type))
+    .filter(Boolean);
+
+  return {
+    ...currentEntry,
+    stateName,
+    source,
+    sourceUrl,
+    validatedAt: new Date().toISOString().slice(0, 10),
+    validationStatus,
+    seasons: mergedSeasons,
+    zipOverrides:
+      currentEntry?.zipOverrides &&
+      typeof currentEntry.zipOverrides === "object"
+        ? currentEntry.zipOverrides
+        : {}
+  };
 }
 
 async function readOpenersFile() {
@@ -70,245 +264,344 @@ async function readOpenersFile() {
 async function fetchText(url) {
   const response = await fetch(url, {
     headers: {
-      "user-agent": "DeerCamp opener updater/1.0"
+      accept: "text/html,application/xhtml+xml",
+      "user-agent":
+        "DeerCamp official deer opener updater/2.0"
     }
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed ${response.status} for ${url}`);
+    throw new Error(
+      `Request failed ${response.status} for ${url}`
+    );
   }
 
   return response.text();
 }
 
-function cleanText(value) {
-  return String(value || "")
-    .replace(/\u00a0/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/<\/?[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+async function fetchWisconsinStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://dnr.wisconsin.gov/topic/hunt/dates";
 
-function monthIndex(value) {
-  const key = String(value || "").trim().toLowerCase().replace(/\./g, "");
-  const map = {
-    jan: 1, january: 1,
-    feb: 2, february: 2,
-    mar: 3, march: 3,
-    apr: 4, april: 4,
-    may: 5,
-    jun: 6, june: 6,
-    jul: 7, july: 7,
-    aug: 8, august: 8,
-    sep: 9, sept: 9, september: 9,
-    oct: 10, october: 10,
-    nov: 11, november: 11,
-    dec: 12, december: 12
-  };
-  return map[key] || 0;
-}
+  const text = cleanText(await fetchText(sourceUrl));
 
-function toIsoDate(year, month, day) {
-  const mm = String(month).padStart(2, "0");
-  const dd = String(day).padStart(2, "0");
-  return `${year}-${mm}-${dd}`;
-}
+  const archeryMatch = text.match(
+    /Archery and Crossbow\*?\s+([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
 
-function parseMonthDay(dateText, year) {
-  const match = String(dateText || "").match(/([A-Za-z]+)\.?\s+(\d{1,2})/);
-  if (!match) return null;
-  const month = monthIndex(match[1]);
-  const day = Number(match[2]);
-  if (!month || !day) return null;
-  return toIsoDate(year, month, day);
-}
+  const firearmMatch = text.match(
+    /(?:^|\s)Gun\s+([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
 
-function parseSlashDate(dateText, fallbackCentury = 2000) {
-  const match = String(dateText || "").match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
-  if (!match) return null;
-  const month = Number(match[1]);
-  const day = Number(match[2]);
-  const rawYear = Number(match[3]);
-  const year = rawYear < 100 ? fallbackCentury + rawYear : rawYear;
-  return toIsoDate(year, month, day);
-}
+  const muzzleloaderMatch = text.match(
+    /Muzzleloader\s+([A-Za-z]+\.*\s+\d{1,2})\s*[-–]/
+  );
 
-function uniqueSeasons(seasons) {
-  const seen = new Set();
-  return seasons.filter((season) => {
-    const key = `${season.type}|${season.date}|${season.title}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(archeryMatch[1]),
+      title: "Wisconsin Archery / Crossbow Deer Opener",
+      description:
+        `Official Wisconsin DNR statewide archery and crossbow deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(firearmMatch[1]),
+      title: "Wisconsin Gun Deer Opener",
+      description:
+        `Official Wisconsin DNR gun deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(muzzleloaderMatch[1]),
+      title: "Wisconsin Muzzleloader Deer Opener",
+      description:
+        `Official Wisconsin DNR muzzleloader deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Wisconsin",
+    source:
+      "Wisconsin Department of Natural Resources hunting season dates",
+    sourceUrl,
+    seasons
   });
 }
 
-async function fetchWisconsinStatewideOpeners(currentEntry) {
-  const targetYear = currentSeasonYear();
-  const url = "https://dnr.wisconsin.gov/topic/hunt/deer";
-  const html = await fetchText(url);
-  const text = cleanText(html);
+async function fetchMinnesotaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.dnr.state.mn.us/hunting/seasons.html";
 
-  const yearSectionMatch = text.match(new RegExp(`${targetYear}\\s+Season Dates(.*?)(Regulations|Hours|Purchase A Hunting License)`, "i"));
-  const section = yearSectionMatch ? yearSectionMatch[1] : text;
+  const text = cleanText(await fetchText(sourceUrl));
+  const shortYear = String(TARGET_YEAR).slice(2);
 
-  const archeryMatch = section.match(/Archery and Crossbow\*?\s*([A-Za-z]+\.*\s+\d{1,2})\s*-\s*[A-Za-z0-9,\s]+/i);
-  const gunMatch = section.match(/Gun\s+([A-Za-z]+\.*\s+\d{1,2})\s*-\s*\d{1,2}/i);
-  const muzzleloaderMatch = section.match(/Muzzleloader\s+([A-Za-z]+\.*\s+\d{1,2})\s*-\s*\d{1,2}/i);
+  const datePattern =
+    `(\\d{1,2}\\/\\d{1,2}\\/(?:${shortYear}|${TARGET_YEAR}))`;
 
-  if (!archeryMatch || !gunMatch || !muzzleloaderMatch) {
-    throw new Error("Wisconsin opener parser could not confirm all three statewide opener dates.");
+  const archeryMatch = text.match(
+    new RegExp(
+      `${datePattern}\\s*[-–]\\s*\\d{1,2}\\/\\d{1,2}\\/(?:\\d{2}|\\d{4})\\s*Deer\\s*[-–]\\s*Archery\\s*Statewide`,
+      "i"
+    )
+  );
+
+  const muzzleloaderMatch = text.match(
+    new RegExp(
+      `${datePattern}\\s*[-–]\\s*\\d{1,2}\\/\\d{1,2}\\/(?:\\d{2}|\\d{4})\\s*Deer\\s*[-–]\\s*Muzzleloader\\s*Statewide`,
+      "i"
+    )
+  );
+
+  const firearmMatches = [
+    ...text.matchAll(
+      new RegExp(
+        `${datePattern}\\s*[-–]\\s*\\d{1,2}\\/\\d{1,2}\\/(?:\\d{2}|\\d{4})\\s*Deer\\s*[-–]\\s*Firearm\\s*\\(Season A\\)`,
+        "ig"
+      )
+    )
+  ];
+
+  const firearmDates = firearmMatches
+    .map((match) => parseSlashDate(match[1]))
+    .filter(Boolean)
+    .sort();
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseSlashDate(archeryMatch[1]),
+      title: "Minnesota Archery Deer Opener",
+      description:
+        `Official Minnesota DNR statewide archery deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
   }
 
-  const archeryDate = parseMonthDay(archeryMatch[1], targetYear);
-  const firearmDate = parseMonthDay(gunMatch[1], targetYear);
-  const muzzleloaderDate = parseMonthDay(muzzleloaderMatch[1], targetYear);
-
-  if (!archeryDate || !firearmDate || !muzzleloaderDate) {
-    throw new Error("Wisconsin opener parser found text but could not convert one or more dates.");
+  if (firearmDates.length) {
+    seasons.push({
+      type: "firearm",
+      date: firearmDates[0],
+      title: "Minnesota Firearm Deer Opener",
+      description:
+        `Official Minnesota DNR earliest regular Season A firearm deer opener for ${TARGET_YEAR}; closing dates vary by permit area.`,
+      sourceUrl
+    });
   }
 
-  return {
-    stateName: "Wisconsin",
-    source: "Wisconsin DNR deer season dates",
-    seasons: uniqueSeasons([
-      {
-        type: "archery",
-        date: archeryDate,
-        title: "Wisconsin Archery / Crossbow Deer Opener",
-        description: "Statewide archery and crossbow deer opener.",
-        icon: "ðŸ¹"
-      },
-      {
-        type: "firearm",
-        date: firearmDate,
-        title: "Wisconsin Gun Deer Opener",
-        description: "Statewide gun deer opener.",
-        icon: "ðŸ”«"
-      },
-      {
-        type: "muzzleloader",
-        date: muzzleloaderDate,
-        title: "Wisconsin Muzzleloader Deer Opener",
-        description: "Statewide muzzleloader deer opener.",
-        icon: "ðŸ’¥"
-      }
-    ]),
-    zipOverrides: currentEntry?.zipOverrides || {}
-  };
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseSlashDate(muzzleloaderMatch[1]),
+      title: "Minnesota Muzzleloader Deer Opener",
+      description:
+        `Official Minnesota DNR statewide muzzleloader deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Minnesota",
+    source:
+      "Minnesota Department of Natural Resources hunting season dates",
+    sourceUrl,
+    seasons
+  });
 }
 
-async function fetchMinnesotaStatewideOpeners(currentEntry) {
-  const targetYear = currentSeasonYear();
+async function fetchIowaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.iowadnr.gov/things-do/hunting-trapping/iowa-hunting-seasons";
 
-  const seasonsUrl = "https://www.dnr.state.mn.us/hunting/seasons.html";
-  const firearmsUrl = "https://www.dnr.state.mn.us/gohunting/firearms-deer-hunting.html";
+  const text = cleanText(await fetchText(sourceUrl));
 
-  const seasonsText = cleanText(await fetchText(seasonsUrl));
-  const firearmsText = cleanText(await fetchText(firearmsUrl));
+  const archeryMatch = text.match(
+    /Archery,\s*Early Split\s+([A-Za-z]+\s+\d{1,2})\s*[-–]/
+  );
 
-  const archeryRegex = new RegExp(String.raw`(\d{1,2}\/\d{1,2}\/${String(targetYear).slice(2)}|\d{1,2}\/\d{1,2}\/${targetYear})\s*-\s*\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})\s*Deer\s*-\s*Archery\s*Statewide`, "i");
-  const muzzleRegex = new RegExp(String.raw`(\d{1,2}\/\d{1,2}\/${String(targetYear).slice(2)}|\d{1,2}\/\d{1,2}\/${targetYear})\s*-\s*\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})\s*Deer\s*-\s*Muzzleloader\s*Statewide`, "i");
-  const firearmRegex = new RegExp(String.raw`(\d{1,2}\/\d{1,2}\/${String(targetYear).slice(2)}|\d{1,2}\/\d{1,2}\/${targetYear})\s*-\s*\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})\s*Deer\s*-\s*Firearm\s*\(Season A\)`, "i");
+  const muzzleloaderMatch = text.match(
+    /Early Muzzleloader\s+([A-Za-z]+\s+\d{1,2})\s*[-–]/
+  );
 
-  const archeryMatch = seasonsText.match(archeryRegex);
-  const muzzleMatch = seasonsText.match(muzzleRegex);
+  const shotgunMatch = text.match(
+    /Shotgun 1\s+([A-Za-z]+\s+\d{1,2})\s*[-–]/
+  );
 
-  const firearmMatches = [...firearmsText.matchAll(new RegExp(String.raw`(\d{1,2}\/\d{1,2}\/${String(targetYear).slice(2)}|\d{1,2}\/\d{1,2}\/${targetYear})\s*-\s*\d{1,2}\/\d{1,2}\/(?:\d{2}|\d{4})\s*Deer\s*-\s*Firearm\s*\(Season A\)`, "ig"))];
+  const seasons = [];
 
-  const fallbackFirearmMatch = seasonsText.match(firearmRegex);
-
-  if (!archeryMatch || !muzzleMatch || (!firearmMatches.length && !fallbackFirearmMatch)) {
-    throw new Error("Minnesota opener parser could not confirm all three statewide deer opener dates.");
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(archeryMatch[1]),
+      title: "Iowa Archery Deer Opener",
+      description:
+        `Official Iowa DNR early-split archery deer opener for ${TARGET_YEAR}/${String(TARGET_YEAR + 1).slice(2)}.`,
+      sourceUrl
+    });
   }
 
-  const archeryDate = parseSlashDate(archeryMatch[1]);
-  const muzzleloaderDate = parseSlashDate(muzzleMatch[1]);
-
-  const firearmStartDates = firearmMatches.length
-    ? firearmMatches.map((match) => parseSlashDate(match[1])).filter(Boolean)
-    : [parseSlashDate(fallbackFirearmMatch[1])].filter(Boolean);
-
-  const firearmDate = [...firearmStartDates].sort()[0] || null;
-
-  if (!archeryDate || !firearmDate || !muzzleloaderDate) {
-    throw new Error("Minnesota opener parser found text but could not convert one or more dates.");
+  if (shotgunMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(shotgunMatch[1]),
+      title: "Iowa Shotgun 1 Deer Opener",
+      description:
+        `Official Iowa DNR Shotgun 1 deer opener for ${TARGET_YEAR}; DeerCamp maps Shotgun 1 to the gun/rifle calendar slot.`,
+      sourceUrl
+    });
   }
 
-  return {
-    stateName: "Minnesota",
-    source: "Minnesota DNR hunting season dates",
-    seasons: uniqueSeasons([
-      {
-        type: "archery",
-        date: archeryDate,
-        title: "Minnesota Archery Deer Opener",
-        description: "Statewide deer archery opener.",
-        icon: "ðŸ¹"
-      },
-      {
-        type: "firearm",
-        date: firearmDate,
-        title: "Minnesota Firearms Deer Opener",
-        description: "Earliest statewide firearms deer opener shown for Season A permit areas.",
-        icon: "ðŸ”«"
-      },
-      {
-        type: "muzzleloader",
-        date: muzzleloaderDate,
-        title: "Minnesota Muzzleloader Deer Opener",
-        description: "Statewide muzzleloader deer opener.",
-        icon: "ðŸ’¥"
-      }
-    ]),
-    zipOverrides: currentEntry?.zipOverrides || {}
-  };
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(muzzleloaderMatch[1]),
+      title: "Iowa Early Muzzleloader Deer Opener",
+      description:
+        `Official Iowa DNR early muzzleloader deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Iowa",
+    source:
+      "Iowa Department of Natural Resources hunting seasons",
+    sourceUrl,
+    seasons
+  });
+}
+
+async function fetchIllinoisStatewideOpeners(currentEntry) {
+  const archeryUrl =
+    "https://dnr.illinois.gov/hunting/deerarcheryinformation.html";
+
+  const firearmUrl =
+    "https://dnr.illinois.gov/hunting/deerfirearmmuzzleloader.html";
+
+  const [archeryText, firearmText] = await Promise.all([
+    fetchText(archeryUrl).then(cleanText),
+    fetchText(firearmUrl).then(cleanText)
+  ]);
+
+  const archeryMatch = archeryText.match(
+    /October\s+(\d{1,2})\s*[-–]\s*November\s+\d{1,2},\s*(\d{4})/
+  );
+
+  const firearmMatch = firearmText.match(
+    /First Firearm Deer Season:\s*([A-Za-z]+\s+\d{1,2})[^0-9]+(\d{4})/
+  );
+
+  const muzzleloaderMatch = firearmText.match(
+    /Muzzleloader-Only Deer Season:\s*([A-Za-z]+\s+\d{1,2})[^0-9]+(\d{4})/
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: toIsoDate(
+        Number(archeryMatch[2]),
+        10,
+        Number(archeryMatch[1])
+      ),
+      title: "Illinois Archery Deer Opener",
+      description:
+        `Official Illinois DNR archery deer opener for ${TARGET_YEAR}/${String(TARGET_YEAR + 1).slice(2)}.`,
+      sourceUrl: archeryUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        `${firearmMatch[1]}, ${firearmMatch[2]}`
+      ),
+      title: "Illinois Firearm Deer Opener",
+      description:
+        `Official Illinois DNR First Firearm Deer Season opener for ${TARGET_YEAR}.`,
+      sourceUrl: firearmUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        `${muzzleloaderMatch[1]}, ${muzzleloaderMatch[2]}`
+      ),
+      title: "Illinois Muzzleloader-Only Deer Opener",
+      description:
+        `Official Illinois DNR muzzleloader-only deer opener for ${TARGET_YEAR}.`,
+      sourceUrl: firearmUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Illinois",
+    source:
+      "Illinois Department of Natural Resources deer hunting pages",
+    sourceUrl:
+      "https://dnr.illinois.gov/hunting/deerhunting.html",
+    validationStatus:
+      "verified_official_statewide_with_county_notes",
+    seasons
+  });
 }
 
 const stateFetchers = {
-  async MN(current) {
-    return fetchMinnesotaStatewideOpeners(current);
-  },
-  async WI(current) {
-    return fetchWisconsinStatewideOpeners(current);
-  },
-  async PA(current) {
-    return null;
-  },
-  async TX(current) {
-    return null;
-  }
+  IA: fetchIowaStatewideOpeners,
+  IL: fetchIllinoisStatewideOpeners,
+  MN: fetchMinnesotaStatewideOpeners,
+  WI: fetchWisconsinStatewideOpeners
 };
 
 async function updateStates(existingStates) {
   const nextStates = { ...existingStates };
 
-  for (const [stateCode, currentEntry] of Object.entries(existingStates)) {
-    const fetcher = stateFetchers[stateCode];
-    if (!fetcher) continue;
+  for (const [stateCode, fetcher] of Object.entries(
+    stateFetchers
+  )) {
+    const currentEntry = existingStates[stateCode] || {
+      seasons: [],
+      zipOverrides: {}
+    };
 
     try {
       const updated = await fetcher(currentEntry);
-      if (!updated) continue;
+      validateStateEntry(stateCode, updated);
+      nextStates[stateCode] = updated;
 
-      const normalized = {
-        stateName: String(updated.stateName || currentEntry.stateName || "").trim(),
-        source: String(updated.source || currentEntry.source || "").trim(),
-        seasons: (Array.isArray(updated.seasons) ? updated.seasons : [])
-          .map(normalizeSeason)
-          .filter((season) => season.type && season.date && season.title),
-        zipOverrides:
-          updated.zipOverrides && typeof updated.zipOverrides === "object"
-            ? updated.zipOverrides
-            : (currentEntry.zipOverrides || {})
-      };
-
-      validateStateEntry(stateCode, normalized);
-      nextStates[stateCode] = normalized;
-      console.log(`Updated ${stateCode} opener data.`);
+      console.log(
+        `Updated ${stateCode}: ${updated.seasons.length} verified opener date(s).`
+      );
     } catch (error) {
-      console.warn(`Skipped ${stateCode}: ${error instanceof Error ? error.message : String(error)}`);
+      console.warn(
+        `Skipped ${stateCode}: ${
+          error instanceof Error
+            ? error.message
+            : String(error)
+        }`
+      );
     }
   }
 
@@ -319,12 +612,19 @@ async function main() {
   const current = await readOpenersFile();
 
   if (!current || typeof current !== "object") {
-    throw new Error("us-state-deer-openers.json must contain a top-level object");
+    throw new Error(
+      "us-state-deer-openers.json must contain a top-level object"
+    );
   }
 
-  const currentStates = current.states && typeof current.states === "object" ? current.states : {};
+  const currentStates =
+    current.states && typeof current.states === "object"
+      ? current.states
+      : {};
 
-  for (const [stateCode, stateEntry] of Object.entries(currentStates)) {
+  for (const [stateCode, stateEntry] of Object.entries(
+    currentStates
+  )) {
     validateStateEntry(stateCode, stateEntry);
   }
 
@@ -345,10 +645,14 @@ async function main() {
   }
 
   await fs.writeFile(OPENERS_PATH, after, "utf8");
-  console.log("Updated data/us-state-deer-openers.json");
+
+  console.log(
+    "Updated data/us-state-deer-openers.json"
+  );
 }
 
 main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
