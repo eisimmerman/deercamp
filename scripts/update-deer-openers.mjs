@@ -258,27 +258,47 @@ function makeStateEntry({
 
 async function readOpenersFile() {
   const raw = await fs.readFile(OPENERS_PATH, "utf8");
-  return JSON.parse(raw);
+  const cleanRaw = raw.replace(/^\uFEFF/, "");
+  return JSON.parse(cleanRaw);
 }
 
 async function fetchText(url) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "text/html,application/xhtml+xml",
-      "user-agent":
-        "DeerCamp official deer opener updater/2.0"
-    }
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    throw new Error(
-      `Request failed ${response.status} for ${url}`
-    );
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          accept:
+            "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
+          "accept-language": "en-US,en;q=0.9",
+          "cache-control": "no-cache",
+          "user-agent":
+            "Mozilla/5.0 (compatible; DeerCampSeasonUpdater/2.0; +https://www.ourdeercamp.com)"
+        },
+        redirect: "follow"
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Request failed ${response.status} for ${url}`
+        );
+      }
+
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+
+      if (attempt < 3) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, attempt * 1500)
+        );
+      }
+    }
   }
 
-  return response.text();
+  throw lastError || new Error(`Fetch failed for ${url}`);
 }
-
 async function fetchWisconsinStatewideOpeners(currentEntry) {
   const sourceUrl =
     "https://dnr.wisconsin.gov/topic/hunt/dates";
@@ -1014,6 +1034,192 @@ async function fetchKentuckyStatewideOpeners(currentEntry) {
     seasons
   });
 }
+async function fetchTennesseeStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://www.tn.gov/twra/hunting/big-game/deer.html";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /Archery\s*\(A\)\s*Sept\.?\s*(\d{1,2})\s*[-–]\s*Oct\.?\s*\d{1,2},\s*(\d{4})/i
+  );
+
+  const muzzleloaderMatch = text.match(
+    /Muzzleloader\/Archery\s*\(M\/A\)[^A-Za-z0-9]*Nov\.?\s*(\d{1,2})\s*[-–]\s*Nov\.?\s*\d{1,2},\s*(\d{4})/i
+  );
+
+  const firearmMatch = text.match(
+    /Gun\/Muzzleloader\/Archery\s*\(G\/M\/A\)[^A-Za-z0-9]*Nov\.?\s*(\d{1,2}),\s*(\d{4})\s*[-–]/i
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: toIsoDate(
+        Number(archeryMatch[2]),
+        9,
+        Number(archeryMatch[1])
+      ),
+      title: "Tennessee Statewide Archery Deer Opener",
+      description:
+        `Official Tennessee Wildlife Resources Agency statewide archery deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: toIsoDate(
+        Number(firearmMatch[2]),
+        11,
+        Number(firearmMatch[1])
+      ),
+      title: "Tennessee Statewide Gun Deer Opener",
+      description:
+        `Official Tennessee Wildlife Resources Agency statewide gun, muzzleloader and archery deer season opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: toIsoDate(
+        Number(muzzleloaderMatch[2]),
+        11,
+        Number(muzzleloaderMatch[1])
+      ),
+      title: "Tennessee Statewide Muzzleloader Deer Opener",
+      description:
+        `Official Tennessee Wildlife Resources Agency statewide muzzleloader and archery deer season opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Tennessee",
+    source:
+      "Tennessee Wildlife Resources Agency statewide deer season table",
+    sourceUrl,
+    validationStatus:
+      "verified_official_statewide_with_unit_bag_limits",
+    seasons
+  });
+}
+
+async function fetchWestVirginiaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://wvdnr.gov/hunting-seasons/";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /Deer\s*\(Archery and Crossbow\)\s*([A-Za-z]+\s+\d{1,2})\s*([A-Za-z]+\s+\d{1,2})/i
+  );
+
+  const firearmMatch = text.match(
+    /Deer\s*\(Buck Firearms\)\s*([A-Za-z]+\s+\d{1,2})\s*([A-Za-z]+\s+\d{1,2})/i
+  );
+
+  const muzzleloaderMatch = text.match(
+    /Deer\s*\(Muzzleloader\)\s*([A-Za-z]+\s+\d{1,2})\s*([A-Za-z]+\s+\d{1,2})/i
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(
+        archeryMatch[1],
+        TARGET_YEAR
+      ),
+      title: "West Virginia Archery / Crossbow Deer Opener",
+      description:
+        `Official West Virginia DNR statewide archery and crossbow deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (firearmMatch) {
+    seasons.push({
+      type: "firearm",
+      date: parseNamedDate(
+        firearmMatch[1],
+        TARGET_YEAR
+      ),
+      title: "West Virginia Buck Firearms Deer Opener",
+      description:
+        `Official West Virginia DNR statewide buck firearms deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  if (muzzleloaderMatch) {
+    seasons.push({
+      type: "muzzleloader",
+      date: parseNamedDate(
+        muzzleloaderMatch[1],
+        TARGET_YEAR
+      ),
+      title: "West Virginia Muzzleloader Deer Opener",
+      description:
+        `Official West Virginia DNR statewide muzzleloader deer opener for ${TARGET_YEAR}.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "West Virginia",
+    source:
+      "West Virginia Division of Natural Resources hunting season table",
+    sourceUrl,
+    seasons
+  });
+}
+
+async function fetchVirginiaStatewideOpeners(currentEntry) {
+  const sourceUrl =
+    "https://dwr.virginia.gov/hunting/regulations/deer/";
+
+  const text = cleanText(await fetchText(sourceUrl));
+
+  const archeryMatch = text.match(
+    /Early Archery Season\s+([A-Za-z]+\s+\d{1,2})\s+through\s+[A-Za-z]+\s+\d{1,2}:\s+Statewide/i
+  );
+
+  const seasons = [];
+
+  if (archeryMatch) {
+    seasons.push({
+      type: "archery",
+      date: parseNamedDate(
+        archeryMatch[1],
+        TARGET_YEAR
+      ),
+      title: "Virginia Statewide Early Archery Deer Opener",
+      description:
+        `Official Virginia DWR statewide early archery deer opener for ${TARGET_YEAR}. Firearms and muzzleloader seasons are excluded because their dates or availability vary by locality.`,
+      sourceUrl
+    });
+  }
+
+  return makeStateEntry({
+    currentEntry,
+    stateName: "Virginia",
+    source:
+      "Virginia Department of Wildlife Resources deer regulations",
+    sourceUrl,
+    validationStatus:
+      "verified_official_partial_statewide",
+    seasons
+  });
+}
 const stateFetchers = {
   IA: fetchIowaStatewideOpeners,
   IL: fetchIllinoisStatewideOpeners,
@@ -1022,9 +1228,11 @@ const stateFetchers = {
   MI: fetchMichiganStatewideOpeners,
   MN: fetchMinnesotaStatewideOpeners,
   MO: fetchMissouriStatewideOpeners,
-
   PA: fetchPennsylvaniaStatewideOpeners,
-  WI: fetchWisconsinStatewideOpeners
+  TN: fetchTennesseeStatewideOpeners,
+  VA: fetchVirginiaStatewideOpeners,
+  WI: fetchWisconsinStatewideOpeners,
+  WV: fetchWestVirginiaStatewideOpeners
 };
 
 async function updateStates(existingStates) {
@@ -1107,6 +1315,10 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
+
+
+
+
 
 
 
