@@ -1739,6 +1739,17 @@
         return (memberEmailLower && profileEmail === memberEmailLower) || (memberNameLower && profileName === memberNameLower);
       });
 
+      const wasAlreadyActive =
+        existingMemberIndex >= 0 &&
+        (
+          memberProfiles[existingMemberIndex]?.accepted === true ||
+          ['active', 'accepted'].includes(
+            String(memberProfiles[existingMemberIndex]?.status || '')
+              .trim()
+              .toLowerCase()
+          )
+        );
+
       if (existingMemberIndex >= 0) {
         memberProfiles[existingMemberIndex] = { ...memberProfiles[existingMemberIndex], ...member, role: 'Camp Member', roleLine: member.roleLine || 'Camp Member', status: 'Active', pendingInvite: false, accepted: true, acceptedAt };
       } else {
@@ -1853,11 +1864,52 @@
       if (scopedDashboardKey) safeSetJson(scopedDashboardKey, updatedDashboard, { leanFallback: true });
       safeSetJson(INVITE_KEY, { id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken });
       try {
-        if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === 'function') {
-          await withTimeout(DeerCampCloud.saveCamp(invite.campId || updatedCampData.campId || '', updatedCampData), 10000, null);
+        const joinedCampId =
+          invite.campId ||
+          updatedCampData.campId ||
+          '';
+
+        let cloudSaved = false;
+
+        if (
+          window.DeerCampCloud &&
+          typeof DeerCampCloud.saveCamp === 'function'
+        ) {
+          cloudSaved = Boolean(
+            await withTimeout(
+              DeerCampCloud.saveCamp(
+                joinedCampId,
+                updatedCampData
+              ),
+              10000,
+              false
+            )
+          );
+        }
+
+        if (
+          cloudSaved &&
+          !wasAlreadyActive &&
+          window.DeerCampCloud &&
+          typeof DeerCampCloud.saveMetricEvent === 'function'
+        ) {
+          await withTimeout(
+            DeerCampCloud.saveMetricEvent(
+              joinedCampId,
+              'member_joined',
+              {
+                source: 'member-setup',
+                acceptedAt,
+                role: 'Camp Member',
+                metricsSchemaVersion: 1
+              }
+            ),
+            10000,
+            false
+          );
         }
       } catch (error) {
-        console.warn('Cloud save skipped for joined member.', error);
+        console.warn('Cloud save or member joined metric skipped.', error);
       }
       safeRemoveItem(wizardStorageKey);
     }
