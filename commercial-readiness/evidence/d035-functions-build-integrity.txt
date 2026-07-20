@@ -1,0 +1,65 @@
+﻿DEERCAMP COMMERCIAL READINESS — D-035 BUILD INTEGRITY EVIDENCE
+
+Timestamp: 2026-07-20T03:10:08-05:00
+Repository: C:\Users\simme\Documents\DeerCamp
+Branch: main
+Commit before remediation: e11c5e26
+
+ISSUE
+Cloud Functions predeploy build used:
+echo Using checked-in lib build
+
+The tracked TypeScript source did not reproduce the production runtime.
+A clean TypeScript build exported only:
+- enrichPublishedMemory
+- trackCampCreated
+- trackMemberJoined
+
+The production runtime also exported:
+- createBillingPortalSession
+- createCheckoutSession
+- pollSeasonOpeners
+- sendStewardWelcome
+- stripeWebhook
+- transcribeCampStory
+
+REMEDIATION
+Created tracked runtime source:
+- functions/runtime-src/index.js
+- functions/runtime-src/steward-welcome-email.js
+
+Created deterministic build script:
+- functions/scripts/build-runtime.mjs
+
+Changed Functions build command to:
+node scripts/build-runtime.mjs
+
+Added temporary audit-output exclusion:
+functions/lib-audit-build/
+
+BYTE-FOR-BYTE VERIFICATION
+index.js baseline SHA256:
+57F53FE297ABD593BC0F33D6EC4FD193E30B2AD361558735B58D7CF864AB8D0E
+
+index.js generated SHA256:
+57F53FE297ABD593BC0F33D6EC4FD193E30B2AD361558735B58D7CF864AB8D0E
+
+index.js match:
+True
+
+steward-welcome-email.js baseline SHA256:
+715E5109FB749F831172B09CED937904AAD6DE8F5321F5E7ED844AAE8E91E223
+
+steward-welcome-email.js generated SHA256:
+715E5109FB749F831172B09CED937904AAD6DE8F5321F5E7ED844AAE8E91E223
+
+steward-welcome-email.js match:
+True
+
+RESULT
+The new deterministic build reproduces the current production runtime byte-for-byte.
+Production behavior is preserved.
+
+D-035 STATUS
+Remediated locally.
+Staging deployment and smoke validation still required before final closure.
