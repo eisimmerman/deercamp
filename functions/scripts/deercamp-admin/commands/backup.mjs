@@ -108,7 +108,7 @@ export async function runBackup({
   const backup = {
     format: "deercamp-camp-backup",
     formatVersion: 1,
-    campOpsVersion: "0.6.0",
+    campOpsVersion: "0.7.0",
     createdAt: createdAt.toISOString(),
     projectId: resolvedProjectId,
     campId,

@@ -16,13 +16,22 @@ function timestampForFilename(date = new Date()) {
     .replace(/\.\d{3}Z$/, "Z");
 }
 
-export async function writeOperationLog(operation, directory = defaultLogDirectory) {
+function safePart(value) {
+  return String(value || "unknown").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+export async function writeOperationLog(
+  operation,
+  directory = defaultLogDirectory
+) {
   await fs.mkdir(directory, { recursive: true });
 
   const startedAt = new Date(operation.startedAt);
   const filename =
-    `${operation.operation}-${operation.sourceCampId}-to-` +
-    `${operation.targetCampId}-${timestampForFilename(startedAt)}.json`;
+    `${safePart(operation.operation)}-` +
+    `${safePart(operation.sourceCampId)}-to-` +
+    `${safePart(operation.targetCampId)}-` +
+    `${timestampForFilename(startedAt)}.json`;
 
   const filePath = path.join(directory, filename);
   await fs.writeFile(

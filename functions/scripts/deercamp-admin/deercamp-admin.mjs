@@ -5,10 +5,12 @@ import { executeClone } from "./commands/clone.mjs";
 import { executeClonePreview } from "./commands/clone-preview.mjs";
 import { executeCompare } from "./commands/compare.mjs";
 import { executeInspect } from "./commands/inspect.mjs";
+import { executeRestore } from "./commands/restore.mjs";
+import { executeRestorePreview } from "./commands/restore-preview.mjs";
 import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
 import { fail, printTitle } from "./lib/output.mjs";
 
-export const VERSION = "0.6.0";
+export const VERSION = "0.7.0";
 
 const args = process.argv.slice(2);
 const command = String(args[0] || "help").trim().toLowerCase();
@@ -24,19 +26,16 @@ function hasFlag(name) {
 
 function resolveProjectId(positionalIndex) {
   return (
-    String(getOption("--project") || args[positionalIndex] || DEFAULT_PROJECT_ID).trim()
-    || DEFAULT_PROJECT_ID
+    String(
+      getOption("--project") ||
+      args[positionalIndex] ||
+      DEFAULT_PROJECT_ID
+    ).trim() || DEFAULT_PROJECT_ID
   );
 }
 
 function printHelp() {
   printTitle(`CampOps v${VERSION}`);
-  console.log("");
-  console.log("Usage:");
-  console.log(
-    "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
-    "<command> [arguments]"
-  );
   console.log("");
   console.log("Commands:");
   console.log("  help");
@@ -48,18 +47,25 @@ function printHelp() {
     "  clone-preview <sourceCampId> <targetCampId> [projectId]"
   );
   console.log(
-    "  clone <sourceCampId> <targetCampId> --project deercamp-47c12 --execute"
+    "  clone <sourceCampId> <targetCampId> " +
+    "--project deercamp-47c12 --execute"
+  );
+  console.log(
+    "  restore-preview <backupFile> <targetCampId> [projectId]"
+  );
+  console.log(
+    "  restore <backupFile> <targetCampId> " +
+    "--project deercamp-47c12 --execute"
   );
   console.log("");
-  console.log("Clone safety:");
-  console.log("  - Production project allow-list");
-  console.log("  - Source exists and target does not");
-  console.log("  - Automatic source backup");
-  console.log("  - --execute required");
-  console.log("  - Exact interactive target-ID confirmation");
-  console.log("  - No-overwrite preflight");
-  console.log("  - Post-write verification");
-  console.log("  - JSON operation log");
+  console.log("Restore v0.7 behavior:");
+  console.log("  - Creates missing documents");
+  console.log("  - Replaces planned documents");
+  console.log("  - Does not delete extra target documents");
+  console.log("  - Backs up an existing target before writing");
+  console.log("  - Requires exact target-ID confirmation");
+  console.log("  - Verifies expected documents exist");
+  console.log("  - Writes a JSON operation log");
 }
 
 function parseCampCommandArguments(commandName) {
@@ -96,6 +102,22 @@ function parseCloneArguments(includeExecute = false) {
   };
 }
 
+function parseRestoreArguments(includeExecute = false) {
+  const backupFile = String(args[1] || "").trim();
+  const targetCampId = String(args[2] || "").trim();
+
+  if (!backupFile || !targetCampId) {
+    fail("Restore requires a backup file and target camp ID.");
+  }
+
+  return {
+    backupFile,
+    targetCampId,
+    projectId: resolveProjectId(3),
+    ...(includeExecute ? { execute: hasFlag("--execute") } : {})
+  };
+}
+
 async function main() {
   switch (command) {
     case "help":
@@ -122,6 +144,12 @@ async function main() {
       return;
     case "clone":
       await executeClone(parseCloneArguments(true));
+      return;
+    case "restore-preview":
+      await executeRestorePreview(parseRestoreArguments(false));
+      return;
+    case "restore":
+      await executeRestore(parseRestoreArguments(true));
       return;
     default:
       printHelp();
