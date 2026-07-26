@@ -126,7 +126,7 @@ export async function runBackup({
   const backup = {
     format: "deercamp-camp-backup",
     formatVersion: 1,
-    campOpsVersion: "0.3.0",
+    campOpsVersion: "0.5.0",
     createdAt: createdAt.toISOString(),
     projectId: resolvedProjectId,
     campId,
@@ -150,18 +150,20 @@ export async function runBackup({
     `${campId}-backup-${makeTimestamp(createdAt)}.json`;
   const outputPath = path.join(outputDirectory, filename);
 
+  const serializedBackup = `${JSON.stringify(backup, null, 2)}\n`;
+
   await fs.writeFile(
     outputPath,
-    `${JSON.stringify(backup, null, 2)}\n`,
+    serializedBackup,
     "utf8"
   );
 
   printSection("BACKUP COMPLETE");
   printKeyValue("File:", outputPath);
-  printKeyValue("Bytes:", Buffer.byteLength(
-    JSON.stringify(backup, null, 2),
-    "utf8"
-  ));
+  printKeyValue(
+    "Bytes:",
+    Buffer.byteLength(serializedBackup, "utf8")
+  );
   printKeyValue(
     "References:",
     referencedDocuments.length
