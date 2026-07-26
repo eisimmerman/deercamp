@@ -1,34 +1,39 @@
-﻿import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+#!/usr/bin/env node
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { executeInspect } from "./commands/inspect.mjs";
+import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
+import { fail, printTitle } from "./lib/output.mjs";
+
+export const VERSION = "0.2.0";
 
 const args = process.argv.slice(2);
 const command = String(args[0] || "help").trim().toLowerCase();
 
-const DEFAULT_PROJECT_ID = "deercamp-47c12";
-
-function printHeader() {
-  console.log("");
-  console.log("DeerCamp Admin Toolkit");
-  console.log("======================");
-}
-
 function printHelp() {
-  printHeader();
+  printTitle(`CampOps v${VERSION}`);
+
   console.log("");
   console.log("Usage:");
-  console.log("  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs <command> [arguments]");
+  console.log(
+    "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
+    "<command> [arguments]"
+  );
+
   console.log("");
   console.log("Commands:");
+
   console.log("  help");
   console.log("      Show this help screen.");
+
+  console.log("");
+  console.log("  version");
+  console.log("      Show the CampOps version.");
+
   console.log("");
   console.log("  inspect <campId> [projectId]");
   console.log("      Inspect a camp document, nested subcollections, and");
   console.log("      top-level Firestore records that reference the camp ID.");
+
   console.log("");
   console.log("Planned commands:");
   console.log("  list       Search and summarize camps");
@@ -38,70 +43,56 @@ function printHelp() {
   console.log("  delete     Guarded camp deletion");
   console.log("  repair     Detect and repair inconsistencies");
   console.log("  doctor     Run a database-wide health check");
+
   console.log("");
   console.log("Safety model:");
-  console.log("  Inspect -> Backup -> Dry run -> Exact confirmation -> Write -> Verify");
+  console.log(
+    "  Inspect -> Backup -> Dry run -> Exact confirmation -> Write -> Verify"
+  );
+
   console.log("");
 }
 
-function fail(message, exitCode = 1) {
-  console.error("");
-  console.error("ERROR: " + message);
-  console.error("");
-  process.exit(exitCode);
-}
+async function main() {
+  switch (command) {
+    case "help":
+    case "--help":
+    case "-h":
+      printHelp();
+      return;
 
-function runInspect() {
-  const campId = String(args[1] || "").trim();
-  const projectId = String(args[2] || DEFAULT_PROJECT_ID).trim();
+    case "version":
+    case "--version":
+    case "-v":
+      console.log(`CampOps v${VERSION}`);
+      return;
 
-  if (!campId) {
-    fail(
-      "Missing camp ID.\n\n" +
-      "Example:\n" +
-      "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs inspect " +
-      "camp-boddington-independence-ks-67301"
-    );
-  }
+    case "inspect": {
+      const campId = String(args[1] || "").trim();
+      const projectId =
+        String(args[2] || DEFAULT_PROJECT_ID).trim() ||
+        DEFAULT_PROJECT_ID;
 
-  const inspectorPath = path.join(
-    __dirname,
-    "inspect-firestore-camp-original.mjs"
-  );
+      if (!campId) {
+        fail(
+          "Missing camp ID.\n\n" +
+          "Example:\n" +
+          "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
+          "inspect camp-boddington-independence-ks-67301"
+        );
+      }
 
-  const result = spawnSync(
-    process.execPath,
-    [inspectorPath, projectId, campId],
-    {
-      stdio: "inherit",
-      cwd: process.cwd(),
-      shell: false
+      await executeInspect({
+        campId,
+        projectId
+      });
+      return;
     }
-  );
 
-  if (result.error) {
-    fail(result.error.message);
+    default:
+      printHelp();
+      fail(`Unknown command: ${command}`, 2);
   }
-
-  process.exit(
-    typeof result.status === "number"
-      ? result.status
-      : 1
-  );
 }
 
-switch (command) {
-  case "help":
-  case "--help":
-  case "-h":
-    printHelp();
-    break;
-
-  case "inspect":
-    runInspect();
-    break;
-
-  default:
-    printHelp();
-    fail(`Unknown command: ${command}`, 2);
-}
+await main();
