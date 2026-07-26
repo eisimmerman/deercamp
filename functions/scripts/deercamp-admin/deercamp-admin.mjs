@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 
+import { executeBackup } from "./commands/backup.mjs";
 import { executeInspect } from "./commands/inspect.mjs";
 import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
 import { fail, printTitle } from "./lib/output.mjs";
 
-export const VERSION = "0.2.0";
+export const VERSION = "0.3.0";
 
 const args = process.argv.slice(2);
 const command = String(args[0] || "help").trim().toLowerCase();
@@ -31,13 +32,16 @@ function printHelp() {
 
   console.log("");
   console.log("  inspect <campId> [projectId]");
-  console.log("      Inspect a camp document, nested subcollections, and");
-  console.log("      top-level Firestore records that reference the camp ID.");
+  console.log("      Inspect a camp and related Firestore records.");
+
+  console.log("");
+  console.log("  backup <campId> [projectId]");
+  console.log("      Export a read-only JSON backup into the ignored");
+  console.log("      deercamp-admin\\backups folder.");
 
   console.log("");
   console.log("Planned commands:");
   console.log("  list       Search and summarize camps");
-  console.log("  backup     Export a complete camp backup");
   console.log("  compare    Compare two camps");
   console.log("  clone      Safely clone a camp");
   console.log("  delete     Guarded camp deletion");
@@ -51,6 +55,27 @@ function printHelp() {
   );
 
   console.log("");
+}
+
+function parseCampCommandArguments(commandName) {
+  const campId = String(args[1] || "").trim();
+  const projectId =
+    String(args[2] || DEFAULT_PROJECT_ID).trim() ||
+    DEFAULT_PROJECT_ID;
+
+  if (!campId) {
+    fail(
+      `Missing camp ID for ${commandName}.\n\n` +
+      "Example:\n" +
+      "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
+      `${commandName} camp-boddington-independence-ks-67301`
+    );
+  }
+
+  return {
+    campId,
+    projectId
+  };
 }
 
 async function main() {
@@ -67,27 +92,17 @@ async function main() {
       console.log(`CampOps v${VERSION}`);
       return;
 
-    case "inspect": {
-      const campId = String(args[1] || "").trim();
-      const projectId =
-        String(args[2] || DEFAULT_PROJECT_ID).trim() ||
-        DEFAULT_PROJECT_ID;
-
-      if (!campId) {
-        fail(
-          "Missing camp ID.\n\n" +
-          "Example:\n" +
-          "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
-          "inspect camp-boddington-independence-ks-67301"
-        );
-      }
-
-      await executeInspect({
-        campId,
-        projectId
-      });
+    case "inspect":
+      await executeInspect(
+        parseCampCommandArguments("inspect")
+      );
       return;
-    }
+
+    case "backup":
+      await executeBackup(
+        parseCampCommandArguments("backup")
+      );
+      return;
 
     default:
       printHelp();

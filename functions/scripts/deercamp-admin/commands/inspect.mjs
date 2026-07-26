@@ -57,14 +57,9 @@ async function inspectDocumentTree(documentRef, indent = "") {
   }
 }
 
-export async function runInspect({
-  campId,
-  projectId
-}) {
-  const {
-    db,
-    projectId: resolvedProjectId
-  } = initializeFirestore(projectId);
+export async function runInspect({ campId, projectId }) {
+  const { db, projectId: resolvedProjectId } =
+    initializeFirestore(projectId);
 
   printTitle("DeerCamp Firestore Camp Inspector");
   printKeyValue("Project:", resolvedProjectId);
@@ -87,14 +82,12 @@ export async function runInspect({
     `TOP-LEVEL DOCUMENTS REFERENCING campId = "${campId}"`
   );
 
-  const {
-    references,
-    skipped
-  } = await findTopLevelCampReferences(
-    db,
-    campId,
-    topLevelCollections
-  );
+  const { references, skipped } =
+    await findTopLevelCampReferences(
+      db,
+      campId,
+      topLevelCollections
+    );
 
   if (!references.length) {
     console.log("(No matching top-level documents found.)");
