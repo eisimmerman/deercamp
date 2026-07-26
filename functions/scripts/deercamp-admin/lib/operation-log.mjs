@@ -27,11 +27,16 @@ export async function writeOperationLog(
   await fs.mkdir(directory, { recursive: true });
 
   const startedAt = new Date(operation.startedAt);
+  const operationName = safePart(operation.operation);
+
   const filename =
-    `${safePart(operation.operation)}-` +
-    `${safePart(operation.sourceCampId)}-to-` +
-    `${safePart(operation.targetCampId)}-` +
-    `${timestampForFilename(startedAt)}.json`;
+    operation.operation === "delete"
+      ? `delete-${safePart(operation.campId)}-` +
+        `${timestampForFilename(startedAt)}.json`
+      : `${operationName}-` +
+        `${safePart(operation.sourceCampId)}-to-` +
+        `${safePart(operation.targetCampId)}-` +
+        `${timestampForFilename(startedAt)}.json`;
 
   const filePath = path.join(directory, filename);
   await fs.writeFile(

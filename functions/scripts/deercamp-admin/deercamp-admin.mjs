@@ -4,13 +4,15 @@ import { executeBackup } from "./commands/backup.mjs";
 import { executeClone } from "./commands/clone.mjs";
 import { executeClonePreview } from "./commands/clone-preview.mjs";
 import { executeCompare } from "./commands/compare.mjs";
+import { executeDelete } from "./commands/delete.mjs";
+import { executeDeletePreview } from "./commands/delete-preview.mjs";
 import { executeInspect } from "./commands/inspect.mjs";
 import { executeRestore } from "./commands/restore.mjs";
 import { executeRestorePreview } from "./commands/restore-preview.mjs";
 import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
 import { fail, printTitle } from "./lib/output.mjs";
 
-export const VERSION = "0.7.0";
+export const VERSION = "0.8.0";
 
 const args = process.argv.slice(2);
 const command = String(args[0] || "help").trim().toLowerCase();
@@ -57,6 +59,10 @@ function printHelp() {
     "  restore <backupFile> <targetCampId> " +
     "--project deercamp-47c12 --execute"
   );
+  console.log("  delete-preview <campId> [projectId]");
+  console.log(
+    "  delete <campId> --project deercamp-47c12 --execute"
+  );
   console.log("");
   console.log("Restore v0.7 behavior:");
   console.log("  - Creates missing documents");
@@ -65,6 +71,14 @@ function printHelp() {
   console.log("  - Backs up an existing target before writing");
   console.log("  - Requires exact target-ID confirmation");
   console.log("  - Verifies expected documents exist");
+  console.log("  - Writes a JSON operation log");
+  console.log("");
+  console.log("Delete v0.8 behavior:");
+  console.log("  - Blocks protected camp IDs with no CLI override");
+  console.log("  - Creates an automatic backup before deletion");
+  console.log("  - Requires --execute and exact confirmation");
+  console.log("  - Deletes related docs, descendants, then root");
+  console.log("  - Verifies expected documents are absent");
   console.log("  - Writes a JSON operation log");
 }
 
@@ -148,9 +162,22 @@ async function main() {
     case "restore-preview":
       await executeRestorePreview(parseRestoreArguments(false));
       return;
+    case "delete-preview":
+      await executeDeletePreview(
+        parseCampCommandArguments("delete-preview")
+      );
+      return;
     case "restore":
       await executeRestore(parseRestoreArguments(true));
       return;
+    case "delete": {
+      const parsed = parseCampCommandArguments("delete");
+      await executeDelete({
+        ...parsed,
+        execute: hasFlag("--execute")
+      });
+      return;
+    }
     default:
       printHelp();
       fail(`Unknown command: ${command}`, 2);
