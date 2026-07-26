@@ -1,6 +1,6 @@
 import admin from "firebase-admin";
 
-function normalizeFirestoreValue(value) {
+export function normalizeFirestoreValue(value) {
   if (value === null || value === undefined) {
     return value ?? null;
   }

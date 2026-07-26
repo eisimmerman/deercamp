@@ -1,81 +1,64 @@
 #!/usr/bin/env node
 
 import { executeBackup } from "./commands/backup.mjs";
+import { executeCompare } from "./commands/compare.mjs";
 import { executeInspect } from "./commands/inspect.mjs";
 import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
 import { fail, printTitle } from "./lib/output.mjs";
 
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 const args = process.argv.slice(2);
 const command = String(args[0] || "help").trim().toLowerCase();
 
 function printHelp() {
   printTitle(`CampOps v${VERSION}`);
-
   console.log("");
   console.log("Usage:");
-  console.log(
-    "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
-    "<command> [arguments]"
-  );
-
+  console.log("  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs <command> [arguments]");
   console.log("");
   console.log("Commands:");
-
   console.log("  help");
   console.log("      Show this help screen.");
-
   console.log("");
   console.log("  version");
   console.log("      Show the CampOps version.");
-
   console.log("");
   console.log("  inspect <campId> [projectId]");
   console.log("      Inspect a camp and related Firestore records.");
-
   console.log("");
   console.log("  backup <campId> [projectId]");
-  console.log("      Export a read-only JSON backup into the ignored");
-  console.log("      deercamp-admin\\backups folder.");
-
+  console.log("      Export a read-only JSON backup.");
   console.log("");
-  console.log("Planned commands:");
-  console.log("  list       Search and summarize camps");
-  console.log("  compare    Compare two camps");
-  console.log("  clone      Safely clone a camp");
-  console.log("  delete     Guarded camp deletion");
-  console.log("  repair     Detect and repair inconsistencies");
-  console.log("  doctor     Run a database-wide health check");
-
+  console.log("  compare <leftCampId> <rightCampId> [projectId]");
+  console.log("      Compare top-level camp fields and reference counts.");
   console.log("");
   console.log("Safety model:");
-  console.log(
-    "  Inspect -> Backup -> Dry run -> Exact confirmation -> Write -> Verify"
-  );
-
+  console.log("  Inspect -> Backup -> Dry run -> Exact confirmation -> Write -> Verify");
   console.log("");
 }
 
 function parseCampCommandArguments(commandName) {
   const campId = String(args[1] || "").trim();
-  const projectId =
-    String(args[2] || DEFAULT_PROJECT_ID).trim() ||
-    DEFAULT_PROJECT_ID;
+  const projectId = String(args[2] || DEFAULT_PROJECT_ID).trim() || DEFAULT_PROJECT_ID;
 
   if (!campId) {
-    fail(
-      `Missing camp ID for ${commandName}.\n\n` +
-      "Example:\n" +
-      "  node .\\scripts\\deercamp-admin\\deercamp-admin.mjs " +
-      `${commandName} camp-boddington-independence-ks-67301`
-    );
+    fail(`Missing camp ID for ${commandName}.`);
   }
 
-  return {
-    campId,
-    projectId
-  };
+  return { campId, projectId };
+}
+
+function parseCompareArguments() {
+  const leftCampId = String(args[1] || "").trim();
+  const rightCampId = String(args[2] || "").trim();
+  const projectId = String(args[3] || DEFAULT_PROJECT_ID).trim() || DEFAULT_PROJECT_ID;
+
+  if (!leftCampId || !rightCampId) {
+    fail("Compare requires two camp IDs.");
+  }
+
+  return { leftCampId, rightCampId, projectId };
 }
 
 async function main() {
@@ -93,15 +76,15 @@ async function main() {
       return;
 
     case "inspect":
-      await executeInspect(
-        parseCampCommandArguments("inspect")
-      );
+      await executeInspect(parseCampCommandArguments("inspect"));
       return;
 
     case "backup":
-      await executeBackup(
-        parseCampCommandArguments("backup")
-      );
+      await executeBackup(parseCampCommandArguments("backup"));
+      return;
+
+    case "compare":
+      await executeCompare(parseCompareArguments());
       return;
 
     default:
