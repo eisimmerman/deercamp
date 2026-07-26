@@ -49,11 +49,9 @@ export function normalizeFirestoreValue(value) {
 
   if (typeof value === "object") {
     const normalized = {};
-
     for (const [key, nestedValue] of Object.entries(value)) {
       normalized[key] = normalizeFirestoreValue(nestedValue);
     }
-
     return normalized;
   }
 

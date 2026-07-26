@@ -7,7 +7,9 @@ function stableStringify(value) {
 
   if (value && typeof value === "object") {
     const keys = Object.keys(value).sort();
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    return `{${keys
+      .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+      .join(",")}}`;
   }
 
   return JSON.stringify(value);
@@ -16,7 +18,10 @@ function stableStringify(value) {
 export function compareObjects(leftValue, rightValue) {
   const left = normalizeFirestoreValue(leftValue || {});
   const right = normalizeFirestoreValue(rightValue || {});
-  const keys = Array.from(new Set([...Object.keys(left), ...Object.keys(right)])).sort();
+
+  const keys = Array.from(
+    new Set([...Object.keys(left), ...Object.keys(right)])
+  ).sort();
 
   const onlyLeft = [];
   const onlyRight = [];
@@ -29,12 +34,22 @@ export function compareObjects(leftValue, rightValue) {
 
     if (hasLeft && !hasRight) {
       onlyLeft.push(key);
-    } else if (!hasLeft && hasRight) {
+      continue;
+    }
+
+    if (!hasLeft && hasRight) {
       onlyRight.push(key);
-    } else if (stableStringify(left[key]) === stableStringify(right[key])) {
+      continue;
+    }
+
+    if (stableStringify(left[key]) === stableStringify(right[key])) {
       matching.push(key);
     } else {
-      changed.push({ field: key, left: left[key], right: right[key] });
+      changed.push({
+        field: key,
+        left: left[key],
+        right: right[key]
+      });
     }
   }
 

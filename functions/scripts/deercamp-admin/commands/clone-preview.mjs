@@ -1,11 +1,7 @@
 import {
-  findTopLevelCampReferences,
-  initializeFirestore,
-  listTopLevelCollections
+  initializeFirestore
 } from "../lib/firestore.mjs";
-
-import { summarizeDocumentTree } from "../lib/camp-tree.mjs";
-
+import { buildClonePlan } from "../lib/clone.mjs";
 import {
   blankLine,
   printError,
@@ -14,7 +10,7 @@ import {
   printTitle
 } from "../lib/output.mjs";
 
-function validateCampIds(sourceCampId, targetCampId) {
+export function validateCampIds(sourceCampId, targetCampId) {
   if (sourceCampId === targetCampId) {
     throw new Error(
       "Source and target camp IDs are identical. No action taken."
@@ -22,9 +18,7 @@ function validateCampIds(sourceCampId, targetCampId) {
   }
 
   if (targetCampId.length < 3) {
-    throw new Error(
-      "Target camp ID is too short. No action taken."
-    );
+    throw new Error("Target camp ID is too short. No action taken.");
   }
 
   if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(targetCampId)) {
@@ -41,116 +35,45 @@ export async function runClonePreview({
 }) {
   validateCampIds(sourceCampId, targetCampId);
 
-  const {
-    db,
-    projectId: resolvedProjectId
-  } = initializeFirestore(projectId);
+  const { db, projectId: resolvedProjectId } =
+    initializeFirestore(projectId);
 
   printTitle("DeerCamp Firestore Clone Preview");
   printKeyValue("Project:", resolvedProjectId);
   printKeyValue("Source camp:", sourceCampId);
   printKeyValue("Target camp:", targetCampId);
 
-  const sourceRef = db.collection("camps").doc(sourceCampId);
-  const targetRef = db.collection("camps").doc(targetCampId);
-
-  const [sourceSnapshot, targetSnapshot] = await Promise.all([
-    sourceRef.get(),
-    targetRef.get()
-  ]);
+  const sourceSnapshot = await db.collection("camps").doc(sourceCampId).get();
+  const targetSnapshot = await db.collection("camps").doc(targetCampId).get();
 
   printSection("VALIDATION");
-  printKeyValue(
-    "Source exists:",
-    sourceSnapshot.exists ? "YES" : "NO"
-  );
-  printKeyValue(
-    "Target exists:",
-    targetSnapshot.exists ? "YES" : "NO"
-  );
+  printKeyValue("Source exists:", sourceSnapshot.exists ? "YES" : "NO");
+  printKeyValue("Target exists:", targetSnapshot.exists ? "YES" : "NO");
 
   if (!sourceSnapshot.exists) {
-    throw new Error(
-      `Source camp not found: camps/${sourceCampId}`
-    );
+    throw new Error(`Source camp not found: camps/${sourceCampId}`);
   }
 
   if (targetSnapshot.exists) {
-    throw new Error(
-      `Target camp already exists: camps/${targetCampId}`
-    );
+    throw new Error(`Target camp already exists: camps/${targetCampId}`);
   }
 
-  const treeSummary = await summarizeDocumentTree(sourceRef);
-
-  const collections = await listTopLevelCollections(db);
-  const { references, skipped } =
-    await findTopLevelCampReferences(
-      db,
-      sourceCampId,
-      collections
-    );
-
-  const nonCampReferences = references.filter(
-    (referencePath) => referencePath !== sourceRef.path
-  );
-
-  const estimatedWrites =
-    treeSummary.documentCount + nonCampReferences.length;
+  const plan = await buildClonePlan(db, sourceCampId, targetCampId);
 
   printSection("OBJECTS TO COPY");
-  printKeyValue("Camp tree docs:", treeSummary.documentCount);
-  printKeyValue(
-    "Subcollections:",
-    treeSummary.subcollectionCount
-  );
-  printKeyValue(
-    "Related top-level:",
-    nonCampReferences.length
-  );
-  printKeyValue("Estimated writes:", estimatedWrites);
-  printKeyValue("Skipped scans:", skipped.length);
-
-  printSection("SOURCE DOCUMENT PATHS");
-
-  for (const documentPath of treeSummary.documentPaths) {
-    console.log(documentPath);
-  }
-
-  if (nonCampReferences.length) {
-    printSection("RELATED TOP-LEVEL DOCUMENTS");
-
-    for (const referencePath of nonCampReferences) {
-      console.log(referencePath);
-    }
-  }
-
-  if (skipped.length) {
-    printSection("SKIPPED COLLECTIONS");
-
-    for (const item of skipped) {
-      console.log(`[${item.collectionId}] ${item.message}`);
-    }
-  }
+  printKeyValue("Camp tree docs:", plan.treeDocuments.length);
+  printKeyValue("Related top-level:", plan.relatedDocuments.length);
+  printKeyValue("Estimated writes:", plan.estimatedWrites);
+  printKeyValue("Skipped scans:", plan.skippedCollections.length);
 
   printSection("RESULT");
   console.log("READY TO CLONE");
-  console.log(
-    "This preview performed validation and counting only."
-  );
+  console.log("This preview performed validation and counting only.");
 
   blankLine();
   console.log("No Firestore data was changed.");
 
-  return {
-    sourceCampId,
-    targetCampId,
-    projectId: resolvedProjectId,
-    estimatedWrites,
-    treeSummary,
-    relatedTopLevelReferences: nonCampReferences,
-    skippedCollections: skipped
-  };
+  return plan;
 }
 
 export async function executeClonePreview(options) {

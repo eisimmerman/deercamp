@@ -14,7 +14,7 @@ export function printSection(title) {
   console.log("-".repeat(title.length));
 }
 
-export function printKeyValue(label, value, width = 18) {
+export function printKeyValue(label, value, width = 22) {
   console.log(`${String(label).padEnd(width)}${value}`);
 }
 

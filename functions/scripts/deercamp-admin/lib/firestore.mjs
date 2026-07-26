@@ -1,6 +1,7 @@
 import admin from "firebase-admin";
 
 export const DEFAULT_PROJECT_ID = "deercamp-47c12";
+export const ALLOWED_WRITE_PROJECTS = new Set(["deercamp-47c12"]);
 
 export function initializeFirestore(projectId = DEFAULT_PROJECT_ID) {
   const resolvedProjectId =
@@ -22,12 +23,18 @@ export function initializeFirestore(projectId = DEFAULT_PROJECT_ID) {
   };
 }
 
+export function assertWriteProjectAllowed(projectId) {
+  if (!ALLOWED_WRITE_PROJECTS.has(projectId)) {
+    throw new Error(
+      `Write operations are not allowed for project "${projectId}". ` +
+      `Allowed project(s): ${Array.from(ALLOWED_WRITE_PROJECTS).join(", ")}`
+    );
+  }
+}
+
 export async function listTopLevelCollections(db) {
   const collections = await db.listCollections();
-
-  return collections.sort((left, right) =>
-    left.id.localeCompare(right.id)
-  );
+  return collections.sort((left, right) => left.id.localeCompare(right.id));
 }
 
 export async function findTopLevelCampReferences(
@@ -43,9 +50,7 @@ export async function findTopLevelCampReferences(
 
   for (const collectionRef of topLevelCollections) {
     try {
-      const snapshot = await collectionRef
-        .where("campId", "==", campId)
-        .get();
+      const snapshot = await collectionRef.where("campId", "==", campId).get();
 
       for (const documentSnapshot of snapshot.docs) {
         references.push(documentSnapshot.ref.path);
@@ -60,8 +65,5 @@ export async function findTopLevelCampReferences(
 
   references.sort((left, right) => left.localeCompare(right));
 
-  return {
-    references,
-    skipped
-  };
+  return { references, skipped };
 }

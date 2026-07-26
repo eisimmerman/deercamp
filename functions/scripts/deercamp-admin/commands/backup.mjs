@@ -40,25 +40,18 @@ async function readDocumentTree(documentRef) {
   const subcollections = [];
 
   if (!snapshot.exists) {
-    return {
-      ...serialized,
-      subcollections
-    };
+    return { ...serialized, subcollections };
   }
 
   const collectionRefs = await documentRef.listCollections();
-  collectionRefs.sort((left, right) =>
-    left.id.localeCompare(right.id)
-  );
+  collectionRefs.sort((left, right) => left.id.localeCompare(right.id));
 
   for (const collectionRef of collectionRefs) {
     const collectionSnapshot = await collectionRef.get();
     const documents = [];
 
     for (const childSnapshot of collectionSnapshot.docs) {
-      documents.push(
-        await readDocumentTree(childSnapshot.ref)
-      );
+      documents.push(await readDocumentTree(childSnapshot.ref));
     }
 
     subcollections.push({
@@ -69,40 +62,32 @@ async function readDocumentTree(documentRef) {
     });
   }
 
-  return {
-    ...serialized,
-    subcollections
-  };
+  return { ...serialized, subcollections };
 }
 
 export async function runBackup({
   campId,
   projectId,
-  outputDirectory = defaultBackupDirectory
+  outputDirectory = defaultBackupDirectory,
+  quiet = false
 }) {
-  const {
-    db,
-    projectId: resolvedProjectId
-  } = initializeFirestore(projectId);
+  const { db, projectId: resolvedProjectId } =
+    initializeFirestore(projectId);
 
-  printTitle("DeerCamp Firestore Camp Backup");
-  printKeyValue("Project:", resolvedProjectId);
-  printKeyValue("Camp:", campId);
+  if (!quiet) {
+    printTitle("DeerCamp Firestore Camp Backup");
+    printKeyValue("Project:", resolvedProjectId);
+    printKeyValue("Camp:", campId);
+  }
 
   const campRef = db.collection("camps").doc(campId);
   const campSnapshot = await campRef.get();
 
   if (!campSnapshot.exists) {
-    throw new Error(
-      `Camp document does not exist: camps/${campId}`
-    );
+    throw new Error(`Camp document does not exist: camps/${campId}`);
   }
 
-  printSection("READING CAMP DOCUMENT TREE");
   const campTree = await readDocumentTree(campRef);
-  console.log(`Captured ${campTree.path}`);
-
-  printSection("READING TOP-LEVEL CAMP REFERENCES");
 
   const topLevelCollections = await listTopLevelCollections(db);
   const { references, skipped } =
@@ -116,17 +101,14 @@ export async function runBackup({
 
   for (const referencePath of references) {
     const snapshot = await db.doc(referencePath).get();
-    referencedDocuments.push(
-      serializeDocumentSnapshot(snapshot)
-    );
-    console.log(`Captured ${referencePath}`);
+    referencedDocuments.push(serializeDocumentSnapshot(snapshot));
   }
 
   const createdAt = new Date();
   const backup = {
     format: "deercamp-camp-backup",
     formatVersion: 1,
-    campOpsVersion: "0.5.0",
+    campOpsVersion: "0.6.0",
     createdAt: createdAt.toISOString(),
     projectId: resolvedProjectId,
     campId,
@@ -149,37 +131,21 @@ export async function runBackup({
   const filename =
     `${campId}-backup-${makeTimestamp(createdAt)}.json`;
   const outputPath = path.join(outputDirectory, filename);
-
   const serializedBackup = `${JSON.stringify(backup, null, 2)}\n`;
 
-  await fs.writeFile(
-    outputPath,
-    serializedBackup,
-    "utf8"
-  );
+  await fs.writeFile(outputPath, serializedBackup, "utf8");
 
-  printSection("BACKUP COMPLETE");
-  printKeyValue("File:", outputPath);
-  printKeyValue(
-    "Bytes:",
-    Buffer.byteLength(serializedBackup, "utf8")
-  );
-  printKeyValue(
-    "References:",
-    referencedDocuments.length
-  );
-  printKeyValue(
-    "Skipped:",
-    skipped.length
-  );
+  if (!quiet) {
+    printSection("BACKUP COMPLETE");
+    printKeyValue("File:", outputPath);
+    printKeyValue("Bytes:", Buffer.byteLength(serializedBackup, "utf8"));
+    printKeyValue("References:", referencedDocuments.length);
+    printKeyValue("Skipped:", skipped.length);
+    blankLine();
+    console.log("No Firestore data was changed.");
+  }
 
-  blankLine();
-  console.log("No Firestore data was changed.");
-
-  return {
-    backup,
-    outputPath
-  };
+  return { backup, outputPath };
 }
 
 export async function executeBackup(options) {
