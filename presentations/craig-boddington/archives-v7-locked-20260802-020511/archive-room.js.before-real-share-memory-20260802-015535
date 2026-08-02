@@ -1,0 +1,1165 @@
+(function(){
+  const cfg=window.ARCHIVE_ROOM_CONFIG||{routes:{},actions:{}};
+  const viewer=window.DeerCampRoomModal?.create?.();
+  const legacyChapters=[
+    {
+      type:'cover',
+      eyebrow:'DEERCAMP LEGACY SERIES',
+      title:'Dad',
+      subtitle:'Preserving the ordinary moments that became a family legacy.',
+      image:'./assets/legacy/legacy-dad-cover.png?v=20260801-sequence'
+    },
+    {
+      type:'chapter',
+      number:'01',
+      title:'The Man Behind the Memories',
+      quote:'"The ordinary moments are often the ones we miss most."',
+      body:"He was not posing for history. It was simply another evening at camp - gear scattered nearby, supper on the stove, and the day's stories still being told. Looking back, moments like this became the history worth keeping.",
+      image:'./assets/legacy/dad-at-camp.jpg?v=20260801-sequence'
+    },
+    {
+      type:'chapter',
+      number:'02',
+      title:'Opening Morning',
+      quote:'"Long before sunrise, everyone already knew their part."',
+      body:'Trucks were loaded, orange wool came out, and hunters gathered before heading into the woods. The details changed from year to year, but the anticipation - and the people sharing it - made opening morning a tradition of its own.',
+      image:'./assets/legacy/opening-morning.jpg?v=20260801-sequence'
+    },
+    {
+      type:'closing',
+      eyebrow:'DEERCAMP',
+      title:'Your camp. Your story.',
+      subtitle:'Preserve the Tradition.',
+      image:'./assets/legacy/legacy-closing.png?v=20260801-closing-fixed'
+    }
+  ];
+
+  let legacyOverlay=null;
+  let legacyIndex=0;
+  let legacyFinishTimer=null;
+
+  function closeLegacy(){
+    if(legacyFinishTimer){ window.clearTimeout(legacyFinishTimer); legacyFinishTimer=null; }
+    legacyOverlay?.remove();
+    legacyOverlay=null;
+    document.body.classList.remove('legacy-open');
+    document.removeEventListener('keydown',legacyKeys);
+    setTimeout(()=>pulseArtifacts(),280);
+  }
+
+  function legacyKeys(event){
+    if(event.key==='Escape') closeLegacy();
+    if(event.key==='ArrowRight') showLegacy(Math.min(legacyChapters.length-1,legacyIndex+1));
+    if(event.key==='ArrowLeft') showLegacy(Math.max(0,legacyIndex-1));
+  }
+
+  function showLegacy(index){
+    if(!legacyOverlay) return;
+    if(legacyFinishTimer){ window.clearTimeout(legacyFinishTimer); legacyFinishTimer=null; }
+    legacyIndex=index;
+    const chapter=legacyChapters[index];
+    const content=legacyOverlay.querySelector('[data-legacy-content]');
+    const progress=legacyOverlay.querySelector('[data-legacy-progress]');
+    const previous=legacyOverlay.querySelector('[data-legacy-previous]');
+    const next=legacyOverlay.querySelector('[data-legacy-next]');
+
+    content.classList.remove('is-visible');
+    window.setTimeout(()=>{
+      if(chapter.type==='cover'){
+        content.innerHTML=`
+          <div class="legacy-cover">
+            <img src="${chapter.image}" alt="Legacy Series Dad cover artwork">
+            <div class="legacy-cover-copy">
+              <p class="legacy-eyebrow">${chapter.eyebrow}</p>
+              <h2>${chapter.title}</h2>
+              <p>${chapter.subtitle}</p>
+            </div>
+          </div>`;
+      }else if(chapter.type==='closing'){
+        content.innerHTML=`
+          <div class="legacy-closing">
+            <img src="${chapter.image}" alt="DeerCamp preserve the tradition closing artwork">
+            <div class="legacy-closing-copy">
+              <h2>${chapter.title}</h2>
+              <p>${chapter.subtitle}</p>
+              <button type="button" class="legacy-primary" data-legacy-return>Return to Archives</button>
+            </div>
+          </div>`;
+        content.querySelector('[data-legacy-return]')?.addEventListener('click',closeLegacy);
+      }else{
+        content.innerHTML=`
+          <article class="legacy-chapter">
+            <figure><img src="${chapter.image}" alt="${chapter.alt}"></figure>
+            <div class="legacy-copy">
+              <p class="legacy-chapter-number">CHAPTER ${chapter.number}</p>
+              <h2>${chapter.title}</h2>
+              <blockquote>${chapter.quote}</blockquote>
+              <p>${chapter.body}</p>
+            </div>
+          </article>`;
+      }
+      content.classList.add('is-visible');
+      if(chapter.type==='closing'){
+        legacyFinishTimer=window.setTimeout(()=>closeLegacy(),1800);
+      }
+    },120);
+
+    const isClosing=index===legacyChapters.length-1;
+    progress.textContent=index===0?'Cover':isClosing?'Returning to Archives...':`Chapter ${index} of ${legacyChapters.length-2}`;
+    previous.disabled=index===0 || isClosing;
+    previous.hidden=index===0 || isClosing;
+    next.hidden=isClosing;
+    next.textContent=index===0?'Begin Story ->':index===legacyChapters.length-2?'Finish Story ->':'Next Chapter ->';
+
+  }
+
+  function openLegacy(){
+    closeLegacy();
+    legacyOverlay=document.createElement('div');
+    legacyOverlay.className='legacy-overlay';
+    legacyOverlay.innerHTML=`
+      <section class="legacy-experience" role="dialog" aria-modal="true" aria-label="Legacy Series Dad">
+        <header class="legacy-header">
+          <div><span>Camp Boddington Archives</span><strong>Legacy Series: Dad</strong></div>
+          <button type="button" class="legacy-close" data-legacy-close aria-label="Close Legacy Series">x</button>
+        </header>
+        <div class="legacy-content" data-legacy-content></div>
+        <footer class="legacy-footer">
+          <button type="button" class="legacy-nav" data-legacy-previous>&lt;- Previous Chapter</button>
+          <span data-legacy-progress>Cover</span>
+          <button type="button" class="legacy-nav primary" data-legacy-next>Begin Story -&gt;</button>
+        </footer>
+      </section>`;
+    document.body.appendChild(legacyOverlay);
+    document.body.classList.add('legacy-open');
+    legacyOverlay.querySelector('[data-legacy-close]').addEventListener('click',closeLegacy);
+    legacyOverlay.querySelector('[data-legacy-previous]').addEventListener('click',()=>showLegacy(legacyIndex-1));
+    legacyOverlay.querySelector('[data-legacy-next]').addEventListener('click',()=>showLegacy(Math.min(legacyChapters.length-1,legacyIndex+1)));
+    legacyOverlay.addEventListener('click',event=>{if(event.target===legacyOverlay)closeLegacy()});
+    document.addEventListener('keydown',legacyKeys);
+    showLegacy(0);
+    legacyOverlay.querySelector('[data-legacy-next]').focus();
+  }
+
+  function pulseAction(actionKey){
+    document.querySelectorAll(`[data-archive-action="${actionKey}"]`).forEach(el=>{
+      el.classList.add('guided-pulse');
+      setTimeout(()=>el.classList.remove('guided-pulse'),5200);
+    });
+  }
+
+  function pulseArtifacts(){ pulseAction('historicArtifacts'); }
+  function pulseAddPhoto(){ pulseAction('addHistoricPhoto'); }
+  function pulseUploadArtifact(){ pulseAction('uploadArtifact'); }
+
+  function stopDedicationAudio(){
+    const audio=document.querySelector('[data-dedication-audio]');
+    if(!audio) return;
+    audio.pause();
+    audio.currentTime=0;
+  }
+
+  function openDadDedication(){
+    if(!viewer) return;
+
+    viewer.open({
+      heading:'DeerCamp Dedication: To My Father',
+      html:`<article class="dedication-memory">
+        <figure class="dedication-memory-photo">
+          <img
+            src="./assets/legacy/dedication-to-my-father.jpg"
+            alt="Ross Simmerman dedication memory">
+        </figure>
+
+        <section class="dedication-memory-content">
+          <p class="dedication-memory-kicker">DEERCAMP DEDICATION</p>
+          <h3>To My Father</h3>
+          <p class="dedication-memory-byline">Eric Simmerman - Camp Swede</p>
+
+          <div class="dedication-audio-card">
+            <div class="dedication-audio-heading">
+              <strong>Voice Memory</strong>
+              <span>0:38</span>
+            </div>
+
+            <audio
+              controls
+              preload="metadata"
+              data-dedication-audio>
+              <source
+                src="./assets/legacy/dedication-to-my-father.m4a"
+                type="audio/mp4">
+              Your browser does not support audio playback.
+            </audio>
+          </div>
+
+          <div class="dedication-transcript">
+            <h2>Transcript</h2>
+
+            <p>
+              Deer camp is dedicated to my father, Ross Simmerman, who began
+              whitetail deer hunting at the age of seven and passed away at
+              the age of 52 while pursuing his passion.
+            </p>
+
+            <p>
+              To Ross, there was nothing better than a November day in the
+              deer woods. And for me, the words below describe how I feel
+              about this magical time every year.
+            </p>
+
+            <blockquote>
+              My mind belongs to my work.<br>
+              My heart belongs to my family.<br>
+              But my soul belongs to the woods.
+            </blockquote>
+
+            <p class="dcx-transcript-source">
+              Transcribed from voice memory
+            </p>
+          </div>
+
+          <div class="room-modal-actions">
+            <button
+              class="room-action-btn primary"
+              type="button"
+              data-dedication-close>
+              Return to Archives
+            </button>
+          </div>
+        </section>
+      </article>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelector('[data-dedication-close]')
+        ?.addEventListener('click',()=>{
+          stopDedicationAudio();
+          viewer.close();
+        });
+    },0);
+  }
+
+  function openArtifact(){
+    if(!viewer) return;
+    viewer.open({
+      heading:'Historic Artifacts',
+      html:`<div class="artifact-collection">
+        <p class="demo-guided-note">Two preserved artifacts from the Camp Boddington Archives. Select either item to explore it.</p>
+        <div class="demo-grid artifact-options">
+          <button class="demo-card" data-artifact-view="target"><img src="./assets/legacy/3030-sight-in-target.png" alt="Eric's handwritten thirty-thirty sight-in target"><strong>Eric's .30-30 Sight-In Target</strong><span>1972 - A target that became a record.</span></button>
+          <button class="demo-card" data-artifact-view="memorabilia"><img src="./assets/legacy/deercamp-memorabilia.png" alt="Early deer licenses, first buck photograph, handwritten note, and first buck badge"><strong>Early Licenses &amp; First Buck Badge</strong><span>The beginning of a hunting legacy.</span></button>
+        </div>
+        <div class="room-modal-actions"><button class="room-action-btn primary" type="button" data-archive-close>Return to Archives</button></div>
+      </div>`
+    });
+    setTimeout(()=>{
+      document.querySelectorAll('[data-artifact-view]').forEach(card=>card.addEventListener('click',()=>openArtifactDetail(card.dataset.artifactView)));
+      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); setTimeout(pulseAddPhoto,260); });
+    },0);
+  }
+
+  function openArtifactDetail(which){
+    const target=which==='target';
+    viewer.open({
+      heading:target?"Historic Artifact: Eric's .30-30 Sight-In Target":"Historic Artifact: Early Licenses & First Buck Badge",
+      html:target?`<div class="artifact-demo">
+        <img src="./assets/legacy/3030-sight-in-target.png" alt="Eric's handwritten thirty-thirty sight-in target">
+        <div>
+          <p class="artifact-kicker">HISTORIC ARTIFACT</p>
+          <h3>To My Father</h3>
+          <p class="artifact-year">1972 - Voice Transcript</p>
+          <p><strong>Artifact caption:</strong> The target from the day Dad taught me to sight in my first deer rifle before my first hunting season.</p>
+          <div style="margin-top:1rem;padding:1rem 1.1rem;border-left:4px solid #d8b35f;background:rgba(216,179,95,.08);border-radius:8px;">
+            <p style="margin:0 0 .45rem;color:#d8b35f;font-weight:700;letter-spacing:.08em;">VOICE TRANSCRIPT</p>
+            <p style="margin:0;line-height:1.65;">This target takes me back to 1972. Dad and I drove out to the local gravel pit to sight in my first deer rifle, a bolt-action .30-30. We set the target about a hundred yards away and used the hood of his Dodge Charger as a shooting rest. I remember lying across that hood, squeezing the trigger, and watching the holes appear in the target. Dad helped me adjust the sights after every few shots until the rifle was shooting true. A few weeks later I carried that same rifle on my very first deer hunt. Every time I look at this old target, I am reminded that it was not just about learning to shoot - it was about spending a day with Dad and getting ready for a season I would never forget.</p>
+          </div>
+        </div>
+      </div>`:`<div class="artifact-demo">
+        <img src="./assets/legacy/deercamp-memorabilia.png" alt="Early deer licenses, first buck photograph, handwritten note, and first buck badge">
+        <div>
+          <p class="artifact-kicker">CAMP BODDINGTON COLLECTION</p>
+          <h3>To My Father</h3>
+          <p>Early Wisconsin licenses, the first-buck photograph, a handwritten Christmas note from Dad, and the eight-point badge survive together as one preserved record.</p>
+          <p>Kept together, the pieces tell more than any single photograph or document could tell alone.</p>
+        </div>
+      </div>`,
+    });
+    setTimeout(()=>{
+      const actions=document.createElement('div');
+      actions.className='room-modal-actions';
+      actions.innerHTML='<button class="room-action-btn" type="button" data-artifact-back>Back to Artifacts</button><button class="room-action-btn primary" type="button" data-archive-close>Return to Archives</button>';
+      document.querySelector('.artifact-demo')?.insertAdjacentElement('afterend',actions);
+      document.querySelector('[data-artifact-back]')?.addEventListener('click',openArtifact);
+      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); setTimeout(pulseAddPhoto,260); });
+    },0);
+  }
+
+  function artifactMemoryImage(name){
+    return name === '300 H&H Rifle'
+      ? './assets/legacy/300hh.jpg'
+      : './assets/legacy/22centerfires.jpg';
+  }  let artifactRecordingBlob = null;
+  let artifactRecordingUrl = "";
+  let artifactRecordingDuration = 0;
+
+  function artifactMemoryImage(name){
+    return name === '300 H&H Rifle'
+      ? './assets/legacy/300hh.jpg'
+      : './assets/legacy/22centerfires.jpg';
+  }
+
+  function formatArtifactDuration(totalSeconds){
+    const seconds = Math.max(0, Number(totalSeconds) || 0);
+    const minutes = Math.floor(seconds / 60);
+    const remainder = seconds % 60;
+    return `${minutes}:${String(remainder).padStart(2,'0')}`;
+  }
+
+  function openArtifactAudioDatabase(){
+    return new Promise((resolve,reject)=>{
+      const request=indexedDB.open('CampBoddingtonArchives',1);
+
+      request.onupgradeneeded=()=>{
+        const database=request.result;
+
+        if(!database.objectStoreNames.contains('audio')){
+          database.createObjectStore('audio');
+        }
+      };
+
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error);
+    });
+  }
+
+  async function saveArtifactAudio(blob){
+    const database=await openArtifactAudioDatabase();
+
+    return new Promise((resolve,reject)=>{
+      const transaction=database.transaction('audio','readwrite');
+
+      transaction
+        .objectStore('audio')
+        .put(blob,'latestArtifactMemory');
+
+      transaction.oncomplete=()=>{
+        database.close();
+        resolve();
+      };
+
+      transaction.onerror=()=>{
+        database.close();
+        reject(transaction.error);
+      };
+    });
+  }
+
+  async function loadArtifactAudio(){
+    const database=await openArtifactAudioDatabase();
+
+    return new Promise((resolve,reject)=>{
+      const transaction=database.transaction('audio','readonly');
+      const request=transaction
+        .objectStore('audio')
+        .get('latestArtifactMemory');
+
+      request.onsuccess=()=>{
+        database.close();
+        resolve(request.result || null);
+      };
+
+      request.onerror=()=>{
+        database.close();
+        reject(request.error);
+      };
+    });
+  }
+
+  function clearArtifactRecordingUrl(){
+    if(artifactRecordingUrl){
+      URL.revokeObjectURL(artifactRecordingUrl);
+      artifactRecordingUrl='';
+    }
+  }
+
+  function openArtifactMemoryChooser(){
+    if(!viewer) return;
+
+    viewer.open({
+      heading:'Choose an Artifact',
+      html:`<div class="artifact-memory-chooser">
+        <p class="artifact-memory-intro">
+          Choose one Camp Boddington artifact, then preserve the
+          story behind it as a real voice memory.
+        </p>
+
+        <div class="artifact-memory-choice-grid">
+          <button
+            class="artifact-memory-choice"
+            type="button"
+            data-artifact-memory-choice="300 H&H Rifle">
+            <img src="./assets/legacy/300hh.jpg"
+              alt="Craig Boddington 300 H and H rifle">
+            <span>ARTIFACT</span>
+            <strong>.300 H&amp;H Rifle</strong>
+            <small>Choose this artifact</small>
+          </button>
+
+          <button
+            class="artifact-memory-choice"
+            type="button"
+            data-artifact-memory-choice="22 Centerfires">
+            <img src="./assets/legacy/22centerfires.jpg"
+              alt="Twenty-two centerfire cartridges">
+            <span>ARTIFACT</span>
+            <strong>.22 Centerfires</strong>
+            <small>Choose this artifact</small>
+          </button>
+        </div>
+
+        <div class="room-modal-actions">
+          <button class="room-action-btn"
+            type="button"
+            data-artifact-memory-cancel>
+            Return to Archives
+          </button>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelectorAll('[data-artifact-memory-choice]')
+        .forEach(button=>{
+          button.addEventListener('click',()=>{
+            openArtifactMemoryRecorder(
+              button.dataset.artifactMemoryChoice
+            );
+          });
+        });
+
+      document
+        .querySelector('[data-artifact-memory-cancel]')
+        ?.addEventListener('click',()=>viewer.close());
+    },0);
+  }
+
+  function openArtifactMemoryRecorder(name){
+    if(!viewer) return;
+
+    clearArtifactRecordingUrl();
+    artifactRecordingBlob=null;
+    artifactRecordingDuration=0;
+
+    const image=artifactMemoryImage(name);
+
+    viewer.open({
+      heading:'Record Artifact Memory',
+      html:`<div class="artifact-recorder">
+        <div class="artifact-recorder-object">
+          <img src="${image}" alt="${name}">
+          <span>SELECTED ARTIFACT</span>
+          <strong>${name}</strong>
+        </div>
+
+        <div class="artifact-recorder-panel">
+          <p class="artifact-recorder-prompt">
+            Craig, tell the story behind this artifact.
+          </p>
+
+          <p class="artifact-recorder-helper">
+            Your browser will ask for microphone permission.
+          </p>
+
+          <div class="artifact-recorder-status"
+            data-recording-status>
+            <div class="artifact-recording-dot"></div>
+            <strong data-recording-label>Ready to record</strong>
+            <span data-recording-time>0:00</span>
+          </div>
+
+          <p class="artifact-recorder-error"
+            data-recording-error
+            hidden></p>
+
+          <div class="artifact-recorder-controls">
+            <button class="room-action-btn primary"
+              type="button"
+              data-recording-start>
+              Start Recording
+            </button>
+
+            <button class="room-action-btn"
+              type="button"
+              data-recording-stop
+              disabled>
+              Stop Recording
+            </button>
+          </div>
+
+          <div data-recording-playback hidden>
+            <p class="artifact-memory-kicker">
+              YOUR RECORDING
+            </p>
+
+            <audio controls
+              preload="metadata"
+              data-recording-audio></audio>
+
+            <div class="artifact-recorder-review-action">
+              <button class="room-action-btn primary"
+                type="button"
+                data-recording-review>
+                Review Artifact Memory
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      const startButton=
+        document.querySelector('[data-recording-start]');
+      const stopButton=
+        document.querySelector('[data-recording-stop]');
+      const reviewButton=
+        document.querySelector('[data-recording-review]');
+      const playback=
+        document.querySelector('[data-recording-playback]');
+      const audio=
+        document.querySelector('[data-recording-audio]');
+      const label=
+        document.querySelector('[data-recording-label]');
+      const time=
+        document.querySelector('[data-recording-time]');
+      const status=
+        document.querySelector('[data-recording-status]');
+      const errorBox=
+        document.querySelector('[data-recording-error]');
+
+      let recorder=null;
+      let stream=null;
+      let chunks=[];
+      let timer=null;
+      let elapsed=0;
+
+      function stopTimer(){
+        if(timer){
+          window.clearInterval(timer);
+          timer=null;
+        }
+      }
+
+      startButton?.addEventListener('click',async()=>{
+        try{
+          errorBox.hidden=true;
+
+          stream=await navigator.mediaDevices.getUserMedia({
+            audio:true
+          });
+
+          chunks=[];
+
+          const options=
+            MediaRecorder.isTypeSupported(
+              'audio/webm;codecs=opus'
+            )
+              ? {mimeType:'audio/webm;codecs=opus'}
+              : undefined;
+
+          recorder=new MediaRecorder(stream,options);
+
+          recorder.addEventListener('dataavailable',event=>{
+            if(event.data && event.data.size){
+              chunks.push(event.data);
+            }
+          });
+
+          recorder.addEventListener('stop',()=>{
+            stopTimer();
+
+            stream?.getTracks().forEach(track=>track.stop());
+
+            artifactRecordingBlob=new Blob(chunks,{
+              type:recorder.mimeType || 'audio/webm'
+            });
+
+            clearArtifactRecordingUrl();
+
+            artifactRecordingUrl=URL.createObjectURL(
+              artifactRecordingBlob
+            );
+
+            artifactRecordingDuration=Math.max(elapsed,1);
+
+            audio.src=artifactRecordingUrl;
+            playback.hidden=false;
+
+            label.textContent='Recording complete';
+            time.textContent=formatArtifactDuration(
+              artifactRecordingDuration
+            );
+
+            status.classList.remove('is-recording');
+            status.classList.add('is-complete');
+          });
+
+          elapsed=0;
+          time.textContent='0:00';
+          label.textContent='Recording voice memory';
+
+          status.classList.add('is-recording');
+          startButton.disabled=true;
+          stopButton.disabled=false;
+
+          recorder.start();
+
+          timer=window.setInterval(()=>{
+            elapsed+=1;
+            time.textContent=formatArtifactDuration(elapsed);
+          },1000);
+        }
+        catch(error){
+          errorBox.hidden=false;
+          errorBox.textContent=
+            'Microphone access was not available. Please allow ' +
+            'microphone permission and try again.';
+
+          startButton.disabled=false;
+          stopButton.disabled=true;
+        }
+      });
+
+      stopButton?.addEventListener('click',()=>{
+        if(recorder && recorder.state==='recording'){
+          recorder.stop();
+        }
+
+        stopButton.disabled=true;
+      });
+
+      reviewButton?.addEventListener('click',()=>{
+        if(!artifactRecordingBlob) return;
+
+        audio.pause();
+
+        openArtifactMemoryReview(
+          name,
+          artifactRecordingDuration
+        );
+      });
+    },0);
+  }
+
+  function openArtifactMemoryReview(name,duration){
+    if(!viewer || !artifactRecordingBlob) return;
+
+    const image=artifactMemoryImage(name);
+
+    viewer.open({
+      heading:'Review Artifact Memory',
+      html:`<div class="artifact-memory-review">
+        <div class="artifact-memory-review-image">
+          <img src="${image}" alt="${name}">
+        </div>
+
+        <div class="artifact-memory-review-copy">
+          <p class="artifact-memory-kicker">
+            ARTIFACT MEMORY
+          </p>
+
+          <h3>${name}</h3>
+
+          <p class="artifact-memory-byline">
+            Craig Boddington - Voice Memory
+          </p>
+
+          <div class="artifact-memory-audio-preview">
+            <div>
+              <strong>Voice Recording</strong>
+              <span>${formatArtifactDuration(duration)}</span>
+            </div>
+
+            <audio controls
+              preload="metadata"
+              src="${artifactRecordingUrl}">
+            </audio>
+          </div>
+
+          <div class="artifact-memory-transcript-preview">
+            <strong>Transcript</strong>
+            <p>
+              Transcript not generated in this guided demo.
+              The original voice recording is preserved.
+            </p>
+          </div>
+
+          <div class="room-modal-actions artifact-review-actions">
+            <button class="room-action-btn"
+              type="button"
+              data-artifact-record-again>
+              Record Again
+            </button>
+
+            <button class="room-action-btn primary"
+              type="button"
+              data-artifact-memory-save>
+              Save to Archives
+            </button>
+          </div>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelector('[data-artifact-record-again]')
+        ?.addEventListener('click',()=>{
+          openArtifactMemoryRecorder(name);
+        });
+
+      document
+        .querySelector('[data-artifact-memory-save]')
+        ?.addEventListener('click',async()=>{
+          await saveArtifactMemory(name,duration);
+        });
+    },0);
+  }
+
+  async function saveArtifactMemory(name,duration){
+    if(!artifactRecordingBlob) return;
+
+    await saveArtifactAudio(artifactRecordingBlob);
+
+    const savedMemory={
+      name,
+      duration,
+      image:artifactMemoryImage(name),
+      savedAt:new Date().toISOString()
+    };
+
+    localStorage.setItem(
+      'campBoddington.artifactMemory',
+      JSON.stringify(savedMemory)
+    );
+
+    renderSavedArtifactCard();
+
+    viewer.open({
+      heading:'Artifact Memory Saved',
+      html:`<div class="artifact-memory-success">
+        <div class="save-check">OK</div>
+        <p class="artifact-memory-kicker">
+          SAVED TO ARCHIVES
+        </p>
+        <h3>${name}</h3>
+        <p>
+          Craig's actual voice recording is now preserved
+          with the artifact.
+        </p>
+
+        <div class="room-modal-actions">
+          <button class="room-action-btn primary"
+            type="button"
+            data-artifact-memory-return>
+            Return to Archives
+          </button>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelector('[data-artifact-memory-return]')
+        ?.addEventListener('click',()=>{
+          viewer.close();
+        });
+    },0);
+  }
+
+  function getSavedArtifactMemory(){
+    try{
+      return JSON.parse(
+        localStorage.getItem(
+          'campBoddington.artifactMemory'
+        ) || 'null'
+      );
+    }
+    catch(error){
+      return null;
+    }
+  }
+
+  function renderSavedArtifactCard(){
+    const stage=document.querySelector('.room-stage');
+    const saved=getSavedArtifactMemory();
+
+    document
+      .querySelector('.saved-artifact-carousel-card')
+      ?.remove();
+
+    if(!stage || !saved) return;
+
+    const card=document.createElement('button');
+
+    card.type='button';
+    card.className='saved-artifact-carousel-card';
+
+    card.innerHTML=`
+      <span class="saved-artifact-image">
+        <img src="${saved.image}" alt="${saved.name}">
+        <b>NEW</b>
+      </span>
+
+      <span class="saved-artifact-copy">
+        <small>ARTIFACT MEMORY</small>
+        <strong>${saved.name}</strong>
+        <em>Craig Boddington</em>
+        <span>
+          Voice Memory -
+          ${formatArtifactDuration(saved.duration)}
+        </span>
+      </span>
+    `;
+
+    card.addEventListener('click',openSavedArtifactMemory);
+    stage.appendChild(card);
+  }
+
+  async function openSavedArtifactMemory(){
+    const saved=getSavedArtifactMemory();
+    if(!saved || !viewer) return;
+
+    const blob=await loadArtifactAudio();
+
+    if(!blob) return;
+
+    clearArtifactRecordingUrl();
+    artifactRecordingUrl=URL.createObjectURL(blob);
+
+    viewer.open({
+      heading:'Artifact Memory',
+      html:`<div class="artifact-memory-review">
+        <div class="artifact-memory-review-image">
+          <img src="${saved.image}" alt="${saved.name}">
+        </div>
+
+        <div class="artifact-memory-review-copy">
+          <p class="artifact-memory-kicker">
+            SAVED ARTIFACT MEMORY
+          </p>
+
+          <h3>${saved.name}</h3>
+
+          <p class="artifact-memory-byline">
+            Craig Boddington
+          </p>
+
+          <div class="artifact-memory-audio-preview">
+            <div>
+              <strong>Voice Memory</strong>
+              <span>
+                ${formatArtifactDuration(saved.duration)}
+              </span>
+            </div>
+
+            <audio controls
+              preload="metadata"
+              src="${artifactRecordingUrl}">
+            </audio>
+          </div>
+
+          <div class="artifact-memory-transcript-preview">
+            <strong>Transcript</strong>
+            <p>
+              Transcript not generated in this guided demo.
+              The original voice recording is preserved.
+            </p>
+          </div>
+
+          <div class="room-modal-actions">
+            <button class="room-action-btn primary"
+              type="button"
+              data-saved-artifact-close>
+              Return to Archives
+            </button>
+          </div>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelector('[data-saved-artifact-close]')
+        ?.addEventListener('click',()=>{
+          document
+            .querySelector('.artifact-memory-review audio')
+            ?.pause();
+
+          viewer.close();
+        });
+    },0);
+  }
+
+  setTimeout(renderSavedArtifactCard,0);
+
+  function openShareCampMemoryStart(){
+    if(!viewer) return;
+
+    viewer.open({
+      heading:'Share Camp Memory',
+      html:`<div class="share-memory-start">
+        <p class="share-memory-kicker">PHOTO + VOICE MEMORY</p>
+
+        <h3>Preserve a Moment From Camp</h3>
+
+        <p class="share-memory-intro">
+          Choose a Camp Boddington photograph, then record the story,
+          people, or memory connected to it.
+        </p>
+
+        <div class="share-memory-steps">
+          <article>
+            <span>1</span>
+            <div>
+              <strong>Choose a Camp Photo</strong>
+              <p>Select one of the curated Camp Boddington photographs.</p>
+            </div>
+          </article>
+
+          <article>
+            <span>2</span>
+            <div>
+              <strong>Record the Memory</strong>
+              <p>Use the microphone to tell the story in Craig's own voice.</p>
+            </div>
+          </article>
+
+          <article>
+            <span>3</span>
+            <div>
+              <strong>Save to Archives</strong>
+              <p>The photo and actual voice recording become a new archive card.</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="share-memory-photo-grid">
+          <button
+            class="share-memory-photo"
+            type="button"
+            data-share-memory-photo="Craig Buck Memory 1"
+            data-share-memory-image="./assets/legacy/craig-share-memory-1.jpg">
+            <img
+              src="./assets/legacy/craig-share-memory-1.jpg"
+              alt="Craig Boddington with buck beside pond">
+            <span>CAMP PHOTO</span>
+            <strong>Craig Buck Memory 1</strong>
+            <small>Choose this photograph</small>
+          </button>
+
+          <button
+            class="share-memory-photo"
+            type="button"
+            data-share-memory-photo="Craig Buck Memory 2"
+            data-share-memory-image="./assets/legacy/craig-share-memory-2.jpg">
+            <img
+              src="./assets/legacy/craig-share-memory-2.jpg"
+              alt="Whitetail with rifle laid across it">
+            <span>CAMP PHOTO</span>
+            <strong>Craig Buck Memory 2</strong>
+            <small>Choose this photograph</small>
+          </button>
+        </div>
+
+        <p class="share-memory-build-note">
+          Photo selection is active. Real voice capture is the next screen
+          in this guided Archives activity.
+        </p>
+
+        <div class="room-modal-actions">
+          <button
+            class="room-action-btn"
+            type="button"
+            data-share-memory-return>
+            Return to Archives
+          </button>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelectorAll('[data-share-memory-photo]')
+        .forEach(button=>{
+          button.addEventListener('click',()=>{
+            openShareCampMemoryVoice(
+              button.dataset.shareMemoryPhoto,
+              button.dataset.shareMemoryImage
+            );
+          });
+        });
+
+      document
+        .querySelector('[data-share-memory-return]')
+        ?.addEventListener('click',()=>viewer.close());
+    },0);
+  }
+
+  function openShareCampMemoryVoice(name,image){
+    if(!viewer) return;
+
+    viewer.open({
+      heading:'Record the Camp Memory',
+      html:`<div class="share-memory-selected">
+        <div class="share-memory-selected-photo">
+          <img src="${image}" alt="${name} camp photograph">
+        </div>
+
+        <div class="share-memory-selected-copy">
+          <p class="share-memory-kicker">SELECTED CAMP PHOTO</p>
+          <h3>${name}</h3>
+
+          <p>
+            The next step records Craig's actual voice and attaches it
+            directly to this photograph.
+          </p>
+
+          <div class="share-memory-ready">
+            <strong>Voice Memory Capture</strong>
+            <span>Ready for microphone recording</span>
+          </div>
+
+          <div class="room-modal-actions">
+            <button
+              class="room-action-btn"
+              type="button"
+              data-share-memory-back>
+              Choose Another Photo
+            </button>
+
+            <button
+              class="room-action-btn primary"
+              type="button"
+              data-share-memory-record>
+              Begin Voice Recording
+            </button>
+          </div>
+        </div>
+      </div>`
+    });
+
+    setTimeout(()=>{
+      document
+        .querySelector('[data-share-memory-back]')
+        ?.addEventListener('click',openShareCampMemoryStart);
+
+      document
+        .querySelector('[data-share-memory-record]')
+        ?.addEventListener('click',()=>{
+          viewer.open({
+            heading:'Share Camp Memory',
+            html:`<div class="share-memory-coming-next">
+              <p class="share-memory-kicker">FINAL ARCHIVES ACTIVITY</p>
+              <h3>Photo Selected</h3>
+              <img src="${image}" alt="${name} camp photograph">
+              <p>
+                The correct photo-and-voice path is now active.
+                The microphone recorder will use this selected photograph
+                rather than the former Historic Artifact and CampFeed demo.
+              </p>
+              <div class="room-modal-actions">
+                <button
+                  class="room-action-btn primary"
+                  type="button"
+                  data-share-memory-close>
+                  Return to Archives
+                </button>
+              </div>
+            </div>`
+          });
+
+          setTimeout(()=>{
+            document
+              .querySelector('[data-share-memory-close]')
+              ?.addEventListener('click',()=>viewer.close());
+          },0);
+        });
+    },0);
+  }
+
+  function openCreateDemo(kind){
+    if(kind === 'addHistoricPhoto'){
+      return openArtifactMemoryChooser();
+    }
+
+    if(kind === 'uploadArtifact'){
+      return openShareCampMemoryStart();
+    }
+  }
+
+  function openDemoOptions(isPhoto){
+    viewer.open({
+      heading:isPhoto?'Choose a Historic Photo':'Choose a Historic Artifact',
+      html:isPhoto?`<p class="demo-guided-note">Choose one of two curated Camp Boddington examples. Your own content is available in a live camp and is disabled for this guided demo.</p><div class="demo-grid">
+        <button class="demo-card" data-demo-save="Oklahoma (OK-)"><img src="./assets/legacy/craig-share-memory-1.jpg" alt="Craig Boddington with buck beside pond"><strong>Oklahoma (OK-)</strong><span>Curated Camp Boddington historic photo.</span></button>
+        <button class="demo-card" data-demo-save="Kansas (KS-)"><img src="./assets/legacy/craig-share-memory-2.jpg" alt="Kansas whitetail and hunting rifle"><strong>Kansas (KS-)</strong><span>Curated Camp Boddington historic photo.</span></button>
+      </div>`:`<p class="demo-guided-note">Choose one of two curated Camp Boddington examples. Your own content is available in a live camp and is disabled for this guided demo.</p><div class="demo-grid artifact-options">
+        <button class="demo-card" data-demo-save="300 H&amp;H"><img src="./assets/legacy/300hh.jpg" alt="300hh rifle and ammunition"><strong>300 H&amp;H</strong><span>Curated Camp Boddington artifact.</span></button>
+        <button class="demo-card" data-demo-save=".22 Centerfires"><img src="./assets/legacy/22centerfires.jpg" alt="A lineup of centerfire cartridges"><strong>.22 Centerfires</strong><span>Curated Camp Boddington artifact.</span></button>
+      </div>`,
+    });
+    setTimeout(()=>document.querySelectorAll('[data-demo-save]').forEach(card=>card.addEventListener('click',()=>showSaved(card.dataset.demoSave,isPhoto))),0);
+  }
+
+  function showCampFeedExample(name,image,isPhoto){
+    const secondImage=isPhoto?'./assets/legacy/dad-at-camp.jpg':'./assets/legacy/deercamp-memorabilia.png';
+    const thirdImage=isPhoto?'./assets/legacy/opening-morning.jpg':'./assets/legacy/3030-sight-in-target.png';
+    const secondTitle=isPhoto?'Dad at Camp':'Early Licenses & First Buck Badge';
+    const thirdTitle=isPhoto?"Opening Morning":"Eric's .30-30 Sight-In Target";
+    const secondCopy=isPhoto?"An ordinary evening that became part of the family story.":"Early licenses, a first-buck photograph, Dad's note, and the eight-point badge preserved together.";
+    const thirdCopy=isPhoto?'The trucks were loaded and everyone knew their part.':'The 1972 sight-in target, bullet holes, and handwritten record remain together.';
+    viewer.open({
+      heading:'CampFeed Example',
+      html:`<div class="campfeed-demo">
+        <p class="campfeed-demo-intro">The newest archive addition appears first, followed by two recently preserved ${isPhoto?'memories':'artifacts'}.</p>
+        <div class="campfeed-strip">
+          <article class="campfeed-card featured"><img src="${image}" alt="${name}"><div><span>JUST NOW</span><strong>${name}</strong><p>Craig added a historic ${isPhoto?'photo':'artifact'} to the Camp Boddington Archives.</p></div></article>
+          <article class="campfeed-card"><img src="${secondImage}" alt="${secondTitle}"><div><span>${isPhoto?'LEGACY SERIES':'HISTORIC ARTIFACT'}</span><strong>${secondTitle}</strong><p>${secondCopy}</p></div></article>
+          <article class="campfeed-card"><img src="${thirdImage}" alt="${thirdTitle}"><div><span>${isPhoto?'LEGACY SERIES':'HISTORIC ARTIFACT'}</span><strong>${thirdTitle}</strong><p>${thirdCopy}</p></div></article>
+        </div>
+        <div class="room-modal-actions campfeed-actions"><button class="room-action-btn primary" type="button" data-archive-close>Return to Archives</button></div>
+      </div>`
+    });
+    setTimeout(()=>document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); if(isPhoto)setTimeout(pulseUploadArtifact,260); }),0);
+  }
+
+  function showSaved(name,isPhoto){
+    const key=isPhoto?'campBoddington.demoPhoto':'campBoddington.demoArtifact';
+    localStorage.setItem(key,name);
+    const image=isPhoto
+      ? (name.startsWith('Oklahoma')?'./assets/legacy/craig-share-memory-1.jpg':'./assets/legacy/craig-share-memory-2.jpg')
+      : (name==='300 H&H'?'./assets/legacy/300hh.jpg':'./assets/legacy/22centerfires.jpg');
+    viewer.open({
+      heading:isPhoto?'Historic Photo Preserved':'Historic Artifact Preserved',
+      html:`<div class="save-success"><div class="save-check">OK</div><h3>To My Father</h3><p>Saved to the Camp Boddington Archives.</p><p>A CampFeed activity card would have also announced this addition to a live camp.</p><p>Tap Continue to see an example.</p><div class="room-modal-actions"><button class="room-action-btn primary" type="button" data-campfeed-continue>Continue -&gt;</button></div></div>`
+    });
+    setTimeout(()=>document.querySelector('[data-campfeed-continue]')?.addEventListener('click',()=>showCampFeedExample(name,image,isPhoto)),0);
+  }
+
+  function launch(actionKey){
+    if(actionKey==='legacySeries') return openLegacy();
+    if(actionKey==='dadDedication') return openDadDedication();
+    if(actionKey==='historicArtifacts') return openArtifact();
+    if(actionKey==='addHistoricPhoto'||actionKey==='uploadArtifact') return openCreateDemo(actionKey);
+  }
+
+  document.querySelectorAll('[data-archive-action]').forEach(el=>{
+    el.addEventListener('click',()=>launch(el.dataset.archiveAction));
+  });
+  window.DeerCampRoomNavigation?.init?.(document,cfg.routes);
+  window.DeerCampRoomHover?.init?.(document);
+})();
