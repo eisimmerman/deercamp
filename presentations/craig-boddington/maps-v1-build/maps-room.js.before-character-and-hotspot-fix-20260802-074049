@@ -1,0 +1,17 @@
+(()=>{
+const layer=document.querySelector('[data-modal-layer]');
+const content=document.querySelector('[data-modal-content]');
+const coords='45.19142,-90.99516';
+const mapsUrl=`https://www.google.com/maps/dir/?api=1&destination=${coords}`;
+const stand={name:'1st Stand',owner:'Eric S',date:'June 18, 2026',type:'Elevated Box Blind',wind:'S',time:'Evening',access:'Excellent',pressure:'Fresh',season:'Bow or rifle',notes:'Access via W. stand trail off clearing. Short walk through woods.',image:'./assets/elevated-box-blind.png',coords:'45.19142, -90.99516'};
+function openModal(html){content.innerHTML=html;layer.hidden=false;document.body.style.overflow='hidden'}
+function closeModal(){layer.hidden=true;content.innerHTML='';document.body.style.overflow=''}
+function tags(){return [stand.type,`Wind ${stand.wind}`,stand.time,`Access ${stand.access}`,`Pressure ${stand.pressure}`,stand.season].map(v=>`<span class="tag">${v}</span>`).join('')}
+function openStandList(){openModal(`<p class="eyebrow">Stand Maps</p><h2>Camp Boddington Deer Stands</h2><article class="stand-list-card"><div class="stand-thumb"><img src="${stand.image}" alt="${stand.type}"></div><div><p class="eyebrow">Deer Stand</p><h3>${stand.name}</h3><p class="meta">${stand.owner} Â· ${stand.date}</p><p class="description">${stand.notes}</p><div class="tags">${tags()}</div><div class="waypoint"><strong>ðŸ“ Stand Waypoint</strong><span>${stand.coords}</span></div><div class="actions"><button class="action primary" type="button" data-open-stand>Open Stand</button><a class="action" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Navigate to Stand</a></div></div></article>`);
+content.querySelector('[data-open-stand]')?.addEventListener('click',openStandDetail)}
+function openStandDetail(){openModal(`<p class="eyebrow">Deer Stand</p><h2>${stand.name}</h2><p class="meta">${stand.owner}</p><div class="detail-grid"><div class="detail-image"><img src="${stand.image}" alt="${stand.type}"></div><div class="detail-fields"><div class="field"><strong>Type</strong><span>${stand.type}</span></div><div class="field"><strong>Wind</strong><span>${stand.wind}</span></div><div class="field"><strong>Time</strong><span>${stand.time}</span></div><div class="field"><strong>Access</strong><span>${stand.access}</span></div><div class="field"><strong>Pressure</strong><span>${stand.pressure}</span></div><div class="field"><strong>Season</strong><span>${stand.season}</span></div><div class="field"><strong>Stand Notes</strong><span>${stand.notes}</span></div><section class="nav-card"><p class="eyebrow">Stand Waypoint</p><h3>ðŸ“ ${stand.coords}</h3><p>Open the saved stand destination in Google Maps so Craig can navigate directly to the waypoint.</p><div class="actions"><a class="action primary" href="${mapsUrl}" target="_blank" rel="noopener noreferrer">Open in Google Maps</a><button class="action" type="button" data-back-list>Back to Stand List</button></div></section></div></div>`);
+content.querySelector('[data-back-list]')?.addEventListener('click',openStandList)}
+document.querySelector('[data-action="open-stand-list"]')?.addEventListener('click',openStandList);
+document.querySelectorAll('[data-modal-close]').forEach(el=>el.addEventListener('click',closeModal));
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!layer.hidden)closeModal()});
+})();

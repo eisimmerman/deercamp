@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camp Boddington Maps Room</title>
+<link rel="stylesheet" href="./maps-room.css?v=20260802-guided-stand-flow">
+</head>
+<body>
+<main class="maps-room">
+  <section class="room-stage">
+    <img class="room-art" src="./maps-room.png" alt="Camp Boddington Maps Room">
+    <button
+      class="room-hotspot hs-view-stand-maps"
+      type="button"
+      data-action="open-stand-list"
+      aria-label="Open Stand Maps"
+      data-tooltip="Open Stand Maps">
+    </button>    <button class="room-hotspot hs-stand-maps" type="button"
+      data-action="open-stand-list" aria-label="Open Stand Maps"
+      data-tooltip="Open Stand Maps"></button>
+    <button
+      class="room-hotspot hs-drive-maps"
+      type="button"
+      data-action="open-drive-list"
+      aria-label="Open Drive Maps"
+      data-tooltip="Open Drive Maps">
+    </button>
+
+    <button
+      class="room-hotspot hs-view-drive-maps"
+      type="button"
+      data-action="open-drive-list"
+      aria-label="Open Drive Maps"
+      data-tooltip="Open Drive Maps">
+    </button>
+    <button
+      class="room-hotspot hs-create-stand-map"
+      type="button"
+      data-action="create-stand-map"
+      aria-label="Create Stand Map"
+      data-tooltip="Create Stand Map">
+    </button>
+  </section>
+</main>
+<div class="modal-layer" data-modal-layer hidden>
+  <div class="modal-backdrop" data-modal-close></div>
+  <section class="modal-shell" role="dialog" aria-modal="true">
+    <button class="modal-close" type="button" data-modal-close aria-label="Close">X</button>
+    <div class="modal-content" data-modal-content></div>
+  </section>
+</div>
+<script src="./maps-room.js?v=20260802-create-stand-guidance"></script>
+<script id="maps-final-guidance-controller">
+(function(){
+  "use strict";
+
+  const room = document.querySelector(".maps-room");
+  const modalLayer = document.querySelector("[data-modal-layer]");
+  const modalContent = document.querySelector("[data-modal-content]");
+
+  if(!room) return;
+
+  let activeExperience = "";
+  let previousModalOpen = false;
+
+  function showStandGuidance(){
+    room.classList.remove(
+      "maps-guide-drive",
+      "maps-guide-complete"
+    );
+
+    room.classList.add("maps-guide-stand");
+  }
+
+  function showDriveGuidance(){
+    room.classList.remove(
+      "maps-guide-stand",
+      "maps-guide-complete"
+    );
+
+    room.classList.add("maps-guide-drive");
+  }
+
+  function completeGuidance(){
+    room.classList.remove(
+      "maps-guide-stand",
+      "maps-guide-drive",
+      "maps-guide-complete"
+    );
+
+    room.classList.add("maps-guide-create");
+  }
+
+  function driveLegendMarkup(){
+    return `
+      <div class="drive-role-legend">
+        <strong>Legend</strong>
+
+        <span class="drive-role-item">
+          <span class="drive-role-dot blue"></span>
+          Blue circle = Driver/Pusher
+        </span>
+
+        <span class="drive-role-item">
+          <span class="drive-role-dot yellow"></span>
+          Yellow circle = Stander/Blocker
+        </span>
+      </div>
+    `;
+  }
+
+  function ensureDriveLegend(){
+    if(!modalContent) return;
+
+    const text = modalContent.textContent || "";
+
+    if(
+      !/Triangle Deer Drive|Driver\/Pusher Route 1/i.test(text)
+    ){
+      return;
+    }
+
+    /*
+     * Remove earlier or malformed legend versions so only the
+     * final blue/yellow legend remains.
+     */
+    modalContent
+      .querySelectorAll(
+        ".drive-role-legend, .drive-map-legend"
+      )
+      .forEach(element=>element.remove());
+
+    const helper =
+      modalContent.querySelector(".drive-map-helper");
+
+    const mapButton =
+      modalContent.querySelector(
+        ".drive-map-image-button"
+      );
+
+    const holder = document.createElement("div");
+    holder.innerHTML = driveLegendMarkup().trim();
+
+    const legend = holder.firstElementChild;
+
+    if(helper){
+      helper.insertAdjacentElement("afterend",legend);
+    }
+    else if(mapButton){
+      mapButton.insertAdjacentElement("afterend",legend);
+    }
+    else{
+      modalContent.prepend(legend);
+    }
+  }
+
+  /*
+   * Detect which guided experience Craig selected.
+   */
+  document.addEventListener("click",function(event){
+    const standButton = event.target.closest(
+      '.hs-stand-maps, .hs-view-stand-maps'
+    );
+
+    if(standButton){
+      activeExperience = "stand";
+
+      room.classList.remove(
+        "maps-guide-stand",
+        "maps-guide-drive"
+      );
+
+      return;
+    }
+
+    const driveButton = event.target.closest(
+      '.hs-drive-maps, .hs-view-drive-maps'
+    );
+
+    if(driveButton){
+      activeExperience = "drive";
+
+      room.classList.remove(
+        "maps-guide-stand",
+        "maps-guide-drive"
+      );
+
+      window.setTimeout(ensureDriveLegend,50);
+    }
+  },true);
+
+  /*
+   * Watch both modal opening/closing and modal HTML replacement.
+   */
+  if(modalLayer){
+    const modalObserver = new MutationObserver(function(){
+      const modalOpen = !modalLayer.hidden;
+
+      if(modalOpen){
+        window.setTimeout(ensureDriveLegend,0);
+      }
+
+      /*
+       * The modal changed from open to closed.
+       */
+      if(previousModalOpen && !modalOpen){
+        if(activeExperience === "stand"){
+          activeExperience = "";
+          window.setTimeout(showDriveGuidance,250);
+        }
+        else if(activeExperience === "drive"){
+          activeExperience = "";
+          completeGuidance();
+        }
+      }
+
+      previousModalOpen = modalOpen;
+    });
+
+    modalObserver.observe(modalLayer,{
+      attributes:true,
+      attributeFilter:["hidden"],
+      childList:true,
+      subtree:true
+    });
+
+    previousModalOpen = !modalLayer.hidden;
+  }
+
+  if(modalContent){
+    const contentObserver = new MutationObserver(function(){
+      window.setTimeout(ensureDriveLegend,0);
+    });
+
+    contentObserver.observe(modalContent,{
+      childList:true,
+      subtree:true
+    });
+  }
+
+  /*
+   * Every page entry or refresh begins with Stand Maps.
+   */
+  showStandGuidance();
+})();
+</script>
+<script id="create-stand-map-controller">
+(function(){
+  "use strict";
+
+  const room = document.querySelector(".maps-room");
+  const modalLayer =
+    document.querySelector("[data-modal-layer]");
+  const modalContent =
+    document.querySelector("[data-modal-content]");
+
+  if(!room || !modalLayer || !modalContent) return;
+
+  const storageKey =
+    "campBoddington.maps.createdStand";
+
+  const standLocation = {
+    label:"South Texas Hill Country waypoint",
+    coordinates:"29.47362, -99.74128"
+  };
+
+  function showModal(html){
+    modalContent.innerHTML = html;
+    modalLayer.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeModal(){
+    modalLayer.hidden = true;
+    modalContent.innerHTML = "";
+    document.body.style.overflow = "";
+  }
+
+  function readSavedStand(){
+    try{
+      return JSON.parse(
+        localStorage.getItem(storageKey) || "null"
+      );
+    }
+    catch(error){
+      return null;
+    }
+  }
+
+  function openCreateStandMap(){
+    const saved = readSavedStand();
+
+    showModal(`
+      <section class="create-stand-map-experience">
+        <header class="create-stand-map-header">
+          <div>
+            <p class="eyebrow">Create Stand Map</p>
+            <h2>South Texas Hill Country</h2>
+
+            <p class="create-stand-instruction">
+              ${
+                saved
+                  ? "Hover over or tap the saved star to review the stand."
+                  : "Place the stand by tapping the star."
+              }
+            </p>
+          </div>
+        </header>
+
+        <div class="create-stand-map-frame">
+          <img
+            src="../assets/south-texas-hill-country.png"
+            alt="South Texas Hill Country property map">
+
+          <button
+            class="create-stand-star ${saved ? "is-saved" : ""}"
+            type="button"
+            data-create-stand-star
+            aria-label="${
+              saved
+                ? "Open saved stand details"
+                : "Place stand at marked location"
+            }"
+            title="${
+              saved
+                ? "Review saved stand"
+                : "Tap star to place stand"
+            }">
+            ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦
+          </button>
+
+          ${
+            saved
+              ? ""
+              : `<div class="create-stand-map-callout">
+                   Tap star to place stand
+                 </div>`
+          }
+
+          <article
+            class="saved-stand-popover"
+            data-saved-stand-popover
+            hidden>
+          </article>
+        </div>
+      </section>
+    `);
+
+    const star =
+      modalContent.querySelector(
+        "[data-create-stand-star]"
+      );
+
+    const popover =
+      modalContent.querySelector(
+        "[data-saved-stand-popover]"
+      );
+
+    if(!saved){
+      star?.addEventListener(
+        "click",
+        openStandDetailsForm
+      );
+
+      return;
+    }
+
+    function showPopover(){
+      popover.innerHTML = savedStandPopover(saved);
+      popover.hidden = false;
+    }
+
+    function hidePopover(){
+      popover.hidden = true;
+    }
+
+    star?.addEventListener("mouseenter",showPopover);
+    star?.addEventListener("focus",showPopover);
+    star?.addEventListener("click",function(){
+      popover.hidden
+        ? showPopover()
+        : hidePopover();
+    });
+
+    popover?.addEventListener(
+      "mouseenter",
+      showPopover
+    );
+
+    modalContent
+      .querySelector(".create-stand-map-frame")
+      ?.addEventListener("mouseleave",hidePopover);
+  }
+
+  function openStandDetailsForm(){
+    showModal(`
+      <section class="create-stand-form">
+        <p class="eyebrow">New Stand</p>
+        <h2>Add Stand Details</h2>
+
+        <p class="create-stand-instruction">
+          Complete the guided details and save the stand.
+        </p>
+
+        <form data-create-stand-form>
+          <div class="create-stand-form-grid">
+            <div class="create-stand-field full">
+              <label for="createdStandName">
+                Stand name
+              </label>
+
+              <input
+                id="createdStandName"
+                name="name"
+                type="text"
+                value="Craig's Hill Country Stand"
+                required>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandType">
+                Type
+              </label>
+
+              <select
+                id="createdStandType"
+                name="type">
+                <option selected>
+                  Elevated Box Blind
+                </option>
+                <option>Hanging Tree Stand</option>
+                <option>Ground Blind</option>
+                <option>Ladder Stand</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandWind">
+                Best wind
+              </label>
+
+              <select
+                id="createdStandWind"
+                name="wind">
+                <option>N</option>
+                <option>NE</option>
+                <option>E</option>
+                <option>SE</option>
+                <option>S</option>
+                <option selected>SW</option>
+                <option>W</option>
+                <option>NW</option>
+                <option>None</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandTime">
+                Best time of day
+              </label>
+
+              <select
+                id="createdStandTime"
+                name="time">
+                <option>Any</option>
+                <option selected>Morning</option>
+                <option>Evening</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandAccess">
+                Access rating
+              </label>
+
+              <select
+                id="createdStandAccess"
+                name="access">
+                <option>Excellent</option>
+                <option selected>Good</option>
+                <option>Moderate</option>
+                <option>Difficult</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandPressure">
+                Pressure
+              </label>
+
+              <select
+                id="createdStandPressure"
+                name="pressure">
+                <option selected>Fresh</option>
+                <option>Moderate</option>
+                <option>High</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field">
+              <label for="createdStandSeason">
+                Season
+              </label>
+
+              <select
+                id="createdStandSeason"
+                name="season">
+                <option selected>Rifle 2026</option>
+                <option>Archery 2026</option>
+                <option>Any</option>
+              </select>
+            </div>
+
+            <div class="create-stand-field full">
+              <label for="createdStandNotes">
+                Notes
+              </label>
+
+              <textarea
+                id="createdStandNotes"
+                name="notes">Approach from west stand trail. Short walk through woods.</textarea>
+            </div>
+
+            <div class="create-stand-field full">
+              <div class="create-stand-location">
+                <strong>Stand Waypoint</strong>
+                <span>
+                  ${standLocation.coordinates}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="create-stand-actions">
+            <button
+              class="action"
+              type="button"
+              data-create-stand-cancel>
+              Cancel
+            </button>
+
+            <button
+              class="action primary"
+              type="submit">
+              Save Stand
+            </button>
+          </div>
+        </form>
+      </section>
+    `);
+
+    modalContent
+      .querySelector("[data-create-stand-cancel]")
+      ?.addEventListener(
+        "click",
+        openCreateStandMap
+      );
+
+    modalContent
+      .querySelector("[data-create-stand-form]")
+      ?.addEventListener("submit",function(event){
+        event.preventDefault();
+
+        const formData =
+          new FormData(event.currentTarget);
+
+        const savedStand = {
+          name:String(formData.get("name") || "").trim(),
+          type:String(formData.get("type") || ""),
+          wind:String(formData.get("wind") || ""),
+          time:String(formData.get("time") || ""),
+          access:String(formData.get("access") || ""),
+          pressure:String(formData.get("pressure") || ""),
+          season:String(formData.get("season") || ""),
+          notes:String(formData.get("notes") || "").trim(),
+          coordinates:standLocation.coordinates,
+          createdBy:"Craig Boddington",
+          createdAt:new Date().toISOString()
+        };
+
+        localStorage.setItem(
+          storageKey,
+          JSON.stringify(savedStand)
+        );
+
+        openCreateStandMap();
+      });
+  }
+
+  function savedStandPopover(saved){
+    return `
+      <p class="eyebrow">Saved Deer Stand</p>
+      <h3>${saved.name}</h3>
+
+      <p>
+        ${saved.createdBy}
+      </p>
+
+      <p>
+        ${saved.notes}
+      </p>
+
+      <div class="saved-stand-tags">
+        <span>${saved.type}</span>
+        <span>Wind ${saved.wind}</span>
+        <span>${saved.time}</span>
+        <span>Access ${saved.access}</span>
+        <span>Pressure ${saved.pressure}</span>
+        <span>${saved.season}</span>
+      </div>
+
+      <p class="saved-stand-waypoint">
+        ${saved.coordinates}
+      </p>
+    `;
+  }
+
+  /*
+   * Capture the Create Stand Map click before older placeholder
+   * handlers can respond.
+   */
+  document.addEventListener("click",function(event){
+    const createButton = event.target.closest(
+      '.hs-create-stand-map,' +
+      '[data-action="create-stand-map"]'
+    );
+
+    if(!createButton) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+
+    room.classList.remove("maps-guide-create");
+    room.classList.add("maps-guide-complete");
+
+    openCreateStandMap();
+  },true);
+})();
+</script>
+<script>
+/* DC_GUIDED_CREATE_STAND_V2 */
+(function(){
+  const SAVED_KEY = "dc.maps.createStand.saved";
+  const REVIEWED_KEY = "dc.maps.createStand.reviewed";
+
+  function hasMojibake(text){
+    return /Ãƒ|Ã‚|Ã¢|Ã¯Â¿Â½/.test(text || "");
+  }
+
+  function modalContent(){
+    return document.querySelector("[data-modal-content]") || document.querySelector(".modal-content");
+  }
+
+  function modalCloseButton(){
+    return document.querySelector("[data-modal-close]") || document.querySelector(".modal-close");
+  }
+
+  function setGuideNote(root, text){
+    if(!root) return;
+    let note = root.querySelector("[data-dc-guide-note]");
+    if(!note){
+      note = document.createElement("div");
+      note.className = "dc-guide-note";
+      note.setAttribute("data-dc-guide-note","1");
+
+      const heading = root.querySelector("h1,h2");
+      if(heading){
+        heading.insertAdjacentElement("afterend", note);
+      } else {
+        root.prepend(note);
+      }
+    }
+    note.textContent = text;
+  }
+
+  function clearGuideGlow(root){
+    (root || document).querySelectorAll(".dc-guide-glow, .dc-guide-glow-soft").forEach(el=>{
+      el.classList.remove("dc-guide-glow","dc-guide-glow-soft");
+    });
+  }
+
+  function addGlow(el, soft){
+    if(!el) return;
+    el.classList.add(soft ? "dc-guide-glow-soft" : "dc-guide-glow");
+  }
+
+  function isFilled(el){
+    if(!el) return true;
+    if(el.tagName === "SELECT"){
+      return !!String(el.value || "").trim();
+    }
+    if(el.tagName === "TEXTAREA" || el.tagName === "INPUT"){
+      return !!String(el.value || "").trim();
+    }
+    return true;
+  }
+
+  function findTypeSelect(root){
+    return [...root.querySelectorAll("select")].find(sel =>
+      [...sel.options].some(opt => /Elevated Box Blind/i.test(opt.textContent))
+    );
+  }
+
+  function findSaveStandButton(root){
+    return [...root.querySelectorAll("button")].find(btn =>
+      /save stand|save/i.test(btn.textContent)
+    );
+  }
+
+  function findStar(root){
+    return root.querySelector(".create-stand-x, [data-create-stand-marker], [data-create-stand-star]");
+  }
+
+  function fixBrokenMarkerText(root){
+    [...root.querySelectorAll("*")].forEach(el=>{
+      if(hasMojibake(el.textContent) && /create-stand|marker|star|label/i.test((el.className || "") + " " + (el.getAttribute("data-role") || ""))){
+        el.classList.add("dc-guide-hidden-mojibake");
+      }
+    });
+  }
+
+  function enhanceCreateStandMap(root){
+    if(!root) return;
+
+    fixBrokenMarkerText(root);
+
+    const text = root.textContent || "";
+    const closeBtn = modalCloseButton();
+    const star = findStar(root);
+
+    const saved = sessionStorage.getItem(SAVED_KEY) === "1";
+    const reviewed = sessionStorage.getItem(REVIEWED_KEY) === "1";
+
+    clearGuideGlow(root);
+    if(closeBtn) closeBtn.classList.remove("dc-guide-glow","dc-guide-glow-soft");
+
+    if(!saved){
+      setGuideNote(root, "Tap star to place stand and add details.");
+      if(star){
+        addGlow(star, false);
+        star.setAttribute("title", "Tap star to place stand and add details");
+        star.setAttribute("aria-label", "Tap star to place stand and add details");
+      }
+      return;
+    }
+
+    if(saved && !reviewed){
+      setGuideNote(root, "Hover over the star locator to review your stand summary.");
+      if(star){
+        addGlow(star, false);
+        star.setAttribute("title", "Hover over the star locator to review your stand summary");
+        star.setAttribute("aria-label", "Hover over the star locator to review your stand summary");
+      }
+
+      const reviewNow = () => {
+        sessionStorage.setItem(REVIEWED_KEY, "1");
+        if(star){
+          star.classList.remove("dc-guide-glow","dc-guide-glow-soft");
+        }
+        if(closeBtn){
+          addGlow(closeBtn, false);
+        }
+        setGuideNote(root, "Tap X to close & return to Maps Room.");
+      };
+
+      if(star && !star.dataset.dcReviewBound){
+        star.dataset.dcReviewBound = "1";
+        star.addEventListener("mouseenter", reviewNow);
+        star.addEventListener("click", reviewNow);
+        star.addEventListener("focus", reviewNow);
+      }
+      return;
+    }
+
+    if(saved && reviewed){
+      setGuideNote(root, "Tap X to close & return to Maps Room.");
+      if(closeBtn){
+        addGlow(closeBtn, false);
+      }
+    }
+  }
+
+  function enhanceStandBuilder(root){
+    if(!root) return;
+
+    const typeSelect = findTypeSelect(root);
+    const saveBtn = findSaveStandButton(root);
+    const allFields = [...root.querySelectorAll("input, select, textarea")]
+      .filter(el => !el.disabled && el.type !== "hidden");
+
+    if(!typeSelect || !saveBtn) return;
+
+    const remainingFields = allFields.filter(el => el !== typeSelect);
+
+    function wrapperFor(el){
+      return el.closest(".form-row, .field, .input-group, .stack, .builder-field, div") || el;
+    }
+
+    function refreshGuide(){
+      clearGuideGlow(root);
+      saveBtn.classList.remove("dc-guide-glow","dc-guide-glow-soft");
+
+      const typeDone = isFilled(typeSelect);
+
+      if(!typeDone){
+        addGlow(wrapperFor(typeSelect), false);
+        setGuideNote(root, "Start with Type, then complete the rest of the stand details.");
+        return;
+      }
+
+      const incomplete = remainingFields.filter(el => {
+        if(el.type === "hidden") return false;
+        if(el.hasAttribute("readonly")) return false;
+        return !isFilled(el);
+      });
+
+      if(incomplete.length){
+        incomplete.forEach(el => addGlow(wrapperFor(el), true));
+        setGuideNote(root, "Make a few choices and complete the remaining fields.");
+        return;
+      }
+
+      addGlow(saveBtn, false);
+      setGuideNote(root, "Everything is ready. Tap Save Stand.");
+    }
+
+    if(!root.dataset.dcBuilderBound){
+      root.dataset.dcBuilderBound = "1";
+
+      typeSelect.addEventListener("change", refreshGuide);
+      remainingFields.forEach(el => {
+        el.addEventListener("input", refreshGuide);
+        el.addEventListener("change", refreshGuide);
+      });
+
+      saveBtn.addEventListener("click", function(){
+        sessionStorage.setItem(SAVED_KEY, "1");
+        sessionStorage.setItem(REVIEWED_KEY, "0");
+      }, true);
+    }
+
+    setGuideNote(root, "Start with Type, then complete the rest of the stand details.");
+    addGlow(wrapperFor(typeSelect), false);
+    refreshGuide();
+  }
+
+  function applyGuidance(){
+    const root = modalContent();
+    if(!root) return;
+
+    const text = root.textContent || "";
+
+    if(/Add Stand Details/i.test(text)){
+      enhanceStandBuilder(root);
+      return;
+    }
+
+    if(/South Texas Hill Country/i.test(text) && /Create Stand Map|Place the stand|Hover over/i.test(text)){
+      enhanceCreateStandMap(root);
+      return;
+    }
+  }
+
+  const observer = new MutationObserver(() => {
+    setTimeout(applyGuidance, 0);
+  });
+
+  observer.observe(document.body, { childList:true, subtree:true });
+
+  document.addEventListener("click", () => {
+    setTimeout(applyGuidance, 0);
+  }, true);
+
+  window.addEventListener("load", () => {
+    setTimeout(applyGuidance, 100);
+  });
+})();
+</script>
+</body>
+</html>

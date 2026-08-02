@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Camp Boddington Maps Room</title>
+<link rel="stylesheet" href="./maps-room.css?v=20260802-final-guidance-2">
+</head>
+<body>
+<main class="maps-room">
+  <section class="room-stage">
+    <img class="room-art" src="./maps-room.png" alt="Camp Boddington Maps Room">
+    <button
+      class="room-hotspot hs-view-stand-maps"
+      type="button"
+      data-action="open-stand-list"
+      aria-label="Open Stand Maps"
+      data-tooltip="Open Stand Maps">
+    </button>    <button class="room-hotspot hs-stand-maps" type="button"
+      data-action="open-stand-list" aria-label="Open Stand Maps"
+      data-tooltip="Open Stand Maps"></button>
+    <button
+      class="room-hotspot hs-drive-maps"
+      type="button"
+      data-action="open-drive-list"
+      aria-label="Open Drive Maps"
+      data-tooltip="Open Drive Maps">
+    </button>
+
+    <button
+      class="room-hotspot hs-view-drive-maps"
+      type="button"
+      data-action="open-drive-list"
+      aria-label="Open Drive Maps"
+      data-tooltip="Open Drive Maps">
+    </button>
+  </section>
+</main>
+<div class="modal-layer" data-modal-layer hidden>
+  <div class="modal-backdrop" data-modal-close></div>
+  <section class="modal-shell" role="dialog" aria-modal="true">
+    <button class="modal-close" type="button" data-modal-close aria-label="Close">X</button>
+    <div class="modal-content" data-modal-content></div>
+  </section>
+</div>
+<script src="./maps-room.js?v=20260802-final-guidance-2"></script>
+<script id="maps-final-guidance-controller">
+(function(){
+  "use strict";
+
+  const room = document.querySelector(".maps-room");
+  const modalLayer = document.querySelector("[data-modal-layer]");
+  const modalContent = document.querySelector("[data-modal-content]");
+
+  if(!room) return;
+
+  let activeExperience = "";
+  let previousModalOpen = false;
+
+  function showStandGuidance(){
+    room.classList.remove(
+      "maps-guide-drive",
+      "maps-guide-complete"
+    );
+
+    room.classList.add("maps-guide-stand");
+  }
+
+  function showDriveGuidance(){
+    room.classList.remove(
+      "maps-guide-stand",
+      "maps-guide-complete"
+    );
+
+    room.classList.add("maps-guide-drive");
+  }
+
+  function completeGuidance(){
+    room.classList.remove(
+      "maps-guide-stand",
+      "maps-guide-drive"
+    );
+
+    room.classList.add("maps-guide-complete");
+  }
+
+  function driveLegendMarkup(){
+    return `
+      <div class="drive-role-legend">
+        <strong>Legend</strong>
+
+        <span class="drive-role-item">
+          <span class="drive-role-dot blue"></span>
+          Blue circle = Driver/Pusher
+        </span>
+
+        <span class="drive-role-item">
+          <span class="drive-role-dot yellow"></span>
+          Yellow circle = Stander/Blocker
+        </span>
+      </div>
+    `;
+  }
+
+  function ensureDriveLegend(){
+    if(!modalContent) return;
+
+    const text = modalContent.textContent || "";
+
+    if(
+      !/Triangle Deer Drive|Driver\/Pusher Route 1/i.test(text)
+    ){
+      return;
+    }
+
+    /*
+     * Remove earlier or malformed legend versions so only the
+     * final blue/yellow legend remains.
+     */
+    modalContent
+      .querySelectorAll(
+        ".drive-role-legend, .drive-map-legend"
+      )
+      .forEach(element=>element.remove());
+
+    const helper =
+      modalContent.querySelector(".drive-map-helper");
+
+    const mapButton =
+      modalContent.querySelector(
+        ".drive-map-image-button"
+      );
+
+    const holder = document.createElement("div");
+    holder.innerHTML = driveLegendMarkup().trim();
+
+    const legend = holder.firstElementChild;
+
+    if(helper){
+      helper.insertAdjacentElement("afterend",legend);
+    }
+    else if(mapButton){
+      mapButton.insertAdjacentElement("afterend",legend);
+    }
+    else{
+      modalContent.prepend(legend);
+    }
+  }
+
+  /*
+   * Detect which guided experience Craig selected.
+   */
+  document.addEventListener("click",function(event){
+    const standButton = event.target.closest(
+      '.hs-stand-maps, .hs-view-stand-maps'
+    );
+
+    if(standButton){
+      activeExperience = "stand";
+
+      room.classList.remove(
+        "maps-guide-stand",
+        "maps-guide-drive"
+      );
+
+      return;
+    }
+
+    const driveButton = event.target.closest(
+      '.hs-drive-maps, .hs-view-drive-maps'
+    );
+
+    if(driveButton){
+      activeExperience = "drive";
+
+      room.classList.remove(
+        "maps-guide-stand",
+        "maps-guide-drive"
+      );
+
+      window.setTimeout(ensureDriveLegend,50);
+    }
+  },true);
+
+  /*
+   * Watch both modal opening/closing and modal HTML replacement.
+   */
+  if(modalLayer){
+    const modalObserver = new MutationObserver(function(){
+      const modalOpen = !modalLayer.hidden;
+
+      if(modalOpen){
+        window.setTimeout(ensureDriveLegend,0);
+      }
+
+      /*
+       * The modal changed from open to closed.
+       */
+      if(previousModalOpen && !modalOpen){
+        if(activeExperience === "stand"){
+          activeExperience = "";
+          window.setTimeout(showDriveGuidance,250);
+        }
+        else if(activeExperience === "drive"){
+          activeExperience = "";
+          completeGuidance();
+        }
+      }
+
+      previousModalOpen = modalOpen;
+    });
+
+    modalObserver.observe(modalLayer,{
+      attributes:true,
+      attributeFilter:["hidden"],
+      childList:true,
+      subtree:true
+    });
+
+    previousModalOpen = !modalLayer.hidden;
+  }
+
+  if(modalContent){
+    const contentObserver = new MutationObserver(function(){
+      window.setTimeout(ensureDriveLegend,0);
+    });
+
+    contentObserver.observe(modalContent,{
+      childList:true,
+      subtree:true
+    });
+  }
+
+  /*
+   * Every page entry or refresh begins with Stand Maps.
+   */
+  showStandGuidance();
+})();
+</script>
+</body>
+</html>
