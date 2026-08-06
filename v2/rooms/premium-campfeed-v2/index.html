@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+
+  <title>CampFeed Room | DeerCamp V2</title>
+
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+  <script src="../../../firebase-web.js"></script>
+
+  <link
+    rel="stylesheet"
+    href="../premium-engine-v2/premium-engine.css?v=20260805-2008"
+  />
+  <link
+    rel="stylesheet"
+    href="../premium-engine-v2/universal-viewer.css?v=20260806-sprint2"
+  />
+</head>
+
+<body>
+  <main class="premium-v2-shell">
+    <section
+      class="premium-v2-stage"
+      aria-label="DeerCamp CampFeed Room"
+    >
+      <img
+        id="premiumRoomArtwork"
+        class="premium-v2-artwork"
+        src="./assets/campfeed-room.png"
+        alt="DeerCamp CampFeed Room with camp-wide activity, View and Discover actions, Create and Share actions, and room navigation."
+      />
+
+      <div class="premium-v2-identity">
+        <strong id="premiumCampName">
+          Loading camp...
+        </strong>
+
+        <span id="premiumCampLocation"></span>
+      </div>
+
+      <div
+        id="premiumHotspotLayer"
+        class="premium-v2-hotspot-layer"
+        aria-label="CampFeed room actions"
+      ></div>
+    </section>
+
+
+
+    <p
+      id="premiumError"
+      class="premium-v2-error"
+      hidden
+    ></p>
+  </main>
+  <dialog id="universalViewer" class="universal-viewer" aria-label="DeerCamp Memory Viewer">
+    <div class="memory-viewer-shell">
+      <header class="memory-viewer-header">
+        <div>
+          <p id="memoryViewerKicker" class="memory-viewer-kicker">MEMORY VIEWER</p>
+          <h2 id="memoryViewerCollectionTitle" class="memory-viewer-collection-title">DeerCamp Memories</h2>
+        </div>
+        <button id="universalViewerClose" class="universal-viewer-close" type="button">Close</button>
+      </header>
+
+      <div id="memoryViewerBody" class="memory-viewer-body">
+        <div id="memoryViewerEmpty" class="memory-viewer-empty" hidden></div>
+        <div id="memoryViewerContent" class="memory-viewer-content">
+          <section class="memory-viewer-hero-column">
+            <div id="memoryViewerHeroFrame" class="memory-viewer-hero-frame">
+              <img id="memoryViewerHero" class="memory-viewer-hero" alt="" hidden />
+              <div id="memoryViewerHeroPlaceholder" class="memory-viewer-hero-placeholder">DeerCamp memory</div>
+            </div>
+          </section>
+
+          <section class="memory-viewer-detail-column">
+            <h2 id="memoryViewerItemTitle" class="memory-viewer-item-title">Memory title</h2>
+            <p id="memoryViewerSubtitle" class="memory-viewer-subtitle"></p>
+            <div class="memory-viewer-byline">
+              <span id="memoryViewerAuthor"></span>
+              <span id="memoryViewerRoom"></span>
+              <span id="memoryViewerTimestamp"></span>
+            </div>
+
+            <section id="memoryViewerAudioSection" class="memory-viewer-section" hidden>
+              <h3>Listen</h3>
+              <audio id="memoryViewerAudio" class="memory-viewer-audio" controls preload="metadata"></audio>
+            </section>
+
+            <section id="memoryViewerTranscriptSection" class="memory-viewer-section">
+              <h3>Story</h3>
+              <p id="memoryViewerTranscript" class="memory-viewer-transcript"></p>
+            </section>
+
+            <section id="memoryViewerCommentsSection" class="memory-viewer-section" hidden>
+              <h3>Camp Comments</h3>
+              <div id="memoryViewerComments" class="memory-viewer-comments"></div>
+            </section>
+
+            <section id="memoryViewerTagsSection" class="memory-viewer-section" hidden>
+              <h3>Tags</h3>
+              <div id="memoryViewerTags" class="memory-viewer-tags"></div>
+            </section>
+
+            <section id="memoryViewerMetadataSection" class="memory-viewer-section" hidden>
+              <h3>Memory Details</h3>
+              <div id="memoryViewerMetadata" class="memory-viewer-metadata"></div>
+            </section>
+          </section>
+        </div>
+      </div>
+
+      <footer class="memory-viewer-footer">
+        <button id="memoryViewerPrevious" class="memory-viewer-nav-button" type="button">â† Previous</button>
+        <span id="memoryViewerPosition" class="memory-viewer-position">1 of 1</span>
+        <button id="memoryViewerNext" class="memory-viewer-nav-button" type="button">Next â†’</button>
+      </footer>
+    </div>
+  </dialog>
+
+
+  <dialog
+    id="premiumActionDialog"
+    class="premium-v2-dialog"
+  >
+    <div class="premium-v2-dialog-card">
+      <button
+        id="premiumDialogClose"
+        class="premium-v2-dialog-close"
+        type="button"
+      >
+        Close
+      </button>
+
+      <h2 id="premiumDialogTitle">
+        CampFeed Action
+      </h2>
+
+      <p id="premiumDialogMessage">
+        This interaction is ready for its production workflow.
+      </p>
+    </div>
+  </dialog>
+
+  <script src="./room-config.js?v=20260806-sprint2"></script>
+  <script src="../premium-engine-v2/premium-engine.js?v=20260806-sprint2"></script>
+  <script src="../premium-engine-v2/universal-viewer.js?v=20260806-1645"></script>
+  <script src="../premium-engine-v2/firestore-adapter.js?v=20260806-1725"></script>
+  <script src="../premium-engine-v2/viewer-state.js?v=20260806-1530"></script>
+  <script src="../premium-engine-v2/memory-provider.js?v=20260806-1555"></script>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const dialog =
+        document.getElementById("premiumActionDialog");
+
+      const dialogTitle =
+        document.getElementById("premiumDialogTitle");
+
+      const dialogMessage =
+        document.getElementById("premiumDialogMessage");
+
+      const closeButton =
+        document.getElementById("premiumDialogClose");
+
+      const errorMessage =
+        document.getElementById("premiumError");
+      document.addEventListener(
+        "deercamp:premium-action",
+        async function (event) {
+          const detail = event.detail || {};
+          const config = window.DEERCAMP_PREMIUM_ROOM || {};
+
+          if (detail.type === "view") {
+            const viewer =
+              config.viewers &&
+              config.viewers[detail.action];
+
+            if (!viewer) {
+              window.DeerCampUniversalViewer.showError(
+                `No viewer is configured for ${detail.label || detail.action}.`
+              );
+
+              return;
+            }
+
+            const campId =
+              window.DeerCampPremiumEngine &&
+              typeof window.DeerCampPremiumEngine.getCampId === "function"
+                ? window.DeerCampPremiumEngine.getCampId()
+                : "";
+
+            try {
+              const result =
+                await window.DeerCampMemoryProvider.load({
+                  campId,
+                  mode: viewer.mode,
+                  limit: 50
+                });
+
+              window.DeerCampUniversalViewer.show({
+                kicker: viewer.kicker,
+                title: viewer.title,
+                items: result.items,
+                selectedIndex: 0,
+                context: {
+                  campId,
+                  source: result.source,
+                  collection: result.collection,
+                  mode: viewer.mode
+                }
+              });
+            } catch (error) {
+              console.error(
+                "Live DeerCamp memories could not be loaded.",
+                error
+              );
+
+              window.DeerCampUniversalViewer.showError(
+                error.message ||
+                "Live DeerCamp memories could not be loaded."
+              );
+            }
+
+            return;
+          }
+
+          dialogTitle.textContent =
+            detail.label || "CampFeed Action";
+
+          dialogMessage.textContent =
+            `The ${detail.action || "selected"} workflow will be connected next.`;
+
+          if (
+            dialog &&
+            typeof dialog.showModal === "function"
+          ) {
+            dialog.showModal();
+          }
+        }
+      );
+      closeButton.addEventListener(
+        "click",
+        function () {
+          dialog.close();
+        }
+      );
+
+      dialog.addEventListener(
+        "click",
+        async function (event) {
+          if (event.target === dialog) {
+            dialog.close();
+          }
+        }
+      );
+
+      if (
+        window.DeerCampUniversalViewer &&
+        typeof window.DeerCampUniversalViewer.initialize === "function"
+      ) {
+        window.DeerCampUniversalViewer.initialize();
+      } else {
+        console.warn(
+          "Universal Viewer is unavailable; continuing with the Premium Room Engine."
+        );
+      }
+
+      window.DeerCampPremiumEngine
+        .initialize()
+        .catch(function (error) {
+          console.error(
+            "Premium CampFeed V2 initialization failed.",
+            error
+          );
+
+          errorMessage.hidden = false;
+          errorMessage.textContent =
+            error.message ||
+            "Premium CampFeed could not initialize.";
+        });
+    })();
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
