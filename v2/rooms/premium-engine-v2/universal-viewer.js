@@ -71,25 +71,111 @@
     container.appendChild(row);
   }
 
+  let heroRenderToken = 0;
+
+  function setHeroPlaceholder(frame, image, placeholder, message, stateClass) {
+    image.hidden = true;
+    image.classList.remove("is-loaded");
+
+    placeholder.hidden = false;
+    placeholder.textContent = message;
+
+    frame.classList.remove(
+      "has-image",
+      "is-loading",
+      "has-image-error"
+    );
+
+    if (stateClass) {
+      frame.classList.add(stateClass);
+    }
+  }
+
   function renderHero(item) {
     const frame = byId("memoryViewerHeroFrame");
     const image = byId("memoryViewerHero");
     const placeholder = byId("memoryViewerHeroPlaceholder");
-    if (!frame || !image || !placeholder) return;
 
-    if (item.heroImage) {
-      image.src = item.heroImage;
-      image.alt = item.imageAlt;
-      image.hidden = false;
-      placeholder.hidden = true;
-      frame.classList.add("has-image");
-    } else {
-      image.removeAttribute("src");
-      image.hidden = true;
-      placeholder.hidden = false;
-      placeholder.textContent = item.contentType === "voice" ? "Voice memory" : "DeerCamp memory";
-      frame.classList.remove("has-image");
+    if (!frame || !image || !placeholder) {
+      return;
     }
+
+    heroRenderToken += 1;
+    const currentToken = heroRenderToken;
+
+    image.onload = null;
+    image.onerror = null;
+    image.classList.remove("is-loaded");
+
+    if (!item.heroImage) {
+      image.removeAttribute("src");
+
+      setHeroPlaceholder(
+        frame,
+        image,
+        placeholder,
+        item.audioUrl
+          ? "Voice memory — no photo was captured."
+          : "No photo is available for this memory.",
+        ""
+      );
+
+      return;
+    }
+
+    frame.classList.remove(
+      "has-image",
+      "has-image-error"
+    );
+
+    frame.classList.add("is-loading");
+
+    image.hidden = false;
+    placeholder.hidden = false;
+    placeholder.textContent = "Loading memory photo…";
+
+    image.alt =
+      item.imageAlt ||
+      item.title ||
+      "DeerCamp memory";
+
+    image.onload = function () {
+      if (currentToken !== heroRenderToken) {
+        return;
+      }
+
+      frame.classList.remove(
+        "is-loading",
+        "has-image-error"
+      );
+
+      frame.classList.add("has-image");
+
+      placeholder.hidden = true;
+      image.hidden = false;
+
+      requestAnimationFrame(function () {
+        image.classList.add("is-loaded");
+      });
+    };
+
+    image.onerror = function () {
+      if (currentToken !== heroRenderToken) {
+        return;
+      }
+
+      image.removeAttribute("src");
+
+      setHeroPlaceholder(
+        frame,
+        image,
+        placeholder,
+        "Photo unavailable for this memory.",
+        "has-image-error"
+      );
+    };
+
+    image.src = item.heroImage;
   }
 
   function renderAudio(item) {
@@ -169,6 +255,42 @@
     entries.forEach(function (entry) { appendTextRow(list, entry[0], entry[1]); });
   }
 
+  function preloadImage(url) {
+    const cleanUrl = String(url || "").trim();
+
+    if (!cleanUrl) {
+      return;
+    }
+
+    const image = new Image();
+    image.decoding = "async";
+    image.src = cleanUrl;
+  }
+
+  function preloadAdjacentImages() {
+    if (state.items.length < 2) {
+      return;
+    }
+
+    const previousIndex =
+      (state.index - 1 + state.items.length) %
+      state.items.length;
+
+    const nextIndex =
+      (state.index + 1) %
+      state.items.length;
+
+    preloadImage(
+      state.items[previousIndex]?.heroImage
+    );
+
+    if (nextIndex !== previousIndex) {
+      preloadImage(
+        state.items[nextIndex]?.heroImage
+      );
+    }
+  }
+
   function renderCurrent() {
     if (!state.items.length) {
       showError("No matching DeerCamp memories were found.");
@@ -194,8 +316,17 @@
 
     const previous = byId("memoryViewerPrevious");
     const next = byId("memoryViewerNext");
-    if (previous) previous.disabled = state.items.length < 2;
-    if (next) next.disabled = state.items.length < 2;
+    if (previous) {
+      previous.disabled = state.items.length < 2;
+      previous.textContent = "Previous";
+    }
+
+    if (next) {
+      next.disabled = state.items.length < 2;
+      next.textContent = "Next";
+    }
+
+    preloadAdjacentImages();
   }
 
   function show(options = {}) {
@@ -272,5 +403,7 @@
   window.DeerCampMemoryViewer = api;
   window.DeerCampUniversalViewer = api;
 })();
+
+
 
 
