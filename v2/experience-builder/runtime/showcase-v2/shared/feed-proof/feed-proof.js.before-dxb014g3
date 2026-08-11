@@ -1,0 +1,124 @@
+﻿(function () {
+  "use strict";
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const slug =
+    params.get("experience") ||
+    "";
+
+  const returnTo =
+    params.get("returnTo") ||
+    "";
+
+  const key =
+    `dxb.${slug}.demoPosts`;
+
+  let posts = [];
+
+  try {
+    posts =
+      JSON.parse(
+        localStorage.getItem(
+          key
+        ) ||
+        "[]"
+      );
+  }
+  catch {
+    posts = [];
+  }
+
+  const root =
+    document.querySelector(
+      "[data-feed-list]"
+    );
+
+  posts.slice(0,3)
+    .forEach(post => {
+
+      const card =
+        document.createElement(
+          "article"
+        );
+
+      card.className =
+        "feed-card";
+
+      card.innerHTML =
+        `
+          ${
+            post.imageUrl
+              ? `
+                <img
+                  src="${post.imageUrl}"
+                  alt="">
+              `
+              : ""
+          }
+
+          <div class="feed-card-body">
+
+            <div class="feed-meta">
+              ${post.author}
+              ·
+              ${
+                post.type ===
+                "conversation"
+                  ? "Conversation"
+                  : "Story"
+              }
+              · Just now
+            </div>
+
+            <h2>
+              ${post.title}
+            </h2>
+
+            ${
+              post.body
+                ? `
+                  <p>
+                    ${post.body}
+                  </p>
+                `
+                : ""
+            }
+
+            ${
+              post.voiceRecorded
+                ? `
+                  <p>
+                    🎙 Voice attached
+                  </p>
+                `
+                : ""
+            }
+
+          </div>
+        `;
+
+      root.appendChild(
+        card
+      );
+    });
+
+  document
+    .querySelector(
+      "[data-continue]"
+    )
+    .addEventListener(
+      "click",
+      () => {
+
+        if (returnTo) {
+          window.location.href =
+            returnTo;
+        }
+
+      }
+    );
+})();

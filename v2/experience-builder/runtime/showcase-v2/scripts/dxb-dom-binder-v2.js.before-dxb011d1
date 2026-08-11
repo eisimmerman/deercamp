@@ -1,0 +1,693 @@
+﻿(function () {
+  "use strict";
+
+  const VERSION =
+    "2.0.0";
+
+  function clean(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  function text(selector, value) {
+    const element =
+      document.querySelector(
+        selector
+      );
+
+    if (element) {
+      element.textContent =
+        clean(value);
+    }
+  }
+
+  function setImage(
+    selector,
+    src,
+    alt
+  ) {
+    const image =
+      document.querySelector(
+        selector
+      );
+
+    if (!image) {
+      return;
+    }
+
+    if (clean(src)) {
+      image.src =
+        clean(src);
+    }
+
+    if (clean(alt)) {
+      image.alt =
+        clean(alt);
+    }
+  }
+
+  function bindDocument(
+    experience
+  ) {
+    const campName =
+      clean(
+        experience?.identity
+          ?.campName
+      ) ||
+      "DeerCamp";
+
+    document.title =
+      `${campName} - DeerCamp Showcase`;
+
+    const root =
+      document.querySelector(
+        "[data-dxb-experience]"
+      );
+
+    if (root) {
+      root.dataset.experience =
+        clean(
+          experience?.slug
+        );
+    }
+  }
+
+  function bindWelcome(
+    experience
+  ) {
+    const opening =
+      experience?.showcase
+        ?.opening ||
+      {};
+
+    setImage(
+      "[data-dxb-opening-image]",
+      opening.portraitImage,
+      `Private ${
+        clean(
+          experience?.identity
+            ?.campName
+        ) ||
+        "DeerCamp"
+      } showcase`
+    );
+
+    text(
+      "[data-dxb-opening-eyebrow]",
+      opening.eyebrow
+    );
+
+    text(
+      "[data-dxb-opening-title]",
+      opening.title
+    );
+
+    text(
+      "[data-dxb-opening-body]",
+      opening.body
+    );
+
+    text(
+      "[data-dxb-opening-cta]",
+      opening.continueLabel ||
+      "Enter DeerCamp"
+    );
+  }
+
+  function bindAbout(
+    experience
+  ) {
+    const about =
+      experience?.showcase
+        ?.about ||
+      {};
+
+    const fallbackImage =
+      experience?.showcase
+        ?.opening
+        ?.aboutImage;
+
+    setImage(
+      "[data-dxb-about-image]",
+      about.image ||
+      fallbackImage,
+      about.subject
+        ? `About ${about.subject}`
+        : "About this DeerCamp showcase"
+    );
+
+    text(
+      "[data-dxb-about-eyebrow]",
+      about.eyebrow
+    );
+
+    text(
+      "[data-dxb-about-title]",
+      about.title
+    );
+
+    text(
+      "[data-dxb-about-subject]",
+      about.subject
+    );
+
+    text(
+      "[data-dxb-about-body]",
+      about.body
+    );
+
+    text(
+      "[data-dxb-about-disclaimer]",
+      about.disclaimer
+    );
+
+    text(
+      "[data-dxb-about-continue]",
+      about.continueLabel ||
+      experience?.showcase
+        ?.opening
+        ?.continueLabel ||
+      "Continue"
+    );
+  }
+
+  function bindIntro(
+    experience
+  ) {
+    const video =
+      document.querySelector(
+        "[data-dxb-intro-video]"
+      );
+
+    if (!video) {
+      return;
+    }
+
+    const url =
+      clean(
+        experience?.showcase
+          ?.opening
+          ?.introVideo
+      );
+
+    if (url) {
+      video.src =
+        url;
+    }
+    else {
+      video.removeAttribute(
+        "src"
+      );
+    }
+  }
+
+  function bindTabletop(
+    experience
+  ) {
+    const tabletop =
+      experience?.showcase
+        ?.tabletop ||
+      {};
+
+    setImage(
+      "[data-dxb-tabletop-art]",
+      tabletop.artwork,
+      `${
+        clean(
+          tabletop.campName
+        ) ||
+        clean(
+          experience?.identity
+            ?.campName
+        ) ||
+        "DeerCamp"
+      } tabletop`
+    );
+
+    text(
+      "[data-dxb-tabletop-camp-name]",
+      tabletop.campName ||
+      experience?.identity
+        ?.campName
+    );
+
+    text(
+      "[data-dxb-tabletop-subtitle]",
+      tabletop.subtitle
+    );
+
+    text(
+      "[data-dxb-tabletop-guidance]",
+      tabletop.startGuidance ||
+      tabletop.guidance
+    );
+  }
+
+  function enabledRooms(
+    experience
+  ) {
+    return (
+      Array.isArray(
+        experience?.rooms
+      )
+        ? experience.rooms
+        : []
+    )
+      .filter(
+        room =>
+          room &&
+          room.enabled !== false
+      )
+      .sort(
+        (a, b) =>
+          Number(
+            a.order || 0
+          ) -
+          Number(
+            b.order || 0
+          )
+      );
+  }
+
+  function roomRoute(
+    room
+  ) {
+    if (
+      clean(
+        room?.route
+      )
+    ) {
+      return clean(
+        room.route
+      );
+    }
+
+    if (
+      clean(
+        room?.routes?.v2
+      )
+    ) {
+      return clean(
+        room.routes.v2
+      );
+    }
+
+    return "";
+  }
+
+  function bindRoomLauncher(
+    experience,
+    roomRegistry
+  ) {
+    const launcher =
+      document.querySelector(
+        "[data-dxb-room-launcher]"
+      );
+
+    if (!launcher) {
+      return;
+    }
+
+    launcher.innerHTML =
+      "";
+
+    const startRoom =
+      clean(
+        experience?.showcase
+          ?.tabletop
+          ?.startRoom
+      );
+
+    enabledRooms(
+      experience
+    ).forEach(room => {
+      const registryRoom =
+        Array.isArray(
+          roomRegistry?.rooms
+        )
+          ? roomRegistry.rooms.find(
+              item =>
+                item.id ===
+                room.id
+            )
+          : null;
+
+      const href =
+        roomRoute(room) ||
+        roomRoute(
+          registryRoom
+        );
+
+      const item =
+        document.createElement(
+          href
+            ? "a"
+            : "button"
+        );
+
+      item.className =
+        "dxb-room-card";
+
+      item.dataset.roomId =
+        clean(
+          room.id
+        );
+
+      if (
+        room.id === startRoom
+      ) {
+        item.classList.add(
+          "is-start-room"
+        );
+      }
+
+      const progress =
+        window.DeerCampDXBProgress
+          ?.read(
+            experience
+          );
+
+      if (
+        progress?.completed
+          ?.includes(
+            room.id
+          )
+      ) {
+        item.classList.add(
+          "is-complete"
+        );
+      }
+
+      if (
+        progress?.current ===
+        room.id
+      ) {
+        item.classList.add(
+          "is-current"
+        );
+      }
+
+      if (href) {
+        const separator =
+          href.includes("?")
+            ? "&"
+            : "?";
+
+        item.href =
+          `${href}${separator}experience=${encodeURIComponent(
+            clean(
+              experience.slug
+            )
+          )}`;
+      }
+      else {
+        item.type =
+          "button";
+
+        item.disabled =
+          true;
+
+        item.classList.add(
+          "is-unavailable"
+        );
+      }
+
+      const label =
+        clean(
+          room.label
+        ) ||
+        clean(
+          registryRoom?.label
+        ) ||
+        clean(
+          room.id
+        );
+
+      const description =
+        clean(
+          room.description
+        ) ||
+        clean(
+          registryRoom?.description
+        );
+
+      item.innerHTML =
+        `
+          <span class="dxb-room-label">
+            ${label}
+          </span>
+
+          ${
+            description
+              ? `
+                <span class="dxb-room-description">
+                  ${description}
+                </span>
+              `
+              : ""
+          }
+
+          ${
+            progress?.completed
+              ?.includes(
+                room.id
+              )
+              ? `
+                <span class="dxb-room-state is-complete-label">
+                  Complete
+                </span>
+              `
+              : progress?.current ===
+                  room.id
+                ? `
+                  <span class="dxb-room-state is-current-label">
+                    Next
+                  </span>
+                `
+                : room.id === startRoom
+                  ? `
+                    <span class="dxb-room-start">
+                      Start Here
+                    </span>
+                  `
+                  : ""
+          }
+        `;
+
+      launcher.appendChild(
+        item
+      );
+    });
+  }
+
+  async function bindJourneyLauncher(
+    experience
+  ) {
+    const title =
+      document.querySelector(
+        "[data-dxb-journey-title]"
+      );
+
+    const intro =
+      document.querySelector(
+        "[data-dxb-journey-intro]"
+      );
+
+    const list =
+      document.querySelector(
+        "[data-dxb-journey-list]"
+      );
+
+    if (!list) {
+      return;
+    }
+
+    const url =
+      clean(
+        experience?.journeyContentUrl
+      );
+
+    if (!url) {
+      list.innerHTML =
+        "<p>No Journey package configured.</p>";
+
+      return;
+    }
+
+    try {
+      const response =
+        await fetch(
+          url,
+          {
+            cache: "no-store"
+          }
+        );
+
+      if (!response.ok) {
+        throw new Error(
+          `${url} (${response.status})`
+        );
+      }
+
+      const journey =
+        await response.json();
+
+      if (title) {
+        title.textContent =
+          clean(
+            journey?.identity
+              ?.label
+          ) ||
+          "Journeys";
+      }
+
+      if (intro) {
+        intro.textContent =
+          clean(
+            journey?.identity
+              ?.intro
+          );
+      }
+
+      const featured =
+        Array.isArray(
+          journey?.featured
+        )
+          ? journey.featured
+          : [];
+
+      list.innerHTML =
+        "";
+
+      featured.forEach(item => {
+        const card =
+          document.createElement(
+            "article"
+          );
+
+        card.className =
+          "dxb-journey-card";
+
+        card.innerHTML =
+          `
+            <div class="dxb-journey-card-priority">
+              ${Number(item.priority || 0)}
+            </div>
+
+            <h2>
+              ${clean(item.title)}
+            </h2>
+
+            <p>
+              ${clean(item.subtitle)}
+            </p>
+
+            <div class="dxb-journey-stop-count">
+              ${
+                Array.isArray(
+                  item.stops
+                )
+                  ? item.stops.length
+                  : 0
+              } stops
+            </div>
+          `;
+
+        list.appendChild(
+          card
+        );
+      });
+    }
+    catch (error) {
+      console.error(
+        "DXB Journey binding failed:",
+        error
+      );
+
+      list.innerHTML =
+        "<p>Journey content could not load.</p>";
+    }
+  }
+
+  async function bind(
+    experience,
+    roomRegistry
+  ) {
+    if (!experience) {
+      throw new Error(
+        "DXB Binder v2 requires an experience."
+      );
+    }
+
+    bindDocument(
+      experience
+    );
+
+    bindWelcome(
+      experience
+    );
+
+    bindAbout(
+      experience
+    );
+
+    bindIntro(
+      experience
+    );
+
+    bindTabletop(
+      experience
+    );
+
+    bindRoomLauncher(
+      experience,
+      roomRegistry
+    );
+
+    await bindJourneyLauncher(
+      experience
+    );
+
+    window.dispatchEvent(
+      new CustomEvent(
+        "deercamp:dxb-dom-bound",
+        {
+          detail: {
+            version:
+              VERSION,
+
+            experience,
+            roomRegistry
+          }
+        }
+      )
+    );
+
+    return {
+      version:
+        VERSION,
+
+      experience:
+        clean(
+          experience.slug
+        ),
+
+      roomCount:
+        enabledRooms(
+          experience
+        ).length
+    };
+  }
+
+  window.DeerCampDXBDOMBinderV2 = {
+    version:
+      VERSION,
+
+    bind
+  };
+})();
+
+

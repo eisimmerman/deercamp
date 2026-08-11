@@ -1,0 +1,486 @@
+﻿<!doctype html>
+<html lang="en">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1">
+
+  <title>DeerCamp CampFeed</title>
+
+  <link
+    rel="stylesheet"
+    href="./feed-proof.css">
+
+</head>
+
+<body>
+
+  <main class="feed-proof">
+
+    <p class="eyebrow">
+      CAMPFEED
+    </p>
+
+    <h1>
+      There it is.
+    </h1>
+
+    <p class="intro">
+      The post you just created is now part of Camp Rinella.
+    </p>
+
+    <section
+      class="feed-list"
+      data-feed-list>
+    </section>
+
+    <button
+      type="button"
+      data-continue>
+      Continue to CampFire
+    </button>
+
+  </main>
+
+  <script
+    src="./feed-proof.js?v=20260810-dxb014g">
+  </script>
+
+<script>
+(function () {
+  "use strict";
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const experience =
+    params.get("experience") ||
+    "steve-rinella";
+
+
+  function campfireUrl() {
+    return (
+      "/v2/experience-builder/runtime/showcase-v2/rooms/campfire/index.html" +
+      "?experience=" +
+      encodeURIComponent(experience) +
+      "&v=20260811-dxb016h"
+    );
+  }
+
+
+  function bindContinueToCampFire() {
+    const controls =
+      Array.from(
+        document.querySelectorAll(
+          "button, a, [role='button']"
+        )
+      );
+
+
+    const control =
+      controls.find(
+        element =>
+          String(
+            element.textContent ||
+            ""
+          )
+            .trim()
+            .toLowerCase()
+            .includes(
+              "continue to campfire"
+            )
+      );
+
+
+    if (!control) {
+      console.warn(
+        "DXB-016H Continue to CampFire control not found."
+      );
+
+      return;
+    }
+
+
+    control.style.cursor =
+      "pointer";
+
+
+    control.addEventListener(
+      "click",
+      event => {
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        window.location.href =
+          campfireUrl();
+      }
+    );
+
+
+    console.log(
+      "DXB-016H CampFire return ready:",
+      campfireUrl()
+    );
+  }
+
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      bindContinueToCampFire,
+      {
+        once: true
+      }
+    );
+  }
+  else {
+    bindContinueToCampFire();
+  }
+
+})();
+</script>
+
+<script>
+(function () {
+  "use strict";
+
+  const params =
+    new URLSearchParams(
+      window.location.search
+    );
+
+  const source =
+    (
+      params.get("source") ||
+      ""
+    ).trim();
+
+  const requestedPostId =
+    (
+      params.get("post") ||
+      ""
+    ).trim();
+
+
+  if (
+    source !== "archives" ||
+    !requestedPostId
+  ) {
+    return;
+  }
+
+
+  const POSTS_KEY =
+    "deercamp.dxb.archives.demoPosts";
+
+
+  function readArchivePosts() {
+    try {
+
+      const posts =
+        JSON.parse(
+          localStorage.getItem(
+            POSTS_KEY
+          ) ||
+          "[]"
+        );
+
+      return Array.isArray(posts)
+        ? posts
+        : [];
+
+    }
+    catch (error) {
+
+      console.error(
+        "DXB-016L archive posts read failed:",
+        error
+      );
+
+      return [];
+    }
+  }
+
+
+  function escapeHtml(value) {
+    return String(
+      value == null ? "" : value
+    )
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;");
+  }
+
+
+  function findRequestedPost() {
+    return (
+      readArchivePosts().find(
+        post =>
+          String(
+            post?.id ||
+            ""
+          ) === requestedPostId
+      ) ||
+      null
+    );
+  }
+
+
+  function renderArchiveProof() {
+    const post =
+      findRequestedPost();
+
+    if (!post) {
+
+      console.warn(
+        "DXB-016L requested Archives post not found:",
+        requestedPostId
+      );
+
+      return;
+    }
+
+
+    /*
+      Replace the visible proof content rather than relying
+      on the older default CampFeed demo source.
+    */
+
+    const main =
+      document.querySelector(
+        "main"
+      ) ||
+      document.body;
+
+
+    main.innerHTML =
+      `
+        <section
+          style="
+            width:min(880px,92vw);
+            margin:0 auto;
+            padding:24px 0 48px;
+          "
+        >
+
+          <p
+            style="
+              margin:0 0 10px;
+              color:#d9a54c;
+              font-size:.78rem;
+              font-weight:700;
+              letter-spacing:.12em;
+            "
+          >
+            CAMPFEED
+          </p>
+
+          <h1
+            style="
+              margin:0 0 12px;
+              color:#f0d5a3;
+              font-family:Georgia,serif;
+              font-size:clamp(3rem,7vw,5rem);
+              line-height:1;
+            "
+          >
+            There it is.
+          </h1>
+
+          <p
+            style="
+              margin:0 0 30px;
+              color:#f0d5a3;
+              font-family:Georgia,serif;
+              font-size:1rem;
+            "
+          >
+            The post you just created is now part of Camp Rinella.
+          </p>
+
+
+          <article
+            style="
+              overflow:hidden;
+              border:1px solid rgba(212,154,56,.60);
+              border-radius:18px;
+              background:#1b0e07;
+            "
+          >
+
+            ${
+              post.imageUrl
+                ? `
+                  <img
+                    src="${escapeHtml(post.imageUrl)}"
+                    alt=""
+                    style="
+                      display:block;
+                      width:100%;
+                      max-height:620px;
+                      object-fit:contain;
+                      background:#080603;
+                    "
+                  >
+                `
+                : ""
+            }
+
+
+            <div
+              style="
+                padding:22px 24px;
+              "
+            >
+
+              <p
+                style="
+                  margin:0 0 12px;
+                  color:#d6ae6d;
+                  font-size:.82rem;
+                "
+              >
+                Steve · Archive Memory · Just now
+              </p>
+
+              <h2
+                style="
+                  margin:0 0 14px;
+                  color:#f0d5a3;
+                  font-family:Georgia,serif;
+                  font-size:2rem;
+                "
+              >
+                ${escapeHtml(post.title)}
+              </h2>
+
+              ${
+                post.story
+                  ? `
+                    <p
+                      style="
+                        color:#e3c997;
+                        line-height:1.5;
+                      "
+                    >
+                      ${escapeHtml(post.story)}
+                    </p>
+                  `
+                  : ""
+              }
+
+              ${
+                post.hasVoice
+                  ? `
+                    <p
+                      style="
+                        margin:12px 0 0;
+                        color:#e0ab50;
+                      "
+                    >
+                      🎙 Voice story
+                    </p>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          </article>
+
+
+          <button
+            type="button"
+            data-dxb-continue-campfire
+            style="
+              margin-top:28px;
+              padding:12px 20px;
+              border:1px solid #d49a38;
+              border-radius:999px;
+              background:#6f4214;
+              color:#f0d5a3;
+              font-family:Georgia,serif;
+              cursor:pointer;
+            "
+          >
+            Continue to CampFire
+          </button>
+
+        </section>
+      `;
+
+
+    const continueButton =
+      document.querySelector(
+        "[data-dxb-continue-campfire]"
+      );
+
+
+    continueButton
+      ?.addEventListener(
+        "click",
+        () => {
+
+          window.location.href =
+            "/v2/experience-builder/runtime/showcase-v2/rooms/campfire/index.html" +
+            "?experience=steve-rinella" +
+            "&v=20260811-dxb016l";
+        }
+      );
+
+
+    console.log(
+      "DXB-016L exact Archives post rendered:",
+      {
+        id:
+          post.id,
+
+        title:
+          post.title,
+
+        imageUrl:
+          post.imageUrl
+      }
+    );
+  }
+
+
+  if (
+    document.readyState ===
+    "loading"
+  ) {
+
+    document.addEventListener(
+      "DOMContentLoaded",
+      renderArchiveProof,
+      {
+        once: true
+      }
+    );
+
+  }
+  else {
+
+    renderArchiveProof();
+
+  }
+
+})();
+</script>
+
+</body>
+</html>
+
+

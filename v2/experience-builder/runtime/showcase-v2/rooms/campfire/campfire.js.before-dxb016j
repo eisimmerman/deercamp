@@ -1,0 +1,590 @@
+﻿(function () {
+  "use strict";
+
+  function clean(value) {
+    return String(
+      value == null ? "" : value
+    ).trim();
+  }
+
+  function query(name) {
+    return clean(
+      new URLSearchParams(
+        window.location.search
+      ).get(name)
+    );
+  }
+
+  function text(selector, value) {
+    const element =
+      document.querySelector(selector);
+
+    if (element) {
+      element.textContent =
+        clean(value);
+    }
+  }
+
+  async function fetchJson(url) {
+    const response =
+      await fetch(
+        url,
+        { cache: "no-store" }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `${url} (${response.status})`
+      );
+    }
+
+    return await response.json();
+  }
+
+  async function load() {
+    const slug =
+      query("experience");
+
+    if (!slug) {
+      throw new Error(
+        "CampFire requires ?experience=<slug>"
+      );
+    }
+
+    const experienceUrl =
+      `/v2/experience-builder/experiences/${encodeURIComponent(slug)}/experience.json`;
+
+    const experience =
+      await fetchJson(
+        experienceUrl
+      );
+
+    const room =
+      Array.isArray(
+        experience.rooms
+      )
+        ? experience.rooms.find(
+            item =>
+              item?.id === "campfire"
+          )
+        : null;
+
+    const contentUrl =
+      clean(room?.contentUrl) ||
+      `/v2/experience-builder/experiences/${encodeURIComponent(slug)}/content/campfire/content.json`;
+
+    const content =
+      await fetchJson(
+        contentUrl
+      );
+
+    window.DeerCampDXBCampFire = {
+      experience,
+      room,
+      content
+    };
+
+    render(
+      experience,
+      room,
+      content
+    );
+  }
+
+  function render(
+    experience,
+    room,
+    content
+  ) {
+    const campName =
+      clean(
+        experience?.showcase
+          ?.tabletop
+          ?.campName
+      ) ||
+      clean(
+        experience?.identity
+          ?.campName
+      ) ||
+      "DeerCamp";
+
+    document.title =
+      `${campName} - CampFire`;
+
+    text(
+      "[data-campfire-camp-name]",
+      campName
+    );
+
+    text(
+      "[data-campfire-title]",
+      content?.identity?.label ||
+      "CampFire"
+    );
+
+    text(
+      "[data-campfire-intro]",
+      content?.identity?.intro
+    );
+
+    const featuredItems =
+      Array.isArray(
+        content?.featured
+      )
+        ? content.featured
+        : [];
+
+    const configuredHeroId =
+      clean(
+        content?.hero
+          ?.featuredAssetId
+      );
+
+    const hero =
+      featuredItems.find(
+        item =>
+          clean(item?.assetId) ===
+          configuredHeroId
+      ) ||
+      featuredItems[0] ||
+      null;
+
+    const heroImage =
+      document.querySelector(
+        "[data-campfire-hero-image]"
+      );
+
+    if (heroImage) {
+
+      const image =
+        clean(
+          hero?.assetUrl
+        );
+
+      if (image) {
+        heroImage.src =
+          image;
+      }
+
+      heroImage.alt =
+        clean(hero?.title) ||
+        "Featured CampFire story";
+
+      heroImage.style.objectFit =
+        clean(
+          content?.hero
+            ?.imageFit
+        ) ||
+        "cover";
+
+      heroImage.style.objectPosition =
+        clean(
+          content?.hero
+            ?.imagePosition
+        ) ||
+        "center";
+    }
+
+    text(
+      "[data-campfire-hero-kicker]",
+      content?.hero
+        ?.kicker ||
+      "STORIES WORTH PASSING DOWN"
+    );
+
+    text(
+      "[data-campfire-hero-title]",
+      hero?.title ||
+      "Featured Story"
+    );
+
+    text(
+      "[data-campfire-hero-copy]",
+      hero?.subtitle
+    );
+
+    text(
+      "[data-campfire-hero-quote]",
+      content?.hero
+        ?.quote
+    );
+
+    text(
+      "[data-campfire-hero-button-label]",
+      content?.hero
+        ?.buttonLabel ||
+      "Explore Story"
+    );
+
+    bindHeroStoryButton(
+      experience,
+      room,
+      hero
+    );
+
+    bindCreateStory(
+      experience,
+      room
+    );
+
+    const featured =
+      document.querySelector(
+        "[data-campfire-featured]"
+      );
+
+    if (featured) {
+      featured.innerHTML = "";
+
+      (
+        Array.isArray(
+          content?.featured
+        )
+          ? content.featured
+          : []
+      ).forEach(item => {
+
+        const card =
+          document.createElement(
+            "article"
+          );
+
+        card.className =
+          "campfire-card";
+
+        card.tabIndex =
+          0;
+
+        card.setAttribute(
+          "role",
+          "button"
+        );
+
+        card.setAttribute(
+          "aria-label",
+          `Explore ${clean(item?.title) || "story"}`
+        );
+
+        card.dataset.storyId =
+          clean(
+            item?.assetId
+          ) ||
+          clean(
+            item?.id
+          );
+
+        card.addEventListener(
+          "click",
+          () => {
+            openStory(
+              experience,
+              room,
+              item
+            );
+          }
+        );
+
+        card.addEventListener(
+          "keydown",
+          event => {
+            if (
+              event.key !== "Enter" &&
+              event.key !== " "
+            ) {
+              return;
+            }
+
+            event.preventDefault();
+
+            openStory(
+              experience,
+              room,
+              item
+            );
+          }
+        );
+
+        const image =
+          clean(item.assetUrl);
+
+        card.innerHTML =
+          `
+            ${
+              image
+                ? `
+                  <img
+                    src="${image}"
+                    alt="${clean(item.title)}">
+                `
+                : ""
+            }
+
+            <div class="campfire-card-copy">
+
+              <h3>
+                ${clean(item.title)}
+              </h3>
+
+              <p>
+                ${clean(item.subtitle)}
+              </p>
+
+              ${
+                clean(
+                  item.discussionPrompt
+                )
+                  ? `
+                    <p class="campfire-prompt">
+                      ${clean(item.discussionPrompt)}
+                    </p>
+                  `
+                  : ""
+              }
+
+            </div>
+          `;
+
+        featured.appendChild(card);
+      });
+    }
+
+    const topics =
+      document.querySelector(
+        "[data-campfire-topics]"
+      );
+
+    if (topics) {
+      topics.innerHTML = "";
+
+      (
+        Array.isArray(
+          content?.topics
+        )
+          ? content.topics
+          : []
+      ).forEach(topic => {
+
+        const card =
+          document.createElement(
+            "div"
+          );
+
+        card.className =
+          "campfire-topic";
+
+        card.textContent =
+          clean(topic.title);
+
+        topics.appendChild(card);
+      });
+    }
+
+    text(
+      "[data-campfire-create-label]",
+      content?.create?.label ||
+      "Join the Conversation"
+    );
+
+    text(
+      "[data-campfire-disclaimer]",
+      content?.disclaimer?.enabled
+        ? content.disclaimer.text
+        : ""
+    );
+  }
+
+  function buildStoryViewerUrl(
+    experience,
+    room,
+    story
+  ) {
+    const viewer =
+      "/v2/experience-builder/runtime/showcase-v2/shared/story-viewer/index.html";
+
+    const currentRoomUrl =
+      window.location.href;
+
+    const params =
+      new URLSearchParams();
+
+    params.set(
+      "experience",
+      clean(
+        experience?.slug
+      )
+    );
+
+    params.set(
+      "room",
+      clean(
+        room?.id
+      ) ||
+      "campfire"
+    );
+
+    params.set(
+      "story",
+      clean(
+        story?.assetId
+      ) ||
+      clean(
+        story?.id
+      )
+    );
+
+    params.set(
+      "returnTo",
+      currentRoomUrl
+    );
+
+    return (
+      `${viewer}?${params.toString()}`
+    );
+  }
+
+  function openStory(
+    experience,
+    room,
+    story
+  ) {
+    if (!story) {
+      return;
+    }
+
+    const storyId =
+      clean(
+        story?.assetId
+      ) ||
+      clean(
+        story?.id
+      );
+
+    if (!storyId) {
+      console.warn(
+        "DXB CampFire story has no id:",
+        story
+      );
+
+      return;
+    }
+
+    window.location.href =
+      buildStoryViewerUrl(
+        experience,
+        room,
+        story
+      );
+  }
+
+  function bindHeroStoryButton(
+    experience,
+    room,
+    story
+  ) {
+    const button =
+      document.querySelector(
+        "[data-campfire-hero-button]"
+      );
+
+    if (
+      !button ||
+      !story
+    ) {
+      return;
+    }
+
+    button.addEventListener(
+      "click",
+      () => {
+        openStory(
+          experience,
+          room,
+          story
+        );
+      }
+    );
+  }
+
+  function buildCaptureUrl(
+    experience,
+    room,
+    captureId
+  ) {
+    const viewer =
+      "/v2/experience-builder/runtime/showcase-v2/shared/capture/index.html";
+
+    const params =
+      new URLSearchParams();
+
+    params.set(
+      "experience",
+      clean(
+        experience?.slug
+      )
+    );
+
+    params.set(
+      "room",
+      clean(
+        room?.id
+      ) ||
+      "campfire"
+    );
+
+    params.set(
+      "capture",
+      captureId
+    );
+
+    params.set(
+      "returnTo",
+      window.location.href
+    );
+
+    return (
+      `${viewer}?${params.toString()}`
+    );
+  }
+
+  function bindCreateStory(
+    experience,
+    room
+  ) {
+    document
+      .querySelectorAll(
+        ".campfire-create-button"
+      )
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () => {
+            window.location.href =
+              buildCaptureUrl(
+                experience,
+                room,
+                "add-story"
+              );
+          }
+        );
+
+      });
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      load().catch(error => {
+        console.error(
+          "DXB CampFire failed:",
+          error
+        );
+      });
+    }
+  );
+})();
+
+
+
+
+
+

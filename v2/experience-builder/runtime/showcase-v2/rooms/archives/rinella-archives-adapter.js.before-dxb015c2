@@ -1,0 +1,439 @@
+﻿(function () {
+  "use strict";
+
+  const STATE = {
+    content: null
+  };
+
+  function getContent() {
+    return (
+      STATE.content ||
+      window.DeerCampDXBArchiveContent ||
+      null
+    );
+  }
+
+  function getFeatured() {
+    const content = getContent();
+
+    return Array.isArray(content?.featured)
+      ? content.featured
+      : [];
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function archiveViewer() {
+    return window.DeerCampRoomModal?.create?.();
+  }
+
+  function openArchiveItem(item) {
+    if (!item) return;
+
+    const viewer = archiveViewer();
+
+    if (!viewer) {
+      console.warn(
+        "DXB-015B: Archive viewer unavailable."
+      );
+      return;
+    }
+
+    const title =
+      item.title ||
+      "Archive Story";
+
+    const subtitle =
+      item.subtitle ||
+      "";
+
+    const prompt =
+      item.storyPrompt ||
+      "Every hunting life leaves stories worth preserving.";
+
+    const image =
+      item.assetUrl ||
+      "";
+
+    const type =
+      item.type ||
+      "archive";
+
+    const theme =
+      item.theme ||
+      "legacy";
+
+    viewer.open({
+      heading: title,
+
+      html: `
+        <article class="rinella-archive-story">
+
+          ${
+            image
+              ? `
+                <figure
+                  class="rinella-archive-story-image">
+
+                  <img
+                    src="${escapeHtml(image)}"
+                    alt="${escapeHtml(title)}">
+
+                </figure>
+              `
+              : ""
+          }
+
+          <section
+            class="rinella-archive-story-copy">
+
+            <p
+              class="artifact-kicker">
+              STEVE RINELLA ARCHIVES
+            </p>
+
+            <h3>
+              ${escapeHtml(title)}
+            </h3>
+
+            ${
+              subtitle
+                ? `
+                  <p
+                    class="rinella-archive-subtitle">
+                    ${escapeHtml(subtitle)}
+                  </p>
+                `
+                : ""
+            }
+
+            <p>
+              ${escapeHtml(prompt)}
+            </p>
+
+            <div
+              class="rinella-archive-meta">
+
+              <span>
+                ${escapeHtml(type)}
+              </span>
+
+              <span>
+                ${escapeHtml(theme)}
+              </span>
+
+            </div>
+
+          </section>
+
+          <div
+            class="room-modal-actions">
+
+            <button
+              class="room-action-btn primary"
+              type="button"
+              data-rinella-archive-close>
+
+              Back to Archives
+
+            </button>
+
+          </div>
+
+        </article>
+      `
+    });
+
+    window.setTimeout(
+      () => {
+
+        document
+          .querySelector(
+            "[data-rinella-archive-close]"
+          )
+          ?.addEventListener(
+            "click",
+            () => viewer.close()
+          );
+
+      },
+      0
+    );
+  }
+
+  function openArchiveCollection() {
+    const items = getFeatured();
+
+    if (!items.length) {
+      console.warn(
+        "DXB-015B: No featured Archives content."
+      );
+      return;
+    }
+
+    const viewer = archiveViewer();
+
+    if (!viewer) return;
+
+    const cards =
+      items
+        .map(
+          (item, index) => `
+            <button
+              class="demo-card rinella-archive-card"
+              type="button"
+              data-rinella-archive-item="${index}">
+
+              ${
+                item.assetUrl
+                  ? `
+                    <img
+                      src="${escapeHtml(item.assetUrl)}"
+                      alt="${escapeHtml(item.title)}">
+                  `
+                  : ""
+              }
+
+              <strong>
+                ${escapeHtml(item.title)}
+              </strong>
+
+              ${
+                item.subtitle
+                  ? `
+                    <span>
+                      ${escapeHtml(item.subtitle)}
+                    </span>
+                  `
+                  : ""
+              }
+
+            </button>
+          `
+        )
+        .join("");
+
+    viewer.open({
+      heading: "Steve Rinella Archives",
+
+      html: `
+        <div
+          class="artifact-collection
+                 rinella-archive-collection">
+
+          <p
+            class="demo-guided-note">
+
+            Explore four pieces that show how
+            books, photographs, wild places and
+            hunting history can become part of a
+            camp's permanent archive.
+
+          </p>
+
+          <div
+            class="demo-grid artifact-options">
+
+            ${cards}
+
+          </div>
+
+          <div
+            class="room-modal-actions">
+
+            <button
+              class="room-action-btn primary"
+              type="button"
+              data-rinella-archives-return>
+
+              Return Now
+
+            </button>
+
+          </div>
+
+        </div>
+      `
+    });
+
+    window.setTimeout(
+      () => {
+
+        document
+          .querySelectorAll(
+            "[data-rinella-archive-item]"
+          )
+          .forEach(
+            card => {
+
+              card.addEventListener(
+                "click",
+                () => {
+
+                  const index =
+                    Number(
+                      card.dataset
+                        .rinellaArchiveItem
+                    );
+
+                  openArchiveItem(
+                    items[index]
+                  );
+
+                }
+              );
+
+            }
+          );
+
+        document
+          .querySelector(
+            "[data-rinella-archives-return]"
+          )
+          ?.addEventListener(
+            "click",
+            () => viewer.close()
+          );
+
+      },
+      0
+    );
+  }
+
+  function currentExperience() {
+    return (
+      new URLSearchParams(
+        window.location.search
+      ).get("experience") ||
+      ""
+    ).trim();
+  }
+
+  function isRinellaExperience() {
+    return (
+      currentExperience() ===
+      "steve-rinella"
+    );
+  }
+
+  function relabelViewControls() {
+    if (!isRinellaExperience()) {
+      return;
+    }
+
+    document
+      .querySelectorAll(
+        '[data-archive-action="legacySeries"],' +
+        '[data-archive-action="historicArtifacts"]'
+      )
+      .forEach(control => {
+
+        control.setAttribute(
+          "aria-label",
+          "Explore Steve Rinella Archives"
+        );
+
+        control.dataset.tooltip =
+          "Explore Archives";
+      });
+  }
+
+  function bindRinellaViewControls() {
+    if (!isRinellaExperience()) {
+      return;
+    }
+
+    const controls =
+      document.querySelectorAll(
+        '[data-archive-action="legacySeries"],' +
+        '[data-archive-action="historicArtifacts"]'
+      );
+
+    console.log(
+      "DXB-015C.1 binding Steve Archives controls:",
+      controls.length
+    );
+
+    controls.forEach(control => {
+
+      control.setAttribute(
+        "aria-label",
+        "Explore Steve Rinella Archives"
+      );
+
+      control.dataset.tooltip =
+        "Explore Steve Rinella Archives";
+
+      control.dataset.rinellaBound =
+        "true";
+
+      control.addEventListener(
+        "click",
+        event => {
+
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+
+          console.log(
+            "DXB Steve Archives View & Discover opened."
+          );
+
+          openArchiveCollection();
+
+        },
+        true
+      );
+
+    });
+  }
+  function activate(content) {
+    STATE.content =
+      content ||
+      window.DeerCampDXBArchiveContent ||
+      null;
+
+    const featured =
+      getFeatured();
+
+    console.log(
+      "DXB-015B Steve Archives ready:",
+      featured.length,
+      "featured items"
+    );
+
+    window.DeerCampRinellaArchives = {
+      getFeatured,
+      openArchiveItem,
+      openArchiveCollection
+    };
+
+    if (isRinellaExperience()) {
+      relabelViewControls();
+      bindRinellaViewControls();
+    }
+  }
+
+  window.addEventListener(
+    "deercamp:dxb-archives-content-ready",
+    event => {
+      activate(event.detail);
+    }
+  );
+
+  if (window.DeerCampDXBArchiveContent) {
+    activate(
+      window.DeerCampDXBArchiveContent
+    );
+  }
+
+})();
+
+
