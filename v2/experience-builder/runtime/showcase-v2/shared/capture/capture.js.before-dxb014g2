@@ -1,0 +1,902 @@
+﻿(function () {
+  "use strict";
+
+  const state = {
+    experience: null,
+    room: null,
+    package: null,
+
+    scenario: null,
+    choice: null,
+
+    title: "",
+    response: "",
+
+    voiceRecorded: false,
+
+    createdPost: null
+  };
+
+  function clean(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  function query(name) {
+    return clean(
+      new URLSearchParams(
+        window.location.search
+      ).get(name)
+    );
+  }
+
+  async function fetchJson(url) {
+    const response =
+      await fetch(
+        url,
+        {
+          cache: "no-store"
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `${url} (${response.status})`
+      );
+    }
+
+    return await response.json();
+  }
+
+  function text(selector, value) {
+    const element =
+      document.querySelector(
+        selector
+      );
+
+    if (element) {
+      element.textContent =
+        clean(value);
+    }
+  }
+
+  function showStep(name) {
+    document
+      .querySelectorAll(
+        "[data-step]"
+      )
+      .forEach(step => {
+        step.hidden =
+          step.dataset.step !== name;
+      });
+
+    window.scrollTo(
+      0,
+      0
+    );
+  }
+
+  function campName() {
+    return (
+      clean(
+        state.experience
+          ?.showcase
+          ?.tabletop
+          ?.campName
+      ) ||
+      "DeerCamp"
+    );
+  }
+
+  function storageKey() {
+    return (
+      `dxb.${
+        clean(
+          state.experience?.slug
+        )
+      }.demoPosts`
+    );
+  }
+
+  function readPosts() {
+    try {
+      return JSON.parse(
+        localStorage.getItem(
+          storageKey()
+        ) ||
+        "[]"
+      );
+    }
+    catch {
+      return [];
+    }
+  }
+
+  function savePost(post) {
+    const posts =
+      readPosts();
+
+    posts.unshift(
+      post
+    );
+
+    localStorage.setItem(
+      storageKey(),
+      JSON.stringify(posts)
+    );
+  }
+
+  function selectedImageUrl() {
+    return clean(
+      state.choice?.url
+    );
+  }
+
+  function renderScenarioChoices() {
+    const root =
+      document.querySelector(
+        "[data-scenario-grid]"
+      );
+
+    root.innerHTML = "";
+
+    state.package.scenarios
+      .forEach(scenario => {
+
+        const button =
+          document.createElement(
+            "button"
+          );
+
+        button.type =
+          "button";
+
+        button.className =
+          "scenario-card";
+
+        button.innerHTML =
+          `
+            <strong>
+              ${clean(scenario.label)}
+            </strong>
+
+            <span>
+              ${clean(scenario.description)}
+            </span>
+
+            <em>
+              Choose →
+            </em>
+          `;
+
+        button.addEventListener(
+          "click",
+          () => {
+
+            state.scenario =
+              scenario;
+
+            state.choice = null;
+            state.title = "";
+            state.response = "";
+            state.voiceRecorded =
+              false;
+
+            renderSecondStep();
+
+            showStep(
+              "choice"
+            );
+          }
+        );
+
+        root.appendChild(
+          button
+        );
+      });
+  }
+
+  function renderSecondStep() {
+    const root =
+      document.querySelector(
+        "[data-choice-grid]"
+      );
+
+    root.innerHTML = "";
+
+    if (
+      state.scenario.id ===
+      "conversation"
+    ) {
+      text(
+        "[data-choice-title]",
+        "Choose a conversation starter"
+      );
+
+      state.scenario.prompts
+        .forEach(item => {
+          root.appendChild(
+            makePromptChoice(
+              item
+            )
+          );
+        });
+
+      return;
+    }
+
+    text(
+      "[data-choice-title]",
+      "Choose a photo to start the story"
+    );
+
+    state.scenario.images
+      .forEach(item => {
+        root.appendChild(
+          makeImageChoice(
+            item
+          )
+        );
+      });
+  }
+
+  function chooseItem(item) {
+    state.choice =
+      item;
+
+    renderResponseStep();
+
+    showStep(
+      "response"
+    );
+  }
+
+  function makePromptChoice(item) {
+    const button =
+      document.createElement(
+        "button"
+      );
+
+    button.type =
+      "button";
+
+    button.className =
+      "choice-card prompt-choice";
+
+    button.innerHTML =
+      `
+        <strong>
+          ${clean(item.title)}
+        </strong>
+
+        <span>
+          ${clean(item.topic)}
+        </span>
+      `;
+
+    button.addEventListener(
+      "click",
+      () => {
+        chooseItem(item);
+      }
+    );
+
+    return button;
+  }
+
+  function makeImageChoice(item) {
+    const button =
+      document.createElement(
+        "button"
+      );
+
+    button.type =
+      "button";
+
+    button.className =
+      "choice-card image-choice";
+
+    button.innerHTML =
+      `
+        <img
+          src="${clean(item.url)}"
+          alt="${clean(item.label)}">
+
+        <strong>
+          ${clean(item.label)}
+        </strong>
+      `;
+
+    button.addEventListener(
+      "click",
+      () => {
+        chooseItem(item);
+      }
+    );
+
+    return button;
+  }
+
+  function renderResponseStep() {
+    const summary =
+      document.querySelector(
+        "[data-selected-summary]"
+      );
+
+    if (
+      state.scenario.id ===
+      "story"
+    ) {
+      summary.innerHTML =
+        `
+          <img
+            src="${selectedImageUrl()}"
+            alt="Selected story image">
+
+          <div>
+            <small>
+              YOU CHOSE
+            </small>
+
+            <strong>
+              ${clean(state.choice.label)}
+            </strong>
+          </div>
+        `;
+    }
+    else {
+      summary.innerHTML =
+        `
+          <div>
+            <small>
+              YOUR CONVERSATION
+            </small>
+
+            <strong>
+              ${clean(state.choice.title)}
+            </strong>
+          </div>
+        `;
+    }
+
+    text(
+      "[data-response-label]",
+      state.scenario
+        .responseLabel
+    );
+
+    const response =
+      document.querySelector(
+        "[data-guided-response]"
+      );
+
+    response.placeholder =
+      clean(
+        state.scenario
+          .responsePlaceholder
+      );
+
+    renderTitleChoices();
+
+    renderVoiceState();
+  }
+
+  function renderTitleChoices() {
+    const root =
+      document.querySelector(
+        "[data-title-choice-grid]"
+      );
+
+    root.innerHTML = "";
+
+    const titles =
+      state.choice
+        ?.suggestedTitles ||
+      [];
+
+    titles.forEach(title => {
+
+      const button =
+        document.createElement(
+          "button"
+        );
+
+      button.type =
+        "button";
+
+      button.className =
+        "title-choice";
+
+      button.textContent =
+        title;
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          state.title =
+            title;
+
+          document.querySelector(
+            "[data-guided-title]"
+          ).value =
+            title;
+
+          root
+            .querySelectorAll(
+              ".title-choice"
+            )
+            .forEach(item => {
+              item.classList.remove(
+                "selected"
+              );
+            });
+
+          button.classList.add(
+            "selected"
+          );
+        }
+      );
+
+      root.appendChild(
+        button
+      );
+    });
+  }
+
+  function renderVoiceState() {
+    const root =
+      document.querySelector(
+        "[data-guided-voice-state]"
+      );
+
+    const button =
+      document.querySelector(
+        "[data-guided-voice]"
+      );
+
+    if (
+      !state.scenario
+        ?.allowVoice
+    ) {
+      button.hidden =
+        true;
+
+      root.textContent =
+        "";
+
+      return;
+    }
+
+    button.hidden =
+      false;
+
+    if (
+      state.voiceRecorded
+    ) {
+      button.textContent =
+        "Voice Added ✓";
+
+      root.textContent =
+        "Voice story ready.";
+
+      return;
+    }
+
+    button.textContent =
+      "Tell It Instead";
+
+    root.textContent =
+      "";
+  }
+
+  function currentTitle() {
+    return (
+      clean(
+        document.querySelector(
+          "[data-guided-title]"
+        )?.value
+      ) ||
+      state.title ||
+      clean(
+        state.choice
+          ?.suggestedTitles
+          ?.[0]
+      ) ||
+      "CampFire Story"
+    );
+  }
+
+  function currentResponse() {
+    return clean(
+      document.querySelector(
+        "[data-guided-response]"
+      )?.value
+    );
+  }
+
+  function buildPost() {
+    return {
+      id:
+        `demo-${
+          Date.now()
+        }`,
+
+      experience:
+        clean(
+          state.experience
+            ?.slug
+        ),
+
+      campName:
+        campName(),
+
+      room:
+        "campfire",
+
+      type:
+        state.scenario.id,
+
+      title:
+        currentTitle(),
+
+      body:
+        currentResponse(),
+
+      topic:
+        clean(
+          state.choice?.topic
+        ),
+
+      imageUrl:
+        selectedImageUrl(),
+
+      assetId:
+        clean(
+          state.choice?.assetId
+        ),
+
+      voiceRecorded:
+        state.voiceRecorded,
+
+      author:
+        clean(
+          state.package
+            ?.author
+            ?.displayName
+        ) ||
+        "Guest",
+
+      createdAt:
+        new Date()
+          .toISOString()
+    };
+  }
+
+  function renderCreatedCard(
+    selector,
+    post
+  ) {
+    const root =
+      document.querySelector(
+        selector
+      );
+
+    const image =
+      clean(
+        post.imageUrl
+      );
+
+    root.innerHTML =
+      `
+        ${
+          image
+            ? `
+              <img
+                class="created-card-image"
+                src="${image}"
+                alt="">
+            `
+            : ""
+        }
+
+        <div class="created-card-body">
+
+          <div class="created-card-meta">
+            ${clean(post.author)}
+            ·
+            ${post.type === "conversation"
+              ? "Conversation"
+              : "Story"}
+            · Just now
+          </div>
+
+          <h3>
+            ${clean(post.title)}
+          </h3>
+
+          ${
+            clean(post.body)
+              ? `
+                <p>
+                  ${clean(post.body)}
+                </p>
+              `
+              : ""
+          }
+
+          ${
+            clean(post.topic)
+              ? `
+                <span class="created-topic">
+                  ${clean(post.topic)}
+                </span>
+              `
+              : ""
+          }
+
+          ${
+            post.voiceRecorded
+              ? `
+                <div class="created-media">
+                  🎙 Voice attached
+                </div>
+              `
+              : ""
+          }
+
+        </div>
+      `;
+  }
+
+  function bindControls() {
+    document
+      .querySelectorAll(
+        "[data-capture-back]"
+      )
+      .forEach(button => {
+        button.addEventListener(
+          "click",
+          () => {
+            const returnTo =
+              query("returnTo");
+
+            if (returnTo) {
+              window.location.href =
+                returnTo;
+            }
+            else {
+              window.history.back();
+            }
+          }
+        );
+      });
+
+    document
+      .querySelectorAll(
+        "[data-step-back]"
+      )
+      .forEach(button => {
+        button.addEventListener(
+          "click",
+          () => {
+            showStep(
+              button.dataset
+                .stepBack
+            );
+          }
+        );
+      });
+
+    document
+      .querySelector(
+        "[data-guided-voice]"
+      )
+      .addEventListener(
+        "click",
+        () => {
+
+          state.voiceRecorded =
+            !state.voiceRecorded;
+
+          renderVoiceState();
+        }
+      );
+
+    document
+      .querySelector(
+        "[data-review-button]"
+      )
+      .addEventListener(
+        "click",
+        () => {
+
+          state.title =
+            currentTitle();
+
+          state.response =
+            currentResponse();
+
+          state.createdPost =
+            buildPost();
+
+          renderCreatedCard(
+            "[data-preview-card]",
+            state.createdPost
+          );
+
+          showStep(
+            "preview"
+          );
+        }
+      );
+
+    document
+      .querySelector(
+        "[data-save-button]"
+      )
+      .addEventListener(
+        "click",
+        () => {
+
+          state.createdPost =
+            buildPost();
+
+          savePost(
+            state.createdPost
+          );
+
+          renderCreatedCard(
+            "[data-created-card]",
+            state.createdPost
+          );
+
+          text(
+            "[data-success-title]",
+            state.package
+              ?.successTitle ||
+            "Added to DeerCamp"
+          );
+
+          showStep(
+            "success"
+          );
+        }
+      );
+
+    document
+      .querySelector(
+        "[data-return-room]"
+      )
+      .addEventListener(
+        "click",
+        () => {
+          const returnTo =
+            query(
+              "returnTo"
+            );
+
+          if (returnTo) {
+            window.location.href =
+              returnTo;
+          }
+        }
+      );
+
+    document
+      .querySelector(
+        "[data-view-feed]"
+      )
+      .addEventListener(
+        "click",
+        () => {
+
+          const params =
+            new URLSearchParams();
+
+          params.set(
+            "experience",
+            clean(
+              state.experience
+                ?.slug
+            )
+          );
+
+          params.set(
+            "returnTo",
+            query(
+              "returnTo"
+            )
+          );
+
+          window.location.href =
+            "/v2/experience-builder/runtime/showcase-v2/shared/feed-proof/index.html?" +
+            params.toString();
+        }
+      );
+  }
+
+  async function start() {
+    const slug =
+      query(
+        "experience"
+      );
+
+    const roomId =
+      query(
+        "room"
+      );
+
+    const experience =
+      await fetchJson(
+        `/v2/experience-builder/experiences/${encodeURIComponent(
+          slug
+        )}/experience.json`
+      );
+
+    const room =
+      experience.rooms.find(
+        item =>
+          clean(item.id) ===
+          roomId
+      );
+
+    const captureUrl =
+      clean(
+        room.captureUrl
+      );
+
+    const capturePackage =
+      await fetchJson(
+        captureUrl
+      );
+
+    state.experience =
+      experience;
+
+    state.room =
+      room;
+
+    state.package =
+      capturePackage;
+
+    text(
+      "[data-capture-title]",
+      capturePackage.title
+    );
+
+    text(
+      "[data-capture-intro]",
+      capturePackage.intro
+    );
+
+    text(
+      "[data-capture-camp-name]",
+      campName()
+    );
+
+    renderScenarioChoices();
+
+    bindControls();
+
+    window.DeerCampDXBGuidedCapture =
+      state;
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      start().catch(
+        error => {
+          console.error(
+            "DXB Guided Capture failed:",
+            error
+          );
+        }
+      );
+    }
+  );
+})();

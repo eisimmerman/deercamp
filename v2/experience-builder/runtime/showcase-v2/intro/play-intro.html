@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#12100d">
+  <title>Welcome, Craig</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; background: #000; overflow: hidden; }
+    body { color: #f4eee2; font-family: Georgia, "Times New Roman", serif; }
+
+    .stage { position: fixed; inset: 0; display: grid; place-items: center; background: #000; }
+    video {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      background: #000; opacity: 0; transition: opacity .9s ease;
+    }
+    video.visible { opacity: 1; }
+
+    .welcome {
+      position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+      padding: clamp(28px, 5vw, 64px) 20px; text-align: center;
+      background:
+        radial-gradient(circle at 50% -12%, rgba(178,124,65,.38), transparent 42%),
+        linear-gradient(180deg, #292219 0%, #17130f 46%, #090807 100%);
+      transition: opacity .85s ease, transform .85s ease;
+    }
+    .welcome.leaving { opacity: 0; transform: scale(.992); pointer-events: none; }
+    .invitation { width: min(790px, 100%); }
+
+    .line {
+      margin: 0 auto; max-width: 680px; opacity: 0; transform: translateY(9px);
+      transition: opacity 1.05s ease, transform 1.05s ease;
+    }
+    .line.visible { opacity: 1; transform: translateY(0); }
+    .line.soft-out { opacity: .34; }
+
+    h1 { margin-bottom: clamp(25px,4vh,42px); font-size: clamp(3.1rem,8vw,5.5rem); line-height:.95; font-weight:500; }
+    .salutation { margin-bottom: 20px; font-size: clamp(1.15rem,2.4vw,1.45rem); font-weight:700; color:#fff9ef; }
+    .thought { margin-bottom: 15px; font-size:clamp(1.08rem,2.25vw,1.38rem); line-height:1.72; color:#eee6d9; }
+    .pause-line { margin-top: clamp(23px,3.5vh,34px); font-size:clamp(1.17rem,2.5vw,1.52rem); font-style:italic; color:#c9bda8; }
+    .destination {
+      margin-top: 8px; font-size:clamp(1.55rem,3.4vw,2.25rem); line-height:1.25;
+      font-weight:700; color:#fffaf1;
+    }
+
+    .start-wrap {
+      margin-top: clamp(28px,4vh,42px); opacity:0; transform:translateY(9px);
+      transition:opacity 1.05s ease, transform 1.05s ease;
+    }
+    .start-wrap.visible { opacity:1; transform:translateY(0); }
+    .start-button {
+      appearance:none; border:1px solid rgba(255,255,255,.18); border-radius:12px;
+      padding:17px 34px; color:#fffaf2; background:linear-gradient(180deg,#825a35,#76502f);
+      box-shadow:0 13px 30px rgba(0,0,0,.35); font:700 clamp(1rem,2.2vw,1.2rem)/1.2 Arial,Helvetica,sans-serif;
+      cursor:pointer;
+    }
+    .start-button:focus-visible, .skip:focus-visible { outline:3px solid #e7b873; outline-offset:4px; }
+
+    .skip {
+      position:absolute; right:max(16px,env(safe-area-inset-right)); bottom:max(16px,env(safe-area-inset-bottom)); z-index:7;
+      display:none; border:0; border-radius:999px; padding:10px 15px; background:rgba(0,0,0,.52);
+      color:rgba(255,255,255,.82); font:600 .82rem/1 Arial,Helvetica,sans-serif;
+      cursor:pointer; backdrop-filter:blur(5px);
+    }
+    .skip.visible { display:block; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .line, .welcome, video { transition-duration: .01ms; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <video id="introVideo" playsinline preload="auto">
+      <source src="./boddington-intro.mp4" type="video/mp4">
+      Your browser does not support HTML video.
+    </video>
+
+    <section class="welcome" id="welcome" aria-labelledby="welcomeTitle">
+      <div class="invitation">
+        <h1 class="line" id="welcomeTitle">Welcome.</h1>
+        <p class="line salutation">Craig,</p>
+        <p class="line thought">I've enjoyed your stories and the traditions you've shared with hunters over the years.</p>
+        <p class="line thought">They've reminded many of us why we keep returning to camp each season.</p>
+        <p class="line thought">So... I built something I'd simply like to share with you.</p>
+        <p class="line pause-line">Come on...</p>
+        <p class="line destination">Let's head back to camp.</p>
+        <div class="start-wrap" id="startWrap">
+          <button class="start-button" id="startButton" type="button">Let's Go!</button>
+        </div>
+      </div>
+    </section>
+
+    <button class="skip" id="skipButton" type="button" aria-label="Skip the drive and enter camp">Skip to Camp</button>
+  </main>
+
+  <script>
+    const video = document.getElementById('introVideo');
+    const welcome = document.getElementById('welcome');
+    const startWrap = document.getElementById('startWrap');
+    const startButton = document.getElementById('startButton');
+    const skipButton = document.getElementById('skipButton');
+    const lines = [...document.querySelectorAll('.line')];
+    const cabinUrl = '../../interactive-cabin/index.html?arrival=1';
+
+    const revealSchedule = [450, 1250, 2400, 5100, 7900, 10600, 12100];
+    const buttonRevealAt = 13600;
+
+    function enterCamp() {
+      window.location.href = cabinUrl;
+    }
+
+    function revealInvitation() {
+      lines.forEach((line, index) => {
+        window.setTimeout(() => line.classList.add('visible'), revealSchedule[index]);
+      });
+      window.setTimeout(() => startWrap.classList.add('visible'), buttonRevealAt);
+    }
+
+    async function beginDrive() {
+      welcome.classList.add('leaving');
+      video.classList.add('visible');
+      skipButton.classList.add('visible');
+      window.setTimeout(() => { welcome.hidden = true; }, 900);
+
+      try {
+        await video.play();
+      } catch (error) {
+        welcome.hidden = false;
+        welcome.classList.remove('leaving');
+        startWrap.classList.add('visible');
+        video.classList.remove('visible');
+        skipButton.classList.remove('visible');
+      }
+    }
+
+    startButton.addEventListener('click', beginDrive);
+
+    video.addEventListener('ended', enterCamp);
+    video.addEventListener('error', () => console.error('Unable to load intro video.'));
+    skipButton.addEventListener('click', enterCamp);
+
+    revealInvitation();
+  </script>
+</body>
+</html>

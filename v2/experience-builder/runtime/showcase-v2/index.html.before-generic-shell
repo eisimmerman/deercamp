@@ -1,0 +1,220 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Camp Boddington&trade; - Private Demonstration</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="experience" aria-live="polite">
+    <section class="screen active" id="welcomeScreen" aria-label="Camp Boddington welcome">
+      <div class="portrait-stage">
+        <img class="full-art" src="assets/welcome.png" alt="Private DeerCamp invitation">
+
+        <div class="dxb-opening-copy" data-dxb-opening-copy hidden>
+          <p class="dxb-opening-eyebrow" data-dxb-opening-eyebrow></p>
+          <h1 class="dxb-opening-title" data-dxb-opening-title></h1>
+          <p class="dxb-opening-body" data-dxb-opening-body></p>
+          <button class="dxb-opening-button glow-target" id="enterButton" type="button">
+            <span data-dxb-opening-cta>Enter DeerCamp</span>
+          </button>
+        </div>
+
+        <button class="hotspot welcome-cta glow-target dxb-legacy-welcome-cta" data-dxb-legacy-welcome-cta type="button" aria-label="Enter DeerCamp">
+          <span class="visually-hidden">Enter DeerCamp</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen modal-screen" id="modalScreen" aria-label="About this demonstration">
+      <div class="portrait-stage">
+        <img class="full-art" src="assets/about-modal.png" alt="About this demonstration">
+        <button class="hotspot modal-close" id="closeButton" type="button" aria-label="Close about this demonstration">
+          <span class="visually-hidden">Close</span>
+        </button>
+        <button class="hotspot modal-cta glow-target" id="continueButton" type="button" aria-label="Continue into Camp Boddington">
+          <span class="visually-hidden">Continue into Camp Boddington</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="screen video-screen" id="videoScreen" aria-label="Camp Boddington introduction">
+      <video id="introVideo" playsinline preload="auto" controls>
+        <source src="./intro.mp4" type="video/mp4">
+        Your browser does not support the introduction video.
+      </video>
+      <div class="video-message" id="videoMessage" hidden>
+        The introduction video could not load. Use &ldquo;Continue to tabletop&rdquo; below.
+      </div>
+      <button class="skip-button" id="skipButton" type="button" hidden>Continue to tabletop</button>
+    </section>
+
+    <section class="screen tabletop-screen" id="tabletopScreen" aria-label="Interactive Camp Boddington tabletop">
+      <div class="landscape-stage">
+        <img class="full-art tabletop-art" src="assets/tabletop.png" alt="DeerCamp tabletop">
+
+        <div class="dxb-tabletop-identity" data-dxb-tabletop-identity>
+          <div class="dxb-tabletop-camp-name" data-dxb-tabletop-camp-name></div>
+          <div class="dxb-tabletop-subtitle" data-dxb-tabletop-subtitle></div>
+        </div>
+
+        <a class="tabletop-hotspot tabletop-archive primary-start" id="archiveHotspot"
+           href="./archives-v7-build/index.html"
+           aria-label="Enter the Archives Room" data-tooltip="Start Here - Archives Room">
+          <span class="completion-marker" aria-hidden="true">[]</span>
+        </a>
+
+        <a class="tabletop-hotspot tabletop-maps" id="mapsHotspot"
+           href="./maps-v1-build/index.html"
+           aria-label="Enter the Maps Room" data-tooltip="Maps Room">
+          <span class="completion-marker" aria-hidden="true">[]</span>
+        </a>
+
+        <div class="tabletop-status" id="tabletopStatus">Start here - Tap the Archives reader</div>
+      </div>
+    </section>
+  </main>
+
+    <script src="./scripts/dxb-runtime-parameters.js?v=20260809-rinella004-hardfix"></script>
+
+  <script>
+    const screens = {
+      welcome: document.getElementById("welcomeScreen"),
+      modal: document.getElementById("modalScreen"),
+      video: document.getElementById("videoScreen"),
+      tabletop: document.getElementById("tabletopScreen")
+    };
+    const video = document.getElementById("introVideo");
+    const videoMessage = document.getElementById("videoMessage");
+    const status = document.getElementById("tabletopStatus");
+    const archiveHotspot = document.getElementById("archiveHotspot");
+    const mapsHotspot = document.getElementById("mapsHotspot");
+
+    function show(name) {
+      Object.values(screens).forEach(screen => screen.classList.remove("active"));
+      screens[name].classList.add("active");
+      window.scrollTo(0, 0);
+      if (name === "tabletop") renderCompletionState();
+    }
+
+    function renderCompletionState() {
+      const archiveVisited = DeerCampDXBParameters.localGet("archiveVisited") === "true";
+      const mapsVisited = DeerCampDXBParameters.localGet("mapsVisited") === "true";
+
+      archiveHotspot.classList.toggle("completed", archiveVisited);
+      mapsHotspot.classList.toggle("completed", mapsVisited);
+
+      archiveHotspot.classList.toggle("primary-start", !archiveVisited);
+      mapsHotspot.classList.toggle("primary-start", archiveVisited && !mapsVisited);
+
+      if (!archiveVisited) {
+        archiveHotspot.dataset.tooltip =
+          DeerCampDXBParameters.startRoom() === "archives"
+            ? DeerCampDXBParameters.startGuidance()
+            : "Archives Room";
+
+        mapsHotspot.dataset.tooltip =
+          DeerCampDXBParameters.startRoom() === "maps"
+            ? DeerCampDXBParameters.startGuidance()
+            : "Maps Room";
+
+        status.textContent =
+          DeerCampDXBParameters.startGuidance();
+      } else if (!mapsVisited) {
+        archiveHotspot.dataset.tooltip = "Archives Room";
+        mapsHotspot.dataset.tooltip = "Next Stop - Maps Room";
+        status.textContent = "Next step - Tap the map drawer";
+      } else {
+        archiveHotspot.dataset.tooltip = "Archives Room";
+        mapsHotspot.dataset.tooltip = "Maps Room";
+        status.textContent = "Featured rooms complete - revisit either room anytime";
+      }
+    }
+
+    document.getElementById("enterButton").addEventListener("click", () => show("modal"));
+    document.getElementById("closeButton").addEventListener("click", () => show("welcome"));
+
+    document.getElementById("continueButton").addEventListener("click", async () => {
+      show("video");
+      videoMessage.hidden = true;
+      video.currentTime = 0;
+      video.load();
+      try {
+        await video.play();
+      } catch (_) {
+        // Browser may require a second tap; the native controls remain visible.
+      }
+    });
+
+    function goToTabletop() {
+      video.pause();
+      history.replaceState(null, "", "?view=tabletop");
+      show("tabletop");
+    }
+
+    video.addEventListener("ended", () => {
+      // Prevent a missing or zero-duration source from bypassing the introduction.
+      if (Number.isFinite(video.duration) && video.duration > 1 && video.currentTime >= video.duration - 0.35) {
+        goToTabletop();
+      }
+    });
+
+    video.addEventListener("error", () => {
+      videoMessage.hidden = false;
+      document.getElementById("skipButton").hidden = false;
+    });
+
+    document.getElementById("skipButton").addEventListener("click", goToTabletop);
+    const params = new URLSearchParams(window.location.search);
+    const openingTabletopDirectly =
+      params.get("view") === "tabletop";
+
+    if (openingTabletopDirectly) {
+      // Returning from a room: preserve progress.
+      show("tabletop");
+    } else {
+      // Opening from the welcome letter: begin a fresh demo.
+      DeerCampDXBParameters.localRemove(
+        "archiveVisited"
+      );
+
+      DeerCampDXBParameters.localRemove(
+        "mapsVisited"
+      );
+
+      DeerCampDXBParameters.localRemove(
+        "maps.createdStand"
+      );
+
+      DeerCampDXBParameters.sessionRemove(
+        "maps.standBuilderProgress"
+      );
+
+      DeerCampDXBParameters.sessionRemove(
+        "maps.savedStandReviewed"
+      );
+
+      show("welcome");
+    }
+  </script>
+  <script src="../../engine/dxb-loader.js?v=20260808-dxb005g"></script>
+  <script src="../../engine/dxb-validator.js?v=20260808-dxb005g"></script>
+<script src="./scripts/dxb-dom-binder.js?v=20260808-dxb006"></script>
+<script src="./scripts/dxb-showcase-runtime.js?v=20260808-dxb005g"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,737 @@
+﻿(function () {
+  "use strict";
+
+  function clean(value) {
+    return String(
+      value == null
+        ? ""
+        : value
+    ).trim();
+  }
+
+  function query(name) {
+    return clean(
+      new URLSearchParams(
+        window.location.search
+      ).get(name)
+    );
+  }
+
+  async function fetchJson(url) {
+    const response =
+      await fetch(
+        url,
+        {
+          cache: "no-store"
+        }
+      );
+
+    if (!response.ok) {
+      throw new Error(
+        `${url} (${response.status})`
+      );
+    }
+
+    return await response.json();
+  }
+
+  function text(
+    selector,
+    value
+  ) {
+    const element =
+      document.querySelector(
+        selector
+      );
+
+    if (element) {
+      element.textContent =
+        clean(value);
+    }
+  }
+
+  function back() {
+    const returnTo =
+      query(
+        "returnTo"
+      );
+
+    if (returnTo) {
+      window.location.href =
+        returnTo;
+
+      return;
+    }
+
+    window.history.back();
+  }
+
+  function bindBack() {
+    document
+      .querySelectorAll(
+        "[data-capture-back]"
+      )
+      .forEach(button => {
+        button.addEventListener(
+          "click",
+          back
+        );
+      });
+  }
+
+  function createField(
+    definition
+  ) {
+    const wrapper =
+      document.createElement(
+        "div"
+      );
+
+    wrapper.className =
+      "capture-field";
+
+    const id =
+      `capture-${clean(
+        definition?.id
+      )}`;
+
+    const label =
+      document.createElement(
+        "label"
+      );
+
+    label.htmlFor =
+      id;
+
+    label.textContent =
+      clean(
+        definition?.label
+      );
+
+    let control;
+
+    const type =
+      clean(
+        definition?.type
+      ) || "text";
+
+    if (type === "textarea") {
+
+      control =
+        document.createElement(
+          "textarea"
+        );
+
+    }
+    else if (type === "select") {
+
+      control =
+        document.createElement(
+          "select"
+        );
+
+      (
+        Array.isArray(
+          definition?.options
+        )
+          ? definition.options
+          : []
+      ).forEach(option => {
+
+        const item =
+          document.createElement(
+            "option"
+          );
+
+        if (
+          typeof option ===
+          "string"
+        ) {
+          item.value =
+            option;
+
+          item.textContent =
+            option;
+        }
+        else {
+          item.value =
+            clean(
+              option?.value
+            );
+
+          item.textContent =
+            clean(
+              option?.label
+            );
+        }
+
+        control.appendChild(
+          item
+        );
+      });
+
+    }
+    else {
+
+      control =
+        document.createElement(
+          "input"
+        );
+
+      control.type =
+        type;
+    }
+
+    control.id =
+      id;
+
+    control.name =
+      clean(
+        definition?.id
+      );
+
+    control.placeholder =
+      clean(
+        definition?.placeholder
+      );
+
+    control.required =
+      definition?.required ===
+      true;
+
+    wrapper.appendChild(
+      label
+    );
+
+    wrapper.appendChild(
+      control
+    );
+
+    if (
+      clean(
+        definition?.help
+      )
+    ) {
+
+      const help =
+        document.createElement(
+          "p"
+        );
+
+      help.className =
+        "capture-help";
+
+      help.textContent =
+        clean(
+          definition.help
+        );
+
+      wrapper.appendChild(
+        help
+      );
+    }
+
+    return wrapper;
+  }
+
+  function renderFields(
+    capture
+  ) {
+    const root =
+      document.querySelector(
+        "[data-capture-fields]"
+      );
+
+    if (!root) {
+      return;
+    }
+
+    root.innerHTML =
+      "";
+
+    (
+      Array.isArray(
+        capture?.fields
+      )
+        ? capture.fields
+        : []
+    ).forEach(definition => {
+      root.appendChild(
+        createField(
+          definition
+        )
+      );
+    });
+  }
+
+  const demoMediaState = {
+    photoName: "",
+    voiceRecorded: false,
+    recording: false
+  };
+
+  function renderMediaState() {
+    const root =
+      document.querySelector(
+        "[data-capture-media-status]"
+      );
+
+    if (!root) {
+      return;
+    }
+
+    root.innerHTML =
+      "";
+
+    if (
+      clean(
+        demoMediaState.photoName
+      )
+    ) {
+      const photo =
+        document.createElement(
+          "div"
+        );
+
+      photo.className =
+        "capture-media-state";
+
+      photo.textContent =
+        `Photo ready: ${demoMediaState.photoName}`;
+
+      root.appendChild(
+        photo
+      );
+    }
+
+    if (
+      demoMediaState.recording
+    ) {
+      const voice =
+        document.createElement(
+          "div"
+        );
+
+      voice.className =
+        "capture-media-state is-recording";
+
+      voice.textContent =
+        "Recording voice story...";
+
+      root.appendChild(
+        voice
+      );
+    }
+    else if (
+      demoMediaState.voiceRecorded
+    ) {
+      const voice =
+        document.createElement(
+          "div"
+        );
+
+      voice.className =
+        "capture-media-state";
+
+      voice.textContent =
+        "Voice story ready";
+
+      root.appendChild(
+        voice
+      );
+    }
+  }
+
+  function bindPhotoDemo() {
+    const button =
+      document.querySelector(
+        "[data-capture-photo]"
+      );
+
+    const input =
+      document.querySelector(
+        "[data-capture-photo-input]"
+      );
+
+    if (
+      !button ||
+      !input
+    ) {
+      return;
+    }
+
+    button.addEventListener(
+      "click",
+      () => {
+        input.click();
+      }
+    );
+
+    input.addEventListener(
+      "change",
+      () => {
+        const file =
+          input.files?.[0];
+
+        if (!file) {
+          return;
+        }
+
+        demoMediaState.photoName =
+          file.name;
+
+        button.textContent =
+          "Photo Added";
+
+        button.classList.add(
+          "has-media"
+        );
+
+        renderMediaState();
+      }
+    );
+  }
+
+  function bindVoiceDemo() {
+    const button =
+      document.querySelector(
+        "[data-capture-voice]"
+      );
+
+    if (!button) {
+      return;
+    }
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        if (
+          !demoMediaState.recording
+        ) {
+          demoMediaState.recording =
+            true;
+
+          demoMediaState.voiceRecorded =
+            false;
+
+          button.textContent =
+            "Stop Recording";
+
+          button.classList.add(
+            "is-recording"
+          );
+
+          renderMediaState();
+
+          return;
+        }
+
+        demoMediaState.recording =
+          false;
+
+        demoMediaState.voiceRecorded =
+          true;
+
+        button.textContent =
+          "Voice Recorded";
+
+        button.classList.remove(
+          "is-recording"
+        );
+
+        button.classList.add(
+          "has-media"
+        );
+
+        renderMediaState();
+      }
+    );
+  }
+
+  function bindMediaDemo() {
+    bindPhotoDemo();
+    bindVoiceDemo();
+    renderMediaState();
+  }
+
+  function demoSave(
+    experience,
+    room,
+    capture
+  ) {
+    const form =
+      document.querySelector(
+        "[data-capture-form]"
+      );
+
+    const success =
+      document.querySelector(
+        "[data-capture-success]"
+      );
+
+    if (!form) {
+      return;
+    }
+
+    form.addEventListener(
+      "submit",
+      event => {
+        event.preventDefault();
+
+        const data =
+          Object.fromEntries(
+            new FormData(
+              form
+            ).entries()
+          );
+
+        window.DeerCampDXBCaptureResult = {
+          experience:
+            clean(
+              experience?.slug
+            ),
+
+          room:
+            clean(
+              room?.id
+            ),
+
+          captureId:
+            clean(
+              capture?.id
+            ),
+
+          data,
+
+          media: {
+            photoName:
+              demoMediaState.photoName,
+
+            voiceRecorded:
+              demoMediaState.voiceRecorded
+          },
+
+          demo:
+            true,
+
+          savedAt:
+            new Date()
+              .toISOString()
+        };
+
+        form.hidden =
+          true;
+
+        if (success) {
+          success.hidden =
+            false;
+        }
+
+        text(
+          "[data-capture-success-title]",
+          capture?.successTitle ||
+          "Your contribution has been saved."
+        );
+
+        text(
+          "[data-capture-success-copy]",
+          capture?.successCopy ||
+          "Your contribution is ready for the camp."
+        );
+
+        document
+          .querySelectorAll(
+            ".capture-success [data-capture-back]"
+          )
+          .forEach(button => {
+            button.textContent =
+              `Return to ${
+                clean(room?.label) ||
+                "Room"
+              }`;
+          });
+
+        console.log(
+          "DXB Demo Capture:",
+          window.DeerCampDXBCaptureResult
+        );
+      }
+    );
+  }
+
+  function render(
+    experience,
+    room,
+    capture
+  ) {
+    const campName =
+      clean(
+        experience?.showcase
+          ?.tabletop
+          ?.campName
+      ) ||
+      clean(
+        experience?.identity
+          ?.campName
+      ) ||
+      "DeerCamp";
+
+    document.title =
+      `${
+        clean(
+          capture?.title
+        ) ||
+        "Create & Share"
+      } - ${campName}`;
+
+    text(
+      "[data-capture-camp-name]",
+      campName
+    );
+
+    text(
+      "[data-capture-title]",
+      capture?.title ||
+      "Create & Share"
+    );
+
+    text(
+      "[data-capture-intro]",
+      capture?.intro
+    );
+
+    text(
+      "[data-capture-save-note]",
+      capture?.saveNote ||
+      "Your contribution will become part of DeerCamp."
+    );
+
+    renderFields(
+      capture
+    );
+
+    bindMediaDemo();
+
+    demoSave(
+      experience,
+      room,
+      capture
+    );
+
+    window.DeerCampDXBCapture = {
+      experience,
+      room,
+      capture
+    };
+  }
+
+  async function start() {
+    bindBack();
+
+    const slug =
+      query(
+        "experience"
+      );
+
+    const roomId =
+      query(
+        "room"
+      );
+
+    const captureId =
+      query(
+        "capture"
+      );
+
+    if (
+      !slug ||
+      !roomId ||
+      !captureId
+    ) {
+      throw new Error(
+        "DXB Capture requires experience, room and capture."
+      );
+    }
+
+    const experience =
+      await fetchJson(
+        `/v2/experience-builder/experiences/${encodeURIComponent(
+          slug
+        )}/experience.json`
+      );
+
+    const room =
+      Array.isArray(
+        experience?.rooms
+      )
+        ? experience.rooms.find(
+            item =>
+              clean(item?.id) ===
+              roomId
+          )
+        : null;
+
+    if (!room) {
+      throw new Error(
+        `DXB room not found: ${roomId}`
+      );
+    }
+
+    const captureUrl =
+      clean(
+        room?.captureUrl
+      ) ||
+      `/v2/experience-builder/experiences/${encodeURIComponent(
+        slug
+      )}/content/${encodeURIComponent(
+        roomId
+      )}/capture.json`;
+
+    const packageData =
+      await fetchJson(
+        captureUrl
+      );
+
+    const captures =
+      Array.isArray(
+        packageData?.captures
+      )
+        ? packageData.captures
+        : [];
+
+    const capture =
+      captures.find(
+        item =>
+          clean(item?.id) ===
+          captureId
+      );
+
+    if (!capture) {
+      throw new Error(
+        `DXB capture not found: ${captureId}`
+      );
+    }
+
+    render(
+      experience,
+      room,
+      capture
+    );
+  }
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+      start().catch(
+        error => {
+          console.error(
+            "DXB Capture failed:",
+            error
+          );
+        }
+      );
+    }
+  );
+})();
+
