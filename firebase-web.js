@@ -9,12 +9,12 @@
   };
 
   const stagingFirebaseConfig = {
-    apiKey: "AIzaSyCjw3z52JzomgclqczxJguGGlltlXWU45w",
+    apiKey: "AIzaSyAmRaOMp_uwtIOoIqXI-BwWvn03meL16rs",
     authDomain: "deercamp-staging.firebaseapp.com",
     projectId: "deercamp-staging",
     storageBucket: "deercamp-staging.firebasestorage.app",
-    messagingSenderId: "343631330837",
-    appId: "1:343631330837:web:246adec6a15421c390d81c"
+    messagingSenderId: "671704622402",
+    appId: "1:671704622402:web:4be041fc784b05e07a54db"
   };
 
   function isDeerCampStagingHost() {
@@ -974,6 +974,85 @@
       return auth.onAuthStateChanged((user) => {
         callback(user || null);
       });
+    },
+
+    EMAIL_LINK_EMAIL_KEY: "deercamp.auth.emailForSignIn",
+
+    async sendEmailSignInLink(email, options = {}) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const cleanEmail = String(email || "").trim().toLowerCase();
+      if (!cleanEmail) throw new Error("Email is required.");
+
+      const returnUrl = String(options.returnUrl || window.location.href).trim();
+
+      await auth.sendSignInLinkToEmail(cleanEmail, {
+        url: returnUrl,
+        handleCodeInApp: true
+      });
+
+      try {
+        localStorage.setItem(this.EMAIL_LINK_EMAIL_KEY, cleanEmail);
+      } catch (error) {}
+
+      return true;
+    },
+
+    isEmailSignInLink(url = window.location.href) {
+      const auth = this.ensureReady();
+      if (!auth) return false;
+
+      try {
+        return auth.isSignInWithEmailLink(String(url || ""));
+      } catch (error) {
+        return false;
+      }
+    },
+
+    getStoredEmailForSignIn() {
+      try {
+        return String(
+          localStorage.getItem(this.EMAIL_LINK_EMAIL_KEY) || ""
+        ).trim().toLowerCase();
+      } catch (error) {
+        return "";
+      }
+    },
+
+    async completeEmailSignIn(options = {}) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const url = String(options.url || window.location.href || "");
+
+      if (!auth.isSignInWithEmailLink(url)) {
+        throw new Error("This is not a valid Firebase email sign-in link.");
+      }
+
+      const cleanEmail = String(
+        options.email || this.getStoredEmailForSignIn() || ""
+      ).trim().toLowerCase();
+
+      if (!cleanEmail) {
+        throw new Error("Email is required to complete sign-in.");
+      }
+
+      const result = await auth.signInWithEmailLink(cleanEmail, url);
+
+      try {
+        localStorage.removeItem(this.EMAIL_LINK_EMAIL_KEY);
+      } catch (error) {}
+
+      return result?.user || null;
+    },
+
+    async signOut() {
+      const auth = this.ensureReady();
+      if (!auth) return false;
+
+      await auth.signOut();
+      return true;
     }
   };
 
