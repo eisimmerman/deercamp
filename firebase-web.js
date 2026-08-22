@@ -929,6 +929,54 @@
 
 
 
+  const DeerCampAuth = window.DeerCampAuth || {
+    _auth: null,
+    _ready: false,
+
+    ensureReady() {
+      try {
+        if (this._ready && this._auth) return this._auth;
+        if (!window.firebase || typeof firebase.auth !== "function") return null;
+
+        const existing = firebase.apps && firebase.apps.length
+          ? firebase.app()
+          : firebase.initializeApp(firebaseConfig);
+
+        this._auth = existing.auth();
+        this._ready = true;
+        return this._auth;
+      } catch (error) {
+        console.warn("DeerCamp Firebase Auth init failed.", error);
+        return null;
+      }
+    },
+
+    getCurrentUser() {
+      const auth = this.ensureReady();
+      return auth?.currentUser || null;
+    },
+
+    getUid() {
+      return this.getCurrentUser()?.uid || "";
+    },
+
+    getEmail() {
+      return String(this.getCurrentUser()?.email || "").trim().toLowerCase();
+    },
+
+    isAuthenticated() {
+      return Boolean(this.getUid());
+    },
+
+    onAuthStateChanged(callback) {
+      const auth = this.ensureReady();
+      if (!auth || typeof callback !== "function") return () => {};
+      return auth.onAuthStateChanged((user) => {
+        callback(user || null);
+      });
+    }
+  };
+
   const DeerCampSecurity = window.DeerCampSecurity || {
     ROLE_KEY: "deercamp.currentActorRole",
     MEMBER_EMAIL_KEY: "deercamp.currentMemberEmail",
@@ -984,6 +1032,7 @@
   window.DeerCampCloud = DeerCampCloud;
   window.DeerCampStorage = DeerCampStorage;
   window.DeerCampBilling = DeerCampBilling;
+  window.DeerCampAuth = DeerCampAuth;
   window.DeerCampSecurity = DeerCampSecurity;
   window.DEERCAMP_FIREBASE_READY = Boolean(DeerCampCloud.ensureReady());
 })();
