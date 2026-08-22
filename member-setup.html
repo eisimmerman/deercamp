@@ -834,7 +834,12 @@
 
     function buildCampUrl(path, campId = '') {
       const cleanCampId = String(campId || '').trim();
-      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+      const url = new URL(path, window.location.href);
+      if (cleanCampId) url.searchParams.set('campId', cleanCampId);
+      if (window.location.hostname.includes('localhost') && new URLSearchParams(window.location.search).get('useStagingFirebase') === 'true') {
+        url.searchParams.set('useStagingFirebase', 'true');
+      }
+      return `${url.pathname}${url.search}`;
     }
 
     function getCampIdFromUrl() {

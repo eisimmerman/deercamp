@@ -1138,6 +1138,9 @@
       const cleanCampId = String(campId || "").trim();
       const url = new URL(path, window.location.href);
       if (cleanCampId) url.searchParams.set("campId", cleanCampId);
+      if (window.location.hostname.includes("localhost") && new URLSearchParams(window.location.search).get("useStagingFirebase") === "true") {
+        url.searchParams.set("useStagingFirebase", "true");
+      }
       Object.entries(extras || {}).forEach(([key, value]) => {
         const clean = String(value || "").trim();
         if (clean) url.searchParams.set(key, clean);
@@ -4182,7 +4185,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         basicFieldCardsSection.style.display = plus ? 'none' : '';
         basicFieldCardsSection.setAttribute('aria-hidden', plus ? 'true' : 'false');
       }
-      const liveUrl=`camp.html?campId=${encodeURIComponent(state.campId || '')}`;
+      const liveUrl=buildCampUrl("camp.html", state.campId);
       if(live) live.href=liveUrl;
       card.className='tier-status-card';
       let model;

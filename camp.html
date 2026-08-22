@@ -2723,7 +2723,7 @@ function persist(){
   }catch{}
   Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
 }
-function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); if(window.location.hostname.includes("localhost") && new URLSearchParams(window.location.search).get("useStagingFirebase")==="true") u.searchParams.set("useStagingFirebase","true"); return `${u.pathname}?${u.searchParams.toString()}`}
 function buildScoutBuilderUrl(builder){
   const u=new URL("scout.html", window.location.href);
   if(activeCampId) u.searchParams.set("campId", activeCampId);
@@ -3109,6 +3109,7 @@ async function handleCampBillingClick(event){
 function buildStewardDashboardUrl(){
   const u=new URL("steward-dashboard.html", window.location.href);
   if(activeCampId) u.searchParams.set("campId", activeCampId);
+  if(window.location.hostname.includes("localhost") && new URLSearchParams(window.location.search).get("useStagingFirebase")==="true") u.searchParams.set("useStagingFirebase","true");
   u.searchParams.set("role", "steward");
   u.searchParams.set("view", "steward");
   return `${u.pathname}?${u.searchParams.toString()}`;
