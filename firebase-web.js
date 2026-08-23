@@ -1047,6 +1047,71 @@
       return result?.user || null;
     },
 
+    async getStewardAccess(campId) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      let user = auth.currentUser;
+
+      if (!user) {
+        user = await new Promise((resolve) => {
+          let settled = false;
+
+          const unsubscribe = auth.onAuthStateChanged((nextUser) => {
+            if (settled || !nextUser) return;
+            settled = true;
+            try { unsubscribe(); } catch (error) {}
+            resolve(nextUser);
+          });
+
+          setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            try { unsubscribe(); } catch (error) {}
+            resolve(auth.currentUser || null);
+          }, 3000);
+        });
+      }
+      const cleanCampId = String(campId || "").trim();
+
+      if (!cleanCampId) throw new Error("Camp ID is required.");
+
+      if (!user) {
+        return {
+          authorized: false,
+          campId: cleanCampId,
+          authenticated: false
+        };
+      }
+
+      const token = await user.getIdToken(true);
+      const projectId = String(firebaseConfig?.projectId || "").trim();
+
+      if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+      const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/getStewardAccess`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ campId: cleanCampId })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not verify Steward access.");
+      }
+
+      return {
+        authorized: payload?.authorized === true,
+        campId: String(payload?.campId || cleanCampId),
+        authenticated: true
+      };
+    },
     async signOut() {
       const auth = this.ensureReady();
       if (!auth) return false;
