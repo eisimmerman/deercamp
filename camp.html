@@ -1737,18 +1737,43 @@
 
 <script>
 const CAMP_DATA_KEY="campData", ACTIVE_CAMP_KEY="deercamp.activeCampId", CAMP_SCOPE_PREFIX="deercamp.camps.", DASHBOARD_KEY="deerCampStewardDashboard";
+let verifiedStewardAccess = false;
+let verifiedStewardAccessChecked = false;
+
 function getCurrentSecurityRole(){
-  try { return window.DeerCampSecurity?.getActorRole?.(activeCampId || "") || "visitor"; } catch(error) { return "visitor"; }
-}
-function isCurrentSteward(){
-  try { return window.DeerCampSecurity?.isSteward?.(activeCampId || "") || false; } catch(error) { return false; }
-}
-function requireCurrentSteward(message = "Only the Camp Steward can manage this."){
   try {
-    if (window.DeerCampSecurity?.requireSteward?.(activeCampId || "", message)) return true;
-  } catch(error) {}
+    const role = window.DeerCampSecurity?.getActorRole?.(activeCampId || "") || "visitor";
+    if(role === "steward") return verifiedStewardAccess ? "steward" : "visitor";
+    return role;
+  } catch(error) {
+    return "visitor";
+  }
+}
+
+function isCurrentSteward(){
+  return verifiedStewardAccess === true;
+}
+
+function requireCurrentSteward(message = "Only the Camp Steward can manage this."){
+  if(isCurrentSteward()) return true;
   try { showToast(message); } catch(error) { alert(message); }
   return false;
+}
+
+async function refreshVerifiedStewardAccess(){
+  verifiedStewardAccess = false;
+  verifiedStewardAccessChecked = false;
+
+  try {
+    const result = await window.DeerCampAuth?.getStewardAccess?.(activeCampId || "");
+    verifiedStewardAccess = result?.authorized === true;
+  } catch(error) {
+    console.warn("Could not verify Camp Steward access.", error);
+    verifiedStewardAccess = false;
+  }
+
+  verifiedStewardAccessChecked = true;
+  return verifiedStewardAccess;
 }
 function shouldUseMemberLockedView(){ return getCurrentSecurityRole() === "member"; }
 window.addEventListener("deercamp:security-denied", (event) => {
@@ -6822,7 +6847,7 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
-ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderCampKitchen(); renderRecipes(); renderCampResources(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
+await refreshVerifiedStewardAccess(); ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderCampKitchen(); renderRecipes(); renderCampResources(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
 </body>
