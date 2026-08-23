@@ -990,30 +990,56 @@
         console.warn("Could not persist Steward dashboard session.", error);
       }
     }
-    function blockDashboardForMemberSession() {
+    function showStewardAccessGate(message = "Verifying Steward access...") {
+      let gate = document.getElementById("stewardAccessGate");
+
+      if (!gate) {
+        gate = document.createElement("div");
+        gate.id = "stewardAccessGate";
+        gate.style.cssText = "position:fixed;inset:0;z-index:999999;display:grid;place-items:center;padding:24px;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif;";
+        document.body.appendChild(gate);
+      }
+
+      gate.innerHTML = `<div style="max-width:560px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><p style="margin:0 0 8px;color:#6b5644;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Steward Access</p><h1 style="margin:0 0 10px;color:#452a16;">${message}</h1><p style="margin:0;color:#6b5644;line-height:1.55;">DeerCamp verifies Steward access using your signed-in account and the trusted camp ownership record.</p></div>`;
+
+      return gate;
+    }
+
+    function denyStewardDashboard(campId) {
+      const gate = showStewardAccessGate("Steward controls are protected");
+      const returnUrl = buildCampUrl("camp.html", campId);
+
+      gate.innerHTML = `<div style="max-width:560px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><p style="margin:0 0 8px;color:#6b5644;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Steward Access Required</p><h1 style="margin:0 0 10px;color:#452a16;">Steward controls are protected</h1><p style="margin:0 0 18px;color:#6b5644;line-height:1.55;">This signed-in account is not authorized as the Steward for this DeerCamp.</p><a style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;color:#452a16;text-decoration:none;font-weight:700;border:1px solid rgba(69,42,22,.12);" href="${returnUrl}">Return to Camp</a></div>`;
+    }
+
+    async function protectStewardDashboard() {
+      const campId = getDashboardCampIdParam();
+      const gate = showStewardAccessGate();
+
       try {
-        const campId = getDashboardCampIdParam();
-        const roleParam = getDashboardRoleParam();
-        if (roleParam === "steward") {
-          forceDashboardStewardSession(campId);
+        if (!campId) {
+          denyStewardDashboard(campId);
           return false;
         }
-        if (window.DeerCampSecurity?.getActorRole?.(campId) === "member") {
-          document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><p style="margin:0 0 8px;color:#6b5644;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Member View Active</p><h1 style="margin:0 0 10px;color:#452a16;">Steward controls are protected</h1><p style="margin:0 0 18px;color:#6b5644;line-height:1.55;">This browser is currently in Member View. If you are the Camp Steward and opened this from your Steward email, switch to Steward View below.</p><div style="display:flex;gap:10px;flex-wrap:wrap;"><button id="switchToStewardBtn" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:#6a4427;color:#fff;text-decoration:none;font-weight:700;cursor:pointer;">Switch to Steward View</button><a style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;color:#452a16;text-decoration:none;font-weight:700;border:1px solid rgba(69,42,22,.12);" href="camp.html${campId ? `?campId=${encodeURIComponent(campId)}` : ""}">Return to Camp</a></div></div></div>`;
-          setTimeout(()=>{
-            document.getElementById('switchToStewardBtn')?.addEventListener('click',()=>{
-              try{ forceDashboardStewardSession(campId); }catch(error){}
-              const nextUrl = campId ? `steward-dashboard.html?campId=${encodeURIComponent(campId)}&role=steward&view=steward` : 'steward-dashboard.html?role=steward&view=steward';
-              window.location.href = nextUrl;
-            });
-          },0);
-          return true;
+
+        const access = await window.DeerCampAuth?.getStewardAccess?.(campId);
+
+        if (!access?.authorized) {
+          denyStewardDashboard(campId);
+          return false;
         }
+
         forceDashboardStewardSession(campId);
-      } catch (error) {}
-      return false;
+        gate.remove();
+        return true;
+      } catch (error) {
+        console.error("Could not verify Steward Dashboard access.", error);
+        denyStewardDashboard(campId);
+        return false;
+      }
     }
-    if (blockDashboardForMemberSession()) throw new Error("DeerCamp member session cannot open Steward Dashboard.");
+
+
     const ACTIVE_CAMP_KEY = "deercamp.activeCampId";
     const CAMP_SCOPE_PREFIX = "deercamp.camps.";
     const DASHBOARD_SLIM_KEY = "deercamp.stewardDashboardSlim";
@@ -4408,23 +4434,31 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       return false;
     }
 
-    syncCampData();
-    renderPreview();
-    renderMembers();
-    renderSections();
-    renderCampRulesBuilder();
-    updateInviteButton();
-    renderDashboardBillingControls();
-    try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) { console.warn("Dashboard inventory refresh skipped.", error); }
-    maybeOpenRequestedProfileEditor();
-    hydrateDashboardFromCloud().then(() => {
+    async function startAuthorizedStewardDashboard() {
+      const authorized = await protectStewardDashboard();
+      if (!authorized) return;
+
+      syncCampData();
+      renderPreview();
+      renderMembers();
+      renderSections();
+      renderCampRulesBuilder();
+      updateInviteButton();
+      renderDashboardBillingControls();
+      try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) { console.warn("Dashboard inventory refresh skipped.", error); }
+      maybeOpenRequestedProfileEditor();
+
+      await hydrateDashboardFromCloud();
+
       try { renderMembers(); } catch (error) {}
       try { renderSections(); } catch (error) {}
       try { renderCampRulesBuilder(); } catch (error) {}
       try { renderDashboardBillingControls(); } catch (error) {}
       try { renderDashboardInventoryCounter(dashboardHasDcPlus()); } catch (error) {}
       maybeOpenRequestedProfileEditor();
-    });
+    }
+
+    startAuthorizedStewardDashboard();
   </script>
 </body>
 </html>
