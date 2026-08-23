@@ -3,12 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
+exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
 const node_path_1 = __importDefault(require("node:path"));
 const app_1 = require("firebase-admin/app");
+const auth_1 = require("firebase-admin/auth");
 const firestore_1 = require("firebase-admin/firestore");
 const storage_1 = require("firebase-admin/storage");
 const firestore_2 = require("firebase-functions/v2/firestore");
@@ -26,7 +27,10 @@ const STRIPE_SECRET_KEY = (0, params_1.defineSecret)("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = (0, params_1.defineSecret)("STRIPE_WEBHOOK_SECRET");
 const ADMIN_NOTIFICATION_EMAIL = (0, params_1.defineSecret)("ADMIN_NOTIFICATION_EMAIL");
 const db = (0, firestore_1.getFirestore)();
-const bucket = (0, storage_1.getStorage)().bucket();
+const auth = (0, auth_1.getAuth)();
+function getDefaultBucket() {
+    return (0, storage_1.getStorage)().bucket();
+}
 
 const DEFAULT_SEASON_OPENERS_URL = "https://www.ourdeercamp.com/data/us-state-deer-openers.json";
 function normalizeSeasonState(value) {
@@ -557,6 +561,21 @@ function getStripe() {
 function sendJson(res, status, payload) {
     res.status(status).json(payload);
 }
+async function verifyRequestUser(req) {
+    const authorization = String(req.headers.authorization || "").trim();
+    const match = authorization.match(/^Bearer\s+(.+)$/i);
+    if (!match)
+        return null;
+    try {
+        return await auth.verifyIdToken(match[1]);
+    }
+    catch (error) {
+        firebase_functions_1.logger.warn("Firebase ID token verification failed.", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+    }
+}
 function normalizeStripeId(value) {
     if (!value)
         return "";
@@ -738,6 +757,46 @@ async function maybeSendDcPlusCancellationEmail(campId, subscription, billing) {
         };
     }
 }
+exports.getStewardAccess = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+    try {
+        const user = await verifyRequestUser(req);
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+
+        const accessSnap = await db.collection("campAccess").doc(campId).get();
+        if (!accessSnap.exists)
+            return sendJson(res, 200, {
+                authorized: false,
+                campId,
+            });
+
+        const access = accessSnap.data() || {};
+        const stewardUid = String(access.stewardUid || "").trim();
+
+        return sendJson(res, 200, {
+            authorized: Boolean(stewardUid && stewardUid === user.uid),
+            campId,
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error("Could not verify Steward access.", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return sendJson(res, 500, { error: "Could not verify Steward access." });
+    }
+});
 exports.createCheckoutSession = (0, https_1.onRequest)({
     region: "us-central1",
     cors: true,
@@ -1090,7 +1149,7 @@ exports.enrichPublishedMemory = (0, firestore_2.onDocumentCreated)({
     const ext = node_path_1.default.extname(audioPath) || ".m4a";
     const localAudioPath = node_path_1.default.join(tmpDir, `memory${ext}`);
     try {
-        await bucket.file(audioPath).download({ destination: localAudioPath });
+        await getDefaultBucket().file(audioPath).download({ destination: localAudioPath });
         const openai = new openai_1.default({ apiKey: OPENAI_API_KEY.value() });
         const transcript = await transcribeAudio(openai, localAudioPath);
         if (!transcript) {
@@ -1172,7 +1231,7 @@ exports.transcribeCampStory = (0, firestore_2.onDocumentCreated)({
     const ext = node_path_1.default.extname(audioPath) || ".webm";
     const localAudioPath = node_path_1.default.join(tmpDir, `story${ext}`);
     try {
-        await bucket.file(audioPath).download({ destination: localAudioPath });
+        await getDefaultBucket().file(audioPath).download({ destination: localAudioPath });
         const openai = new openai_1.default({ apiKey: OPENAI_API_KEY.value() });
         const transcript = await transcribeAudio(openai, localAudioPath);
         if (!transcript) {
