@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
+exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.createCampWithStewardAccess = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -795,6 +795,96 @@ exports.getStewardAccess = (0, https_1.onRequest)({
             error: error instanceof Error ? error.message : String(error),
         });
         return sendJson(res, 500, { error: "Could not verify Steward access." });
+    }
+});
+exports.createCampWithStewardAccess = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+    try {
+        const user = await verifyRequestUser(req);
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+        const camp = body.camp && typeof body.camp === "object" && !Array.isArray(body.camp)
+            ? body.camp
+            : null;
+
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+        if (!camp)
+            return sendJson(res, 400, { error: "Missing camp data." });
+
+        const campRef = db.collection("camps").doc(campId);
+        const accessRef = db.collection("campAccess").doc(campId);
+
+        const result = await db.runTransaction(async (transaction) => {
+            const [campSnap, accessSnap] = await Promise.all([
+                transaction.get(campRef),
+                transaction.get(accessRef),
+            ]);
+
+            if (accessSnap.exists) {
+                const access = accessSnap.data() || {};
+                if (String(access.stewardUid || "").trim() === String(user.uid || "").trim()) {
+                    return { created: false, authorized: true, existing: true };
+                }
+                const error = new Error("Camp ownership is already assigned.");
+                error.code = "camp-access-conflict";
+                throw error;
+            }
+
+            if (campSnap.exists) {
+                const error = new Error("Existing camp requires trusted ownership backfill.");
+                error.code = "camp-already-exists";
+                throw error;
+            }
+
+            const stewardEmail = String(user.email || "").trim();
+
+            transaction.create(campRef, Object.assign({}, camp, {
+                campId,
+                trustedOwnerUid: user.uid,
+                updatedAtClient: new Date().toISOString(),
+            }));
+
+            transaction.create(accessRef, {
+                campId,
+                stewardUid: user.uid,
+                stewardEmail,
+                role: "steward",
+                createdBy: "authenticated-camp-creation",
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+
+            return { created: true, authorized: true, existing: false };
+        });
+
+        return sendJson(res, result.created ? 201 : 200, {
+            ok: true,
+            campId,
+            authorized: true,
+            created: result.created,
+            existing: result.existing,
+        });
+    }
+    catch (error) {
+        const code = String(error && error.code || "");
+        if (code === "camp-access-conflict")
+            return sendJson(res, 409, { error: "Camp ownership is already assigned." });
+        if (code === "camp-already-exists")
+            return sendJson(res, 409, { error: "Existing camp requires trusted ownership backfill." });
+
+        firebase_functions_1.logger.error("Could not create trusted DeerCamp ownership.", {
+            error: error instanceof Error ? error.message : String(error),
+        });
+        return sendJson(res, 500, { error: "Could not create DeerCamp." });
     }
 });
 exports.createCheckoutSession = (0, https_1.onRequest)({

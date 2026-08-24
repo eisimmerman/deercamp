@@ -322,6 +322,7 @@
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
 <script src="firebase-web.js"></script>
 </head>
 
@@ -679,6 +680,12 @@ function buildCampUrl(path, campId) {
 
 function buildBuilderResumeUrl(path, payload = {}) {
   const url = new URL(path, window.location.href);
+  if (
+    window.location.hostname.includes("localhost") &&
+    new URLSearchParams(window.location.search).get("useStagingFirebase") === "true"
+  ) {
+    url.searchParams.set("useStagingFirebase", "true");
+  }
   const entries = [
     ["campId", payload.campId],
     ["campName", payload.campName],
@@ -2309,6 +2316,133 @@ function incrementCreatedCampCounter(campId) {
   }
 }
 
+const PENDING_BUILD_AUTH_KEY = "deercamp.pendingAuthenticatedBuild";
+
+function capturePendingBuildSnapshot() {
+  const fieldIds = [
+    "campName",
+    "campCity",
+    "campState",
+    "campZip",
+    "campYear",
+    "campImageSelect",
+    "campSteward",
+    "campStewardEmail",
+    "campMembers",
+    "campReferralSource",
+    "campReferralDetail",
+    "campTraditionsCustom",
+    "campDeerDrives"
+  ];
+
+  const fields = {};
+
+  fieldIds.forEach((id) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+    fields[id] = String(element.value || "");
+  });
+
+  const upload = document.getElementById("campImageUpload");
+
+  return {
+    fields,
+    hadCampImageUpload: Boolean(upload?.files?.length),
+    savedAt: new Date().toISOString()
+  };
+}
+
+function savePendingBuildSnapshot() {
+  const snapshot = capturePendingBuildSnapshot();
+
+  try {
+    localStorage.setItem(PENDING_BUILD_AUTH_KEY, JSON.stringify(snapshot));
+    return snapshot;
+  } catch (error) {
+    console.warn("Could not preserve pending DeerCamp build before authentication.", error);
+    return snapshot;
+  }
+}
+
+function getPendingBuildSnapshot() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PENDING_BUILD_AUTH_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function restorePendingBuildSnapshot() {
+  const snapshot = getPendingBuildSnapshot();
+  const fields = snapshot.fields && typeof snapshot.fields === "object"
+    ? snapshot.fields
+    : {};
+
+  Object.entries(fields).forEach(([id, value]) => {
+    const element = document.getElementById(id);
+    if (!element) return;
+
+    element.value = String(value ?? "");
+
+    try {
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+    } catch (error) {}
+  });
+
+  return snapshot;
+}
+
+function clearPendingBuildSnapshot() {
+  try {
+    localStorage.removeItem(PENDING_BUILD_AUTH_KEY);
+  } catch (error) {}
+}
+
+async function completePendingBuildEmailSignIn() {
+  if (!window.DeerCampAuth?.isEmailSignInLink?.()) return false;
+
+  const snapshot = restorePendingBuildSnapshot();
+  const pendingEmail = String(
+    snapshot?.fields?.campStewardEmail || ""
+  ).trim().toLowerCase();
+
+  try {
+    setBuildFormStatus("Confirming your secure Steward sign-in...");
+
+    const user = await window.DeerCampAuth.completeEmailSignIn({
+      email: pendingEmail,
+      url: window.location.href
+    });
+
+    if (!user) {
+      throw new Error("Steward sign-in could not be completed.");
+    }
+
+    if (snapshot?.hadCampImageUpload) {
+      setBuildFormStatus(
+        "Steward sign-in confirmed. Your camp details were restored. Please reselect your camp picture, then tap Build My Camp."
+      );
+    } else {
+      setBuildFormStatus(
+        "Steward sign-in confirmed. Your camp details were restored. Tap Build My Camp to continue."
+      );
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Could not complete Steward email sign-in.", error);
+    setBuildFormStatus(
+      error?.message || "Could not complete secure Steward sign-in.",
+      true
+    );
+    return false;
+  }
+}
+
+restorePendingBuildSnapshot();
+completePendingBuildEmailSignIn();
 document.getElementById("campForm").addEventListener("submit", async function(e) {
   e.preventDefault();
 
@@ -2333,6 +2467,34 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
 
   const stewardName = document.getElementById("campSteward").value.trim();
   const stewardEmail = document.getElementById("campStewardEmail").value.trim();
+  if (!window.DeerCampAuth || !window.DeerCampAuth.isAuthenticated()) {
+    if (!stewardEmail) {
+      throw new Error("Steward email is required before secure camp creation.");
+    }
+
+    savePendingBuildSnapshot();
+
+    if (
+      !window.DeerCampAuth ||
+      typeof window.DeerCampAuth.sendEmailSignInLink !== "function"
+    ) {
+      throw new Error("Secure Steward email sign-in is unavailable.");
+    }
+
+    setBuildFormStatus("Sending your secure Steward sign-in link...");
+
+    await window.DeerCampAuth.sendEmailSignInLink(
+      stewardEmail,
+      { returnUrl: window.location.href }
+    );
+
+    setBuildButtonBusy(false);
+    setBuildFormStatus(
+      "Secure Steward sign-in link sent. Check your email, open the link, then return here to finish creating your camp."
+    );
+
+    return;
+  }
   const campMembers = parseCommaNames(document.getElementById("campMembers").value);
   const referralSource = String(document.getElementById("campReferralSource")?.value || "").trim();
   const referralDetail = normalizeReferralDetailValue(document.getElementById("campReferralDetail")?.value || "");
@@ -2564,25 +2726,42 @@ document.getElementById("campForm").addEventListener("submit", async function(e)
   }
 
   let cloudSaved = false;
-  try {
-    if (window.DeerCampCloud && typeof DeerCampCloud.saveCamp === "function") {
-      const cloudCampPayload = {
-        ...campData,
-        campName: name,
-        dashboardSlim: initialDashboardSlim,
-        enabledSections: { ...initialDashboardSlim.sections },
-        dashboardMembers: initialDashboardSlim.members.map((member) => ({ ...member })),
-        dashboardPeople: initialDashboardSlim.people.map((member) => ({ ...member })),
-        pendingInvites: [],
-        publishState: "private",
-        isPublic: false
-      };
-      cloudSaved = Boolean(await withTimeout(DeerCampCloud.saveCamp(campId, cloudCampPayload), 6000));
-    }
-  } catch (cloudError) {
-    console.warn("Cloud camp save did not finish before redirect.", cloudError);
+
+  const cloudCampPayload = {
+    ...campData,
+    campName: name,
+    dashboardSlim: initialDashboardSlim,
+    enabledSections: { ...initialDashboardSlim.sections },
+    dashboardMembers: initialDashboardSlim.members.map((member) => ({ ...member })),
+    dashboardPeople: initialDashboardSlim.people.map((member) => ({ ...member })),
+    pendingInvites: [],
+    publishState: "private",
+    isPublic: false
+  };
+
+  if (
+    !window.DeerCampAuth ||
+    typeof window.DeerCampAuth.createCampWithStewardAccess !== "function"
+  ) {
+    throw new Error("Secure DeerCamp creation is unavailable.");
   }
 
+  const trustedCreateResult = await withTimeout(
+    window.DeerCampAuth.createCampWithStewardAccess(
+      campId,
+      cloudCampPayload
+    ),
+    10000
+  );
+
+  if (
+    trustedCreateResult?.authorized !== true ||
+    trustedCreateResult?.created !== true
+  ) {
+    throw new Error("Trusted Steward ownership was not created.");
+  }
+
+  cloudSaved = true;
   try {
     if (window.DeerCampCloud && typeof DeerCampCloud.saveMetricEvent === "function") {
       DeerCampCloud.saveMetricEvent(campId, "camp_created", {
