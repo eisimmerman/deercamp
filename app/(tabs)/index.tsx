@@ -92,6 +92,14 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        <Pressable
+          style={styles.accountBtn}
+          onPress={() => router.push("/profile")}
+          accessibilityLabel="Open account and profile"
+        >
+          <Text style={styles.accountBtnText}>Account</Text>
+        </Pressable>
+
         <View style={styles.moduleGrid}>
           <Pressable
             style={({ pressed }) => [
@@ -277,6 +285,21 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     textAlign: "center",
     maxWidth: 420,
+  },
+
+  accountBtn: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    marginBottom: 16,
+  },
+
+  accountBtnText: {
+    color: "#fff",
+    fontWeight: "800",
   },
 
   moduleGrid: {

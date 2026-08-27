@@ -4,6 +4,7 @@ import { Redirect } from "expo-router";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
@@ -39,6 +40,32 @@ export default function SignInScreen() {
     } catch (err: any) {
       console.error("sign in error:", err);
       Alert.alert("Sign in failed", err?.message ?? "Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onForgotPassword() {
+    const e = email.trim();
+
+    if (!e) {
+      Alert.alert(
+        "Email required",
+        "Enter your email address, then tap Forgot your password? again."
+      );
+      return;
+    }
+
+    try {
+      setBusy(true);
+      await sendPasswordResetEmail(auth, e);
+      Alert.alert(
+        "Password reset email sent",
+        "Check your inbox and spam folder for the DeerCamp password reset email."
+      );
+    } catch (err: any) {
+      console.error("password reset error:", err);
+      Alert.alert("Password reset failed", err?.message ?? "Please try again.");
     } finally {
       setBusy(false);
     }
@@ -84,6 +111,14 @@ export default function SignInScreen() {
         placeholderTextColor="rgba(255,255,255,0.35)"
         style={styles.input}
       />
+
+      <Pressable
+        onPress={onForgotPassword}
+        disabled={busy}
+        style={styles.forgotButton}
+      >
+        <Text style={styles.forgotText}>Forgot your password?</Text>
+      </Pressable>
 
       <View style={styles.row}>
         <Pressable
@@ -147,6 +182,18 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: "#fff",
     fontWeight: "700",
+  },
+
+  forgotButton: {
+    alignSelf: "flex-end",
+    marginTop: 12,
+    paddingVertical: 6,
+  },
+
+  forgotText: {
+    color: "#fff",
+    fontWeight: "800",
+    textDecorationLine: "underline",
   },
 
   row: {
