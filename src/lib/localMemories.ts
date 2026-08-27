@@ -19,6 +19,7 @@ export type LocalMemorySegment = {
 export type LocalMemoryItem = {
   id: string;
   title?: string;
+  caption?: string;
   details?: string;
   clientCreatedAt: number;
   authorId: string;

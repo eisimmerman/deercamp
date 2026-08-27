@@ -4,10 +4,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -187,6 +190,8 @@ export default function FieldVoiceScreen() {
   const [helperCount, setHelperCount] = useState(0);
   const [activeCampId, setActiveCampIdState] = useState("");
   const [activeCampName, setActiveCampNameState] = useState("Camp Swede");
+  const [storyText, setStoryText] = useState("");
+  const [reviewMode, setReviewMode] = useState(false);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -462,6 +467,7 @@ export default function FieldVoiceScreen() {
     await saveLocalMemory({
       id: memoryId,
       title: "Field Photo",
+      caption: storyText.trim() || undefined,
       details: "Photo saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
@@ -541,6 +547,7 @@ export default function FieldVoiceScreen() {
     const payload: any = {
       id: memoryId,
       title: "Field Memory",
+      caption: storyText.trim() || undefined,
       details: "Photo + voice saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
@@ -605,10 +612,7 @@ export default function FieldVoiceScreen() {
       const photoUri = await takePhoto();
 
       if (photoOnly) {
-        setSaving(true);
-        const memoryId = await queuePhotoOnlyMemory(photoUri);
-        startImmediateUploadPass(memoryId);
-        router.replace("/(tabs)/memories");
+        setReviewMode(true);
       }
     } catch (error: any) {
       console.error("take photo failed:", error);
@@ -654,14 +658,35 @@ export default function FieldVoiceScreen() {
         });
       } catch {}
 
-      const memoryId = await queueVoiceMemory(capturedUri);
-      startImmediateUploadPass(memoryId);
-      router.replace("/(tabs)/memories");
+      setReviewMode(true);
     } catch (error: any) {
       console.error("stop and save recording failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
       recordingCompleteRef.current = false;
       setRecordingComplete(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function onPublishReview() {
+    if (saving || !capturedUri.trim()) return;
+
+    try {
+      setSaving(true);
+
+      const memoryId = photoOnly
+        ? await queuePhotoOnlyMemory(capturedUri)
+        : await queueVoiceMemory(capturedUri);
+
+      startImmediateUploadPass(memoryId);
+      router.replace("/(tabs)/memories");
+    } catch (error) {
+      console.error("publish reviewed memory failed:", error);
+      Alert.alert(
+        "Save failed",
+        error instanceof Error ? error.message : "Please try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -694,7 +719,7 @@ export default function FieldVoiceScreen() {
     return (
       <View style={styles.centerWrap}>
         <ActivityIndicator />
-        <Text style={styles.gateText}>Loading camera permissions…</Text>
+        <Text style={styles.gateText}>Loading camera permissions...</Text>
       </View>
     );
   }
@@ -750,11 +775,71 @@ export default function FieldVoiceScreen() {
     return (
       <View style={styles.centerWrap}>
         <ActivityIndicator />
-        <Text style={styles.gateTitle}>Starting Record Memory…</Text>
+        <Text style={styles.gateTitle}>Starting Record Memory...</Text>
         <Text style={styles.gateText}>
           Opening camera and starting audio automatically.
         </Text>
       </View>
+    );
+  }
+
+  if (reviewMode && capturedUri.trim()) {
+    return (
+      <KeyboardAvoidingView
+        style={styles.reviewScreen}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
+      >
+        <ScrollView
+          style={styles.reviewScroll}
+          contentContainerStyle={styles.reviewScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Image source={{ uri: capturedUri }} style={styles.reviewPhoto} />
+
+          <View style={styles.reviewCard}>
+          <Text style={styles.reviewTitle}>Review Memory</Text>
+          <Text style={styles.reviewText}>
+            Add a note or story if you want. You can also publish without one.
+          </Text>
+
+          <Text style={styles.storyLabel}>Note or story</Text>
+          <TextInput
+            value={storyText}
+            onChangeText={setStoryText}
+            placeholder="Add a note or story (optional)"
+            placeholderTextColor="rgba(255,255,255,0.55)"
+            multiline
+            maxLength={2000}
+            accessibilityLabel="Add a note or story"
+            style={styles.storyInput}
+          />
+
+          <View style={styles.reviewActions}>
+            <Pressable
+              style={styles.reviewSecondary}
+              onPress={onGoBack}
+              disabled={saving}
+            >
+              <Text style={styles.reviewSecondaryText}>Discard</Text>
+            </Pressable>
+
+            <Pressable
+              style={[styles.reviewPrimary, saving && styles.btnDisabled]}
+              onPress={onPublishReview}
+              disabled={saving}
+            >
+              {saving ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.reviewPrimaryText}>Publish Memory</Text>
+              )}
+            </Pressable>
+          </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -796,15 +881,7 @@ export default function FieldVoiceScreen() {
       ) : null}
 
       <View style={styles.overlayBottom}>
-        <Text style={styles.captureTitle}>
-          {photoOnly ? "Photo Only" : "Record Memory"}
-        </Text>
-
-        <Text style={styles.captureText}>
-          {photoOnly ? "Tap to take photo." : "Audio auto-recording."}
-        </Text>
-
-        <View style={styles.campTargetPill}>
+<View style={styles.campTargetPill}>
           <Ionicons name="navigate-circle-outline" size={16} color="white" />
           <Text style={styles.campTargetText}>
             Current Camp: {activeCampName || "Camp Swede"}{activeCampId ? "" : ""}
@@ -862,19 +939,143 @@ export default function FieldVoiceScreen() {
 }
 
 const styles = StyleSheet.create({
+  reviewScreen: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  reviewScroll: {
+    flex: 1,
+  },
+  reviewScrollContent: {
+    flexGrow: 1,
+    paddingTop: 54,
+    paddingHorizontal: 18,
+    paddingBottom: 40,
+  },
+  reviewPhoto: {
+    width: "100%",
+    height: 300,
+    borderRadius: 18,
+    resizeMode: "contain",
+    backgroundColor: "#000",
+  },
+  reviewCard: {
+    marginTop: 14,
+    backgroundColor: "rgba(20,22,26,0.98)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.14)",
+    borderRadius: 18,
+    padding: 16,
+  },
+  reviewTitle: {
+    color: "white",
+    fontSize: 22,
+    fontWeight: "900",
+  },
+  reviewText: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 14,
+    marginTop: 6,
+    marginBottom: 12,
+  },
+  reviewActions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
+  },
+  reviewPrimary: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#315f3a",
+  },
+  reviewPrimaryText: {
+    color: "white",
+    fontWeight: "900",
+    fontSize: 15,
+  },
+  reviewSecondary: {
+    minHeight: 48,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.25)",
+  },
+  reviewSecondaryText: {
+    color: "white",
+    fontWeight: "800",
+  },
+  topControlRow: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  storyTopBox: {
+    position: "absolute",
+    top: 125,
+    left: 16,
+    right: 16,
+    zIndex: 35,
+    elevation: 35,
+    backgroundColor: "rgba(11,14,18,0.86)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.22)",
+    borderRadius: 14,
+    padding: 10,
+  },
+  storyPanel: {
+    position: "absolute",
+    top: 100,
+    left: 18,
+    right: 18,
+    zIndex: 40,
+    elevation: 40,
+    backgroundColor: "rgba(11,14,18,0.82)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    borderRadius: 16,
+    padding: 12,
+  },
+  storyLabel: {
+    color: "white",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  storyInput: {
+    minHeight: 56,
+    maxHeight: 110,
+    marginTop: 10,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "rgba(0,0,0,0.32)",
+    color: "white",
+    fontSize: 15,
+    textAlignVertical: "top",
+    zIndex: 25,
+    elevation: 25,
+  },
+
   screen: { flex: 1, backgroundColor: "#000" },
   camera: { flex: 1 },
   captureAnywhere: { ...StyleSheet.absoluteFillObject },
 
   overlayTop: {
     position: "absolute",
-    top: 38,
+    top: 64,
     left: 16,
     right: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
+    flexDirection: "column",
+    gap: 10,
   },
 
   thumbWrap: {
@@ -900,6 +1101,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 24,
     padding: 16,
+      zIndex: 20,
+    elevation: 20,
   },
 
   backPill: {
@@ -1056,3 +1259,6 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: "#0B0E12", fontSize: 16, fontWeight: "900" },
   secondaryText: { color: "rgba(255,255,255,0.6)", fontWeight: "700" },
 });
+
+
+

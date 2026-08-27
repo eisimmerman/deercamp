@@ -465,7 +465,7 @@ export async function publishUploadedMemoryToFeed(
   const campId = resolvePublishCampId(options?.campId || memory.campId);
   const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
   const caption = trimOrFallback(
-    options?.defaultCaption || getMemoryCaption(memory),
+    getMemoryCaption(memory) || options?.defaultCaption,
     "Captured in DeerCamp Field Mode."
   );
 
