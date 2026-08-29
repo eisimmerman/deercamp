@@ -177,6 +177,7 @@ export default function FieldVoiceScreen() {
   const currentSegmentStartedAtRef = useRef(0);
   const finalizingSegmentRef = useRef(false);
   const recordingCompleteRef = useRef(false);
+  const capturedAtRef = useRef(0);
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [facing, setFacing] = useState<CameraType>("back");
@@ -450,13 +451,14 @@ export default function FieldVoiceScreen() {
     }
 
     await incrementPhotoCount();
+    capturedAtRef.current = Date.now();
     setCapturedUri(result.uri);
     return result.uri;
   }
 
   async function queuePhotoOnlyMemory(photoUri: string) {
     const memoryId = `local-photo-${authorId}-${Date.now()}`;
-    const now = Date.now();
+    const now = capturedAtRef.current || Date.now();
     const campId = await getActiveCampId();
     const persistedPhotoUri = await persistFileForUpload({
       sourceUri: photoUri,
@@ -511,7 +513,7 @@ export default function FieldVoiceScreen() {
       recorderState.durationMillis ||
       0;
     const memoryId = state?.memoryId || `local-${authorId}-${Date.now()}`;
-    const now = Date.now();
+    const now = capturedAtRef.current || Date.now();
     const persistedPhotoUri = await persistFileForUpload({
       sourceUri: photoUri,
       memoryId,
