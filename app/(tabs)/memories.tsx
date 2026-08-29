@@ -19,10 +19,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
 import {
   getLocalMemories,
   removeLocalMemory,
+  updateLocalMemory,
   hasConfirmedCampFeedPublish,
   type LocalMemoryItem,
 } from "@/lib/localMemories";
@@ -154,7 +156,56 @@ export default function MemoriesScreen() {
         if (showLoading) setLoading(true);
 
         const next = await getLocalMemories(user.uid);
-        const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
+
+        const reconciled = await Promise.all(
+          next.map(async (item: LocalMemoryItem) => {
+            const feedDocId = String(item.feedDocId || "").trim();
+            const status = String(item.transcriptionStatus || "").trim();
+
+            if (!feedDocId || (status !== "pending" && status !== "failed")) {
+              return item;
+            }
+
+            try {
+              const snapshot = await getDoc(doc(db, "feedItems", feedDocId));
+              if (!snapshot.exists()) return item;
+
+              const remote = snapshot.data();
+              const remoteStatus = String(remote.transcriptionStatus || "").trim();
+
+              if (
+                remoteStatus !== "complete" &&
+                remoteStatus !== "failed" &&
+                remoteStatus !== "pending"
+              ) {
+                return item;
+              }
+
+              const patch: Partial<LocalMemoryItem> = {
+                transcriptionStatus: remoteStatus as "pending" | "complete" | "failed",
+                transcript: String(remote.transcript || "").trim() || undefined,
+                transcriptPreview:
+                  String(remote.transcriptPreview || remote.transcript || "").trim() ||
+                  undefined,
+                transcriptionError:
+                  String(remote.transcriptionError || "").trim() || undefined,
+                details: "Published to CampFeed.",
+              };
+
+              await updateLocalMemory(item.id, patch);
+
+              return {
+                ...item,
+                ...patch,
+              };
+            } catch (error) {
+              console.error("transcript reconciliation failed:", error);
+              return item;
+            }
+          }),
+        );
+
+        const mapped: EntryItem[] = reconciled.map((item: LocalMemoryItem) => ({
           ...item,
           isLocal: true,
         }));
