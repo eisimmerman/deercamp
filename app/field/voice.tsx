@@ -1073,7 +1073,7 @@ const styles = StyleSheet.create({
 
   overlayTop: {
     position: "absolute",
-    top: 64,
+    top: Platform.OS === "ios" ? 84 : 64,
     left: 16,
     right: 16,
     flexDirection: "column",
