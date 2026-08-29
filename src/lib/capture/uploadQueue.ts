@@ -282,6 +282,38 @@ export async function resetFailedUploadQueueItemsForMemory(memoryId: string) {
   return resetCount;
 }
 
+export async function resetRetryableUploadQueueItemsForMemory(memoryId: string) {
+  const cleanMemoryId = String(memoryId || "").trim();
+  if (!cleanMemoryId) return 0;
+
+  const items = await readQueue();
+  let resetCount = 0;
+  const now = Date.now();
+
+  const next = items.map((item) => {
+    if (
+      item.memoryId !== cleanMemoryId ||
+      (item.status !== "failed" && item.status !== "uploading")
+    ) {
+      return item;
+    }
+
+    resetCount += 1;
+    return {
+      ...item,
+      status: "pending" as const,
+      updatedAt: now,
+      lastError: undefined,
+    };
+  });
+
+  if (resetCount > 0) {
+    await writeQueue(next);
+  }
+
+  return resetCount;
+}
+
 export async function clearUploadedQueueItems() {
   const items = await readQueue();
   await writeQueue(items.filter((item) => item.status !== "uploaded"));

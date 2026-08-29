@@ -35,6 +35,7 @@ import {
 import {
   removeUploadQueueItemsForMemory,
   resetFailedUploadQueueItemsForMemory,
+  resetRetryableUploadQueueItemsForMemory,
 } from "@/lib/capture/uploadQueue";
 import { processUploadQueueOnce } from "@/lib/capture/uploadWorker";
 
@@ -470,7 +471,7 @@ export default function MemoriesScreen() {
       if (!cleanMemoryId) return;
 
       try {
-        await resetFailedUploadQueueItemsForMemory(cleanMemoryId);
+        await resetRetryableUploadQueueItemsForMemory(cleanMemoryId);
         await refreshUploadTotals();
         await uploadFieldMemories("manual");
       } catch (error) {
