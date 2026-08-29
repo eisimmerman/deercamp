@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -453,6 +454,7 @@ export default function LocalEntryDetailScreen() {
 const styles = StyleSheet.create({
   page: {
     padding: 14,
+    paddingTop: Platform.OS === "ios" ? 54 : 14,
     gap: 12,
     backgroundColor: "#0B0E12",
     minHeight: "100%",
