@@ -1,4 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, db, storage } from "./firebase";
@@ -452,6 +452,36 @@ function buildFeedDoc(params: {
   return doc;
 }
 
+async function writeFeedDocIdempotently(
+  memoryId: string,
+  feedDoc: Record<string, any>
+) {
+  const cleanMemoryId = String(memoryId || "").trim();
+
+  if (!cleanMemoryId) {
+    throw new Error("Memory is missing an id.");
+  }
+
+  // Repeated or concurrent publishes for the same local memory converge
+  // on one Firestore document without requiring a client-side feed query.
+  const deterministicId = `memory-${encodeURIComponent(cleanMemoryId)}`;
+  const feedRef = doc(db, "feedItems", deterministicId);
+
+  try {
+    await updateDoc(feedRef, {
+      localMemoryId: cleanMemoryId,
+    });
+
+    return feedRef;
+  } catch {
+    // First publish: deterministic document does not exist yet.
+  }
+
+  await setDoc(feedRef, feedDoc);
+
+  return feedRef;
+}
+
 export async function publishUploadedMemoryToFeed(
   memory: PublishableMemory | LocalMemoryItem,
   options?: {
@@ -482,8 +512,8 @@ export async function publishUploadedMemoryToFeed(
     throw new Error("Memory is missing an uploaded photo URL.");
   }
 
-  const docRef = await addDoc(
-    collection(db, "feedItems"),
+  const docRef = await writeFeedDocIdempotently(
+    memory.id,
     buildFeedDoc({
       user,
       memory,
@@ -584,8 +614,8 @@ export async function publishMemoryToFeed(
     audioUrl = assertDownloadUrl(await getDownloadURL(audioRef), "Voice memory");
   }
 
-  const docRef = await addDoc(
-    collection(db, "feedItems"),
+  const docRef = await writeFeedDocIdempotently(
+    memory.id,
     buildFeedDoc({
       user,
       memory,

@@ -488,6 +488,10 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
       }
     }
 
+    if (memoryId) {
+      await updateMemoryUploadState(memoryId);
+    }
+
     return results;
   } finally {
     uploadWorkerRunning = false;

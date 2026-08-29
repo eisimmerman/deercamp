@@ -473,7 +473,7 @@ export default function MemoriesScreen() {
       try {
         await resetRetryableUploadQueueItemsForMemory(cleanMemoryId);
         await refreshUploadTotals();
-        await uploadFieldMemories("manual");
+        await processUploadQueueOnce(10, cleanMemoryId);
       } catch (error) {
         console.error("retry failed field memory failed:", error);
       }
