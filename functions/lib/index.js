@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.createCampWithStewardAccess = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
+exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.getMemberAccess = exports.acceptMemberInvite = exports.createMemberInvite = exports.createCampWithStewardAccess = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -887,6 +887,363 @@ exports.createCampWithStewardAccess = (0, https_1.onRequest)({
         return sendJson(res, 500, { error: "Could not create DeerCamp." });
     }
 });
+function memberInviteDocId(inviteToken) {
+    return encodeURIComponent(String(inviteToken || "").trim());
+}
+
+exports.createMemberInvite = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+
+    try {
+        const user = await verifyRequestUser(req);
+
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+        const inviteToken = String(body.inviteToken || "").trim();
+        const inviteEmail = String(body.email || "").trim().toLowerCase();
+        const inviteName = String(body.name || "").trim();
+
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+
+        if (!inviteToken)
+            return sendJson(res, 400, { error: "Missing inviteToken." });
+
+        if (!inviteEmail)
+            return sendJson(res, 400, { error: "Missing member email." });
+
+        const accessRef = db.collection("campAccess").doc(campId);
+        const inviteRef = accessRef
+            .collection("invites")
+            .doc(memberInviteDocId(inviteToken));
+
+        const result = await db.runTransaction(async (transaction) => {
+            const [accessSnap, inviteSnap] = await Promise.all([
+                transaction.get(accessRef),
+                transaction.get(inviteRef),
+            ]);
+
+            if (!accessSnap.exists) {
+                const error = new Error("Trusted Steward access is required.");
+                error.code = "steward-access-required";
+                throw error;
+            }
+
+            const access = accessSnap.data() || {};
+            const stewardUid = String(access.stewardUid || "").trim();
+
+            if (!stewardUid || stewardUid !== String(user.uid || "").trim()) {
+                const error = new Error("Trusted Steward access is required.");
+                error.code = "steward-access-required";
+                throw error;
+            }
+
+            if (inviteSnap.exists) {
+                const existing = inviteSnap.data() || {};
+                const existingEmail = String(existing.inviteEmail || "")
+                    .trim()
+                    .toLowerCase();
+
+                if (existingEmail === inviteEmail) {
+                    return {
+                        created: false,
+                        existing: true,
+                    };
+                }
+
+                const error = new Error("Invite token is already assigned.");
+                error.code = "invite-token-conflict";
+                throw error;
+            }
+
+            transaction.create(inviteRef, {
+                campId,
+                inviteEmail,
+                inviteName,
+                role: "member",
+                status: "pending",
+                createdByUid: user.uid,
+                createdBy: "verified-steward",
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+
+            return {
+                created: true,
+                existing: false,
+            };
+        });
+
+        return sendJson(res, result.created ? 201 : 200, {
+            ok: true,
+            campId,
+            created: result.created,
+            existing: result.existing,
+        });
+    }
+    catch (error) {
+        const code = String(error && error.code || "");
+
+        if (code === "steward-access-required")
+            return sendJson(res, 403, {
+                error: "Trusted Steward access is required.",
+            });
+
+        if (code === "invite-token-conflict")
+            return sendJson(res, 409, {
+                error: "Invite token is already assigned.",
+            });
+
+        firebase_functions_1.logger.error(
+            "Could not create trusted member invite.",
+            {
+                error: error instanceof Error
+                    ? error.message
+                    : String(error),
+            }
+        );
+
+        return sendJson(res, 500, {
+            error: "Could not create member invite.",
+        });
+    }
+});
+
+exports.acceptMemberInvite = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+
+    try {
+        const user = await verifyRequestUser(req);
+
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+        const inviteToken = String(body.inviteToken || "").trim();
+        const userEmail = String(user.email || "").trim().toLowerCase();
+
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+
+        if (!inviteToken)
+            return sendJson(res, 400, { error: "Missing inviteToken." });
+
+        if (!userEmail)
+            return sendJson(res, 403, {
+                error: "Authenticated account does not have an email address.",
+            });
+
+        const accessRef = db.collection("campAccess").doc(campId);
+
+        const inviteRef = accessRef
+            .collection("invites")
+            .doc(memberInviteDocId(inviteToken));
+
+        const memberAccessRef = accessRef
+            .collection("members")
+            .doc(user.uid);
+
+        const result = await db.runTransaction(async (transaction) => {
+            const [inviteSnap, memberAccessSnap] = await Promise.all([
+                transaction.get(inviteRef),
+                transaction.get(memberAccessRef),
+            ]);
+
+            if (memberAccessSnap.exists) {
+                const existing = memberAccessSnap.data() || {};
+                const existingUid = String(existing.memberUid || "").trim();
+                const existingEmail = String(existing.memberEmail || "")
+                    .trim()
+                    .toLowerCase();
+
+                if (
+                    existingUid === String(user.uid || "").trim() &&
+                    existingEmail === userEmail
+                ) {
+                    return {
+                        authorized: true,
+                        existing: true,
+                        memberEmail: existingEmail,
+                    };
+                }
+
+                const error = new Error("Member access is already assigned.");
+                error.code = "member-access-conflict";
+                throw error;
+            }
+
+            if (!inviteSnap.exists) {
+                const error = new Error("Invite is not valid for this DeerCamp.");
+                error.code = "invite-not-found";
+                throw error;
+            }
+
+            const invite = inviteSnap.data() || {};
+            const invitedEmail = String(invite.inviteEmail || "")
+                .trim()
+                .toLowerCase();
+            const inviteStatus = String(invite.status || "").trim().toLowerCase();
+
+            if (!invitedEmail || invitedEmail !== userEmail) {
+                const error = new Error(
+                    "Invite email does not match authenticated account."
+                );
+                error.code = "invite-email-mismatch";
+                throw error;
+            }
+
+            if (inviteStatus !== "pending") {
+                const error = new Error("Invite is no longer active.");
+                error.code = "invite-not-active";
+                throw error;
+            }
+
+            transaction.create(memberAccessRef, {
+                campId,
+                memberUid: user.uid,
+                memberEmail: userEmail,
+                memberName: String(invite.inviteName || "").trim(),
+                role: "member",
+                createdBy: "authenticated-protected-member-invite",
+                createdAt: firestore_1.FieldValue.serverTimestamp(),
+            });
+
+            transaction.set(inviteRef, {
+                status: "accepted",
+                acceptedByUid: user.uid,
+                acceptedEmail: userEmail,
+                acceptedAt: firestore_1.FieldValue.serverTimestamp(),
+            }, { merge: true });
+
+            return {
+                authorized: true,
+                existing: false,
+                memberEmail: userEmail,
+            };
+        });
+
+        return sendJson(res, result.existing ? 200 : 201, {
+            ok: true,
+            campId,
+            authorized: true,
+            existing: result.existing,
+            memberEmail: result.memberEmail,
+        });
+    }
+    catch (error) {
+        const code = String(error && error.code || "");
+
+        if (code === "invite-not-found")
+            return sendJson(res, 403, {
+                error: "Invite is not valid for this DeerCamp.",
+            });
+
+        if (code === "invite-email-mismatch")
+            return sendJson(res, 403, {
+                error: "Invite email does not match authenticated account.",
+            });
+
+        if (code === "invite-not-active")
+            return sendJson(res, 403, {
+                error: "Invite is no longer active.",
+            });
+
+        if (code === "member-access-conflict")
+            return sendJson(res, 409, {
+                error: "Member access is already assigned.",
+            });
+
+        firebase_functions_1.logger.error(
+            "Could not accept trusted member invite.",
+            {
+                error: error instanceof Error
+                    ? error.message
+                    : String(error),
+            }
+        );
+
+        return sendJson(res, 500, {
+            error: "Could not accept member invite.",
+        });
+    }
+});
+exports.getMemberAccess = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+
+    try {
+        const user = await verifyRequestUser(req);
+
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+
+        const memberAccessSnap = await db
+            .collection("campAccess")
+            .doc(campId)
+            .collection("members")
+            .doc(user.uid)
+            .get();
+
+        if (!memberAccessSnap.exists) {
+            return sendJson(res, 200, {
+                authorized: false,
+                campId,
+            });
+        }
+
+        const access = memberAccessSnap.data() || {};
+        const memberUid = String(access.memberUid || "").trim();
+
+        return sendJson(res, 200, {
+            authorized: Boolean(
+                memberUid &&
+                memberUid === String(user.uid || "").trim()
+            ),
+            campId,
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error(
+            "Could not verify member access.",
+            {
+                error: error instanceof Error
+                    ? error.message
+                    : String(error),
+            }
+        );
+
+        return sendJson(res, 500, {
+            error: "Could not verify member access.",
+        });
+    }
+});
+
 exports.createCheckoutSession = (0, https_1.onRequest)({
     region: "us-central1",
     cors: true,

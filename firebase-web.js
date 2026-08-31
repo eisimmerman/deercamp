@@ -1177,6 +1177,142 @@
         authenticated: true
       };
     },
+    async createMemberInvite(campId, invite = {}) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("Authentication required.");
+
+      const cleanCampId = String(campId || "").trim();
+      const inviteToken = String(invite?.inviteToken || "").trim();
+      const email = String(invite?.email || "").trim().toLowerCase();
+      const name = String(invite?.name || "").trim();
+
+      if (!cleanCampId) throw new Error("Camp ID is required.");
+      if (!inviteToken) throw new Error("Invite token is required.");
+      if (!email) throw new Error("Member email is required.");
+
+      const token = await user.getIdToken(true);
+      const projectId = String(firebaseConfig?.projectId || "").trim();
+
+      if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+      const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/createMemberInvite`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          campId: cleanCampId,
+          inviteToken,
+          email,
+          name
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not create member invite.");
+      }
+
+      return {
+        ...payload,
+        campId: String(payload?.campId || cleanCampId),
+        authenticated: true
+      };
+    },
+
+    async acceptMemberInvite(campId, inviteToken) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("Authentication required.");
+
+      const cleanCampId = String(campId || "").trim();
+      const cleanInviteToken = String(inviteToken || "").trim();
+
+      if (!cleanCampId) throw new Error("Camp ID is required.");
+      if (!cleanInviteToken) throw new Error("Invite token is required.");
+
+      const token = await user.getIdToken(true);
+      const projectId = String(firebaseConfig?.projectId || "").trim();
+
+      if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+      const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/acceptMemberInvite`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          campId: cleanCampId,
+          inviteToken: cleanInviteToken
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not accept member invite.");
+      }
+
+      return {
+        ...payload,
+        campId: String(payload?.campId || cleanCampId),
+        authenticated: true
+      };
+    },
+
+    async getMemberAccess(campId) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("Authentication required.");
+
+      const cleanCampId = String(campId || "").trim();
+
+      if (!cleanCampId) throw new Error("Camp ID is required.");
+
+      const token = await user.getIdToken(true);
+      const projectId = String(firebaseConfig?.projectId || "").trim();
+
+      if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+      const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/getMemberAccess`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          campId: cleanCampId
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not verify member access.");
+      }
+
+      return {
+        authorized: payload?.authorized === true,
+        campId: String(payload?.campId || cleanCampId),
+        authenticated: true
+      };
+    },
     async signOut() {
       const auth = this.ensureReady();
       if (!auth) return false;

@@ -685,12 +685,22 @@
 
   <script>
     const CAMP_DATA_KEY = 'campData';
-    function setMemberSecurityActor(invite = {}, member = {}) {
+    function setMemberSecurityActor(invite = {}, member = {}, options = {}) {
+      if (options?.verified !== true) {
+        console.warn('Member role assignment blocked because trusted member access was not verified.');
+        return false;
+      }
+
       try {
         const campId = String(invite.campId || getCampIdFromUrl() || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
         const email = normalizeInviteEmail(String(member.email || invite.email || '').trim()).toLowerCase();
+
         window.DeerCampSecurity?.setActor?.('member', { campId, email });
-      } catch (error) {}
+        return true;
+      } catch (error) {
+        console.warn('Could not assign verified member actor.', error);
+        return false;
+      }
     }
     const DASHBOARD_KEY = 'deerCampStewardDashboard';
     const DASHBOARD_SLIM_KEY = 'deercamp.stewardDashboardSlim';
@@ -1596,48 +1606,110 @@
 
       if (type === 'used') {
         const campHref = buildCampUrl('camp.html', campId);
+
         title.textContent = "You're already in this DeerCamp";
-        message.textContent = 'Opening your camp now — no setup needed.';
+        message.textContent = 'Verifying your member access...';
 
-        try {
-          setMemberSecurityActor(inviteBeforeRender, {
-            email: inviteBeforeRender.email,
-            name: inviteBeforeRender.name
-          });
-        } catch (error) {}
-
-        if(openCampBtn && campId){
-          openCampBtn.href = campHref;
+        if (openCampBtn && campId) {
+          openCampBtn.href = '#';
           openCampBtn.style.display = 'inline-flex';
           openCampBtn.textContent = 'Open Camp';
-          openCampBtn.addEventListener('click',()=>setMemberSecurityActor(inviteBeforeRender, {email: inviteBeforeRender.email, name: inviteBeforeRender.name}));
+          openCampBtn.setAttribute('aria-disabled', 'true');
         }
 
-        if (campId) {
-          window.setTimeout(() => {
-            window.location.replace(campHref);
-          }, 250);
+        const openVerifiedCamp = async () => {
+          if (!campId) {
+            throw new Error('DeerCamp ID is unavailable.');
+          }
+
+          if (
+            !window.DeerCampAuth ||
+            typeof DeerCampAuth.getMemberAccess !== 'function'
+          ) {
+            throw new Error('Trusted DeerCamp member authentication is unavailable.');
+          }
+
+          const access = await DeerCampAuth.getMemberAccess(campId);
+
+          if (access?.authorized !== true) {
+            throw new Error('Trusted member access is required to open this DeerCamp.');
+          }
+
+          setMemberSecurityActor(
+            inviteBeforeRender,
+            {
+              email: inviteBeforeRender.email,
+              name: inviteBeforeRender.name
+            },
+            { verified: true }
+          );
+
+          window.location.href = campHref;
+        };
+
+        if (openCampBtn) {
+          openCampBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+
+            try {
+              await openVerifiedCamp();
+            } catch (error) {
+              console.warn('Already Joined Open Camp blocked because trusted member verification failed.', error);
+
+              message.textContent = error instanceof Error
+                ? error.message
+                : 'Could not verify your DeerCamp member access.';
+            }
+          });
         }
+
+        (async () => {
+          try {
+            const access = await DeerCampAuth.getMemberAccess(campId);
+
+            if (access?.authorized !== true) {
+              message.textContent = 'Sign in with your invited member account to open this DeerCamp.';
+              if (openCampBtn) openCampBtn.setAttribute('aria-disabled', 'true');
+              return;
+            }
+
+            message.textContent = 'Opening your camp now — no setup needed.';
+
+            if (openCampBtn) {
+              openCampBtn.removeAttribute('aria-disabled');
+            }
+
+            setMemberSecurityActor(
+              inviteBeforeRender,
+              {
+                email: inviteBeforeRender.email,
+                name: inviteBeforeRender.name
+              },
+              { verified: true }
+            );
+
+            window.setTimeout(() => {
+              window.location.replace(campHref);
+            }, 250);
+          } catch (error) {
+            console.warn('Already Joined member verification failed.', error);
+
+            message.textContent = error instanceof Error
+              ? error.message
+              : 'Could not verify your DeerCamp member access.';
+          }
+        })();
+
         return;
       }
-
       title.textContent = 'Invalid Invite';
       message.textContent = 'This invite link is not valid or does not belong to this camp.';
     }
 
     async function validateInviteOrBlock() {
-      let invite = getInviteContext();
-      if (invite.campId) {
-        await hydrateCampFromCloud(invite.campId);
-        ensureInviteContextSeed();
-        invite = getInviteContext();
-      }
-      const dashboard = getDashboardData();
-      const campData = getCampData();
+      const invite = getInviteContext();
 
       const inviteCampId = String(invite.campId || '').trim();
-      const inviteEmail = String(invite.email || '').trim().toLowerCase();
-      const inviteName = String(invite.name || '').trim().toLowerCase();
       const inviteToken = String(invite.inviteToken || '').trim();
 
       if (!inviteCampId || !inviteToken) {
@@ -1645,75 +1717,69 @@
         return false;
       }
 
-      const dashboardCampId = String(dashboard?.campId || dashboard?.camp?.campId || '').trim();
-      if (dashboardCampId && dashboardCampId !== inviteCampId) {
-        showInviteStatus('invalid');
-        return false;
+      if (
+        !window.DeerCampAuth ||
+        typeof DeerCampAuth.acceptMemberInvite !== 'function' ||
+        typeof DeerCampAuth.getMemberAccess !== 'function'
+      ) {
+        throw new Error('Trusted DeerCamp member authentication is unavailable.');
       }
 
-      const candidateEntries = [
-        ...(Array.isArray(dashboard.pendingInvites) ? dashboard.pendingInvites : []),
-        ...(Array.isArray(dashboard.people) ? dashboard.people : []),
-        ...(Array.isArray(dashboard.members) ? dashboard.members : []),
-        ...(Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [])
-      ];
+      if (!DeerCampAuth.isAuthenticated()) {
+        const inviteEmail = normalizeInviteEmail(
+          String(invite.email || '').trim()
+        ).toLowerCase();
 
-      const matchesInvite = (entry = {}) => {
-        const entryToken = String(entry?.inviteToken || '').trim();
-        const entryEmail = normalizeInviteEmail(String(entry?.email || '').trim()).toLowerCase();
-        const entryName = String(entry?.name || '').trim().toLowerCase();
-        const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
-        if (!entryToken || entryToken !== inviteToken) return false;
-        if (entryCampId && entryCampId !== inviteCampId) return false;
-        if (inviteEmail && entryEmail && entryEmail !== inviteEmail) return false;
-        if (inviteName && entryName && entryName !== inviteName) return false;
-        return true;
-      };
+        if (!inviteEmail) {
+          throw new Error('This invite does not contain a member email address.');
+        }
 
-      const matchedInvite = candidateEntries.find(matchesInvite);
-      if (matchedInvite) {
-        if (isAcceptedInviteEntry(matchedInvite)) {
-          showInviteStatus('used');
+        if (DeerCampAuth.isEmailSignInLink(window.location.href)) {
+          setSavePill('Signing you in...');
+
+          await DeerCampAuth.completeEmailSignIn({
+            email: inviteEmail,
+            url: window.location.href
+          });
+
+          if (!DeerCampAuth.isAuthenticated()) {
+            throw new Error('Could not complete DeerCamp member sign-in.');
+          }
+        } else {
+          setSavePill('Sending secure sign-in link...');
+
+          await DeerCampAuth.sendEmailSignInLink(inviteEmail, {
+            returnUrl: window.location.href
+          });
+
+          setSavePill(`Secure sign-in link sent to ${inviteEmail}. Open that email to continue.`);
           return false;
         }
+      }
+
+      const existingAccess = await DeerCampAuth.getMemberAccess(inviteCampId);
+
+      if (existingAccess?.authorized === true) {
         return true;
       }
 
-      const exactAcceptedMatch = candidateEntries.find(entry => {
-        const entryToken = String(entry?.inviteToken || '').trim();
-        const entryCampId = String(entry?.campId || dashboard?.campId || dashboard?.camp?.campId || campData.campId || '').trim();
-        if (!entryToken || entryToken !== inviteToken) return false;
-        if (entryCampId && entryCampId !== inviteCampId) return false;
-        return isAcceptedInviteEntry(entry);
-      });
-      if (exactAcceptedMatch) {
-        showInviteStatus('used');
-        return false;
+      const accepted = await DeerCampAuth.acceptMemberInvite(
+        inviteCampId,
+        inviteToken
+      );
+
+      if (accepted?.authorized !== true) {
+        throw new Error('Trusted member invite verification failed.');
       }
 
-      const urlBackedInvite = {
-        id: invite.inviteId || `invite-${inviteToken}`,
-        campId: inviteCampId,
-        name: String(invite.name || '').trim(),
-        email: normalizeInviteEmail(String(invite.email || '').trim()),
-        role: 'Camp Member',
-        roleLine: 'Camp Member',
-        status: 'Invite Sent',
-        pendingInvite: true,
-        inviteToken,
-        inviteSentAt: new Date().toISOString(),
-        inviteError: ''
-      };
+      const verifiedAccess = await DeerCampAuth.getMemberAccess(inviteCampId);
 
-      try {
-        safeSetItem(INVITE_KEY, JSON.stringify(urlBackedInvite));
-      } catch (error) {
-        console.warn('Could not cache invite context locally.', error);
+      if (verifiedAccess?.authorized !== true) {
+        throw new Error('Trusted member access could not be verified.');
       }
 
       return true;
     }
-
     async function mergeMemberIntoData() {
       syncStateFromForm();
 
@@ -1920,12 +1986,45 @@
       safeRemoveItem(wizardStorageKey);
     }
 
-    document.getElementById('viewCampBtn').addEventListener('click', () => {
+    document.getElementById('viewCampBtn').addEventListener('click', async () => {
       const invite = getInviteContext();
-      setMemberSecurityActor(invite, state.member);
-      window.location.href = buildCampUrl('camp.html', invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '');
-    });
+      const campId = String(
+        invite.campId ||
+        getCampData().campId ||
+        getDashboardData()?.camp?.campId ||
+        ''
+      ).trim();
 
+      try {
+        if (!campId) {
+          throw new Error('DeerCamp ID is unavailable.');
+        }
+
+        if (
+          !window.DeerCampAuth ||
+          typeof DeerCampAuth.getMemberAccess !== 'function'
+        ) {
+          throw new Error('Trusted DeerCamp member authentication is unavailable.');
+        }
+
+        const access = await DeerCampAuth.getMemberAccess(campId);
+
+        if (access?.authorized !== true) {
+          throw new Error('Trusted member access is required to open this DeerCamp.');
+        }
+
+        setMemberSecurityActor(invite, state.member, { verified: true });
+        window.location.href = buildCampUrl('camp.html', campId);
+      } catch (error) {
+        console.warn('Open Camp blocked because trusted member verification failed.', error);
+
+        const message = error instanceof Error
+          ? error.message
+          : 'Could not verify your DeerCamp member access.';
+
+        setSavePill(message);
+      }
+    });
     document.getElementById('continueLaterBtn').addEventListener('click', () => {
       syncStateFromForm();
       persistState(true);
@@ -1977,19 +2076,24 @@
         if (finalCampId) {
           safeSetItem('deercamp.activeCampId', finalCampId);
         }
-        setMemberSecurityActor(invite, state.member);
+        const verifiedMemberAccess = await DeerCampAuth.getMemberAccess(finalCampId);
+
+        if (verifiedMemberAccess?.authorized !== true) {
+          throw new Error('Trusted member access could not be verified before opening camp.');
+        }
+
+        setMemberSecurityActor(invite, state.member, { verified: true });
 
         setSavePill('Joining — opening camp...');
         window.location.href = buildCampUrl('camp.html', finalCampId);
       } catch (error) {
-        console.warn('Join Camp had a recoverable issue; opening camp anyway.', error);
-        const invite = getInviteContext();
-        const fallbackCampId = invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '';
-        if (fallbackCampId) safeSetItem('deercamp.activeCampId', fallbackCampId);
-        setMemberSecurityActor(invite, state.member);
-        setSavePill('Opening camp...');
-        window.location.href = buildCampUrl('camp.html', fallbackCampId);
-      } finally {
+        console.warn('Join Camp blocked because trusted member verification failed.', error);
+
+        const message = error instanceof Error
+          ? error.message
+          : 'Could not verify your DeerCamp member access.';
+
+        setSavePill(message);      } finally {
         if (nextButton) {
           nextButton.disabled = false;
           nextButton.textContent = originalNextLabel || 'Join Camp';
