@@ -1,8 +1,37 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == "simmerman.eric@gmail.com";
+    }
+
+    function isSteward(campId) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/campAccess/$(campId))
+        && get(/databases/$(database)/documents/campAccess/$(campId)).data.stewardUid == request.auth.uid;
+    }
+
     match /camps/{campId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update, delete: if isSteward(campId);
+    }
+
+    match /camps/{campId}/campfeed/{itemId} {
+      allow read: if true;
+      allow create, update, delete: if false;
+    }
+
+    match /campAccess/{campId} {
+      allow read, write: if false;
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
     }
 
     match /camps/{campId}/campStats/{statId} {
@@ -23,7 +52,8 @@ service cloud.firestore {
     }
 
     match /shortLinks/{code} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     match /shortLinkClicks/{clickId} {

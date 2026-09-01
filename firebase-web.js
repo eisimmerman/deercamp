@@ -393,12 +393,6 @@
       const db = this.ensureReady();
       if (!db) return false;
       try {
-        const ref = db.collection("shortLinks").doc(cleanCode);
-        await ref.set({
-          clickCount: firebase.firestore.FieldValue.increment(1),
-          lastClickedAtClient: new Date().toISOString(),
-          lastClickedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
         await db.collection("shortLinkClicks").add({
           code: cleanCode,
           path: String(payload.path || window.location.pathname || ""),

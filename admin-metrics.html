@@ -48,6 +48,7 @@
   </style>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.7.0/firebase-auth-compat.js"></script>
   <script src="firebase-web.js?v=campgrowthagent-3d-firestore-refresh"></script>
 </head>
 <body>
@@ -1055,7 +1056,20 @@ Output rules:
     const ADMIN_PASSCODE = "DeerCampAdmin2026!";
     const ADMIN_UNLOCK_STORAGE_KEY = "deercampAdminMetricsUnlocked";
 
+    const ADMIN_EMAIL = "simmerman.eric@gmail.com";
+
+    function getAuthenticatedAdminUser() {
+      const user = window.DeerCampAuth?.getCurrentUser?.() || null;
+      const email = String(user?.email || "").trim().toLowerCase();
+
+      if (!user || email !== ADMIN_EMAIL) return null;
+      return user;
+    }
+
     function showAdminDashboard() {
+      if (!getAuthenticatedAdminUser()) {
+        throw new Error("Authenticated DeerCamp admin access is required.");
+      }
       const gate = $("adminPasscodeGate");
       const page = $("adminDashboardPage");
       if (gate) {
@@ -1111,7 +1125,21 @@ Output rules:
       loadMetrics();
     }
 
-    function initializeAdminGate() {
+    async function initializeAdminGate() {
+      try {
+        if (
+          window.DeerCampAuth &&
+          typeof DeerCampAuth.isEmailSignInLink === "function" &&
+          DeerCampAuth.isEmailSignInLink(window.location.href)
+        ) {
+          await DeerCampAuth.completeEmailSignIn({
+            email: ADMIN_EMAIL,
+            url: window.location.href
+          });
+        }
+      } catch (authError) {
+        console.error("Admin Firebase sign-in could not complete.", authError);
+      }
       const form = $("adminPasscodeForm");
       const input = $("adminPasscodeInput");
       const error = $("adminPasscodeError");
@@ -1159,14 +1187,47 @@ Output rules:
 
       if (!form) return;
 
-      form.addEventListener("submit", (event) => {
+      form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const submitted = String(input && input.value ? input.value : "").trim();
+
         if (submitted === ADMIN_PASSCODE) {
           try { window.sessionStorage.setItem(ADMIN_UNLOCK_STORAGE_KEY, "true"); } catch (storageError) {}
+
           if (input) input.value = "";
           if (error) error.textContent = "";
-          showAdminDashboard();
+
+          if (getAuthenticatedAdminUser()) {
+            showAdminDashboard();
+            return;
+          }
+
+          try {
+            if (
+              !window.DeerCampAuth ||
+              typeof DeerCampAuth.sendEmailSignInLink !== "function"
+            ) {
+              throw new Error("Firebase Authentication is not available.");
+            }
+
+            await DeerCampAuth.sendEmailSignInLink(
+              ADMIN_EMAIL,
+              { returnUrl: window.location.href }
+            );
+
+            if (hint) {
+              hint.textContent =
+                "Firebase sign-in link sent to the DeerCamp admin email. Open that link in this browser to continue.";
+            }
+          } catch (authError) {
+            console.error("Admin sign-in link could not be sent.", authError);
+
+            if (error) {
+              error.textContent =
+                "Admin authentication could not start. Check Firebase Authentication and try again.";
+            }
+          }
+
           return;
         }
         if (error) error.textContent = `Incorrect passcode. Entered ${submitted.length} character${submitted.length === 1 ? "" : "s"}; expected ${ADMIN_PASSCODE.length}.`;
