@@ -16,6 +16,15 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/campAccess/$(campId)).data.stewardUid == request.auth.uid;
     }
 
+    function hasCampAccess(campId) {
+      return isSteward(campId)
+        || (
+          signedIn()
+          && exists(/databases/$(database)/documents/campAccess/$(campId)/members/$(request.auth.uid))
+          && get(/databases/$(database)/documents/campAccess/$(campId)/members/$(request.auth.uid)).data.memberUid == request.auth.uid
+        );
+    }
+
     match /camps/{campId} {
       allow read: if true;
       allow create, update, delete: if isSteward(campId);
@@ -35,13 +44,14 @@ service cloud.firestore {
     }
 
     match /camps/{campId}/campStats/{statId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null
+      allow read: if hasCampAccess(campId);
+
+      allow create: if hasCampAccess(campId)
         && request.resource.data.campId == campId
-        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.uploadedBy == request.auth.uid
         && request.resource.data.source == "CampStatsMgr";
-      allow update, delete: if request.auth != null
-        && resource.data.authorId == request.auth.uid;
+
+      allow update, delete: if false;
     }
 
     match /campMetricsEvents/{eventId} {
@@ -63,7 +73,7 @@ service cloud.firestore {
 
 
     match /campStories/{storyId} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
 
     match /feedItems/{feedId} {
