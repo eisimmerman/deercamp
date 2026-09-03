@@ -1944,19 +1944,19 @@
         let cloudSaved = false;
 
         if (
-          window.DeerCampCloud &&
-          typeof DeerCampCloud.saveCamp === 'function'
+          window.DeerCampAuth &&
+          typeof DeerCampAuth.syncMemberProfile === 'function'
         ) {
-          cloudSaved = Boolean(
-            await withTimeout(
-              DeerCampCloud.saveCamp(
-                joinedCampId,
-                updatedCampData
-              ),
-              10000,
-              false
-            )
+          const syncResult = await withTimeout(
+            DeerCampAuth.syncMemberProfile(
+              joinedCampId,
+              member
+            ),
+            10000,
+            null
           );
+
+          cloudSaved = Boolean(syncResult?.ok);
         }
 
         if (

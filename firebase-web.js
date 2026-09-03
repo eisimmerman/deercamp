@@ -1266,6 +1266,49 @@
       };
     },
 
+    async syncMemberProfile(campId, member) {
+      const auth = this.ensureReady();
+      if (!auth) throw new Error("Firebase Authentication is not available.");
+
+      const user = auth.currentUser;
+      if (!user) throw new Error("Authentication required.");
+
+      const cleanCampId = String(campId || "").trim();
+
+      if (!cleanCampId) throw new Error("Camp ID is required.");
+
+      const token = await user.getIdToken(true);
+      const projectId = String(firebaseConfig?.projectId || "").trim();
+
+      if (!projectId) throw new Error("Firebase project ID is unavailable.");
+
+      const endpoint = `https://us-central1-${projectId}.cloudfunctions.net/syncMemberProfile`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          campId: cleanCampId,
+          member: member && typeof member === "object" ? member : {}
+        })
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(payload?.error || "Could not synchronize member profile.");
+      }
+
+      return {
+        ...payload,
+        campId: String(payload?.campId || cleanCampId),
+        authenticated: true
+      };
+    },
+
     async getMemberAccess(campId) {
       const auth = this.ensureReady();
       if (!auth) throw new Error("Firebase Authentication is not available.");

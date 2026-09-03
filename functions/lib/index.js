@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.getMemberAccess = exports.acceptMemberInvite = exports.createMemberInvite = exports.createCampWithStewardAccess = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
+exports.trackMemberJoined = exports.trackCampCreated = exports.stripeWebhook = exports.createBillingPortalSession = exports.createCheckoutSession = exports.syncMemberProfile = exports.getMemberAccess = exports.acceptMemberInvite = exports.createMemberInvite = exports.createCampWithStewardAccess = exports.getStewardAccess = exports.sendStewardWelcome = exports.pollSeasonOpeners = exports.transcribeCampStory = exports.enrichPublishedMemory = void 0;
 const node_fs_1 = require("node:fs");
 const node_fs_2 = require("node:fs");
 const node_os_1 = __importDefault(require("node:os"));
@@ -1240,6 +1240,271 @@ exports.getMemberAccess = (0, https_1.onRequest)({
 
         return sendJson(res, 500, {
             error: "Could not verify member access.",
+        });
+    }
+});
+
+exports.syncMemberProfile = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+}, async (req, res) => {
+    if (req.method !== "POST") {
+        res.set("Allow", "POST");
+        return sendJson(res, 405, { error: "Method not allowed." });
+    }
+
+    try {
+        const user = await verifyRequestUser(req);
+
+        if (!user)
+            return sendJson(res, 401, { error: "Authentication required." });
+
+        const body = req.body || {};
+        const campId = String(body.campId || "").trim();
+        const incoming = body.member && typeof body.member === "object"
+            ? body.member
+            : {};
+
+        if (!campId)
+            return sendJson(res, 400, { error: "Missing campId." });
+
+        const memberAccessRef = db
+            .collection("campAccess")
+            .doc(campId)
+            .collection("members")
+            .doc(user.uid);
+
+        const memberAccessSnap = await memberAccessRef.get();
+
+        if (!memberAccessSnap.exists) {
+            return sendJson(res, 403, {
+                error: "Trusted member access is required.",
+            });
+        }
+
+        const memberAccess = memberAccessSnap.data() || {};
+        const memberUid = String(memberAccess.memberUid || "").trim();
+        const memberEmail = String(memberAccess.memberEmail || "")
+            .trim()
+            .toLowerCase();
+
+        if (!memberUid || memberUid !== String(user.uid || "").trim()) {
+            return sendJson(res, 403, {
+                error: "Trusted member access is required.",
+            });
+        }
+
+        const allowedStringFields = [
+            "id",
+            "name",
+            "roleLine",
+            "phone",
+            "yearJoined",
+            "favoriteStand",
+            "favoriteGear",
+            "nickname",
+            "harvestHighlight",
+            "bestCampMemory",
+            "specialty",
+            "note",
+            "photo",
+            "profilePhoto",
+            "avatar",
+        ];
+
+        const profile = {};
+
+        for (const field of allowedStringFields) {
+            if (incoming[field] !== undefined && incoming[field] !== null) {
+                profile[field] = String(incoming[field]).trim();
+            }
+        }
+
+        profile.memberUid = user.uid;
+        profile.email = memberEmail;
+        profile.role = "Camp Member";
+        profile.roleLine = profile.roleLine || "Camp Member";
+        profile.status = "Active";
+        profile.pendingInvite = false;
+        profile.accepted = true;
+        profile.campId = campId;
+        profile.profileUpdatedAt = new Date().toISOString();
+
+        if (Array.isArray(incoming.responsibilities)) {
+            profile.responsibilities = incoming.responsibilities
+                .map((item) => String(item || "").trim())
+                .filter(Boolean)
+                .slice(0, 20);
+        }
+
+        const campRef = db.collection("camps").doc(campId);
+
+        await db.runTransaction(async (transaction) => {
+            const campSnap = await transaction.get(campRef);
+
+            if (!campSnap.exists) {
+                const error = new Error("DeerCamp does not exist.");
+                error.code = "camp-not-found";
+                throw error;
+            }
+
+            const camp = campSnap.data() || {};
+            const memberProfiles = Array.isArray(camp.memberProfiles)
+                ? [...camp.memberProfiles]
+                : [];
+
+            const matchesMember = (entry) => {
+                const entryUid = String(entry && entry.memberUid || "").trim();
+                const entryEmail = String(entry && entry.email || "")
+                    .trim()
+                    .toLowerCase();
+
+                return (
+                    (entryUid && entryUid === user.uid) ||
+                    (memberEmail && entryEmail === memberEmail)
+                );
+            };
+
+            const profileIndex = memberProfiles.findIndex(matchesMember);
+
+            if (profileIndex >= 0) {
+                memberProfiles[profileIndex] = {
+                    ...memberProfiles[profileIndex],
+                    ...profile,
+                };
+            } else {
+                memberProfiles.push(profile);
+            }
+
+            const memberName = String(profile.name || memberAccess.memberName || "")
+                .trim();
+
+            const names = [
+                ...(Array.isArray(camp.members) ? camp.members : []),
+                ...(Array.isArray(camp.campMembers) ? camp.campMembers : []),
+            ]
+                .map((name) => String(name || "").trim())
+                .filter(Boolean);
+
+            if (memberName && !names.some(
+                (name) => name.toLowerCase() === memberName.toLowerCase()
+            )) {
+                names.push(memberName);
+            }
+
+            const dashboard = camp.dashboardSlim &&
+                typeof camp.dashboardSlim === "object"
+                ? { ...camp.dashboardSlim }
+                : {};
+
+            const mergeProfileArray = (items) => {
+                const list = Array.isArray(items) ? [...items] : [];
+                const index = list.findIndex(matchesMember);
+
+                if (index >= 0) {
+                    list[index] = {
+                        ...list[index],
+                        ...profile,
+                    };
+                } else {
+                    list.push({ ...profile });
+                }
+
+                return list;
+            };
+
+            const dashboardMembers = mergeProfileArray(
+                Array.isArray(camp.dashboardMembers)
+                    ? camp.dashboardMembers
+                    : dashboard.members
+            );
+
+            const dashboardPeople = mergeProfileArray(
+                Array.isArray(camp.dashboardPeople)
+                    ? camp.dashboardPeople
+                    : (
+                        Array.isArray(camp.people)
+                            ? camp.people
+                            : dashboard.people
+                    )
+            );
+
+            const sourcePendingInvites = Array.isArray(camp.pendingInvites)
+                ? camp.pendingInvites
+                : (
+                    Array.isArray(dashboard.pendingInvites)
+                        ? dashboard.pendingInvites
+                        : []
+                );
+
+            const pendingInvites = sourcePendingInvites
+                .map((invite) => {
+                    const inviteEmail = String(invite && invite.email || "")
+                        .trim()
+                        .toLowerCase();
+
+                    if (memberEmail && inviteEmail === memberEmail) {
+                        return {
+                            ...invite,
+                            status: "Accepted",
+                            pendingInvite: false,
+                            accepted: true,
+                            acceptedByUid: user.uid,
+                            acceptedAt: profile.profileUpdatedAt,
+                        };
+                    }
+
+                    return invite;
+                });
+
+            const dashboardSlim = {
+                ...dashboard,
+                members: dashboardMembers,
+                people: dashboardPeople,
+                pendingInvites,
+                lastSaved: profile.profileUpdatedAt,
+            };
+
+            transaction.set(campRef, {
+                members: names,
+                campMembers: names,
+                memberProfiles,
+                dashboardMembers,
+                dashboardPeople,
+                people: dashboardPeople,
+                pendingInvites,
+                dashboardSlim,
+                profileUpdatedAt: profile.profileUpdatedAt,
+            }, { merge: true });
+        });
+
+        return sendJson(res, 200, {
+            ok: true,
+            campId,
+            authorized: true,
+            memberUid: user.uid,
+        });
+    }
+    catch (error) {
+        const code = String(error && error.code || "");
+
+        if (code === "camp-not-found") {
+            return sendJson(res, 404, {
+                error: "DeerCamp does not exist.",
+            });
+        }
+
+        firebase_functions_1.logger.error(
+            "Could not synchronize trusted member profile.",
+            {
+                error: error instanceof Error
+                    ? error.message
+                    : String(error),
+            }
+        );
+
+        return sendJson(res, 500, {
+            error: "Could not synchronize member profile.",
         });
     }
 });
