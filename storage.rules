@@ -1,0 +1,57 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSteward(campId) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/campAccess/$(campId))
+        && firestore.get(/databases/(default)/documents/campAccess/$(campId)).data.stewardUid == request.auth.uid;
+    }
+
+    function isMember(campId) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/campAccess/$(campId)/members/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/campAccess/$(campId)/members/$(request.auth.uid)).data.memberUid == request.auth.uid;
+    }
+
+    function hasCampAccess(campId) {
+      return isSteward(campId) || isMember(campId);
+    }
+
+    match /feed/{campId}/{uid}/{memoryId}/{fileName} {
+      allow read: if hasCampAccess(campId);
+
+      allow create, update: if hasCampAccess(campId)
+        && uid == request.auth.uid;
+
+      allow delete: if false;
+    }
+
+    match /camps/{campId}/campfeed/{entityId}/{fileName} {
+      allow read: if hasCampAccess(campId);
+      allow create, update: if hasCampAccess(campId);
+      allow delete: if false;
+    }
+
+    match /camps/{campId}/profile-photos/{entityId}/{fileName} {
+      allow read: if hasCampAccess(campId);
+      allow create, update: if isSteward(campId);
+      allow delete: if false;
+    }
+
+    match /camps/{campId}/members/{memberKey}/{fileName} {
+      allow read: if hasCampAccess(campId);
+      allow create, update: if hasCampAccess(campId);
+      allow delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
