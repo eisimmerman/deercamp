@@ -1,0 +1,934 @@
+
+  firebase-web.js:154:              },
+  firebase-web.js:155:              stewardName: cloud.stewardName || cloud.steward || "",
+> firebase-web.js:156:              stewardEmail: cloud.stewardEmail || "",
+  firebase-web.js:157:              sections: cloud.enabledSections || {},
+  firebase-web.js:158:              selectedRecipeIds: Array.isArray(cloud.selectedRecipeIds) ? cloud.selectedRecipeIds : [],
+  firebase-web.js:159:              members: Array.isArray(cloud.dashboardMembers)
+  firebase-web.js:852:                const role = String(item.role || "").toLowerCase();
+  firebase-web.js:853:                const status = String(item.status || "Active").toLowerCase();
+> firebase-web.js:854:                return role !== "camp steward" && status !== "removed";
+  firebase-web.js:855:              }
+  firebase-web.js:856:              return String(item || "").trim();
+  firebase-web.js:857:            }).length;
+  firebase-web.js:1064:      return cleanCampId ? `deercamp.camps.${cleanCampId}.currentActorRole` : "";
+  firebase-web.js:1065:    },
+> firebase-web.js:1066:    setActor(role = "visitor", options = {}) {
+> firebase-web.js:1067:      const cleanRole = String(role || "visitor").trim().toLowerCase() === "steward" ? "steward" : (String(role || "").trim().toLowerCase() === "member" ? "member" : "visitor");
+  firebase-web.js:1068:      try { sessionStorage.setItem(this.ROLE_KEY, cleanRole); } catch (error) {}
+  firebase-web.js:1069:      try { localStorage.setItem(this.ROLE_KEY, cleanRole); } catch (error) {}
+  firebase-web.js:1070:      const campId = String(options.campId || "").trim();
+  firebase-web.js:1098:      return "visitor";
+  firebase-web.js:1099:    },
+> firebase-web.js:1100:    isSteward(campId = "") { return this.getActorRole(campId) === "steward"; },
+  firebase-web.js:1101:    isMember(campId = "") { return this.getActorRole(campId) === "member"; },
+  firebase-web.js:1102:    requireSteward(campId = "", message = "Only the Camp Steward can manage this.") {
+  firebase-web.js:1103:      if (this.isSteward(campId)) return true;
+  camp.html:53:  .role-context-pill{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.88);color:#4b3116;border:1px solid rgba(95,64,33,.18);font-size:.78rem;font-weight:900;letter-spacing:.06em;text-transform:uppercase;box-shadow:0 2px 6px rgba(0,0,0,.10);white-space:nowrap}
+  camp.html:54:  .role-context-pill.is-member{background:rgba(73,102,71,.14);color:#27411e;border-color:rgba(73,102,71,.22)}
+> camp.html:55:  .role-context-pill.is-steward{background:rgba(177,121,45,.18);color:#5b3d1e;border-color:rgba(177,121,45,.28)}
+  camp.html:56:  .role-context-pill.is-visitor{background:rgba(255,255,255,.72);color:#6b5644}
+  camp.html:57:  .scout-menu-wrap{position:relative;display:inline-flex;align-items:center}
+  camp.html:58:  .scout-builder-menu{display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;padding:8px;border-radius:14px;background:rgba(255,250,244,.98);box-shadow:0 14px 34px rgba(0,0,0,.22);z-index:1400}
+  camp.html:1486:      <span class="mobile-steward-copy">
+  camp.html:1487:        <span class="mobile-steward-name" id="mobileStewardName">Camp Steward</span>
+> camp.html:1488:        <span class="mobile-steward-role">STEWARD</span>
+  camp.html:1489:      </span>
+  camp.html:1490:    </button>
+  camp.html:1491:    <div id="mobileMembersWrap" class="mobile-members-wrap" hidden>
+  camp.html:1738:<script>
+  camp.html:1739:const CAMP_DATA_KEY="campData", ACTIVE_CAMP_KEY="deercamp.activeCampId", CAMP_SCOPE_PREFIX="deercamp.camps.", DASHBOARD_KEY="deerCampStewardDashboard";
+> camp.html:1740:function getCurrentSecurityRole(){
+  camp.html:1741:  try { return window.DeerCampSecurity?.getActorRole?.(activeCampId || "") || "visitor"; } catch(error) { return "visitor"; }
+  camp.html:1742:}
+> camp.html:1743:function isCurrentSteward(){
+  camp.html:1744:  try { return window.DeerCampSecurity?.isSteward?.(activeCampId || "") || false; } catch(error) { return false; }
+  camp.html:1745:}
+  camp.html:1746:function requireCurrentSteward(message = "Only the Camp Steward can manage this."){
+  camp.html:1751:  return false;
+  camp.html:1752:}
+> camp.html:1753:function shouldUseMemberLockedView(){ return getCurrentSecurityRole() === "member"; }
+  camp.html:1754:window.addEventListener("deercamp:security-denied", (event) => {
+  camp.html:1755:  const message = event?.detail?.message || "Only the Camp Steward can manage this.";
+  camp.html:1756:  try { showToast(message); } catch(error) {}
+  camp.html:1758:
+  camp.html:1759:function getRoleViewLabel(){
+> camp.html:1760:  const role = getCurrentSecurityRole();
+> camp.html:1761:  if(role === "steward") return "Steward View";
+  camp.html:1762:  if(role === "member") return "Member View";
+  camp.html:1763:  return "Visitor View";
+  camp.html:1764:}
+  camp.html:1765:function refreshRoleContextPills(){
+> camp.html:1766:  const role = getCurrentSecurityRole();
+  camp.html:1767:  [document.getElementById('desktopRolePill'), document.getElementById('mobileRolePill')].forEach(el=>{
+  camp.html:1768:    if(!el) return;
+  camp.html:1769:    el.textContent = getRoleViewLabel();
+  camp.html:1770:    el.classList.remove('is-steward','is-member','is-visitor');
+> camp.html:1771:    el.classList.add(role === 'steward' ? 'is-steward' : (role === 'member' ? 'is-member' : 'is-visitor'));
+> camp.html:1772:    el.title = role === 'steward' ? 'You are using Steward controls for this camp.' : (role === 'member' ? 'You are viewing this camp as a Camp Member.' : 'No member or Steward session is active in this browser.');
+  camp.html:1773:  });
+  camp.html:1774:}
+  camp.html:1775:
+  camp.html:1857:  if(isCampSwedePublicDemo()) return false;
+  camp.html:1858:  const role = String(member.role || "").trim().toLowerCase();
+> camp.html:1859:  if(role === "camp steward") return false;
+  camp.html:1860:  if(member.publicProfile === true || member.profilePublic === true || member.isPublic === true) return false;
+  camp.html:1861:  if(member.privateProfile === true || member.profilePrivate === true || member.memberProfilePrivate === true || member.isPrivate === true) return true;
+  camp.html:1862:  const privacy = String(member.profileVisibility || member.visibility || member.profilePrivacy || member.privacy || "").trim().toLowerCase();
+  camp.html:1865:function canOpenMemberProfile(member = {}){
+  camp.html:1866:  if(isCampSwedePublicDemo()) return true;
+> camp.html:1867:  if(isCurrentSteward()) return true;
+  camp.html:1868:  if(!isMemberProfilePrivate(member)) return true;
+> camp.html:1869:  const role = getCurrentSecurityRole();
+> camp.html:1870:  return role === "member" || role === "steward";
+  camp.html:1871:}
+  camp.html:1872:function shouldShowMemberEmail(profile = {}){
+> camp.html:1873:  return isCurrentSteward();
+  camp.html:1874:}
+  camp.html:1875:function buildDetailedMemberProfile(member = {}, fallbackRole = "Camp Member") {
+  camp.html:1876:  const roleTemplate = getRoleTemplate(member.role || fallbackRole);
+  camp.html:2504:  if(!isSectionEnabled("camprules")) return false;
+  camp.html:2505:  const visibility = String(campRulesConfig.visibility || "members").toLowerCase();
+> camp.html:2506:  const role = getCurrentSecurityRole();
+> camp.html:2507:  if(visibility === "draft") return role === "steward";
+> camp.html:2508:  if(visibility === "members") return role === "steward" || role === "member";
+  camp.html:2509:  return true;
+  camp.html:2510:}
+  camp.html:2511:let selectedRecipeIds = Array.isArray(data.selectedRecipeIds) ? data.selectedRecipeIds.map(v=>String(v||"").trim()).filter(Boolean) : [];
+  camp.html:2786:}
+  camp.html:2787:function bindScoutBuilderMenus(){
+> camp.html:2788:  const role = getCurrentSecurityRole();
+  camp.html:2789:  const canUseStandBuilder = campCanUseFeature('stand_builder');
+  camp.html:2790:  const canUseDriveBuilder = campCanUseFeature('drive_builder');
+> camp.html:2791:  const showScoutBuilders = role === 'steward' && canUseStandBuilder && canUseDriveBuilder;
+  camp.html:2792:  document.querySelectorAll('#headerScoutBtn,#mobileScoutBtn').forEach(btn=>{
+  camp.html:2793:    const wrap = btn?.closest('.scout-menu-wrap');
+  camp.html:2794:    if(wrap) wrap.style.display = showScoutBuilders ? '' : 'none';
+  camp.html:2941:  const campId = getSupportSafeText(activeCampId || source.campId, "Unknown");
+  camp.html:2942:  const stewardName = getSupportSafeText(source.stewardName || source.steward || source.campSteward || source.camp?.stewardName, "");
+> camp.html:2943:  const stewardEmail = getSupportSafeText(source.stewardEmail || source.campStewardEmail || source.camp?.stewardEmail, "");
+  camp.html:2944:  const tierLabel = getCampSupportTierLabel(info);
+  camp.html:2945:  const supportPriority = getCampSupportPriority(info);
+  camp.html:2946:  const subscriptionStatus = getSupportSafeText(info.status || source.subscriptionStatus || source.billingStatus, tierLabel === "DCF" ? "none" : "active");
+  camp.html:2950:    `Camp ID: ${campId}`,
+  camp.html:2951:    stewardName ? `Steward: ${stewardName}` : "Steward:",
+> camp.html:2952:    stewardEmail ? `Steward Email: ${stewardEmail}` : "Steward Email:",
+  camp.html:2953:    `Membership: ${tierLabel}`,
+  camp.html:2954:    `Subscription Status: ${subscriptionStatus}`,
+  camp.html:2955:    `Support Priority: ${supportPriority}`,
+  camp.html:3007:    markLocalDcPlusActiveFromCheckout(data || {});
+  camp.html:3008:  }
+> camp.html:3009:  const role = getCurrentSecurityRole();
+  camp.html:3010:  const label=getCampBillingButtonLabel(billingInfo);
+  camp.html:3011:  buttons.forEach(btn=>{
+> camp.html:3012:    const shouldHide = role !== 'steward';
+  camp.html:3013:    btn.hidden = shouldHide;
+  camp.html:3014:    btn.classList.toggle('is-plus', isPlus);
+  camp.html:3015:    btn.textContent=label;
+  camp.html:3027:    }
+  camp.html:3028:  });
+> camp.html:3029:  try{ document.body.classList.toggle('has-mobile-upgrade-sticky', role === 'steward'); }catch(error){}
+  camp.html:3030:  renderBillingNotice(billingInfo);
+  camp.html:3031:}
+  camp.html:3032:function ensureCampBillingChoiceStyles(){
+  camp.html:3070:      campId:activeCampId,
+  camp.html:3071:      planKey,
+> camp.html:3072:      email:String(data?.stewardEmail || data?.campStewardEmail || '').trim(),
+  camp.html:3073:      successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+  camp.html:3074:      cancelUrl:window.location.href
+  camp.html:3075:    });
+  camp.html:3081:}
+  camp.html:3082:async function handleCampBillingClick(event){
+> camp.html:3083:  if(getCurrentSecurityRole() === 'member'){ try{showToast('Members can view camp content, comment on CampFeed, and add calendar events. Only the Steward manages DC+.');}catch(error){} return; }
+  camp.html:3084:  const btn=(event && event.currentTarget) || document.getElementById('campBillingBtn') || document.getElementById('mobileBillingBtn') || document.getElementById('mobileBillingStickyBtn');
+  camp.html:3085:  if(!btn) return;
+  camp.html:3086:  const billingInfo=getCampBillingInfo();
+  camp.html:3111:  if(activeCampId) u.searchParams.set("campId", activeCampId);
+  camp.html:3112:  if(window.location.hostname.includes("localhost") && new URLSearchParams(window.location.search).get("useStagingFirebase")==="true") u.searchParams.set("useStagingFirebase","true");
+> camp.html:3113:  u.searchParams.set("role", "steward");
+> camp.html:3114:  u.searchParams.set("view", "steward");
+  camp.html:3115:  return `${u.pathname}?${u.searchParams.toString()}`;
+  camp.html:3116:}
+> camp.html:3117:function hasStewardDashboardAccess(){
+> camp.html:3118:  return getCurrentSecurityRole() === 'steward' && isCurrentSteward();
+  camp.html:3119:}
+  camp.html:3120:function formatLocation(){
+  camp.html:3121:  const city=String(data.city||"").trim(), state=String(data.state||"").trim(), zip=String(data.zip||"").trim();
+  camp.html:3163:      sources.push({
+  camp.html:3164:        name:String(source.stewardName||source.steward||"").trim(),
+> camp.html:3165:        role:"Camp Steward",
+> camp.html:3166:        email:String(source.stewardEmail||"").trim(),
+  camp.html:3167:        photo:sourceStewardPhoto,
+  camp.html:3168:        profilePhoto:sourceStewardPhoto,
+  camp.html:3169:        avatar:sourceStewardPhoto,
+  camp.html:3175:        harvestHighlight:String(source.stewardHarvestHighlight||"").trim(),
+  camp.html:3176:        bestCampMemory:String(source.stewardBestCampMemory||"").trim(),
+> camp.html:3177:        roleLine:String(source.stewardRoleLine||"").trim(),
+  camp.html:3178:        profileUpdatedAt:String(source.stewardProfileUpdatedAt||source.profileUpdatedAt||"").trim()
+  camp.html:3179:      });
+  camp.html:3180:    }
+  camp.html:3184:    sources.push({
+  camp.html:3185:      name:String(data.stewardName||data.steward||"").trim(),
+> camp.html:3186:      role:"Camp Steward",
+> camp.html:3187:      email:String(data.stewardEmail||"").trim(),
+  camp.html:3188:      photo:directStewardPhoto,
+  camp.html:3189:      profilePhoto:directStewardPhoto,
+  camp.html:3190:      avatar:directStewardPhoto,
+  camp.html:3196:      harvestHighlight:String(data.stewardHarvestHighlight||"").trim(),
+  camp.html:3197:      bestCampMemory:String(data.stewardBestCampMemory||"").trim(),
+> camp.html:3198:      roleLine:String(data.stewardRoleLine||"").trim()
+  camp.html:3199:    });
+  camp.html:3200:  }
+  camp.html:3201:  return sources;
+  camp.html:3240:  const status = String(m && m.status || "Active").trim().toLowerCase();
+  camp.html:3241:  const role = String(m && m.role || "").trim().toLowerCase();
+> camp.html:3242:  if (role === "camp steward") return true;
+  camp.html:3243:  return status === "active" || status === "accepted";
+  camp.html:3244:});
+  camp.html:3245:function normalizeRoster(members = []) {
+  camp.html:3251:    const name = String(member.name || '').trim();
+  camp.html:3252:    const email = String(member.email || '').trim().toLowerCase();
+> camp.html:3253:    const key = roleKey === 'camp steward' ? 'role:camp steward' : (email ? `member:${email}` : `member:${name.toLowerCase()}`);
+  camp.html:3254:    if(!key || !name) return;
+  camp.html:3255:    const previous = seen.get(key) || {};
+  camp.html:3256:    seen.set(key, mergeMemberProfile(previous, Object.assign({}, member, {
+  camp.html:3262:  });
+  camp.html:3263:  return Array.from(seen.values()).sort((a,b) => {
+> camp.html:3264:    const aSteward = String(a.role || '').toLowerCase() === 'camp steward' ? 0 : 1;
+> camp.html:3265:    const bSteward = String(b.role || '').toLowerCase() === 'camp steward' ? 0 : 1;
+  camp.html:3266:    if (aSteward !== bSteward) return aSteward - bSteward;
+  camp.html:3267:    return String(a.name || '').localeCompare(String(b.name || ''));
+  camp.html:3268:  });
+  camp.html:3270:const stewardFallbackProfile = {
+  camp.html:3271:  name:String(data.stewardName||data.steward||"").trim(),
+> camp.html:3272:  role:"Camp Steward",
+> camp.html:3273:  email:String(data.stewardEmail||"").trim(),
+  camp.html:3274:  note:"Keeps camp information current and helps guide the full DeerCamp experience.",
+  camp.html:3275:  photo:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
+  camp.html:3276:  profilePhoto:String(data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || "").trim(),
+  camp.html:3288:const membersSheetBackdrop=document.getElementById("membersSheetBackdrop");
+  camp.html:3289:const closeMembersSheetBtn=document.getElementById("closeMembersSheet");
+> camp.html:3290:const stewardMember=roster.find(member=>String(member.role||"").toLowerCase()==="camp steward") || null;
+> camp.html:3291:const additionalMembers=roster.filter(member=>String(member.role||"").toLowerCase()!=="camp steward");
+  camp.html:3292:
+  camp.html:3293:function buildHeaderMemberButton(member, isSteward=false){
+  camp.html:3294:  const btn=document.createElement("button"); btn.className="camp-member-link"; btn.type="button";
+> camp.html:3295:  btn.innerHTML=`<span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name)} ${isSteward?'<span class="camp-member-role-tag">Steward</span>':''}</span>`;
+  camp.html:3296:  btn.addEventListener("click",()=>{
+  camp.html:3297:    if(canOpenMemberProfile(member)) openMemberModal(member);
+  camp.html:3298:  });
+  camp.html:3425:}
+  camp.html:3426:function renderMenu(){
+> camp.html:3427:  const role = getCurrentSecurityRole();
+  camp.html:3428:  const isMemberView = role === 'member';
+> camp.html:3429:  const isStewardView = role === 'steward';
+  camp.html:3430:  const standBuilderUrl = buildScoutBuilderUrl('stand');
+  camp.html:3431:  const driveBuilderUrl = buildScoutBuilderUrl('drive');
+  camp.html:3432:  const canUseStandBuilder = campCanUseFeature('stand_builder');
+  camp.html:3433:  const canUseDriveBuilder = campCanUseFeature('drive_builder');
+> camp.html:3434:  const dashboardLink = (isStewardView && hasStewardDashboardAccess()) ? `<a id="menuDashboardLink" href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>` : '';
+  camp.html:3435:  const sectionLinks = visibleSections().slice().sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })).map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
+  camp.html:3436:  const scoutLinks = (isStewardView && canUseStandBuilder && canUseDriveBuilder) ? `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="images/App.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="images/App.png" alt="" aria-hidden="true">Drive Builder</a>` : '';
+  camp.html:3437:  menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
+  camp.html:3482:}
+  camp.html:3483:function canEditMemberProfile(profile = {}){
+> camp.html:3484:  // Public Camp pages are view-only. Profile editing is reserved for the active Camp Steward session.
+> camp.html:3485:  return getCurrentSecurityRole() === 'steward' && isCurrentSteward();
+  camp.html:3486:}
+  camp.html:3487:function renderMemberModalEditAction(profile = {}){
+  camp.html:3488:  const wrap = document.getElementById('memberModalEditAction');
+  camp.html:3489:  if(!wrap) return;
+> camp.html:3490:  const isStewardProfile = String(profile.role || '').trim().toLowerCase() === 'camp steward';
+  camp.html:3491:  const canEdit = canEditMemberProfile(profile);
+  camp.html:3492:  if(isStewardProfile && canEdit){
+  camp.html:3493:    wrap.innerHTML = `<button id="openStewardProfileEditBtn" class="btn btn-secondary" style="min-height:38px;padding:0 14px;box-shadow:none;" type="button">Edit Steward Profile</button>`;
+  camp.html:3609:  }
+  camp.html:3610:}
+> camp.html:3611:function previewStewardProfilePhotoFile(event){
+  camp.html:3612:  const file = event?.target?.files?.[0];
+> camp.html:3613:  const preview = document.getElementById('stewardInlinePhotoPreview');
+  camp.html:3614:  const text = document.getElementById('stewardInlinePhotoPreviewText');
+  camp.html:3615:  if(!preview || !text || !file) return;
+  camp.html:3616:  const reader = new FileReader();
+  camp.html:3617:  reader.onload = () => {
+> camp.html:3618:    preview.innerHTML = `<span class="avatar"><img src="${esc(String(reader.result || ''))}" alt="Steward photo preview"></span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">New photo ready. Save Steward Profile to upload it.</span>`;
+  camp.html:3619:  };
+  camp.html:3620:  reader.readAsDataURL(file);
+  camp.html:3621:}
+  camp.html:3629:      <label class="span-2 steward-photo-field">Steward Photo
+  camp.html:3630:        <input id="stewardInlinePhotoUpload" type="file" accept="image/*">
+> camp.html:3631:        <div id="stewardInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Steward')}</span><span id="stewardInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement Steward photo. On save, DeerCamp uploads it to Firebase Storage and keeps only lean URLs in the camp record.</span></div>
+  camp.html:3632:      </label>
+  camp.html:3633:      <label>Nickname<input id="stewardInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
+  camp.html:3634:      <label>Joined<input id="stewardInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
+  camp.html:3646:    </form>`;
+  camp.html:3647:  document.getElementById('stewardInlineProfileForm')?.addEventListener('submit', saveStewardProfileFromModal);
+> camp.html:3648:  document.getElementById('stewardInlinePhotoUpload')?.addEventListener('change', previewStewardProfilePhotoFile);
+  camp.html:3649:  document.getElementById('cancelStewardInlineEditBtn')?.addEventListener('click', () => renderMemberModalEditAction(activeMemberModalProfile || profile));
+  camp.html:3650:}
+  camp.html:3651:
+  camp.html:3656:  const reader = new FileReader();
+  camp.html:3657:  reader.onload = () => {
+> camp.html:3658:    preview.innerHTML = `<span class="avatar"><img src="${esc(String(reader.result || ''))}" alt="Member photo preview"></span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">New photo ready. Save Member Profile to upload it.</span>`;
+  camp.html:3659:  };
+  camp.html:3660:  reader.readAsDataURL(file);
+  camp.html:3661:}
+  camp.html:3692:      <label class="span-2 steward-photo-field">Member Photo
+  camp.html:3693:        <input id="memberInlinePhotoUpload" type="file" accept="image/*">
+> camp.html:3694:        <div id="memberInlinePhotoPreview" class="steward-photo-preview"><span class="avatar">${renderAvatarMarkup(profile, profile.name || 'Camp Member')}</span><span id="memberInlinePhotoPreviewText" class="steward-photo-preview-text">Choose a replacement member photo. On save, DeerCamp uploads it to Firebase Storage and keeps only lean URLs in the camp record.</span></div>
+  camp.html:3695:      </label>
+  camp.html:3696:      <label>Nickname<input id="memberInlineNickname" type="text" value="${esc(cleanProfileDisplayValue(profile.nickname))}" placeholder="Camp nickname"></label>
+  camp.html:3697:      <label>Joined<input id="memberInlineYearJoined" type="text" value="${esc(cleanProfileDisplayValue(profile.yearJoined))}" placeholder="2024"></label>
+  camp.html:3718:  const itemName = String(item?.name || '').trim().toLowerCase();
+  camp.html:3719:  const profileName = String(profile?.name || '').trim().toLowerCase();
+> camp.html:3720:  return !!(itemName && profileName && itemName === profileName && String(item?.role || '').trim().toLowerCase() !== 'camp steward');
+  camp.html:3721:}
+  camp.html:3722:function upsertMemberInArray(items = [], nextProfile = {}, previousProfile = {}){
+  camp.html:3723:  const arr = Array.isArray(items) ? items.slice() : [];
+  camp.html:3799:  const existing = activeMemberModalProfile || {};
+  camp.html:3800:  if(!canEditMemberProfile(existing)){
+> camp.html:3801:    try{ showToast('Member profile changes can be made by the Camp Steward or from Member View.'); }catch(error){ alert('Member profile changes can be made by the Camp Steward or from Member View.'); }
+  camp.html:3802:    return;
+  camp.html:3803:  }
+  camp.html:3804:  const read = id => String(document.getElementById(id)?.value || '').trim();
+  camp.html:3883:function upsertStewardInArray(items = [], nextProfile = {}){
+  camp.html:3884:  const arr = Array.isArray(items) ? items.slice() : [];
+> camp.html:3885:  const idx = arr.findIndex(item => String(item?.role || '').trim().toLowerCase() === 'camp steward');
+> camp.html:3886:  const merged = { ...(idx >= 0 ? arr[idx] : {}), ...nextProfile, role:'Camp Steward' };
+  camp.html:3887:  if(idx >= 0) arr[idx] = merged; else arr.unshift(merged);
+  camp.html:3888:  return arr;
+  camp.html:3889:}
+  camp.html:3894:    if(dashboard && typeof dashboard === 'object'){
+  camp.html:3895:      dashboard.stewardName = nextProfile.name || dashboard.stewardName || '';
+> camp.html:3896:      dashboard.stewardEmail = nextProfile.email || dashboard.stewardEmail || '';
+  camp.html:3897:      dashboard.stewardProfile = { ...(dashboard.stewardProfile || {}), ...nextProfile };
+  camp.html:3898:      dashboard.members = upsertStewardInArray(dashboard.members, nextProfile);
+  camp.html:3899:      dashboard.people = upsertStewardInArray(dashboard.people, nextProfile);
+  camp.html:3925:  data.steward = nextProfile.name;
+  camp.html:3926:  data.campSteward = nextProfile.name;
+> camp.html:3927:  data.stewardEmail = nextProfile.email;
+  camp.html:3928:  data.stewardProfile = { ...(data.stewardProfile || {}), ...nextProfile };
+  camp.html:3929:  data.campStewardProfile = { ...(data.campStewardProfile || {}), ...nextProfile };
+  camp.html:3930:  data.stewardNickname = nextProfile.nickname;
+  camp.html:3958:  if(data.dashboardSlim && typeof data.dashboardSlim === 'object'){
+  camp.html:3959:    data.dashboardSlim.stewardName = nextProfile.name;
+> camp.html:3960:    data.dashboardSlim.stewardEmail = nextProfile.email;
+  camp.html:3961:    data.dashboardSlim.stewardProfile = { ...(data.dashboardSlim.stewardProfile || {}), ...nextProfile };
+  camp.html:3962:    data.dashboardSlim.members = upsertStewardInArray(data.dashboardSlim.members, nextProfile);
+  camp.html:3963:    data.dashboardSlim.people = upsertStewardInArray(data.dashboardSlim.people, nextProfile);
+  camp.html:3973:  let photo = String(existing.photo || existing.profilePhoto || existing.avatar || data.stewardPhoto || data.stewardProfilePhoto || data.stewardAvatar || '').trim();
+  camp.html:3974:  const photoFile = document.getElementById('stewardInlinePhotoUpload')?.files?.[0] || null;
+> camp.html:3975:  const stewardTemplate = getRoleTemplate('Camp Steward');
+  camp.html:3976:  const nextProfile = {
+  camp.html:3977:    ...existing,
+  camp.html:3978:    name: read('stewardInlineName') || existing.name || 'Camp Steward',
+  camp.html:3986:    specialty: read('stewardInlineSpecialty'),
+  camp.html:3987:    note: read('stewardInlineNote') || stewardTemplate.roleLine,
+> camp.html:3988:    role: 'Camp Steward',
+> camp.html:3989:    roleLine: read('stewardInlineNote') || stewardTemplate.roleLine,
+  camp.html:3990:    responsibilitiesLabel: stewardTemplate.responsibilitiesLabel,
+  camp.html:3991:    responsibilities: stewardTemplate.responsibilities.slice(),
+  camp.html:3992:    profileUpdatedAt: new Date().toISOString()
+  camp.html:4063:
+  camp.html:4064:function canCurrentViewerPostCampUpdate(){
+> camp.html:4065:  const role = getCurrentSecurityRole();
+> camp.html:4066:  return (role === "steward" && isCurrentSteward()) || role === "member";
+  camp.html:4067:}
+  camp.html:4068:
+  camp.html:4069:function visibleSections(){
+  camp.html:4387:function openCampRulesRulebook(){
+  camp.html:4388:  const visibleRules = campRulesConfig.rules.filter(rule => rule.enabled !== false);
+> camp.html:4389:  const visibilityLabel = campRulesConfig.visibility === "public" ? "Public Preview" : (campRulesConfig.visibility === "draft" ? "Draft — Steward Only" : "Members Only");
+  camp.html:4390:  const { backdrop, modal } = ensureCampRulesRulebookModal();
+  camp.html:4391:  modal.innerHTML = `
+  camp.html:4392:    <div class="camprules-rulebook-card">
+  camp.html:4424:  const experience = section.key === "campmembers" ? {mode:"featured"} : getCampSectionExperience(section.key);
+  camp.html:4425:  if(experience.mode === "summary"){
+> camp.html:4426:    const isSteward = getCurrentSecurityRole() === "steward" && hasStewardDashboardAccess();
+  camp.html:4427:    const dashboardTarget = `${buildStewardDashboardUrl()}#section-experience-${experienceKey(section.key)}`;
+  camp.html:4428:    container.innerHTML=`<article class="camp-section-summary-card"><h2>${esc(section.title)}</h2><p>${esc(experience.summary)}</p><div class="camp-section-summary-actions"><button class="btn" type="button" onclick="showFullCampSection('${esc(section.key)}')">${esc(experience.action)}</button>${isSteward ? `<a class="btn btn-secondary" href="${esc(dashboardTarget)}">Customize in Dashboard</a>` : ""}</div></article>`;
+  camp.html:4429:    content.appendChild(container);
+  camp.html:4434:    const campUpdateLockedClass = canPostCampUpdate ? "" : " is-demo-locked";
+  camp.html:4435:    const campUpdateDisabled = canPostCampUpdate ? "" : " disabled aria-disabled=\"true\"";
+> camp.html:4436:    const campUpdateDemoNotice = canPostCampUpdate ? "" : `<div class=\"demo-locked-panel\" role=\"note\"><strong>Demo view only.</strong><span>Public visitors can see how CampUpdate works, but posting is disabled. The Camp Steward and approved camp members can add pictures, memories/stories, traditions, and recipes.</span></div>`;
+  camp.html:4437:    const campUpdateButtonLabel = canPostCampUpdate ? "Post to Camp" : "Demo Only — Posting Disabled";
+  camp.html:4438:    container.innerHTML=`
+  camp.html:4439:      <h2>CampUpdate</h2>
+  camp.html:4514:  } else if(section.key==="camprules"){
+  camp.html:4515:    const visibleRules = campRulesConfig.rules.filter(rule => rule.enabled !== false);
+> camp.html:4516:    const visibilityLabel = campRulesConfig.visibility === "public" ? "Public Preview" : (campRulesConfig.visibility === "draft" ? "Draft — Steward Only" : "Members Only");
+  camp.html:4517:    const ruleCountLabel = `${visibleRules.length} ${visibleRules.length === 1 ? "rule" : "rules"} published`;
+  camp.html:4518:    const previewRules = visibleRules.slice(0, 3).map((rule, index) => `<li>Rule ${index + 1}: ${esc(rule.title)}</li>`).join("");
+  camp.html:4519:    container.innerHTML=`
+  camp.html:4659:  const grid=document.getElementById('campMembersGrid'); if(!grid) return;
+  camp.html:4660:  const members=(roster.filter(Boolean).length ? roster.filter(Boolean) : [
+> camp.html:4661:    {name:String(data.stewardName||data.steward||"Camp Steward"), role:"Camp Steward", email:String(data.stewardEmail||"").trim(), note:"Keeps camp information current and helps guide the full DeerCamp experience."}
+  camp.html:4662:  ]).filter(Boolean);
+  camp.html:4663:  grid.innerHTML = members.length ? members.map((member,idx)=>`<button type="button" class="members-section-card" data-member-card="${idx}"><div class="member-name-row"><span class="camp-member-badge">${renderAvatarMarkup(member, member.name)}</span><span>${esc(member.name||'Camp Member')}</span></div><div><span class="camp-member-role-tag">${esc((member.role||'Camp Member').replace(/camp\s+/i,'Camp '))}</span></div><p class="member-note">${esc(member.note || member.email || 
+'Camp member details available here.')}</p></button>`).join('') : '<p class="empty">No camp members yet.</p>';
+  camp.html:4664:  grid.querySelectorAll('[data-member-card]').forEach(btn=>btn.addEventListener('click',()=>openMemberModal(members[Number(btn.dataset.memberCard)])));
+  camp.html:4753:  setUpdatePanel('photo');
+  camp.html:4754:  setupMemoryDictation();
+> camp.html:4755:  const updateRole = getCurrentSecurityRole();
+  camp.html:4756:  if(updateRole === 'member'){
+  camp.html:4757:    setUpdateFeedback('Members can add CampUpdates, comment on CampFeed posts, and add CampCalendar events.');
+> camp.html:4758:  } else if(updateRole !== 'steward') {
+> camp.html:4759:    setUpdateFeedback('Demo view only. Public visitors can see CampUpdate, but only the Steward or approved members can post.');
+  camp.html:4760:  }
+  camp.html:4761:  document.getElementById('campUpdateForm').addEventListener('submit', async e=>{
+  camp.html:4762:    e.preventDefault();
+> camp.html:4763:    const submitRole = getCurrentSecurityRole();
+> camp.html:4764:    if(submitRole !== 'steward' && submitRole !== 'member') { setUpdateFeedback('Join this camp as a member or open Steward View to add CampUpdates.', true); return; }
+  camp.html:4765:    try{
+  camp.html:4766:    const type=document.getElementById('updateType').value;
+  camp.html:4767:    const member=document.getElementById('updateMember').value;
+  camp.html:5139:  if(!wrap || !btn) return;
+  camp.html:5140:
+> camp.html:5141:  const canRemove = Boolean(item && item.id && isCurrentSteward());
+  camp.html:5142:  wrap.hidden = !canRemove;
+  camp.html:5143:  btn.disabled = !canRemove;
+  camp.html:5144:  setFeedRemoveStatus("");
+  camp.html:5189:        published: false,
+  camp.html:5190:        removedAtClient: new Date().toISOString(),
+> camp.html:5191:        removedBy: getCurrentSecurityRole(),
+  camp.html:5192:        removedByLabel: "Camp Steward",
+  camp.html:5193:        removedReason: "steward_removed"
+  camp.html:5194:      };
+  camp.html:5786:  list.innerHTML = visible.length ? visible.map((item,idx)=>{
+  camp.html:5787:    const updateIndex = recentUpdatesOffset + idx;
+> camp.html:5788:    const stewardActions = isCurrentSteward() ? `
+  camp.html:5789:      <div class="recent-steward-actions">
+  camp.html:5790:        <button type="button" class="btn btn-secondary recent-edit-update" data-recent-edit-index="${updateIndex}">Edit</button>
+  camp.html:5791:        <button type="button" class="btn btn-danger recent-remove-update" data-recent-remove-index="${updateIndex}">Remove</button>
+  camp.html:5964:}
+  camp.html:5965:function canOpenScoutForDeerItem(type, item = {}){
+> camp.html:5966:  return isCurrentSteward() && hasScoutMapData(type, item);
+  camp.html:5967:}
+  camp.html:5968:function deerItemMatchesRemoved(item, removed){
+  camp.html:5969:  if(!item || typeof item !== "object" || !removed || typeof removed !== "object") return false;
+  camp.html:6225:            <div class="deer-card-actions">
+  camp.html:6226:              <button type="button" class="btn btn-secondary" data-deerstand-open="${deerStandShelfOffset + visibleItems.indexOf(item)}">Open Stand</button>
+> camp.html:6227:              ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerstand-edit="${deerStandShelfOffset + visibleItems.indexOf(item)}">Edit Stand</button>` : ""}
+  camp.html:6228:              ${canOpenScoutForDeerItem('stand', item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('stand', item, deerStandShelfOffset + visibleItems.indexOf(item)))}" target="_blank" rel="noopener noreferrer">Open in Scout</a>` : ''}
+  camp.html:6229:            </div>
+  camp.html:6230:          </div>
+  camp.html:6270:        <div class="deer-card-actions">
+  camp.html:6271:          <button type="button" class="btn btn-secondary deerdrive-card-btn" data-deerdrive-index="${idx}">Open Drive</button>
+> camp.html:6272:          ${isCurrentSteward() ? `<button type="button" class="btn btn-secondary" data-deerdrive-edit="${idx}">Edit Drive</button>` : ""}
+  camp.html:6273:          ${canOpenScoutForDeerItem('drive', item) ? `<a class="btn btn-secondary" href="${esc(getScoutEditUrl('drive', item, idx))}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation()">Open in Scout</a>` : ''}
+  camp.html:6274:        </div>
+  camp.html:6275:      </div>
+  camp.html:6391:function renderCampKitchen(){
+  camp.html:6392:  const host=document.getElementById('campKitchenToday'); if(!host) return; ensureCampMealPlan(); rebuildCampResourceAssignments();
+> camp.html:6393:  const steward=getCurrentSecurityRole()==='steward'; const recipes=getAllRecipes();
+  camp.html:6394:  host.innerHTML=`<div class="meal-plan-grid">${campMealPlan.map(meal=>{const recipe=kitchenRecipeById(meal.recipeId);const ready=getMealReadiness(meal);return `<article class="meal-card"><span class="meal-time">${esc(meal.type)} • ${esc(meal.time||'Time TBD')}</span><h4>${esc(recipe?.title||'Meal not selected')}</h4><span class="meal-status ${ready.needs?'needs':''}">${esc(ready.label)}</span>${steward?`<label>Recipe<select data-meal-recipe="${esc(meal.id)}"><option 
+value="">Select from CampCookbook</option>${recipes.map(r=>`<option value="${esc(r.id)}" ${r.id===meal.recipeId?'selected':''}>${esc(r.title)}</option>`).join('')}</select></label><label>Servings<input data-meal-servings="${esc(meal.id)}" type="number" min="1" max="50" value="${Number(meal.servings||4)}"></label>`:`<p class="meal-empty">Serves 
+${Number(meal.servings||4)}.</p>`}<ul>${(recipe?.ingredients||[]).slice(0,4).map(i=>`<li>${esc(i)}</li>`).join('')}${(recipe?.ingredients||[]).length>4?`<li>+${recipe.ingredients.length-4} more</li>`:''}</ul></article>`}).join('')}</div>`;
+  camp.html:6395:  host.querySelectorAll('[data-meal-recipe]').forEach(el=>el.addEventListener('change',()=>{const meal=campMealPlan.find(m=>m.id===el.dataset.mealRecipe);if(meal){meal.recipeId=el.value;rebuildCampResourceAssignments();persist();renderCampKitchen();renderCampResources();}}));
+  camp.html:6396:  host.querySelectorAll('[data-meal-servings]').forEach(el=>el.addEventListener('change',()=>{const meal=campMealPlan.find(m=>m.id===el.dataset.mealServings);if(meal){meal.servings=Math.max(1,Number(el.value||1));persist();}}));
+  camp.html:6400:}
+  camp.html:6401:function renderCampResources(){
+> camp.html:6402:  const host=document.getElementById('campResourcesApp'); if(!host) return; ensureCampMealPlan(); rebuildCampResourceAssignments(); const steward=getCurrentSecurityRole()==='steward';
+  camp.html:6403:  const viewer=String(window.DeerCampSecurity?.session?.displayName||window.DeerCampSecurity?.session?.email||'').trim();
+  camp.html:6404:  const visible=steward?campResourceAssignments:campResourceAssignments.filter(a=>!viewer||a.assignee===viewer);
+  camp.html:6405:  host.innerHTML=`<div class="campresources-grid"><aside class="resource-panel"><h3>Shopping Plan</h3><p>Choose where this trip's supplies will be purchased.</p><div class="resource-strategy">${[['sah','Shop at Home'],['s2c','Shop to Camp'],['snc','Near Camp']].map(([id,label])=>`<button type="button" data-strategy="${id}" class="${campShoppingStrategy===id?'active':''}" ${steward?'':'disabled'}>${label}</button>`).join('')}</div><h3 
+style="margin-top:18px">CampStaples</h3><p>Beer, snacks, lighter fluid, and the everyday supplies that keep camp running.</p>${steward?`<div class="resource-staples">${campStaples.map((s,i)=>`<div class="resource-staple-row"><input data-staple-name="${i}" value="${esc(s.name||'')}"><input data-staple-qty="${i}" value="${esc(s.quantity||'')}"><button class="btn btn-secondary" data-staple-remove="${i}" type="button">×</button></div>`).join('')}<button id="addCampStaple" class="btn btn-secondary" 
+type="button">Add CampStaple</button></div>`:''}</aside><section class="resource-panel"><h3>${steward?'Assignment Board':'My DeerCamp Mission'}</h3><p>${steward?'Assign every ingredient and CampStaple, then track confirmation.':'Your assigned meal ingredients and CampStaples.'}</p><div class="resource-list">${visible.length?visible.map(a=>`<div class="resource-item"><div><strong>${esc(a.item)}</strong><small>${esc(a.mealType)}${a.recipeTitle&&a.mealType!=='CampStaples'?` • 
+${esc(a.recipeTitle)}`:''}</small></div>${steward?`<select data-resource-assignee="${esc(a.id)}">${kitchenRosterOptions(a.assignee)}</select>`:`<span>${esc(a.assignee||'Unassigned')}</span>`}<button class="resource-confirm ${a.confirmed?'is-done':''}" data-resource-confirm="${esc(a.id)}" type="button" ${!steward&&!a.assignee?'disabled':''}>${a.confirmed?'Confirmed':'Confirm'}</button></div>`).join(''):`<div class="empty">No assignments yet.</div>`}</div></section></div>`;
+  buildyourcamp.html:453:        established: readParam(params, ["campEstablished", "campYear", "year", "established", "yearEstablished"]),
+  buildyourcamp.html:454:        stewardName: readParam(params, ["stewardName", "campSteward", "steward", "stewardFullName"]),
+> buildyourcamp.html:455:        stewardEmail: readParam(params, ["stewardEmail", "campStewardEmail", "email"]),
+  buildyourcamp.html:456:        hero: firstNonEmpty(heroImagePath, brandImagePath, sharedImagePath),
+  buildyourcamp.html:457:        brand: firstNonEmpty(brandImagePath, heroImagePath, sharedImagePath),
+  buildyourcamp.html:458:        members
+  buildyourcamp.html:487:    }
+  buildyourcamp.html:488:
+> buildyourcamp.html:489:    function forceStewardSession(campId) {
+  buildyourcamp.html:490:      const cleanCampId = String(campId || "").trim();
+  buildyourcamp.html:491:      try {
+  buildyourcamp.html:492:        if (cleanCampId) {
+  buildyourcamp.html:493:          localStorage.setItem(ACTIVE_CAMP_KEY, cleanCampId);
+> buildyourcamp.html:494:          localStorage.setItem(`deercamp.camps.${cleanCampId}.role`, "steward");
+> buildyourcamp.html:495:          localStorage.setItem(`deercamp.camps.${cleanCampId}.view`, "steward");
+  buildyourcamp.html:496:        }
+> buildyourcamp.html:497:        localStorage.setItem("deercamp.role", "steward");
+> buildyourcamp.html:498:        localStorage.setItem("deercamp.view", "steward");
+  buildyourcamp.html:499:        window.DeerCampSecurity?.setActor?.("steward", { campId: cleanCampId });
+  buildyourcamp.html:500:      } catch (error) {
+  buildyourcamp.html:501:        console.warn("Could not persist Steward session.", error);
+  buildyourcamp.html:547:      const cleanCampId = String(campId || "").trim();
+  buildyourcamp.html:548:      if (!cleanCampId) return false;
+> buildyourcamp.html:549:      forceStewardSession(cleanCampId);
+> buildyourcamp.html:550:      const liveCampUrl = buildCampUrl("camp.html", cleanCampId, { role: "steward", view: "steward" });
+  buildyourcamp.html:551:      window.location.replace(liveCampUrl);
+  buildyourcamp.html:552:      return true;
+  buildyourcamp.html:553:    }
+  buildyourcamp.html:587:      const email = String(person.email || '').trim().toLowerCase();
+  buildyourcamp.html:588:      const name = String(person.name || '').trim().toLowerCase();
+> buildyourcamp.html:589:      if (role === 'camp steward') return 'role:camp steward';
+  buildyourcamp.html:590:      return email || name;
+  buildyourcamp.html:591:    }
+  buildyourcamp.html:592:
+  buildyourcamp.html:594:      const leftRole = String(left.role || '').trim().toLowerCase();
+  buildyourcamp.html:595:      const rightRole = String(right.role || '').trim().toLowerCase();
+> buildyourcamp.html:596:      if (leftRole === 'camp steward' || rightRole === 'camp steward') {
+> buildyourcamp.html:597:        return leftRole === 'camp steward' && rightRole === 'camp steward';
+  buildyourcamp.html:598:      }
+  buildyourcamp.html:599:      const leftEmail = String(left.email || '').trim().toLowerCase();
+  buildyourcamp.html:600:      const rightEmail = String(right.email || '').trim().toLowerCase();
+  buildyourcamp.html:623:        fallbackMembers.push(cloneMember({
+  buildyourcamp.html:624:          name: String(campData.stewardName || campData.steward || '').trim(),
+> buildyourcamp.html:625:          email: String(campData.stewardEmail || '').trim(),
+  buildyourcamp.html:626:          note: 'Keeps camp information current and helps guide the full DeerCamp experience.',
+> buildyourcamp.html:627:          role: 'Camp Steward',
+  buildyourcamp.html:628:          status: 'Active',
+  buildyourcamp.html:629:          pendingInvite: false
+  buildyourcamp.html:630:        }));
+  buildyourcamp.html:665:        },
+  buildyourcamp.html:666:        stewardName: firstNonEmpty(campData.stewardName, campData.steward, dashboardData.stewardName),
+> buildyourcamp.html:667:        stewardEmail: firstNonEmpty(campData.stewardEmail, dashboardData.stewardEmail),
+  buildyourcamp.html:668:        sections: Object.assign({}, dashboardData.sections || {}, campData.enabledSections || {}),
+  buildyourcamp.html:669:        selectedRecipeIds: Array.isArray(campData.selectedRecipeIds) ? campData.selectedRecipeIds.map(String) : (Array.isArray(dashboardData.selectedRecipeIds) ? dashboardData.selectedRecipeIds.map(String) : []),
+  buildyourcamp.html:670:        members: mergedMembers
+  buildyourcamp.html:688:
+  buildyourcamp.html:689:    if (activeCampId) {
+> buildyourcamp.html:690:      forceStewardSession(activeCampId);
+  buildyourcamp.html:691:      redirectIfCloudCampAlreadyLive(activeCampId);
+  buildyourcamp.html:692:    }
+  buildyourcamp.html:693:
+  buildyourcamp.html:765:    const established = firstNonEmpty(urlPrefill.established, hydrationCampData.established, dashboardData.camp?.established);
+  buildyourcamp.html:766:    const dashboardMembers = Array.isArray(dashboardData.members) ? dashboardData.members : (Array.isArray(dashboardData.people) ? dashboardData.people : []);
+> buildyourcamp.html:767:    const stewardName = firstNonEmpty(urlPrefill.stewardName, hydrationCampData.stewardName, hydrationCampData.steward, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.name, "Steward");
+> buildyourcamp.html:768:    const stewardEmail = firstNonEmpty(urlPrefill.stewardEmail, dashboardMembers.find?.(person => String(person.role || '').toLowerCase() === 'camp steward')?.email, hydrationCampData.stewardEmail, dashboardData.stewardEmail);
+  buildyourcamp.html:769:    const draftMemberNames = (
+  buildyourcamp.html:770:      Array.isArray(urlPrefill.members) && urlPrefill.members.length
+  buildyourcamp.html:771:        ? urlPrefill.members
+  buildyourcamp.html:777:    ).map(item => String(item || '').trim()).filter(Boolean);
+  buildyourcamp.html:778:    const activeMemberNames = dashboardMembers
+> buildyourcamp.html:779:      .filter(person => String(person.role || '').toLowerCase() !== 'camp steward')
+  buildyourcamp.html:780:      .filter(person => {
+  buildyourcamp.html:781:        const status = String(person.status || '').trim().toLowerCase();
+  buildyourcamp.html:782:        const hasAcceptedInvite = status === 'active' || status === 'accepted' || status === 'joined';
+  buildyourcamp.html:815:    const emailStatusPill = document.getElementById('emailStatusPill');
+  buildyourcamp.html:816:    const heroHelper = document.getElementById('heroHelper');
+> buildyourcamp.html:817:    if (stewardEmail) {
+> buildyourcamp.html:818:      emailStatusPill.textContent = `Return link available at ${stewardEmail}`;
+> buildyourcamp.html:819:      heroHelper.textContent = `A Steward return link has been sent to ${stewardEmail}.`;
+  buildyourcamp.html:820:    } else {
+  buildyourcamp.html:821:      emailStatusPill.textContent = 'Add your Steward email in setup for an easy return link';
+  buildyourcamp.html:822:      emailStatusPill.classList.add('warning');
+  buildyourcamp.html:824:    }
+  buildyourcamp.html:825:
+> buildyourcamp.html:826:    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId, Object.assign({}, getCampaignLinkParams(), { role: 'steward', view: 'steward' }));
+  buildyourcamp.html:827:    const finishSetupBtn = document.getElementById('finishSetupBtn');
+  buildyourcamp.html:828:    finishSetupBtn.setAttribute('href', dashboardUrl);
+  buildyourcamp.html:829:    finishSetupBtn.addEventListener('click', (event) => {
+  buildyourcamp.html:830:      if (!activeCampId) return;
+  buildyourcamp.html:831:      event.preventDefault();
+> buildyourcamp.html:832:      forceStewardSession(activeCampId);
+  buildyourcamp.html:833:      window.location.href = dashboardUrl;
+  buildyourcamp.html:834:    });
+  buildyourcamp.html:835:
+  steward-dashboard.html:976:      }
+  steward-dashboard.html:977:    }
+> steward-dashboard.html:978:    function forceDashboardStewardSession(campId) {
+  steward-dashboard.html:979:      const cleanCampId = String(campId || "").trim();
+  steward-dashboard.html:980:      try {
+  steward-dashboard.html:981:        if (cleanCampId) {
+  steward-dashboard.html:982:          localStorage.setItem("deercamp.activeCampId", cleanCampId);
+> steward-dashboard.html:983:          localStorage.setItem(`deercamp.camps.${cleanCampId}.role`, "steward");
+> steward-dashboard.html:984:          localStorage.setItem(`deercamp.camps.${cleanCampId}.view`, "steward");
+  steward-dashboard.html:985:        }
+> steward-dashboard.html:986:        localStorage.setItem("deercamp.role", "steward");
+> steward-dashboard.html:987:        localStorage.setItem("deercamp.view", "steward");
+  steward-dashboard.html:988:        window.DeerCampSecurity?.setActor?.("steward", { campId: cleanCampId });
+  steward-dashboard.html:989:      } catch (error) {
+  steward-dashboard.html:990:        console.warn("Could not persist Steward dashboard session.", error);
+  steward-dashboard.html:995:        const campId = getDashboardCampIdParam();
+  steward-dashboard.html:996:        const roleParam = getDashboardRoleParam();
+> steward-dashboard.html:997:        if (roleParam === "steward") {
+> steward-dashboard.html:998:          forceDashboardStewardSession(campId);
+  steward-dashboard.html:999:          return false;
+  steward-dashboard.html:1000:        }
+  steward-dashboard.html:1001:        if (window.DeerCampSecurity?.getActorRole?.(campId) === "member") {
+> steward-dashboard.html:1002:          document.body.innerHTML = `<div style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#d7ccb9;color:#231a13;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:560px;background:#f7f1e7;border:1px solid rgba(69,42,22,.12);border-radius:24px;padding:26px;box-shadow:0 14px 34px rgba(0,0,0,.12);"><p style="margin:0 0 8px;color:#6b5644;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;">Member 
+View Active</p><h1 style="margin:0 0 10px;color:#452a16;">Steward controls are protected</h1><p style="margin:0 0 18px;color:#6b5644;line-height:1.55;">This browser is currently in Member View. If you are the Camp Steward and opened this from your Steward email, switch to Steward View below.</p><div style="display:flex;gap:10px;flex-wrap:wrap;"><button id="switchToStewardBtn" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 
+16px;border:0;border-radius:999px;background:#6a4427;color:#fff;text-decoration:none;font-weight:700;cursor:pointer;">Switch to Steward View</button><a style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:999px;background:#fff;color:#452a16;text-decoration:none;font-weight:700;border:1px solid rgba(69,42,22,.12);" href="camp.html${campId ? `?campId=${encodeURIComponent(campId)}` : ""}">Return to Camp</a></div></div></div>`;
+  steward-dashboard.html:1003:          setTimeout(()=>{
+  steward-dashboard.html:1004:            document.getElementById('switchToStewardBtn')?.addEventListener('click',()=>{
+> steward-dashboard.html:1005:              try{ forceDashboardStewardSession(campId); }catch(error){}
+> steward-dashboard.html:1006:              const nextUrl = campId ? `steward-dashboard.html?campId=${encodeURIComponent(campId)}&role=steward&view=steward` : 'steward-dashboard.html?role=steward&view=steward';
+  steward-dashboard.html:1007:              window.location.href = nextUrl;
+  steward-dashboard.html:1008:            });
+  steward-dashboard.html:1009:          },0);
+  steward-dashboard.html:1010:          return true;
+  steward-dashboard.html:1011:        }
+> steward-dashboard.html:1012:        forceDashboardStewardSession(campId);
+  steward-dashboard.html:1013:      } catch (error) {}
+  steward-dashboard.html:1014:      return false;
+  steward-dashboard.html:1015:    }
+  steward-dashboard.html:1223:          if (seedCampId && cleanCampId && seedCampId !== cleanCampId) continue;
+  steward-dashboard.html:1224:          const seedName = firstNonPlaceholderStewardName(parsed.stewardName, parsed.campSteward, parsed.stewardFirstName);
+> steward-dashboard.html:1225:          const seedEmail = firstNonEmpty(parsed.stewardEmail, parsed.campStewardEmail, parsed.email, parsed.to);
+  steward-dashboard.html:1226:          if (seedName || seedEmail) return parsed;
+  steward-dashboard.html:1227:        } catch (error) {}
+  steward-dashboard.html:1228:      }
+  steward-dashboard.html:1236:          if (!item || typeof item !== "object") continue;
+  steward-dashboard.html:1237:          const role = String(item.role || item.roleTitle || "").trim().toLowerCase();
+> steward-dashboard.html:1238:          const hasStewardRole = role === "camp steward" || role === "steward" || role.includes("steward");
+  steward-dashboard.html:1239:          const name = firstNonPlaceholderStewardName(item.name, item.displayName, item.fullName);
+> steward-dashboard.html:1240:          const email = firstNonEmpty(item.email, item.stewardEmail);
+  steward-dashboard.html:1241:          if ((hasStewardRole && (name || email)) || email) return item;
+  steward-dashboard.html:1242:        }
+  steward-dashboard.html:1243:      }
+  steward-dashboard.html:1260:      const status = String(member.status || '').trim().toLowerCase();
+  steward-dashboard.html:1261:      const hasEmail = Boolean(String(member.email || '').trim());
+> steward-dashboard.html:1262:      if (role === 'camp steward') return 'Active';
+  steward-dashboard.html:1263:      if (status === 'removed') return 'Removed';
+  steward-dashboard.html:1264:      if (status === 'accepted' || status === 'active') return 'Active';
+  steward-dashboard.html:1265:      if (status === 'invite sent' || status === 'invited') return 'Invite Sent';
+  steward-dashboard.html:1459:      const name = String(member.name || "").trim().toLowerCase();
+  steward-dashboard.html:1460:      const email = String(member.email || "").trim().toLowerCase();
+> steward-dashboard.html:1461:      if (role === "camp steward") return "role:camp steward";
+  steward-dashboard.html:1462:      return email ? `member:${email}` : `member:${name}`;
+  steward-dashboard.html:1463:    }
+  steward-dashboard.html:1464:
+  steward-dashboard.html:1466:      const leftRole = String(left.role || '').trim().toLowerCase();
+  steward-dashboard.html:1467:      const rightRole = String(right.role || '').trim().toLowerCase();
+> steward-dashboard.html:1468:      if (leftRole === 'camp steward' || rightRole === 'camp steward') {
+> steward-dashboard.html:1469:        return leftRole === 'camp steward' && rightRole === 'camp steward';
+  steward-dashboard.html:1470:      }
+  steward-dashboard.html:1471:      const leftEmail = String(left.email || '').trim().toLowerCase();
+  steward-dashboard.html:1472:      const rightEmail = String(right.email || '').trim().toLowerCase();
+  steward-dashboard.html:1556:      const membersOut = merged.filter(member => String(member.status || "").toLowerCase() !== "removed");
+  steward-dashboard.html:1557:      membersOut.sort((a, b) => {
+> steward-dashboard.html:1558:        const aSteward = String(a.role || "").toLowerCase() === "camp steward" ? 0 : 1;
+> steward-dashboard.html:1559:        const bSteward = String(b.role || "").toLowerCase() === "camp steward" ? 0 : 1;
+  steward-dashboard.html:1560:        if (aSteward !== bSteward) return aSteward - bSteward;
+  steward-dashboard.html:1561:        return String(a.name || "").localeCompare(String(b.name || ""));
+  steward-dashboard.html:1562:      });
+  steward-dashboard.html:1570:      state.members = (Array.isArray(state.members) ? state.members : []).filter(member => {
+  steward-dashboard.html:1571:        const memberRole = String(member.role || '').trim().toLowerCase();
+> steward-dashboard.html:1572:        if (targetRole === 'camp steward' || memberRole === 'camp steward') {
+> steward-dashboard.html:1573:          return !(targetRole === 'camp steward' && memberRole === 'camp steward');
+  steward-dashboard.html:1574:        }
+  steward-dashboard.html:1575:        const memberEmail = String(member.email || '').trim().toLowerCase();
+  steward-dashboard.html:1576:        const memberName = String(member.name || '').trim().toLowerCase();
+  steward-dashboard.html:1582:
+  steward-dashboard.html:1583:    function countStewards() {
+> steward-dashboard.html:1584:      return state.members.filter(member => String(member.role || "").toLowerCase() === "camp steward" && String(member.status || "").toLowerCase() !== "removed").length;
+  steward-dashboard.html:1585:    }
+  steward-dashboard.html:1586:
+  steward-dashboard.html:1587:    function canDeleteMember(member = {}) {
+> steward-dashboard.html:1588:      if (String(member.role || "").toLowerCase() === "camp steward") return false;
+  steward-dashboard.html:1589:      return true;
+  steward-dashboard.html:1590:    }
+  steward-dashboard.html:1591:
+  steward-dashboard.html:1599:      );
+  steward-dashboard.html:1600:      const seededEmail = firstNonEmpty(
+> steward-dashboard.html:1601:        setupSeedStewardEmail,
+> steward-dashboard.html:1602:        state.stewardEmail
+  steward-dashboard.html:1603:      );
+  steward-dashboard.html:1604:
+> steward-dashboard.html:1605:      let stewardMember = state.members.find(member => String(member.role || "").toLowerCase() === "camp steward");
+  steward-dashboard.html:1606:      if (!stewardMember && (seededName || seededEmail)) {
+  steward-dashboard.html:1607:        stewardMember = {
+  steward-dashboard.html:1608:          name: seededName || "Steward",
+  steward-dashboard.html:1609:          email: seededEmail,
+  steward-dashboard.html:1610:          note: "Keeps camp information current and helps guide the full DeerCamp experience.",
+> steward-dashboard.html:1611:          role: "Camp Steward",
+  steward-dashboard.html:1612:          status: "Active",
+  steward-dashboard.html:1613:          pendingInvite: false
+  steward-dashboard.html:1614:        };
+  steward-dashboard.html:1619:        const currentMemberName = String(stewardMember.name || "").trim();
+  steward-dashboard.html:1620:        const betterName = firstNonPlaceholderStewardName(seededName, currentMemberName, state.stewardName);
+> steward-dashboard.html:1621:        const betterEmail = firstNonEmpty(seededEmail, stewardMember.email, state.stewardEmail);
+  steward-dashboard.html:1622:        stewardMember.name = betterName || "Steward";
+  steward-dashboard.html:1623:        stewardMember.email = betterEmail;
+> steward-dashboard.html:1624:        stewardMember.role = "Camp Steward";
+  steward-dashboard.html:1625:        stewardMember.status = "Active";
+  steward-dashboard.html:1626:        stewardMember.pendingInvite = false;
+  steward-dashboard.html:1627:        stewardMember.note = String(stewardMember.note || "").trim() || "Keeps camp information current and helps guide the full DeerCamp experience.";
+  steward-dashboard.html:1628:        state.stewardName = firstNonPlaceholderStewardName(betterName, state.stewardName) || "Steward";
+> steward-dashboard.html:1629:        state.stewardEmail = betterEmail;
+  steward-dashboard.html:1630:      }
+  steward-dashboard.html:1631:
+  steward-dashboard.html:1632:      state.members = dedupeMembers(state.members);
+  steward-dashboard.html:1797:    const setupParamStewardName = getSetupStewardNameFromUrl();
+  steward-dashboard.html:1798:    const setupSeedStewardName = firstNonPlaceholderStewardName(setupParamStewardName, setupSeed.stewardName, setupSeed.campSteward, setupSeed.campStewardName, setupSeed.steward, [setupSeed.stewardFirstName, setupSeed.stewardLastName].filter(Boolean).join(" "));
+> steward-dashboard.html:1799:    const setupSeedStewardEmail = firstNonEmpty(getSetupParam("campStewardEmail", "stewardEmail", "email"), setupSeed.stewardEmail, setupSeed.campStewardEmail, setupSeed.email, setupSeed.to);
+  steward-dashboard.html:1800:
+  steward-dashboard.html:1801:    const memberProfiles = Array.isArray(campData.memberProfiles) ? campData.memberProfiles : [];
+  steward-dashboard.html:1802:    const stewardProfileCandidate = findStewardCandidate(
+  steward-dashboard.html:1812:      fallbackMembers.push({
+  steward-dashboard.html:1813:        name: String(campData.stewardName || campData.steward || "").trim(),
+> steward-dashboard.html:1814:        email: String(campData.stewardEmail || "").trim(),
+  steward-dashboard.html:1815:        note: "Keeps camp information current and helps guide the full DeerCamp experience.",
+> steward-dashboard.html:1816:        role: "Camp Steward",
+  steward-dashboard.html:1817:        status: "Active",
+  steward-dashboard.html:1818:        pendingInvite: false,
+  steward-dashboard.html:1819:        roleLine: "Keeps camp information current and helps guide the full DeerCamp experience."
+  steward-dashboard.html:1930:        stewardProfileCandidate?.name
+  steward-dashboard.html:1931:      ) || "Steward",
+> steward-dashboard.html:1932:      stewardEmail: firstNonEmpty(
+> steward-dashboard.html:1933:        setupSeedStewardEmail,
+> steward-dashboard.html:1934:        campData.stewardEmail,
+> steward-dashboard.html:1935:        campData.campStewardEmail,
+  steward-dashboard.html:1936:        stewardProfileCandidate?.email,
+> steward-dashboard.html:1937:        savedDashboard.stewardEmail,
+> steward-dashboard.html:1938:        savedDashboard.campStewardEmail
+  steward-dashboard.html:1939:      ),
+  steward-dashboard.html:1940:      sections: Object.assign({}, defaultSections, savedDashboard.sections || campData.enabledSections || {}),
+  steward-dashboard.html:1941:      selectedRecipeIds: Array.isArray(savedDashboard.selectedRecipeIds)
+  steward-dashboard.html:1982:
+  steward-dashboard.html:1983:    function getStewardProfileSnapshot(members = []) {
+> steward-dashboard.html:1984:      return (Array.isArray(members) ? members : []).find(member => String(member.role || "").trim().toLowerCase() === "camp steward") || null;
+  steward-dashboard.html:1985:    }
+  steward-dashboard.html:1986:
+  steward-dashboard.html:1987:    function stripLargeEmbeddedMedia(value, options = {}) {
+  steward-dashboard.html:2044:        stewardName: nextCampData.stewardName || state.stewardName,
+  steward-dashboard.html:2045:        steward: nextCampData.steward || state.stewardName,
+> steward-dashboard.html:2046:        stewardEmail: nextCampData.stewardEmail || state.stewardEmail,
+  steward-dashboard.html:2047:        publishState: nextCampData.publishState || state.camp.publishState,
+  steward-dashboard.html:2048:        isPublic: nextCampData.isPublic,
+  steward-dashboard.html:2049:        enabledSections: nextCampData.enabledSections || Object.assign({}, state.sections),
+  steward-dashboard.html:2068:        stewardHarvestHighlight: String(nextCampData.stewardHarvestHighlight || "").trim(),
+  steward-dashboard.html:2069:        stewardBestCampMemory: String(nextCampData.stewardBestCampMemory || "").trim(),
+> steward-dashboard.html:2070:        stewardRoleLine: String(nextCampData.stewardRoleLine || "").trim(),
+  steward-dashboard.html:2071:        profileUpdatedAt: nextCampData.profileUpdatedAt || new Date().toISOString(),
+  steward-dashboard.html:2072:        stewardProfileUpdatedAt: nextCampData.stewardProfileUpdatedAt || nextCampData.profileUpdatedAt || new Date().toISOString(),
+  steward-dashboard.html:2073:        storageMode: "profile-only"
+  steward-dashboard.html:2290:        return profile;
+  steward-dashboard.html:2291:      });
+> steward-dashboard.html:2292:      const publicMembers = keptMembers.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && isPublicMemberStatus(member.status));
+  steward-dashboard.html:2293:      const profileUpdatedAt = new Date().toISOString();
+  steward-dashboard.html:2294:      memberProfilesOut.forEach(profile => {
+  steward-dashboard.html:2295:        profile.profileUpdatedAt = profile.profileUpdatedAt || profileUpdatedAt;
+  steward-dashboard.html:2317:        },
+  steward-dashboard.html:2318:        stewardName: state.stewardName,
+> steward-dashboard.html:2319:        stewardEmail: state.stewardEmail,
+  steward-dashboard.html:2320:        profileUpdatedAt,
+  steward-dashboard.html:2321:        sections: Object.assign({ stands: Boolean(state.sections.campdeerstands), deerdrives: Boolean(state.sections.campdeerdrives) }, state.sections),
+  steward-dashboard.html:2322:        selectedRecipeIds: state.sections.camprecipes ? state.selectedRecipeIds.slice() : [],
+  steward-dashboard.html:2326:        people: keptMembers.map(member => ({ ...member })),
+  steward-dashboard.html:2327:        pendingInvites: keptMembers
+> steward-dashboard.html:2328:          .filter(member => String(member.role || '').toLowerCase() !== 'camp steward' && (member.status === 'Ready' || member.status === 'Invite Sent' || member.status === 'Failed'))
+  steward-dashboard.html:2329:          .map(member => ({ ...member }))
+  steward-dashboard.html:2330:      };
+  steward-dashboard.html:2331:
+  steward-dashboard.html:2362:        stewardName: state.stewardName,
+  steward-dashboard.html:2363:        steward: state.stewardName,
+> steward-dashboard.html:2364:        stewardEmail: state.stewardEmail,
+  steward-dashboard.html:2365:        publishState: state.camp.publishState,
+  steward-dashboard.html:2366:        isPublic: state.camp.publishState === "public",
+  steward-dashboard.html:2367:        enabledSections: Object.assign({ stands: Boolean(state.sections.campdeerstands), deerdrives: Boolean(state.sections.campdeerdrives) }, state.sections),
+  steward-dashboard.html:2405:        nextCampData.stewardHarvestHighlight = String(stewardProfile.harvestHighlight || "").trim();
+  steward-dashboard.html:2406:        nextCampData.stewardBestCampMemory = String(stewardProfile.bestCampMemory || "").trim();
+> steward-dashboard.html:2407:        nextCampData.stewardRoleLine = String(stewardProfile.roleLine || "").trim();
+  steward-dashboard.html:2408:        nextCampData.stewardProfileUpdatedAt = profileUpdatedAt;
+  steward-dashboard.html:2409:        nextCampData.stewardProfile.profileUpdatedAt = profileUpdatedAt;
+  steward-dashboard.html:2410:        nextCampData.campStewardProfile.profileUpdatedAt = profileUpdatedAt;
+  steward-dashboard.html:2441:        const role = String(member.role || "").trim().toLowerCase();
+  steward-dashboard.html:2442:        const status = String(member.status || "Active").trim().toLowerCase();
+> steward-dashboard.html:2443:        return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
+  steward-dashboard.html:2444:      });
+  steward-dashboard.html:2445:      const membersHaveEmails = nonStewardMembers.length > 0 && nonStewardMembers.every(member => isLikelyEmail(member.email || "") && String(member.email || "").trim());
+  steward-dashboard.html:2446:      const membersCanProceed = nonStewardMembers.length > 0 && (membersHaveEmails || checklistState.membersReviewed === true || checklistState.memberEmailsDeferred === true);
+  steward-dashboard.html:2456:      return [
+  steward-dashboard.html:2457:        { key:"identity", label:"Confirm camp identity", note:"Name, location, and summary are set.", done:Boolean((checklistState.identityConfirmed === true) || (String(state.camp.name || "").trim() && (String(state.camp.city || "").trim() || String(state.camp.state || "").trim()) && String(state.camp.summary || "").trim())), target:"#campName", completeLabel:"Camp Essentials Complete" },
+> steward-dashboard.html:2458:        { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList", completeLabel:"Steward Email Complete" },
+  steward-dashboard.html:2459:        { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload", completeLabel:"Camp Sign Complete" },
+  steward-dashboard.html:2460:        { key:"members", label:memberStepLabel, note:memberStepNote, done:membersCanProceed, target:"#memberList", completeLabel:(nonStewardMembers.length > 0 && missingMemberEmailCount > 0 ? "Add Other Members Later" : "Members Complete") },
+  steward-dashboard.html:2461:        { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
+  steward-dashboard.html:2611:          const role = String(member.role || "").trim().toLowerCase();
+  steward-dashboard.html:2612:          const status = String(member.status || "Active").trim().toLowerCase();
+> steward-dashboard.html:2613:          return role !== "camp steward" && status !== "removed" && String(member.name || "").trim();
+  steward-dashboard.html:2614:        });
+  steward-dashboard.html:2615:        if (!nonStewardMembers.length) {
+  steward-dashboard.html:2616:          showToast("Add at least one camp member name, or add members later from this dashboard.");
+  steward-dashboard.html:2712:      document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
+  steward-dashboard.html:2713:      document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
+> steward-dashboard.html:2714:      document.getElementById("heroSubnote").textContent = state.stewardEmail
+> steward-dashboard.html:2715:        ? `Return link available for ${state.stewardEmail}.`
+  steward-dashboard.html:2716:        : "Add a Steward email later if you want a stronger return-link safety net.";
+  steward-dashboard.html:2717:
+  steward-dashboard.html:2718:      const campUrl = buildCampUrl("camp.html", state.campId);
+  steward-dashboard.html:2755:        const role = String(member.role || "").trim().toLowerCase();
+  steward-dashboard.html:2756:        const status = String(member.status || "Active").trim().toLowerCase();
+> steward-dashboard.html:2757:        return role !== "camp steward" && status !== "removed";
+  steward-dashboard.html:2758:      }).length;
+  steward-dashboard.html:2759:    }
+  steward-dashboard.html:2760:
+  steward-dashboard.html:2800:      const items = state.members.filter(member => String(member.status || "Active").toLowerCase() !== "removed");
+  steward-dashboard.html:2801:      list.innerHTML = items.length ? items.map((member, index) => {
+> steward-dashboard.html:2802:        const role = String(member.role || "Camp Member").toLowerCase() === "camp steward" ? "Camp Steward" : "Camp Member";
+> steward-dashboard.html:2803:        const statusLine = role === "Camp Steward"
+  steward-dashboard.html:2804:          ? ""
+  steward-dashboard.html:2805:          : (member.status === "Sending"
+  steward-dashboard.html:2806:              ? " • Sending..."
+  steward-dashboard.html:2814:        const emailLine = member.email
+  steward-dashboard.html:2815:          ? `${member.email}${statusLine}`
+> steward-dashboard.html:2816:          : (role === "Camp Steward" ? "Add steward email now." : "No email yet - tap Edit to add.");
+  steward-dashboard.html:2817:        const extraNote = member.note ? ` • ${member.note}` : "";
+> steward-dashboard.html:2818:        const resendButton = role !== "Camp Steward" && ["Invite Sent", "Failed"].includes(String(member.status || "")) && String(member.email || "").trim()
+  steward-dashboard.html:2819:          ? `<button class="member-resend" type="button" data-resend-member="${index}">${member.status === "Failed" ? "Retry" : "Resend"}</button>`
+  steward-dashboard.html:2820:          : "";
+  steward-dashboard.html:2821:        return `
+  steward-dashboard.html:2826:          </div>
+  steward-dashboard.html:2827:          <div class="member-actions">
+> steward-dashboard.html:2828:            <div class="member-pill ${role === "Camp Steward" ? "gold" : "green"}">${role}</div>
+  steward-dashboard.html:2829:            ${resendButton}
+> steward-dashboard.html:2830:            <button class="member-edit" type="button" data-edit-member="${index}">${role === "Camp Steward" ? "Edit Steward Email" : "Edit Member Email Below"}</button>
+  steward-dashboard.html:2831:          </div>
+  steward-dashboard.html:2832:        </div>`;
+  steward-dashboard.html:2833:      }).join("") : `<div class="member-row"><div><div class="member-name">No members yet</div><div class="member-sub">Add the first member below.</div></div></div>`;
+  steward-dashboard.html:2866:      const inviteBtn = document.getElementById("memberInviteBtn");
+  steward-dashboard.html:2867:      if (!inviteBtn) return;
+> steward-dashboard.html:2868:      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+  steward-dashboard.html:2869:      inviteBtn.hidden = pending.length === 0;
+  steward-dashboard.html:2870:      inviteBtn.textContent = pending.length > 1 ? "Send Member Invites" : "Send Member Invite";
+  steward-dashboard.html:2871:      inviteBtn.classList.toggle("btn-primary", pending.length > 0);
+  steward-dashboard.html:2877:      const inviteBtn = document.getElementById("memberInviteBtn");
+  steward-dashboard.html:2878:      const isMemberReadyToInvite =
+> steward-dashboard.html:2879:        String(member.role || "").toLowerCase() !== "camp steward" &&
+  steward-dashboard.html:2880:        Boolean(member.pendingInvite) &&
+  steward-dashboard.html:2881:        isLikelyEmail(member.email);
+  steward-dashboard.html:2882:
+  steward-dashboard.html:2957:          campHero: state.camp.hero,
+  steward-dashboard.html:2958:          stewardName: state.stewardName,
+> steward-dashboard.html:2959:          stewardEmail: state.stewardEmail,
+  steward-dashboard.html:2960:          memberName: member.name,
+  steward-dashboard.html:2961:          memberEmail: member.email,
+  steward-dashboard.html:2962:          inviteToken
+  steward-dashboard.html:2976:    async function resendMemberInvite(index) {
+  steward-dashboard.html:2977:      const member = state.members[index];
+> steward-dashboard.html:2978:      if (!member || String(member.role || "").toLowerCase() === "camp steward") return;
+  steward-dashboard.html:2979:      if (!String(member.email || "").trim()) {
+  steward-dashboard.html:2980:        showToast("Add a member email before resending.");
+  steward-dashboard.html:2981:        return;
+  steward-dashboard.html:3020:      document.getElementById("memberNote").value = member.note || "";
+  steward-dashboard.html:3021:      writeProfileFieldsToForm(member);
+> steward-dashboard.html:3022:      restoreMemberSaveButtonLabel(String(member.role || "").toLowerCase() === "camp steward", "Save Member Email");
+  steward-dashboard.html:3023:      const deleteBtn = document.getElementById("memberDeleteBtn");
+  steward-dashboard.html:3024:      if (deleteBtn) {
+> steward-dashboard.html:3025:        const isSteward = String(member.role || "").toLowerCase() === "camp steward";
+  steward-dashboard.html:3026:        deleteBtn.hidden = isSteward || !canDeleteMember(member);
+  steward-dashboard.html:3027:        deleteBtn.textContent = "Delete Member";
+  steward-dashboard.html:3028:      }
+  steward-dashboard.html:3049:    function focusStewardProfileEditor({ scroll = true } = {}) {
+  steward-dashboard.html:3050:      ensureStewardMember();
+> steward-dashboard.html:3051:      const stewardIndex = state.members.findIndex(member => String(member.role || "").toLowerCase() === "camp steward");
+  steward-dashboard.html:3052:      if (stewardIndex < 0) return false;
+  steward-dashboard.html:3053:      loadMemberForEdit(stewardIndex);
+  steward-dashboard.html:3054:      const form = document.getElementById("memberForm");
+  steward-dashboard.html:3304:        camp: state.camp,
+  steward-dashboard.html:3305:        stewardName: state.stewardName,
+> steward-dashboard.html:3306:        stewardEmail: state.stewardEmail,
+  steward-dashboard.html:3307:        sections: state.sections,
+  steward-dashboard.html:3308:        members: state.members,
+  steward-dashboard.html:3309:        people: state.members,
+  steward-dashboard.html:3506:      if (visibility) visibility.value = rules.visibility;
+  steward-dashboard.html:3507:      if (version) version.textContent = `v${rules.version}`;
+> steward-dashboard.html:3508:      const memberTargets = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && String(member.status || "Active").toLowerCase() !== "removed");
+  steward-dashboard.html:3509:      const agreedCount = memberTargets.filter(member => Number(state.campRulesAgreements[campRulesAgreementKey(member)]?.version || 0) >= Number(rules.version || 1)).length;
+  steward-dashboard.html:3510:      if (agreementStat) agreementStat.textContent = `${agreedCount}/${memberTargets.length}`;
+  steward-dashboard.html:3511:      if (list) {
+  steward-dashboard.html:3542:    function renderCampRulesAgreementStatusOnly(){
+  steward-dashboard.html:3543:      const rules = normalizeCampRulesConfig(Object.assign({}, state.campRules, { agreements: state.campRulesAgreements }));
+> steward-dashboard.html:3544:      const memberTargets = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && String(member.status || "Active").toLowerCase() !== "removed");
+  steward-dashboard.html:3545:      const agreedCount = memberTargets.filter(member => Number(state.campRulesAgreements[campRulesAgreementKey(member)]?.version || 0) >= Number(rules.version || 1)).length;
+  steward-dashboard.html:3546:      const agreementStat = document.getElementById("campRulesAgreementStat");
+  steward-dashboard.html:3547:      if (agreementStat) agreementStat.textContent = `${agreedCount}/${memberTargets.length}`;
+  steward-dashboard.html:3735:      }
+  steward-dashboard.html:3736:
+> steward-dashboard.html:3737:      const stewardEmailLower = String(state.stewardEmail || '').trim().toLowerCase();
+  steward-dashboard.html:3738:      const emailLower = String(email || '').trim().toLowerCase();
+  steward-dashboard.html:3739:      const editingMember = editIndex !== "" ? state.members[Number(editIndex)] : null;
+  steward-dashboard.html:3740:      const editingRole = String(editingMember?.role || '').trim().toLowerCase();
+> steward-dashboard.html:3741:      if (emailLower && stewardEmailLower && emailLower === stewardEmailLower && editingRole !== 'camp steward') {
+  steward-dashboard.html:3742:        setMemberFormNote("Member email cannot match the Camp Steward email.", "error");
+  steward-dashboard.html:3743:        showToast("Member email cannot match the Camp Steward email.");
+  steward-dashboard.html:3744:        return;
+  steward-dashboard.html:3754:        member.note = note;
+  steward-dashboard.html:3755:        copyMemberProfileFields(member, profileFields);
+> steward-dashboard.html:3756:        if (String(member.role || "").toLowerCase() === "camp steward") {
+  steward-dashboard.html:3757:          state.stewardName = name;
+> steward-dashboard.html:3758:          state.stewardEmail = email;
+  steward-dashboard.html:3759:          member.pendingInvite = false;
+  steward-dashboard.html:3760:          member.status = "Active";
+  steward-dashboard.html:3761:        } else {
+  steward-dashboard.html:3780:        }
+  steward-dashboard.html:3781:        const submitBtn = document.getElementById("memberSubmitBtn");
+> steward-dashboard.html:3782:        const isStewardSave = String(member.role || "").toLowerCase() === "camp steward";
+  steward-dashboard.html:3783:        const oldSubmitLabel = submitBtn ? submitBtn.textContent : "";
+  steward-dashboard.html:3784:        try {
+  steward-dashboard.html:3785:          if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Saving..."; }
+  steward-dashboard.html:3867:    document.getElementById("memberInviteBtn").addEventListener("click", async () => {
+  steward-dashboard.html:3868:      const inviteBtn = document.getElementById("memberInviteBtn");
+> steward-dashboard.html:3869:      const pending = state.members.filter(member => String(member.role || "").toLowerCase() !== "camp steward" && member.pendingInvite && String(member.email || "").trim());
+  steward-dashboard.html:3870:      if (!pending.length) {
+  steward-dashboard.html:3871:        showToast("No new member invites are ready to send.");
+  steward-dashboard.html:3872:        return;
+  steward-dashboard.html:3916:        const currentMember = state.members[Number(currentEditIndex)];
+  steward-dashboard.html:3917:        const submitBtn = document.getElementById("memberSubmitBtn");
+> steward-dashboard.html:3918:        const currentIsSteward = String(currentMember?.role || "").toLowerCase() === "camp steward";
+  steward-dashboard.html:3919:        const currentInviteSent = String(currentMember?.status || "").toLowerCase() === "invite sent" || String(currentMember?.inviteSentAt || "").trim();
+  steward-dashboard.html:3920:        if (!currentIsSteward && currentInviteSent) {
+  steward-dashboard.html:3921:          if (submitBtn) {
+  steward-dashboard.html:4081:      const campId = getDashboardSupportSafeText(state.campId || activeCampId || campData.campId, "Unknown");
+  steward-dashboard.html:4082:      const stewardName = getDashboardSupportSafeText(state.stewardName || campData.stewardName || campData.campSteward, "");
+> steward-dashboard.html:4083:      const stewardEmail = getDashboardSupportSafeText(state.stewardEmail || campData.stewardEmail || campData.campStewardEmail, "");
+  steward-dashboard.html:4084:      const tierLabel = getDashboardSupportTierLabel(tierState);
+  steward-dashboard.html:4085:      const supportPriority = getDashboardSupportPriority(tierState);
+  steward-dashboard.html:4086:      const subscriptionStatus = getDashboardSupportSafeText(tierState.status || campData.subscriptionStatus || campData.billingStatus, tierLabel === "DCF" ? "none" : "active");
+  steward-dashboard.html:4090:        `Camp ID: ${campId}`,
+  steward-dashboard.html:4091:        stewardName ? `Steward: ${stewardName}` : "Steward:",
+> steward-dashboard.html:4092:        stewardEmail ? `Steward Email: ${stewardEmail}` : "Steward Email:",
+  steward-dashboard.html:4093:        `Membership: ${tierLabel}`,
+  steward-dashboard.html:4094:        `Subscription Status: ${subscriptionStatus}`,
+  steward-dashboard.html:4095:        `Support Priority: ${supportPriority}`,
+  steward-dashboard.html:4281:            campId:state.campId,
+  steward-dashboard.html:4282:            planKey,
+> steward-dashboard.html:4283:            email:state.stewardEmail||'',
+  steward-dashboard.html:4284:            successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(state.campId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+  steward-dashboard.html:4285:            cancelUrl:window.location.href
+  steward-dashboard.html:4286:          });
+  steward-dashboard.html:4355:        state.stewardName
+  steward-dashboard.html:4356:      ) || "Steward";
+> steward-dashboard.html:4357:      state.stewardEmail = firstNonEmpty(
+> steward-dashboard.html:4358:        setupSeedStewardEmail,
+> steward-dashboard.html:4359:        cloud.stewardEmail,
+> steward-dashboard.html:4360:        cloud.campStewardEmail,
+> steward-dashboard.html:4361:        slim.stewardEmail,
+> steward-dashboard.html:4362:        slim.campStewardEmail,
+  steward-dashboard.html:4363:        cloudStewardCandidate?.email,
+> steward-dashboard.html:4364:        state.stewardEmail
+  steward-dashboard.html:4365:      );
+  steward-dashboard.html:4366:      const cloudSections = slim.sections || cloud.enabledSections || null;
+  steward-dashboard.html:4367:      if (cloudSections && typeof cloudSections === "object") state.sections = Object.assign({}, state.sections, cloudSections);
+  steward-dashboard.html:4380:      ensureStewardMember();
+  steward-dashboard.html:4381:      try {
+> steward-dashboard.html:4382:        const cloudCampCache = Object.assign({}, cloud, { campId: state.campId, name: state.camp.name, campName: state.camp.name, city: state.camp.city, state: state.camp.state, zip: state.camp.zip, established: state.camp.established, hero: state.camp.hero, stewardName: state.stewardName, stewardEmail: state.stewardEmail });
+  steward-dashboard.html:4383:        Object.keys(campData).forEach(key => { delete campData[key]; });
+  steward-dashboard.html:4384:        Object.assign(campData, cloudCampCache);
+  steward-dashboard.html:4385:        localStorage.setItem(scopedCampDataKey, JSON.stringify(cloudCampCache));
+  member-setup.html:662:              <strong>What DeerCamp will do</strong>
+  member-setup.html:663:              <div class="summary-list" id="reviewList" style="margin-top: 12px;">
+> member-setup.html:664:                <div class="summary-item"><strong>Keep your role as member only</strong><span>No Steward dashboard control is granted through this flow.</span></div>
+  member-setup.html:665:                <div class="summary-item"><strong>Save your profile</strong><span>Your details merge into the camp roster and Steward dashboard people list.</span></div>
+  member-setup.html:666:                <div class="summary-item"><strong>Enter camp</strong><span>After finish, DeerCamp opens the camp page.</span></div>
+  member-setup.html:667:              </div>
+  member-setup.html:784:        stewardName: String(base.stewardName || base.steward || 'Camp Steward').trim(),
+  member-setup.html:785:        steward: String(base.steward || base.stewardName || 'Camp Steward').trim(),
+> member-setup.html:786:        stewardEmail: String(base.stewardEmail || '').trim(),
+  member-setup.html:787:        enabledSections: base.enabledSections || {},
+  member-setup.html:788:        selectedRecipeIds: Array.isArray(base.selectedRecipeIds) ? base.selectedRecipeIds.slice() : [],
+  member-setup.html:789:        members: Array.isArray(base.members) ? base.members.slice() : [],
+  member-setup.html:983:        campEstablished: String(campEstablishedParam || campData.established || dashboard?.camp?.established || '').trim(),
+  member-setup.html:984:        campHero: String(campHeroParam || campData.hero || campData.campHero || dashboard?.camp?.hero || '').trim(),
+> member-setup.html:985:        stewardName: String(stewardNameParam || campData.stewardName || campData.steward || campData.campSteward || (people.find(person => person.role === 'Camp Steward') || {}).name || 'Camp Steward').trim(),
+  member-setup.html:986:        inviteId: String(params.get('inviteId') || storedInvite?.id || pendingMatch?.id || '').trim(),
+  member-setup.html:987:        inviteToken: inviteTokenParam || String(storedInvite?.inviteToken || pendingMatch?.inviteToken || '').trim()
+  member-setup.html:988:      };
+
+

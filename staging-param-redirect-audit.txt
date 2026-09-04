@@ -1,0 +1,268 @@
+
+  firebase-web.js:19:
+  firebase-web.js:20:  function isDeerCampStagingHost() {
+> firebase-web.js:21:    const host = String(window.location.hostname || "").toLowerCase();
+  firebase-web.js:22:    return host === "deercamp-staging.web.app" ||
+  firebase-web.js:23:      host === "deercamp-staging.firebaseapp.com" ||
+> firebase-web.js:24:      (host.includes("localhost") && String(window.location.search || "").includes("useStagingFirebase=true"));
+  firebase-web.js:25:  }
+  firebase-web.js:26:
+  firebase-web.js:205:    readAttributionFromUrl() {
+  firebase-web.js:206:      try {
+> firebase-web.js:207:        const params = new URLSearchParams(window.location.search || "");
+  firebase-web.js:208:        const readFirst = (...keys) => {
+  firebase-web.js:209:          for (const key of keys) {
+  firebase-web.js:232:          content,
+  firebase-web.js:233:          term,
+> firebase-web.js:234:          landingPath: window.location.pathname || "",
+> firebase-web.js:235:          landingUrl: window.location.href || "",
+  firebase-web.js:236:          capturedAtClient: new Date().toISOString()
+  firebase-web.js:237:        };
+  firebase-web.js:402:        await db.collection("shortLinkClicks").add({
+  firebase-web.js:403:          code: cleanCode,
+> firebase-web.js:404:          path: String(payload.path || window.location.pathname || ""),
+  firebase-web.js:405:          referrer: String(payload.referrer || document.referrer || ""),
+  firebase-web.js:406:          userAgent: String(payload.userAgent || navigator.userAgent || ""),
+  firebase-web.js:895:      if (!campId) throw new Error("Missing campId for checkout.");
+  firebase-web.js:896:      if (!priceId) throw new Error("Missing Stripe priceId for checkout.");
+> firebase-web.js:897:      const origin = window.location.origin;
+  firebase-web.js:898:      const successUrl = options.successUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  firebase-web.js:899:      const cancelUrl = options.cancelUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&checkout=cancelled`;
+  firebase-web.js:910:      ], payload);
+  firebase-web.js:911:      if (!session.url) throw new Error("Stripe checkout URL was not returned.");
+> firebase-web.js:912:      window.location.href = session.url;
+  firebase-web.js:913:      return session;
+  firebase-web.js:914:    },
+  firebase-web.js:916:      const campId = String(options.campId || "").trim();
+  firebase-web.js:917:      if (!campId) throw new Error("Missing campId for billing portal.");
+> firebase-web.js:918:      const origin = window.location.origin;
+  firebase-web.js:919:      const returnUrl = options.returnUrl || `${origin}/camp.html?campId=${encodeURIComponent(campId)}&billing=returned`;
+  firebase-web.js:920:      const session = await this.postJsonWithFallback([
+  firebase-web.js:923:      ], { campId, returnUrl });
+  firebase-web.js:924:      if (!session.url) throw new Error("Stripe billing portal URL was not returned.");
+> firebase-web.js:925:      window.location.href = session.url;
+  firebase-web.js:926:      return session;
+  firebase-web.js:927:    }
+  firebase-web.js:986:      if (!cleanEmail) throw new Error("Email is required.");
+  firebase-web.js:987:
+> firebase-web.js:988:      const returnUrl = String(options.returnUrl || window.location.href).trim();
+  firebase-web.js:989:
+  firebase-web.js:990:      await auth.sendSignInLinkToEmail(cleanEmail, {
+  firebase-web.js:1000:    },
+  firebase-web.js:1001:
+> firebase-web.js:1002:    isEmailSignInLink(url = window.location.href) {
+  firebase-web.js:1003:      const auth = this.ensureReady();
+  firebase-web.js:1004:      if (!auth) return false;
+  firebase-web.js:1025:      if (!auth) throw new Error("Firebase Authentication is not available.");
+  firebase-web.js:1026:
+> firebase-web.js:1027:      const url = String(options.url || window.location.href || "");
+  firebase-web.js:1028:
+  firebase-web.js:1029:      if (!auth.isSignInWithEmailLink(url)) {
+  camp.html:1901:}
+  camp.html:1902:
+> camp.html:1903:function getCampIdFromUrl(){try{return String(new URLSearchParams(window.location.search).get("campId")||"").trim()}catch{return ""}}
+  camp.html:1904:function campScopeKey(campId,suffix){const c=String(campId||"").trim();return c?`${CAMP_SCOPE_PREFIX}${c}.${suffix}`:""}
+  camp.html:1905:function safeParseJson(raw,fallback={}){try{return JSON.parse(raw||JSON.stringify(fallback))||fallback}catch{return fallback}}
+  camp.html:2265:function hasCheckoutSuccessParam(){
+  camp.html:2266:  try{
+> camp.html:2267:    const params = new URLSearchParams(window.location.search || "");
+  camp.html:2268:    const checkout = String(params.get("checkout") || params.get("checkout_status") || params.get("billing") || "").trim().toLowerCase();
+  camp.html:2269:    const sessionId = String(params.get("session_id") || params.get("stripe_session_id") || "").trim();
+  camp.html:2273:function getCheckoutPlanKeyFromUrl(){
+  camp.html:2274:  try{
+> camp.html:2275:    const params = new URLSearchParams(window.location.search || "");
+  camp.html:2276:    return String(params.get("planKey") || params.get("plan") || params.get("priceKey") || "dc_plus").trim() || "dc_plus";
+  camp.html:2277:  }catch(error){ return "dc_plus"; }
+  camp.html:2468:function showFullCampSection(sectionKey){
+  camp.html:2469:  try{ sessionStorage.setItem(`deercamp.section.full.${activeCampId}.${sectionKey}`,"1"); }catch{}
+> camp.html:2470:  const url=new URL(window.location.href); url.hash=sectionKey; window.location.href=url.toString(); window.location.reload();
+  camp.html:2471:}
+  camp.html:2472:window.showFullCampSection=showFullCampSection;
+  camp.html:2724:  Promise.resolve().then(()=>window.DeerCampCloud&&DeerCampCloud.saveCamp(activeCampId, data)).catch(()=>{});
+  camp.html:2725:}
+> camp.html:2726:function buildCampScopedUrl(path){const u=new URL(path, window.location.href); if(activeCampId) u.searchParams.set("campId", activeCampId); return `${u.pathname}?${u.searchParams.toString()}`}
+  camp.html:2727:function buildScoutBuilderUrl(builder){
+> camp.html:2728:  const u=new URL("scout.html", window.location.href);
+  camp.html:2729:  if(activeCampId) u.searchParams.set("campId", activeCampId);
+  camp.html:2730:  u.searchParams.set("builder", builder === "drive" ? "drive" : "stand");
+  camp.html:3071:      planKey,
+  camp.html:3072:      email:String(data?.stewardEmail || data?.campStewardEmail || '').trim(),
+> camp.html:3073:      successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(activeCampId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+> camp.html:3074:      cancelUrl:window.location.href
+  camp.html:3075:    });
+  camp.html:3076:  }catch(error){
+  camp.html:3098:  try{
+  camp.html:3099:    btn.textContent='Opening billing...';
+> camp.html:3100:    await window.DeerCampBilling.manageBilling({campId:activeCampId, returnUrl:window.location.href});
+  camp.html:3101:  }catch(error){
+  camp.html:3102:    console.warn('Camp billing action failed.', error);
+  camp.html:3108:}
+  camp.html:3109:function buildStewardDashboardUrl(){
+> camp.html:3110:  const u=new URL("steward-dashboard.html", window.location.href);
+  camp.html:3111:  if(activeCampId) u.searchParams.set("campId", activeCampId);
+  camp.html:3112:  u.searchParams.set("role", "steward");
+  camp.html:5886:}
+  camp.html:5887:function getScoutEditUrl(type, item = {}, index = 0){
+> camp.html:5888:  const url = new URL('scout.html', window.location.href);
+  camp.html:5889:  if(activeCampId) url.searchParams.set('campId', activeCampId);
+  camp.html:5890:  url.searchParams.set('editType', type);
+  buildyourcamp.html:440:
+  buildyourcamp.html:441:    function parseUrlPrefill() {
+> buildyourcamp.html:442:      const params = new URLSearchParams(window.location.search || "");
+  buildyourcamp.html:443:      const sharedImagePath = normalizeBuilderImagePath(readParam(params, ["campImage", "campImagePath", "image", "imagePath", "selectedImage", "selectedImagePath", "selectedHeroImage", "selectedHeroImagePath", "campImageSelect", "heroTemplate"]));
+  buildyourcamp.html:444:      const heroImagePath = normalizeBuilderImagePath(readParam(params, ["campHero", "hero", "heroImage", "heroImagePath", "campHeroImage", "campHeroPath"]));
+  buildyourcamp.html:462:
+  buildyourcamp.html:463:    function getCampaignLinkParams() {
+> buildyourcamp.html:464:      const params = new URLSearchParams(window.location.search || "");
+  buildyourcamp.html:465:      const keys = ["ref","campaignId","cid","dc_campaign","dcCampaign","campaignName","campaignType","utm_source","utm_medium","utm_campaign","utm_content","utm_term","utm_audience","channel","source","medium","content","term","prospectId","prospect","pid","leadId","businessId"];
+  buildyourcamp.html:466:      const out = {};
+  buildyourcamp.html:472:    }
+  buildyourcamp.html:473:
+> buildyourcamp.html:474:    function buildCampUrl(path, campId, extras = {}) {
+  buildyourcamp.html:475:      const cleanCampId = String(campId || "").trim();
+> buildyourcamp.html:476:      const url = new URL(path, window.location.href);
+  buildyourcamp.html:477:      if (cleanCampId) url.searchParams.set("campId", cleanCampId);
+  buildyourcamp.html:478:      Object.entries(extras || {}).forEach(([key, value]) => {
+  buildyourcamp.html:545:      if (!cleanCampId) return false;
+  buildyourcamp.html:546:      forceStewardSession(cleanCampId);
+> buildyourcamp.html:547:      const liveCampUrl = buildCampUrl("camp.html", cleanCampId, { role: "steward", view: "steward" });
+> buildyourcamp.html:548:      window.location.replace(liveCampUrl);
+  buildyourcamp.html:549:      return true;
+  buildyourcamp.html:550:    }
+  buildyourcamp.html:821:    }
+  buildyourcamp.html:822:
+> buildyourcamp.html:823:    const dashboardUrl = buildCampUrl('steward-dashboard.html', activeCampId, Object.assign({}, getCampaignLinkParams(), { role: 'steward', view: 'steward' }));
+  buildyourcamp.html:824:    const finishSetupBtn = document.getElementById('finishSetupBtn');
+  buildyourcamp.html:825:    finishSetupBtn.setAttribute('href', dashboardUrl);
+  buildyourcamp.html:828:      event.preventDefault();
+  buildyourcamp.html:829:      forceStewardSession(activeCampId);
+> buildyourcamp.html:830:      window.location.href = dashboardUrl;
+  buildyourcamp.html:831:    });
+  buildyourcamp.html:832:
+  steward-dashboard.html:965:    const CAMP_DATA_KEY = "campData";
+  steward-dashboard.html:966:    function getDashboardCampIdParam() {
+> steward-dashboard.html:967:      try { return String(new URLSearchParams(window.location.search).get("campId") || localStorage.getItem("deercamp.activeCampId") || "").trim(); }
+  steward-dashboard.html:968:      catch (error) { return String(localStorage.getItem("deercamp.activeCampId") || "").trim(); }
+  steward-dashboard.html:969:    }
+  steward-dashboard.html:970:    function getDashboardRoleParam() {
+  steward-dashboard.html:971:      try {
+> steward-dashboard.html:972:        const params = new URLSearchParams(window.location.search || "");
+  steward-dashboard.html:973:        return String(params.get("role") || params.get("view") || "").trim().toLowerCase();
+  steward-dashboard.html:974:      } catch (error) {
+  steward-dashboard.html:1005:              try{ forceDashboardStewardSession(campId); }catch(error){}
+  steward-dashboard.html:1006:              const nextUrl = campId ? `steward-dashboard.html?campId=${encodeURIComponent(campId)}&role=steward&view=steward` : 'steward-dashboard.html?role=steward&view=steward';
+> steward-dashboard.html:1007:              window.location.href = nextUrl;
+  steward-dashboard.html:1008:            });
+  steward-dashboard.html:1009:          },0);
+  steward-dashboard.html:1031:
+  steward-dashboard.html:1032:    function getCampIdFromUrl() {
+> steward-dashboard.html:1033:      try { return String(new URLSearchParams(window.location.search).get("campId") || "").trim(); }
+  steward-dashboard.html:1034:      catch { return ""; }
+  steward-dashboard.html:1035:    }
+  steward-dashboard.html:1037:    function getSetupParam(...keys) {
+  steward-dashboard.html:1038:      try {
+> steward-dashboard.html:1039:        const params = new URLSearchParams(window.location.search);
+  steward-dashboard.html:1040:        for (const key of keys) {
+  steward-dashboard.html:1041:          const value = String(params.get(key) || "").trim();
+  steward-dashboard.html:1135:    }
+  steward-dashboard.html:1136:
+> steward-dashboard.html:1137:    function buildCampUrl(path, campId, extras = {}) {
+  steward-dashboard.html:1138:      const cleanCampId = String(campId || "").trim();
+> steward-dashboard.html:1139:      const url = new URL(path, window.location.href);
+  steward-dashboard.html:1140:      if (cleanCampId) url.searchParams.set("campId", cleanCampId);
+  steward-dashboard.html:1141:      Object.entries(extras || {}).forEach(([key, value]) => {
+  steward-dashboard.html:1149:    function getDashboardEditTarget() {
+  steward-dashboard.html:1150:      try {
+> steward-dashboard.html:1151:        const params = new URLSearchParams(window.location.search);
+  steward-dashboard.html:1152:        return String(params.get("edit") || params.get("profile") || "").trim().toLowerCase();
+  steward-dashboard.html:1153:      } catch (error) {
+  steward-dashboard.html:1638:    function hasDashboardCheckoutSuccessParam(){
+  steward-dashboard.html:1639:      try{
+> steward-dashboard.html:1640:        const params = new URLSearchParams(window.location.search || "");
+  steward-dashboard.html:1641:        const checkout = String(params.get("checkout") || params.get("checkout_status") || params.get("billing") || "").trim().toLowerCase();
+  steward-dashboard.html:1642:        const sessionId = String(params.get("session_id") || params.get("stripe_session_id") || "").trim();
+  steward-dashboard.html:1646:    function getDashboardCheckoutPlanKey(){
+  steward-dashboard.html:1647:      try{
+> steward-dashboard.html:1648:        const params = new URLSearchParams(window.location.search || "");
+  steward-dashboard.html:1649:        return String(params.get("planKey") || params.get("plan") || params.get("priceKey") || "dc_plus").trim() || "dc_plus";
+  steward-dashboard.html:1650:      }catch(error){ return "dc_plus"; }
+  steward-dashboard.html:1974:    function currentShareUrl() {
+  steward-dashboard.html:1975:      return state.camp.publishState === "public"
+> steward-dashboard.html:1976:        ? `${window.location.origin}${buildCampUrl("camp.html", state.campId)}`
+  steward-dashboard.html:1977:        : "https://ourdeercamp.com/";
+  steward-dashboard.html:1978:    }
+  steward-dashboard.html:2184:    function getDashboardCampaignTrackingFromUrl() {
+  steward-dashboard.html:2185:      try {
+> steward-dashboard.html:2186:        const params = new URLSearchParams(window.location.search || "");
+  steward-dashboard.html:2187:        const readFirst = (...keys) => {
+  steward-dashboard.html:2188:          for (const key of keys) {
+  steward-dashboard.html:2467:      if (cleanSelector === "#viewLiveCampBtn") {
+  steward-dashboard.html:2468:        const live = document.getElementById("viewLiveCampBtn");
+> steward-dashboard.html:2469:        if (live && live.href) { window.location.href = live.href; return true; }
+  steward-dashboard.html:2470:      }
+  steward-dashboard.html:2471:      if (!cleanSelector.startsWith("#")) return false;
+  steward-dashboard.html:2713:        : "Add a Steward email later if you want a stronger return-link safety net.";
+  steward-dashboard.html:2714:
+> steward-dashboard.html:2715:      const campUrl = buildCampUrl("camp.html", state.campId);
+  steward-dashboard.html:2716:      document.getElementById("viewLiveCampBtn").href = campUrl;
+> steward-dashboard.html:2717:      document.getElementById("backToBuildYourCamp").href = buildCampUrl("buildyourcamp.html", state.campId);
+  steward-dashboard.html:2718:
+  steward-dashboard.html:2719:      const heroPath = resolveImagePath(state.camp.hero);
+  steward-dashboard.html:3968:        if (allComplete) {
+  steward-dashboard.html:3969:          const live = document.getElementById("viewLiveCampBtn");
+> steward-dashboard.html:3970:          if (live && live.href) window.location.href = live.href;
+  steward-dashboard.html:3971:          return;
+  steward-dashboard.html:3972:        }
+  steward-dashboard.html:4279:            planKey,
+  steward-dashboard.html:4280:            email:state.stewardEmail||'',
+> steward-dashboard.html:4281:            successUrl:`${window.location.origin}/camp.html?campId=${encodeURIComponent(state.campId)}&checkout=success&planKey=${encodeURIComponent(planKey)}`,
+> steward-dashboard.html:4282:            cancelUrl:window.location.href
+  steward-dashboard.html:4283:          });
+  steward-dashboard.html:4284:        }catch(error){
+  steward-dashboard.html:4293:    function openDashboardBillingModal(){ ensureDashboardBillingModal(); document.getElementById('dashboardBillingBackdrop')?.classList.add('open'); document.getElementById('dashboardBillingModal')?.classList.add('open'); }
+  steward-dashboard.html:4294:    async function openDashboardBillingPortal(){
+> steward-dashboard.html:4295:      try{ await window.DeerCampBilling.manageBilling({campId:state.campId, returnUrl:window.location.href}); }
+  steward-dashboard.html:4296:      catch(error){ openDashboardBillingModal(); const status=document.getElementById('dashboardBillingStatus'); if(status){ status.textContent=error?.message||'Billing portal is available after checkout.'; status.classList.add('error'); } }
+  steward-dashboard.html:4297:    }
+  member-setup.html:833:    }
+  member-setup.html:834:
+> member-setup.html:835:    function buildCampUrl(path, campId = '') {
+  member-setup.html:836:      const cleanCampId = String(campId || '').trim();
+  member-setup.html:837:      return cleanCampId ? `${path}?campId=${encodeURIComponent(cleanCampId)}` : path;
+  member-setup.html:840:    function getCampIdFromUrl() {
+  member-setup.html:841:      try {
+> member-setup.html:842:        return String(new URLSearchParams(window.location.search).get('campId') || '').trim();
+  member-setup.html:843:      } catch (error) {
+  member-setup.html:844:        return '';
+  member-setup.html:932:
+  member-setup.html:933:    function getInviteContext() {
+> member-setup.html:934:      const params = new URLSearchParams(window.location.search);
+  member-setup.html:935:      const storedInvite = parseJSON(localStorage.getItem(INVITE_KEY) || 'null', null);
+  member-setup.html:936:      const dashboard = getDashboardData();
+  member-setup.html:1591:
+  member-setup.html:1592:      if (type === 'used') {
+> member-setup.html:1593:        const campHref = buildCampUrl('camp.html', campId);
+  member-setup.html:1594:        title.textContent = "You're already in this DeerCamp";
+  member-setup.html:1595:        message.textContent = 'Opening your camp now — no setup needed.';
+  member-setup.html:1611:        if (campId) {
+  member-setup.html:1612:          window.setTimeout(() => {
+> member-setup.html:1613:            window.location.replace(campHref);
+  member-setup.html:1614:          }, 250);
+  member-setup.html:1615:        }
+  member-setup.html:1919:      const invite = getInviteContext();
+  member-setup.html:1920:      setMemberSecurityActor(invite, state.member);
+> member-setup.html:1921:      window.location.href = buildCampUrl('camp.html', invite.campId || getCampData().campId || getDashboardData()?.camp?.campId || '');
+  member-setup.html:1922:    });
+  member-setup.html:1923:
+  member-setup.html:1976:
+  member-setup.html:1977:        setSavePill('Joining — opening camp...');
+> member-setup.html:1978:        window.location.href = buildCampUrl('camp.html', finalCampId);
+  member-setup.html:1979:      } catch (error) {
+  member-setup.html:1980:        console.warn('Join Camp had a recoverable issue; opening camp anyway.', error);
+  member-setup.html:1984:        setMemberSecurityActor(invite, state.member);
+  member-setup.html:1985:        setSavePill('Opening camp...');
+> member-setup.html:1986:        window.location.href = buildCampUrl('camp.html', fallbackCampId);
+  member-setup.html:1987:      } finally {
+  member-setup.html:1988:        if (nextButton) {
+
+
