@@ -7,6 +7,7 @@ import { executeCompare } from "./commands/compare.mjs";
 import { executeDelete } from "./commands/delete.mjs";
 import { executeDeletePreview } from "./commands/delete-preview.mjs";
 import { executeInspect } from "./commands/inspect.mjs";
+import { executeOwnershipAudit } from "./commands/ownership-audit.mjs";
 import { executeRestore } from "./commands/restore.mjs";
 import { executeRestorePreview } from "./commands/restore-preview.mjs";
 import { DEFAULT_PROJECT_ID } from "./lib/firestore.mjs";
@@ -43,6 +44,7 @@ function printHelp() {
   console.log("  help");
   console.log("  version");
   console.log("  inspect <campId> [projectId]");
+  console.log("  ownership-audit [projectId]");
   console.log("  backup <campId> [projectId]");
   console.log("  compare <leftCampId> <rightCampId> [projectId]");
   console.log(
@@ -146,6 +148,11 @@ async function main() {
       return;
     case "inspect":
       await executeInspect(parseCampCommandArguments("inspect"));
+      return;
+    case "ownership-audit":
+      await executeOwnershipAudit({
+        projectId: resolveProjectId(1)
+      });
       return;
     case "backup":
       await executeBackup(parseCampCommandArguments("backup"));
