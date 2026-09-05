@@ -3465,10 +3465,23 @@ function renderMenu(){
   const canUseStandBuilder = campCanUseFeature('stand_builder');
   const canUseDriveBuilder = campCanUseFeature('drive_builder');
   const dashboardLink = (isStewardView && hasStewardDashboardAccess()) ? `<a id="menuDashboardLink" href="${esc(buildStewardDashboardUrl())}"><span class="menu-dashboard-icon" aria-hidden="true">⚙</span>Steward Dashboard</a>` : '';
+  const stewardSignInLink = (!isMemberView && !isStewardView) ? `<a id="menuStewardSignInLink" href="#">Sign in as Steward</a>` : '';
   const sectionLinks = visibleSections().slice().sort((a, b) => String(a.title || "").localeCompare(String(b.title || ""), undefined, { sensitivity: "base" })).map(section => `<a href="#${section.key}">${section.title}</a>`).join('');
   const scoutLinks = (isStewardView && canUseStandBuilder && canUseDriveBuilder) ? `<a id="menuStandBuilderLink" href="${esc(standBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="images/App.png" alt="" aria-hidden="true">Stand Builder</a><a id="menuDriveBuilderLink" href="${esc(driveBuilderUrl)}" target="_blank" rel="noopener noreferrer"><img class="menu-scout-icon" src="images/App.png" alt="" aria-hidden="true">Drive Builder</a>` : '';
-  menu.innerHTML = `${dashboardLink}${sectionLinks}${scoutLinks}`;
+  menu.innerHTML = `${dashboardLink}${stewardSignInLink}${sectionLinks}${scoutLinks}`;
   document.getElementById('menuDashboardLink')?.addEventListener('click', () => { try{ window.DeerCampSecurity?.setActor?.('steward', {campId: activeCampId}); }catch(error){} });
+  document.getElementById('menuStewardSignInLink')?.addEventListener('click', async (event) => {
+    event.preventDefault();
+    const email = String(window.prompt("Enter your Steward email address:", "") || "").trim();
+    if(!email) return;
+    try {
+      await window.DeerCampAuth.sendEmailSignInLink(email, { returnUrl: window.location.href });
+      try { showToast("Secure Steward sign-in link sent. Check your email."); } catch(error) { alert("Secure Steward sign-in link sent. Check your email."); }
+    } catch(error) {
+      console.warn("Could not send Steward sign-in link.", error);
+      try { showToast(error?.message || "Could not send Steward sign-in link."); } catch(innerError) { alert(error?.message || "Could not send Steward sign-in link."); }
+    }
+  });
   refreshRoleContextPills();
   bindScoutBuilderMenus();
   renderCampBillingButton();
