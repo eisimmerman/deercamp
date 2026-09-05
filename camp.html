@@ -1767,6 +1767,14 @@ async function refreshVerifiedStewardAccess(){
   try {
     const result = await window.DeerCampAuth?.getStewardAccess?.(activeCampId || "");
     verifiedStewardAccess = result?.authorized === true;
+
+    if (verifiedStewardAccess) {
+      try {
+        window.DeerCampSecurity?.setActor?.("steward", {
+          campId: activeCampId || ""
+        });
+      } catch(error) {}
+    }
   } catch(error) {
     console.warn("Could not verify Camp Steward access.", error);
     verifiedStewardAccess = false;
@@ -6847,6 +6855,15 @@ window.addEventListener("resize", () => {
   if(document.getElementById("deerStandsGrid")) renderDeerStands();
   if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 });
+if (window.DeerCampAuth?.isEmailSignInLink?.(window.location.href)) {
+  try {
+    await window.DeerCampAuth.completeEmailSignIn({
+      url: window.location.href
+    });
+  } catch(error) {
+    console.warn("Could not complete Camp email sign-in.", error);
+  }
+}
 await refreshVerifiedStewardAccess(); ensureDeerShelfSections(); renderMenu(); await hydrateCampFeedItemsFromCloud(); renderRecentUpdates(); renderFeed(); renderCampMembersSection(); renderTraditions(); renderCampKitchen(); renderRecipes(); renderCampResources(); if(document.getElementById("deerStandsGrid")) renderDeerStands(); if(document.getElementById("deerDrivesGrid")) renderDeerDrives();
 })();
 </script>
