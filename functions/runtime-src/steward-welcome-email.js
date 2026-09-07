@@ -79,7 +79,33 @@ function deriveCampIdFromPayload(payload = {}) {
 }
 
 function getBaseUrl() {
-  return (process.env.PUBLIC_SITE_URL || process.env.SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, '');
+  const configuredUrl = normalizeValue(
+    process.env.PUBLIC_SITE_URL || process.env.SITE_URL
+  );
+
+  if (configuredUrl) {
+    return configuredUrl.replace(/\/$/, '');
+  }
+
+  let projectId = normalizeValue(
+    process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT
+  );
+
+  if (!projectId && process.env.FIREBASE_CONFIG) {
+    try {
+      projectId = normalizeValue(
+        JSON.parse(process.env.FIREBASE_CONFIG || '{}').projectId
+      );
+    } catch (error) {
+      projectId = '';
+    }
+  }
+
+  if (projectId === 'deercamp-staging') {
+    return 'https://deercamp-staging.web.app';
+  }
+
+  return DEFAULT_SITE_URL;
 }
 
 function getNormalizedPath(value, fallback) {

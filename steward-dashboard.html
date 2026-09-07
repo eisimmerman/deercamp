@@ -2950,9 +2950,20 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         throw new Error("Enter a valid member email before sending the invite.");
       }
 
-      const inviteToken = (window.crypto && typeof window.crypto.randomUUID === "function")
-        ? window.crypto.randomUUID()
-        : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const inviteToken = String(member?.inviteToken || "").trim() ||
+        ((window.crypto && typeof window.crypto.randomUUID === "function")
+          ? window.crypto.randomUUID()
+          : `invite-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
+
+      if (!window.DeerCampAuth || typeof DeerCampAuth.createMemberInvite !== "function") {
+        throw new Error("Secure member invite service is unavailable. Refresh and try again.");
+      }
+
+      await DeerCampAuth.createMemberInvite(state.campId, {
+        inviteToken,
+        email: member.email,
+        name: member.name
+      });
 
       member.inviteToken = inviteToken;
       member.status = "Invite Sent";
