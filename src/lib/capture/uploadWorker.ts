@@ -135,21 +135,22 @@ async function uriToBlob(uri: string): Promise<Blob> {
 }
 
 function getStoragePath(params: {
+  campId?: string;
   authorId?: string;
   memoryId: string;
   segmentId: string;
   mediaType: "audio" | "video" | "photo";
 }) {
+  const campId = resolveWorkerCampId(params.campId);
   const authorId = params.authorId || "unknown-author";
 
   if (params.mediaType === "photo") {
-    return `fieldMemories/${authorId}/${params.memoryId}/photos/${params.segmentId}.jpg`;
+    return `feed/${campId}/${authorId}/${params.memoryId}/photo.jpg`;
   }
 
   const extension = params.mediaType === "video" ? "mp4" : "m4a";
-  return `fieldMemories/${authorId}/${params.memoryId}/segments/${params.segmentId}.${extension}`;
+  return `feed/${campId}/${authorId}/${params.memoryId}/${params.segmentId}.${extension}`;
 }
-
 function getContentType(mediaType: "audio" | "video" | "photo") {
   if (mediaType === "photo") return "image/jpeg";
   if (mediaType === "video") return "video/mp4";
@@ -402,6 +403,7 @@ export async function processUploadQueueOnce(limit = 3, memoryId?: string) {
 
         stage = "building Firebase Storage path";
         storagePath = getStoragePath({
+          campId: item.campId,
           authorId: item.authorId,
           memoryId: item.memoryId,
           segmentId: item.segmentId,
