@@ -19,10 +19,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 
-import { auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+
+import { auth, db } from "@/lib/firebase";
 import {
   getLocalMemories,
   removeLocalMemory,
+  updateLocalMemory,
   hasConfirmedCampFeedPublish,
   type LocalMemoryItem,
 } from "@/lib/localMemories";
@@ -103,6 +106,64 @@ function getTranscriptionSummary(item: EntryItem) {
   return "";
 }
 
+async function reconcilePendingTranscriptions(items: LocalMemoryItem[]) {
+  const reconciled = new Map<string, LocalMemoryItem>();
+
+  const pending = items.filter(
+    (item) =>
+      hasConfirmedCampFeedPublish(item) &&
+      Boolean(String(item.feedDocId || "").trim()) &&
+      item.transcriptionStatus === "pending",
+  );
+
+  await Promise.all(
+    pending.map(async (item) => {
+      try {
+        const feedDocId = String(item.feedDocId || "").trim();
+        const snapshot = await getDoc(doc(db, "feedItems", feedDocId));
+
+        if (!snapshot.exists()) return;
+
+        const data = snapshot.data();
+        const status = String(data.transcriptionStatus || "").trim();
+
+        if (status === "complete") {
+          const transcript = String(data.transcript || "").trim();
+          const transcriptPreview = String(
+            data.transcriptPreview || transcript,
+          ).trim();
+
+          const patch: Partial<LocalMemoryItem> = {
+            transcriptionStatus: "complete",
+            transcript,
+            transcriptPreview,
+            transcriptionError: undefined,
+          };
+
+          await updateLocalMemory(item.id, patch);
+          reconciled.set(item.id, { ...item, ...patch });
+          return;
+        }
+
+        if (status === "failed") {
+          const patch: Partial<LocalMemoryItem> = {
+            transcriptionStatus: "failed",
+            transcriptionError: String(
+              data.transcriptionError || "Transcription failed.",
+            ).trim(),
+          };
+
+          await updateLocalMemory(item.id, patch);
+          reconciled.set(item.id, { ...item, ...patch });
+        }
+      } catch (error) {
+        console.error("transcription reconciliation failed:", error);
+      }
+    }),
+  );
+
+  return items.map((item) => reconciled.get(item.id) || item);
+}
 const emptyUploadTotals: UploadQueueTotals = {
   total: 0,
   pending: 0,
@@ -153,7 +214,8 @@ export default function MemoriesScreen() {
       try {
         if (showLoading) setLoading(true);
 
-        const next = await getLocalMemories(user.uid);
+        const stored = await getLocalMemories(user.uid);
+        const next = await reconcilePendingTranscriptions(stored);
         const mapped: EntryItem[] = next.map((item: LocalMemoryItem) => ({
           ...item,
           isLocal: true,
