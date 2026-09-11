@@ -13,6 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import {
   DEFAULT_ACTIVE_CAMP_ID,
@@ -377,7 +378,8 @@ export default function LocalEntryDetailScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.page}>
       <View style={styles.topRow}>
         <Pressable style={styles.backBtn} onPress={goToFieldMemories}>
           <Ionicons name="arrow-back" size={18} color="white" />
@@ -446,11 +448,17 @@ export default function LocalEntryDetailScreen() {
           </Text>
         </View>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#0B0E12",
+  },
+
   page: {
     padding: 14,
     gap: 12,

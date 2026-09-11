@@ -18,7 +18,7 @@ export default function SignInScreen() {
   const [busy, setBusy] = useState(false);
 
   const canSubmit = useMemo(() => {
-    return email.trim().length > 3 && pw.trim().length >= 6 && !busy;
+    return email.trim().length > 3 && pw.length >= 6 && !busy;
   }, [email, pw, busy]);
 
   if (initializing) {
@@ -31,7 +31,7 @@ export default function SignInScreen() {
 
   async function onSignIn() {
     const e = email.trim();
-    const p = pw.trim();
+    const p = pw;
 
     try {
       setBusy(true);
@@ -46,7 +46,7 @@ export default function SignInScreen() {
 
   async function onCreate() {
     const e = email.trim();
-    const p = pw.trim();
+    const p = pw;
 
     try {
       setBusy(true);
