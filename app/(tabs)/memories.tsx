@@ -324,9 +324,11 @@ export default function MemoriesScreen() {
         await loadLocal(true);
 
         if (active) {
-          void uploadFieldMemories("auto");
+          await uploadFieldMemories("auto");
         }
-      })();
+      })().catch((error) => {
+        console.error("focus auto upload failed:", error);
+      });
 
       const interval = setInterval(() => {
         if (active) {
@@ -341,7 +343,9 @@ export default function MemoriesScreen() {
             }
 
             await loadLocal(false);
-          })();
+          })().catch((error) => {
+            console.error("interval upload queue processing failed:", error);
+          });
         }
       }, 5000);
 
