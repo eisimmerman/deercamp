@@ -3767,10 +3767,24 @@ function memberProfileMatches(item = {}, profile = {}){
 }
 function upsertMemberInArray(items = [], nextProfile = {}, previousProfile = {}){
   const arr = Array.isArray(items) ? items.slice() : [];
-  const idx = arr.findIndex(item => memberProfileMatches(item, previousProfile) || memberProfileMatches(item, nextProfile));
-  const merged = { ...(idx >= 0 ? arr[idx] : {}), ...nextProfile, role: nextProfile.role || 'Camp Member' };
-  if(idx >= 0) arr[idx] = merged; else arr.push(merged);
-  return arr;
+  const matches = arr.filter(item =>
+    memberProfileMatches(item, previousProfile) ||
+    memberProfileMatches(item, nextProfile)
+  );
+
+  const merged = {
+    ...matches.reduce((combined, item) => ({ ...combined, ...item }), {}),
+    ...nextProfile,
+    role: nextProfile.role || 'Camp Member'
+  };
+
+  const withoutMatches = arr.filter(item =>
+    !memberProfileMatches(item, previousProfile) &&
+    !memberProfileMatches(item, nextProfile)
+  );
+
+  withoutMatches.push(merged);
+  return withoutMatches;
 }
 function applyMemberProfileToCampData(nextProfile = {}, previousProfile = {}){
   data.memberProfiles = upsertMemberInArray(data.memberProfiles, nextProfile, previousProfile);
