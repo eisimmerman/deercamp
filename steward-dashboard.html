@@ -1303,7 +1303,8 @@
     const MEMBER_PROFILE_FIELDS = [
       "nickname", "yearJoined", "favoriteStand", "favoriteGear",
       "harvestHighlight", "bestCampMemory", "specialty", "photo",
-      "profilePhoto", "avatar", "roleLine", "responsibilitiesLabel"
+      "profilePhoto", "avatar", "roleLine", "responsibilitiesLabel",
+      "profileUpdatedAt"
     ];
 
     function copyMemberProfileFields(target = {}, source = {}) {
@@ -1534,8 +1535,24 @@
         inviteError: String((preferPreviousInviteState ? "" : (next.inviteError || previous.inviteError)) || "").trim()
       };
 
-      copyMemberProfileFields(merged, previous);
-      copyMemberProfileFields(merged, next);
+      const previousProfileUpdatedAt = Date.parse(String(previous.profileUpdatedAt || ""));
+      const nextProfileUpdatedAt = Date.parse(String(next.profileUpdatedAt || ""));
+      const previousHasProfileTimestamp = Number.isFinite(previousProfileUpdatedAt);
+      const nextHasProfileTimestamp = Number.isFinite(nextProfileUpdatedAt);
+
+      if (previousHasProfileTimestamp || nextHasProfileTimestamp) {
+        if (previousHasProfileTimestamp && (!nextHasProfileTimestamp || previousProfileUpdatedAt > nextProfileUpdatedAt)) {
+          copyMemberProfileFields(merged, next);
+          copyMemberProfileFields(merged, previous);
+        } else {
+          copyMemberProfileFields(merged, previous);
+          copyMemberProfileFields(merged, next);
+        }
+      } else {
+        // Legacy records without timestamps retain existing later-source-wins behavior.
+        copyMemberProfileFields(merged, previous);
+        copyMemberProfileFields(merged, next);
+      }
 
       const mergedStatusLower = String(merged.status || "").trim().toLowerCase();
       if (mergedStatusLower === "invite sent" || Boolean(merged.inviteSentAt)) {
