@@ -32,6 +32,167 @@
     return cleanCampId ? `deercamp.camps.${cleanCampId}.${suffix}` : "";
   }
 
+  function buildPublicCampPayload(payload = {}, campId = "") {
+    const source = payload && typeof payload === "object" ? payload : {};
+    const cleanCampId = String(campId || source.campId || "").trim();
+
+    const publicMemberProfile = (member = {}) => {
+      if (!member || typeof member !== "object") return null;
+
+      const role = String(member.role || "Camp Member").trim() || "Camp Member";
+      const roleLower = role.toLowerCase();
+      const rawStatus = String(member.status || "").trim();
+      const statusLower = rawStatus.toLowerCase();
+
+      const isSteward = roleLower === "camp steward";
+      const isPublicMember = statusLower === "active" || statusLower === "accepted";
+      const status = rawStatus || (isSteward ? "Active" : "");
+
+      if (!isSteward && !isPublicMember) return null;
+      if (
+        member.privateProfile === true ||
+        member.profilePrivate === true ||
+        member.memberProfilePrivate === true ||
+        member.isPrivate === true
+      ) return null;
+
+      const out = {
+        name: String(member.name || "").trim(),
+        role,
+        status,
+        nickname: String(member.nickname || "").trim(),
+        yearJoined: String(member.yearJoined || "").trim(),
+        favoriteStand: String(member.favoriteStand || "").trim(),
+        favoriteGear: String(member.favoriteGear || "").trim(),
+        harvestHighlight: String(member.harvestHighlight || "").trim(),
+        bestCampMemory: String(member.bestCampMemory || "").trim(),
+        specialty: String(member.specialty || "").trim(),
+        note: String(member.note || "").trim(),
+        roleLine: String(member.roleLine || "").trim(),
+        responsibilitiesLabel: String(member.responsibilitiesLabel || "").trim(),
+        profileUpdatedAt: String(member.profileUpdatedAt || member.updatedAt || "").trim(),
+        photo: String(member.photo || member.profilePhoto || member.avatar || "").trim(),
+        profilePhoto: String(member.profilePhoto || member.photo || member.avatar || "").trim(),
+        avatar: String(member.avatar || member.profilePhoto || member.photo || "").trim()
+      };
+
+      if (Array.isArray(member.responsibilities)) {
+        out.responsibilities = member.responsibilities
+          .map(item => String(item || "").trim())
+          .filter(Boolean);
+      }
+
+      return out.name ? out : null;
+    };
+
+    const memberSources = [];
+
+    [
+      source.memberProfiles,
+      source.dashboardMembers,
+      source.dashboardPeople,
+      source.dashboardSlim && source.dashboardSlim.members,
+      source.dashboardSlim && source.dashboardSlim.people
+    ].forEach(items => {
+      if (Array.isArray(items)) memberSources.push(...items);
+    });
+
+    if (source.stewardProfile && typeof source.stewardProfile === "object") {
+      memberSources.push(source.stewardProfile);
+    }
+
+    if (source.campStewardProfile && typeof source.campStewardProfile === "object") {
+      memberSources.push(source.campStewardProfile);
+    }
+
+    const publicProfiles = [];
+    const seen = new Set();
+
+    memberSources.forEach(member => {
+      const profile = publicMemberProfile(member);
+      if (!profile) return;
+
+      const key = String(profile.role || "").toLowerCase() === "camp steward"
+        ? "role:camp steward"
+        : `member:${String(profile.name || "").trim().toLowerCase()}`;
+
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      publicProfiles.push(profile);
+    });
+
+    const publicMemberNames = publicProfiles
+      .filter(profile => String(profile.role || "").toLowerCase() !== "camp steward")
+      .map(profile => profile.name)
+      .filter(Boolean);
+
+    const publicCampRules =
+      source.campRules && typeof source.campRules === "object"
+        ? { ...source.campRules }
+        : {};
+
+    delete publicCampRules.agreements;
+
+    const basePublicKeys = [
+      "name", "campName",
+      "city", "state", "zip", "established",
+      "summary", "about",
+      "hero", "campHero", "campHeroUrl", "campBrand",
+      "brandImage", "brandingImage",
+      "heroThumbUrl", "campHeroThumbUrl", "brandImageThumbUrl"
+    ];
+
+    const publishedPublicKeys = [
+      "enabledSections", "selectedRecipeIds",
+      "contentSubmissions",
+      "calendarEvents", "events",
+      "recipeObjects", "traditions",
+      "feedEntries",
+      "campPhotoGallery",
+      "deerStandPosts", "deerStands", "stands", "savedDeerStands",
+      "deerDrivePosts", "deerDrives", "savedDeerDrives",
+      "stewardName", "steward",
+      "stewardPhoto", "stewardProfilePhoto", "stewardAvatar",
+      "stewardFavoriteStand", "stewardFavoriteGear",
+      "stewardNickname", "stewardYearJoined", "stewardSpecialty",
+      "stewardHarvestHighlight", "stewardBestCampMemory", "stewardRoleLine"
+    ];
+
+    const result = {
+      campId: cleanCampId,
+      updatedAtClient: new Date().toISOString()
+    };
+
+    const campIsPublic =
+      source.isPublic === true ||
+      String(source.publishState || "").trim().toLowerCase() === "public";
+
+    result.publishState = source.publishState !== undefined
+      ? source.publishState
+      : (campIsPublic ? "public" : "private");
+
+    result.isPublic = campIsPublic;
+
+    if (campIsPublic) {
+      basePublicKeys.forEach(key => {
+        if (source[key] !== undefined) result[key] = source[key];
+      });
+
+      publishedPublicKeys.forEach(key => {
+        if (source[key] !== undefined) result[key] = source[key];
+      });
+
+      result.memberProfiles = publicProfiles;
+      result.members = publicMemberNames;
+      result.campMembers = publicMemberNames;
+
+      const rulesVisibility = String(publicCampRules.visibility || "").trim().toLowerCase();
+      if (rulesVisibility === "public") {
+        result.campRules = publicCampRules;
+      }
+    }
+    return stripInlineImagesForCloud(result);
+  }
   const DeerCampCloud = window.DeerCampCloud || {
     _ready: false,
     _db: null,
@@ -56,62 +217,90 @@
       if (!cleanCampId) return null;
       const db = this.ensureReady();
       if (!db) return null;
+
       try {
-        const snap = await db.collection("camps").doc(cleanCampId).get();
-        return snap.exists ? snap.data() : null;
+        const privateSnap = await db.collection("campPrivate").doc(cleanCampId).get();
+        if (privateSnap.exists) return privateSnap.data();
       } catch (error) {
-        console.warn("Could not load camp from Firestore.", error);
+        if (error && error.code !== "permission-denied") {
+          console.warn("Could not load private camp from Firestore.", error);
+        }
+      }
+
+      try {
+        const publicSnap = await db.collection("camps").doc(cleanCampId).get();
+        return publicSnap.exists ? publicSnap.data() : null;
+      } catch (error) {
+        console.warn("Could not load public camp from Firestore.", error);
         return null;
       }
     },
-
     async saveCamp(campId, payload) {
       const cleanCampId = String(campId || "").trim();
       if (!cleanCampId || !payload || typeof payload !== "object") return false;
       const db = this.ensureReady();
       if (!db) return false;
+
       try {
         let dashboardSlim = null;
+
         try {
           const scopedDashboardKey = scopedKey(cleanCampId, "dashboardSlim");
-          const scopedDashboardRaw = scopedDashboardKey ? localStorage.getItem(scopedDashboardKey) : "";
-          const genericDashboardRaw = localStorage.getItem("deercamp.stewardDashboardSlim") || localStorage.getItem("deerCampStewardDashboard") || "";
+          const scopedDashboardRaw = scopedDashboardKey
+            ? localStorage.getItem(scopedDashboardKey)
+            : "";
+
+          const genericDashboardRaw =
+            localStorage.getItem("deercamp.stewardDashboardSlim") ||
+            localStorage.getItem("deerCampStewardDashboard") ||
+            "";
+
           const dashboardRaw = scopedDashboardRaw || genericDashboardRaw || "";
+
           if (dashboardRaw) {
             const parsed = JSON.parse(dashboardRaw);
-            if (parsed && typeof parsed === "object") {
-              dashboardSlim = parsed;
-            }
+            if (parsed && typeof parsed === "object") dashboardSlim = parsed;
           }
         } catch (error) {
           console.warn("Could not read dashboard state before Firestore save.", error);
         }
 
-        const cloudSafePayload = stripInlineImagesForCloud(payload);
-        const payloadToSave = {
-          ...cloudSafePayload,
+        const privatePayload = {
+          ...stripInlineImagesForCloud(payload),
           campId: cleanCampId,
           updatedAtClient: new Date().toISOString()
         };
 
         if (dashboardSlim && typeof dashboardSlim === "object") {
-          payloadToSave.dashboardSlim = {
+          privatePayload.dashboardSlim = {
             ...dashboardSlim,
             campId: cleanCampId
           };
-          if (Array.isArray(dashboardSlim.pendingInvites)) payloadToSave.pendingInvites = dashboardSlim.pendingInvites;
-          if (Array.isArray(dashboardSlim.members)) payloadToSave.dashboardMembers = dashboardSlim.members;
-          if (Array.isArray(dashboardSlim.people)) payloadToSave.dashboardPeople = dashboardSlim.people;
+
+          if (Array.isArray(dashboardSlim.pendingInvites)) {
+            privatePayload.pendingInvites = dashboardSlim.pendingInvites;
+          }
+
+          if (Array.isArray(dashboardSlim.members)) {
+            privatePayload.dashboardMembers = dashboardSlim.members;
+          }
+
+          if (Array.isArray(dashboardSlim.people)) {
+            privatePayload.dashboardPeople = dashboardSlim.people;
+          }
         }
 
-        await db.collection("camps").doc(cleanCampId).set(payloadToSave, { merge: true });
+        const publicPayload = buildPublicCampPayload(privatePayload, cleanCampId);
+
+        await db.collection("campPrivate").doc(cleanCampId).set(privatePayload);
+        await db.collection("camps").doc(cleanCampId).set(publicPayload);
+
         return true;
       } catch (error) {
         console.warn("Could not save camp to Firestore.", error);
         return false;
       }
     },
-
     async hydrateCampToLocal(campId) {
       const cleanCampId = String(campId || "").trim();
       if (!cleanCampId) return null;
