@@ -448,6 +448,16 @@ if ($buildScript -match 'echo|checked-in') {
   Set-Dependency $data "D-035" @{
     status         = "Launch Blocker"
     currentVersion = $buildScript
+    requiredAction = "Replace checked-in or placeholder Functions build with a deterministic generated runtime build"
+    lastChecked    = $timestamp
+    evidence       = "../evidence/firebase-audit-latest.txt"
+  }
+}
+elseif ($buildScript -eq 'node scripts/build-runtime.mjs') {
+  Set-Dependency $data "D-035" @{
+    status         = "Current"
+    currentVersion = $buildScript
+    requiredAction = "None - continue validating deterministic runtime generation during Functions deployments"
     lastChecked    = $timestamp
     evidence       = "../evidence/firebase-audit-latest.txt"
   }
@@ -456,6 +466,7 @@ else {
   Set-Dependency $data "D-035" @{
     status         = "Review Required"
     currentVersion = $buildScript
+    requiredAction = "Review Functions build command and verify deterministic runtime generation before launch"
     lastChecked    = $timestamp
     evidence       = "../evidence/firebase-audit-latest.txt"
   }
