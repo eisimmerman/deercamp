@@ -20,12 +20,15 @@ const params_1 = require("firebase-functions/params");
 const openai_1 = __importDefault(require("openai"));
 const stripe_1 = __importDefault(require("stripe"));
 const sendStewardWelcomeHandler = require("../api/send-steward-welcome");
+const sendTripPrepEmailHandler = require("../api/send-trip-prep-email");
+const { campResourcesHandler } = require("../campResources");
 const { sendViaResend } = require("./steward-welcome-email");
 (0, app_1.initializeApp)();
 const OPENAI_API_KEY = (0, params_1.defineSecret)("OPENAI_API_KEY");
 const STRIPE_SECRET_KEY = (0, params_1.defineSecret)("STRIPE_SECRET_KEY");
 const STRIPE_WEBHOOK_SECRET = (0, params_1.defineSecret)("STRIPE_WEBHOOK_SECRET");
 const ADMIN_NOTIFICATION_EMAIL = (0, params_1.defineSecret)("ADMIN_NOTIFICATION_EMAIL");
+const GOOGLE_MAPS_API_KEY = (0, params_1.defineSecret)("GOOGLE_MAPS_API_KEY");
 const db = (0, firestore_1.getFirestore)();
 const auth = (0, auth_1.getAuth)();
 function getDefaultBucket() {
@@ -1709,6 +1712,18 @@ exports.stripeWebhook = (0, https_1.onRequest)({
         return res.status(500).send("Webhook handler failed.");
     }
 });
+exports.campResources = (0, https_1.onRequest)({
+    region: "us-central1",
+    timeoutSeconds: 60,
+    memory: "512MiB",
+    secrets: [GOOGLE_MAPS_API_KEY],
+}, campResourcesHandler);
+
+exports.sendTripPrepEmail = (0, https_1.onRequest)({
+    region: "us-central1",
+    cors: true,
+    secrets: ["RESEND_API_KEY"],
+}, sendTripPrepEmailHandler);
 exports.sendStewardWelcome = (0, https_1.onRequest)({
     region: "us-central1",
     cors: true,
