@@ -372,28 +372,55 @@ $(Format-Hits $referenceHits)
 $evidence | Set-Content $evidenceFile -Encoding UTF8
 $evidence | Set-Content $latestFile -Encoding UTF8
 
+$rnfbLaunchBaselineOk = (
+  $versions.rnApp -eq "23.8.3" -and
+  $versions.rnAuth -eq "23.8.3" -and
+  $versions.rnFirestore -eq "23.8.3" -and
+  $versions.rnStorage -eq "23.8.3"
+)
+
+$rnfbStatus = if ($rnfbLaunchBaselineOk) { "Current" } else { "Review Required" }
+$rnfbApproved = if ($rnfbLaunchBaselineOk) { "23.8.3" } else { "" }
+$rnfbAction = if ($rnfbLaunchBaselineOk) {
+  "Approved V1 launch baseline validated with Android assembleDebug and successful iOS EAS build; defer major-version migration until post-launch"
+} else {
+  "Review React Native Firebase package alignment and cross-platform build compatibility"
+}
+
 Set-Dependency $data "D-003A" @{
-  currentVersion = $versions.rnApp
-  lastChecked    = $timestamp
-  evidence       = "../evidence/firebase-audit-latest.txt"
+  currentVersion        = $versions.rnApp
+  latestApprovedVersion = $rnfbApproved
+  status                = $rnfbStatus
+  requiredAction        = $rnfbAction
+  lastChecked           = $timestamp
+  evidence              = "../evidence/firebase-audit-latest.txt"
 }
 
 Set-Dependency $data "D-003B" @{
-  currentVersion = $versions.rnAuth
-  lastChecked    = $timestamp
-  evidence       = "../evidence/firebase-audit-latest.txt"
+  currentVersion        = $versions.rnAuth
+  latestApprovedVersion = $rnfbApproved
+  status                = $rnfbStatus
+  requiredAction        = $rnfbAction
+  lastChecked           = $timestamp
+  evidence              = "../evidence/firebase-audit-latest.txt"
 }
 
 Set-Dependency $data "D-003C" @{
-  currentVersion = $versions.rnFirestore
-  lastChecked    = $timestamp
-  evidence       = "../evidence/firebase-audit-latest.txt"
+  currentVersion        = $versions.rnFirestore
+  latestApprovedVersion = $rnfbApproved
+  status                = $rnfbStatus
+  requiredAction        = $rnfbAction
+  lastChecked           = $timestamp
+  evidence              = "../evidence/firebase-audit-latest.txt"
 }
 
 Set-Dependency $data "D-003D" @{
-  currentVersion = $versions.rnStorage
-  lastChecked    = $timestamp
-  evidence       = "../evidence/firebase-audit-latest.txt"
+  currentVersion        = $versions.rnStorage
+  latestApprovedVersion = $rnfbApproved
+  status                = $rnfbStatus
+  requiredAction        = $rnfbAction
+  lastChecked           = $timestamp
+  evidence              = "../evidence/firebase-audit-latest.txt"
 }
 
 Set-Dependency $data "D-031" @{
