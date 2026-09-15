@@ -1,0 +1,73 @@
+DEERCAMP D-004 FIREBASE AUTHENTICATION OPERATIONAL AUDIT
+Checked: 2026-09-15
+
+PRODUCTION
+Project: deercamp-47c12
+Authentication model observed in current source: Email/password
+Named Firebase Auth users: 9
+Named-user providers: password = 9
+Anonymous-looking Firebase Auth users: 101
+Oldest anonymous account created: 2026-01-27
+Newest anonymous account created: 2026-08-06
+Newest anonymous login: 2026-08-06
+Anonymous accounts created in last 30 days: 0
+Anonymous accounts logged in during last 30 days: 0
+
+Production Auth configuration:
+- Email/password enabled
+- Anonymous authentication enabled
+- MFA disabled
+- No custom project Auth quota overrides observed
+- Improved email privacy enabled
+- No Auth/Identity-specific Cloud Monitoring alert policy found
+
+Production authorized domains observed:
+- localhost
+- deercamp-47c12.firebaseapp.com
+- deercamp-47c12.web.app
+- deercamp-47c12--test-size-yru3sa8z.web.app
+- deercamp-strategy.pages.dev
+- deercamp-founder-command.pages.dev
+
+Production domain findings:
+- https://ourdeercamp.com returns HTTP 200 and redirects to https://www.ourdeercamp.com/
+- https://www.ourdeercamp.com returns HTTP 200
+- www.ourdeercamp.com is not currently present in the Firebase Auth authorized-domain list
+- deercamp-47c12--test-size-yru3sa8z.web.app returns 404
+- deercamp-strategy.pages.dev remains live behind Cloudflare Access
+- deercamp-founder-command.pages.dev remains live
+- None of the three extra/test authorized domains were referenced by the current repository
+- Current repository contains multiple active references to ourdeercamp.com and www.ourdeercamp.com
+
+PRODUCTION IAM
+Broad human admin access:
+- user:simmerman.eric@gmail.com = roles/owner
+Broad service-account access:
+- Default Google/Firebase service accounts retain roles/editor
+No additional broad human firebase.admin or identitytoolkit.admin principals were returned by the audit query.
+
+STAGING
+Project: deercamp-staging
+Firebase Auth users: 3
+Anonymous-looking users: 0
+Named-user providers: password = 3
+Anonymous authentication is not enabled in staging.
+MFA disabled.
+Authorized domains limited to localhost and staging Firebase domains.
+No Auth/Identity-specific Cloud Monitoring alert policy found.
+
+STAGING IAM
+Broad human admin access:
+- user:simmerman.eric@gmail.com = roles/owner
+Broad service-account access:
+- Default Google/Firebase service accounts retain roles/editor
+
+ASSESSMENT
+Current intended DeerCamp authentication architecture is email/password.
+Production Anonymous Auth and 101 anonymous accounts appear to be legacy configuration/data; no anonymous source-code flow was found and no anonymous activity occurred during the last 30 days.
+Do not delete legacy anonymous user records without a separate data-retention decision.
+Before closing D-004:
+1. Add the live production DeerCamp hostname(s) to Firebase Auth authorized domains as appropriate.
+2. Resolve stale/legacy authorized-domain entries.
+3. Decide whether to disable the unused production Anonymous Auth provider after final regression validation.
+4. Document whether an Auth-specific monitoring alert is required for V1 launch.
