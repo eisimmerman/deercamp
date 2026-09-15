@@ -83,6 +83,7 @@ function Test-IsArchiveOrBackupPath {
 
   return (
     $FullName -match '\\deercamp-archive-raw\\' -or
+    $FullName -match '\\lib\\camp\.html$' -or
     $FullName -match '\\[^\\]*(archive|archives|revision|revisions|backup|backups)[^\\]*\\' -or
     $FullName -match '\.before-' -or
     $FullName -match '\.backup-' -or
@@ -98,6 +99,7 @@ function Test-IsReferenceAssetPath {
 
   return (
     $FullName -match '\\email-assets\\' -or
+    $FullName -match '\\v2\\' -or
     $FullName -match '\\marketing\\' -or
     $FullName -match '\\docs?\\' -or
     $FullName -match '\\examples?\\' -or
@@ -426,12 +428,28 @@ if ($activeWebHits.Count -gt 0) {
     "npm/import-based"
   }
 
-  Set-Dependency $data "D-003" @{
-    currentVersion = $versionSummary
-    status         = "Review Required"
-    requiredAction = "Review active production web references only; standardize compat and modular Firebase usage before launch"
-    lastChecked    = $timestamp
-    evidence       = "../evidence/firebase-audit-latest.txt"
+  if (
+    $activeWebVersions.Count -eq 1 -and
+    $activeWebVersions[0] -eq "12.19.0" -and
+    $activeWebModularCount -eq 0
+  ) {
+    Set-Dependency $data "D-003" @{
+      currentVersion        = $versionSummary
+      latestApprovedVersion = "12.19.0"
+      status                = "Current"
+      requiredAction        = "Firebase Web SDK 12.19.0 compat standardized for active V1 web; plan modular migration separately from V1 launch"
+      lastChecked           = $timestamp
+      evidence              = "../evidence/firebase-audit-latest.txt"
+    }
+  }
+  else {
+    Set-Dependency $data "D-003" @{
+      currentVersion = $versionSummary
+      status         = "Review Required"
+      requiredAction = "Review active production web references only; standardize compat and modular Firebase usage before launch"
+      lastChecked    = $timestamp
+      evidence       = "../evidence/firebase-audit-latest.txt"
+    }
   }
 }
 else {
