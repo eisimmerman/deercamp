@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { useAuth } from "@/src/auth/useAuth";
+import { useAuth } from "@/auth/useAuth";
 
 export default function AppEntry() {
   const router = useRouter();

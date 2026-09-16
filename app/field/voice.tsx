@@ -70,7 +70,7 @@ async function persistFileForUpload(params: {
     throw new Error("Cannot persist upload file because memory id or file name is missing.");
   }
 
-  const sourceInfo = await FileSystem.getInfoAsync(sourceUri, { size: true });
+  const sourceInfo = await FileSystem.getInfoAsync(sourceUri);
   if (!sourceInfo.exists) {
     throw new Error(`Cannot persist upload file because source file does not exist: ${sourceUri}`);
   }
@@ -93,7 +93,7 @@ async function persistFileForUpload(params: {
     });
   }
 
-  const copiedInfo = await FileSystem.getInfoAsync(destinationUri, { size: true });
+  const copiedInfo = await FileSystem.getInfoAsync(destinationUri);
   if (!copiedInfo.exists) {
     throw new Error(`Cannot persist upload file because copy was not created: ${destinationUri}`);
   }

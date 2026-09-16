@@ -77,7 +77,7 @@ export type LocalMemoryItem = {
   // Cloud-generated metadata fields
   transcript?: string;
   transcriptPreview?: string;
-  transcriptionStatus?: "pending" | "complete" | "failed";
+  transcriptionStatus?: "pending" | "complete" | "failed" | "not_applicable";
   transcriptionError?: string;
   generatedTitle?: string;
   generatedCaption?: string;
