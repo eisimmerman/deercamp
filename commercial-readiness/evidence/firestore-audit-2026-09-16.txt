@@ -1,0 +1,41 @@
+﻿DEERCAMP D-005 CLOUD FIRESTORE OPERATIONAL AUDIT
+Reviewed: 2026-09-16
+
+PRODUCTION
+Project: deercamp-47c12
+Database: (default)
+Mode: FIRESTORE_NATIVE
+Edition: STANDARD
+Location: us-central1
+
+SECURITY
+- firestore.rules reviewed.
+- Camp steward/member access controls are enforced for protected application data.
+- campAccess documents are denied to direct client reads/writes.
+- CampStats writes require authenticated camp access and validated ownership/source fields.
+- Public feed reads are limited to published feedItems.
+- Client delete operations are denied for feedItems.
+
+INDEXES
+- Repository firestore.indexes.json contains three entries indexes.
+- Production contains those indexes plus one feedItems composite index.
+- Active DeerCamp feedItems queries filter campId and published but do not order by createdAt.
+- Feed sorting occurs in application code.
+- The additional production feedItems composite index is therefore classified as a legacy/stale but harmless index.
+- No production index deletion was performed during this audit.
+
+RECOVERY / BACKUPS
+- Point-in-time recovery: ENABLED.
+- Version retention period: 604800 seconds (7 days).
+- Backup schedules: ENABLED.
+- Multiple recent Firestore backups were observed in READY state.
+
+BILLING / QUOTAS
+- Google Cloud billing: ENABLED.
+- Firestore quota service reviewed.
+- Standard daily free-tier quota thresholds reported:
+  - Read operations: 50,000/day.
+  - Write operations: 20,000/day.
+- No custom restrictive quota override was identified.
+
+D-005 STATUS: CURRENT
