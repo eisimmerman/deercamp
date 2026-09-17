@@ -25,7 +25,7 @@ Premium CampFeed Room
 ## Protected Foundations
 
 - Locked reusable engine V1:
-  /v2/rooms/engine-v1
+  /v2/rooms/engine
 
 - Earlier dashboard-engine experiment:
   /v2/rooms/engine

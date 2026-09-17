@@ -30,4 +30,4 @@ Preserve all working V1 hydration, routing, configuration, feed rendering, navig
 
 The proven V1 engine is preserved in:
 
-/v2/rooms/engine-v1
+/v2/rooms/engine
