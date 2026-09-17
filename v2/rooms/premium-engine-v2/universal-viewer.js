@@ -48,6 +48,11 @@
         ""
       ),
       transcript: String(item?.transcript || item?.copy || ""),
+      campId: String(item?.campId || ""),
+      source:
+        item?.source && typeof item.source === "object"
+          ? { ...item.source }
+          : {},
       comments: Array.isArray(item?.comments) ? item.comments : [],
       tags: Array.isArray(item?.tags) ? item.tags : [],
       metadata,
@@ -225,6 +230,123 @@
     });
   }
 
+  async function addComment(text) {
+    const cleanText = String(text || "").trim();
+
+    if (!cleanText) {
+      throw new Error("Add a comment before posting.");
+    }
+
+    const item = state.items[state.index];
+
+    if (!item) {
+      throw new Error("No CampFeed post is currently selected.");
+    }
+
+    const collection = String(
+      item.source?.collection || ""
+    ).trim();
+
+    const documentId = String(
+      item.source?.documentId || item.id || ""
+    ).trim();
+
+    if (collection !== "feedItems" || !documentId) {
+      throw new Error(
+        "This CampFeed post does not have a valid Firestore document reference."
+      );
+    }
+
+    if (
+      !window.DeerCampCloud ||
+      typeof window.DeerCampCloud.ensureReady !== "function"
+    ) {
+      throw new Error("DeerCamp cloud services are unavailable.");
+    }
+
+    const db = window.DeerCampCloud.ensureReady();
+
+    if (!db) {
+      throw new Error("DeerCamp cloud services could not initialize.");
+    }
+
+    const auth =
+      window.firebase &&
+      typeof firebase.auth === "function"
+        ? firebase.auth()
+        : null;
+
+    const user = auth ? auth.currentUser : null;
+
+    if (!user) {
+      throw new Error("Sign in to add a CampFeed comment.");
+    }
+
+    const author = String(
+      user.displayName ||
+      user.email ||
+      "Camp Member"
+    ).trim();
+
+    const now = Date.now();
+
+    const comment = {
+      id:
+        "comment-" +
+        now +
+        "-" +
+        Math.random().toString(36).slice(2, 8),
+      author,
+      authorName: author,
+      uid: String(user.uid || ""),
+      text: cleanText,
+      createdAt: new Date(now).toISOString(),
+      createdAtMs: now
+    };
+
+    const ref = db
+      .collection(collection)
+      .doc(documentId);
+
+    await db.runTransaction(async function (transaction) {
+      const snapshot = await transaction.get(ref);
+
+      if (!snapshot.exists) {
+        throw new Error("The CampFeed post no longer exists.");
+      }
+
+      const data = snapshot.data() || {};
+      let existing = data.comments;
+
+      if (Array.isArray(existing)) {
+        existing = existing.slice();
+      } else if (
+        existing &&
+        typeof existing === "object"
+      ) {
+        existing = Object.values(existing);
+      } else {
+        existing = [];
+      }
+
+      transaction.update(ref, {
+        comments: existing.concat(comment),
+        commentsUpdatedAtClient:
+          new Date(now).toISOString()
+      });
+    });
+
+    item.comments = item.comments.concat({
+      id: comment.id,
+      author: comment.author,
+      text: comment.text,
+      timestamp: new Date(now).toLocaleString()
+    });
+
+    renderCurrent();
+
+    return comment;
+  }
   function renderTags(item) {
     const list = byId("memoryViewerTags");
     const section = byId("memoryViewerTagsSection");
@@ -399,7 +521,15 @@
     });
   }
 
-  const api = { initialize, show, showError, close, next: function () { move(1); }, previous: function () { move(-1); } };
+  const api = {
+    initialize,
+    show,
+    showError,
+    close,
+    addComment,
+    next: function () { move(1); },
+    previous: function () { move(-1); }
+  };
   window.DeerCampMemoryViewer = api;
   window.DeerCampUniversalViewer = api;
 })();

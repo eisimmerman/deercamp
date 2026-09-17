@@ -81,6 +81,59 @@ service cloud.firestore {
     }
 
     match /feedItems/{feedId} {
+      function validCommentAppend() {
+        let existingComments = resource.data.get("comments", []);
+        let nextComments = request.resource.data.get("comments", []);
+        let newComment = nextComments[nextComments.size() - 1];
+
+        return hasCampAccess(resource.data.campId)
+          && resource.data.published == true
+          && request.resource.data.campId == resource.data.campId
+          && existingComments is list
+          && nextComments is list
+          && nextComments.size() == existingComments.size() + 1
+          && nextComments == existingComments.concat([newComment])
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["comments", "commentsUpdatedAtClient"])
+          && newComment is map
+          && newComment.keys().hasAll([
+            "id",
+            "author",
+            "authorName",
+            "uid",
+            "text",
+            "createdAt",
+            "createdAtMs"
+          ])
+          && newComment.keys().hasOnly([
+            "id",
+            "author",
+            "authorName",
+            "uid",
+            "text",
+            "createdAt",
+            "createdAtMs"
+          ])
+          && newComment.uid == request.auth.uid
+          && newComment.id is string
+          && newComment.id.size() > 0
+          && newComment.id.size() <= 100
+          && newComment.author is string
+          && newComment.author.size() > 0
+          && newComment.author.size() <= 200
+          && newComment.authorName == newComment.author
+          && newComment.text is string
+          && newComment.text.size() > 0
+          && newComment.text.size() <= 1000
+          && newComment.createdAt is string
+          && newComment.createdAt.size() > 0
+          && newComment.createdAt.size() <= 64
+          && newComment.createdAtMs is int
+          && request.resource.data.commentsUpdatedAtClient is string
+          && request.resource.data.commentsUpdatedAtClient.size() > 0
+          && request.resource.data.commentsUpdatedAtClient.size() <= 64;
+      }
+
       allow read: if resource.data.published == true;
 
       allow create: if hasCampAccess(request.resource.data.campId)
@@ -88,12 +141,15 @@ service cloud.firestore {
         && request.resource.data.published == true
         && request.resource.data.source == "app";
 
-      allow update: if isSteward(resource.data.campId)
-        && request.resource.data.campId == resource.data.campId
-        && request.resource.data.authorId == resource.data.authorId
-        && resource.data.published == true
-        && request.resource.data.published == false
-        && request.resource.data.removedReason == "steward_removed";
+      allow update: if (
+          isSteward(resource.data.campId)
+          && request.resource.data.campId == resource.data.campId
+          && request.resource.data.authorId == resource.data.authorId
+          && resource.data.published == true
+          && request.resource.data.published == false
+          && request.resource.data.removedReason == "steward_removed"
+        )
+        || validCommentAppend();
 
       allow delete: if false;
     }

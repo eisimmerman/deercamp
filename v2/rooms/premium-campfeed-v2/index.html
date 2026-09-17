@@ -12,6 +12,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
   <script src="../../../firebase-web.js"></script>
 
   <link
@@ -99,9 +100,31 @@
               <p id="memoryViewerTranscript" class="memory-viewer-transcript"></p>
             </section>
 
-            <section id="memoryViewerCommentsSection" class="memory-viewer-section" hidden>
+            <section id="memoryViewerCommentsSection" class="memory-viewer-section">
               <h3>Camp Comments</h3>
               <div id="memoryViewerComments" class="memory-viewer-comments"></div>
+
+              <div class="memory-viewer-comment-form">
+                <label for="memoryViewerCommentText">Add a comment</label>
+                <textarea
+                  id="memoryViewerCommentText"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="Add a comment about this CampFeed post."
+                ></textarea>
+                <button
+                  id="memoryViewerCommentSubmit"
+                  class="memory-viewer-nav-button"
+                  type="button"
+                >
+                  Add Comment
+                </button>
+                <p
+                  id="memoryViewerCommentFeedback"
+                  class="memory-viewer-comment-feedback"
+                  aria-live="polite"
+                ></p>
+              </div>
             </section>
 
             <section id="memoryViewerTagsSection" class="memory-viewer-section" hidden>
@@ -264,6 +287,64 @@
         }
       );
 
+      const commentSubmit =
+        document.getElementById("memoryViewerCommentSubmit");
+
+      const commentText =
+        document.getElementById("memoryViewerCommentText");
+
+      const commentFeedback =
+        document.getElementById("memoryViewerCommentFeedback");
+
+      if (commentSubmit && commentText) {
+        commentSubmit.addEventListener(
+          "click",
+          async function () {
+            const text =
+              String(commentText.value || "").trim();
+
+            if (!text) {
+              if (commentFeedback) {
+                commentFeedback.textContent =
+                  "Add a comment before posting.";
+              }
+
+              commentText.focus();
+              return;
+            }
+
+            commentSubmit.disabled = true;
+
+            if (commentFeedback) {
+              commentFeedback.textContent =
+                "Saving comment...";
+            }
+
+            try {
+              await window.DeerCampUniversalViewer.addComment(text);
+              commentText.value = "";
+
+              if (commentFeedback) {
+                commentFeedback.textContent =
+                  "Comment added.";
+              }
+            } catch (error) {
+              console.error(
+                "CampFeed comment could not be saved.",
+                error
+              );
+
+              if (commentFeedback) {
+                commentFeedback.textContent =
+                  error.message ||
+                  "Comment could not save. Please try again.";
+              }
+            } finally {
+              commentSubmit.disabled = false;
+            }
+          }
+        );
+      }
       if (
         window.DeerCampUniversalViewer &&
         typeof window.DeerCampUniversalViewer.initialize === "function"
