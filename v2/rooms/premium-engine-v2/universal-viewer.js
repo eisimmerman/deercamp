@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   const state = {
@@ -120,7 +120,7 @@
         image,
         placeholder,
         item.audioUrl
-          ? "Voice memory — no photo was captured."
+          ? "Voice memory â€” no photo was captured."
           : "No photo is available for this memory.",
         ""
       );
@@ -137,7 +137,7 @@
 
     image.hidden = false;
     placeholder.hidden = false;
-    placeholder.textContent = "Loading memory photo…";
+    placeholder.textContent = "Loading memory photoâ€¦";
 
     image.alt =
       item.imageAlt ||
@@ -347,6 +347,111 @@
 
     return comment;
   }
+  async function refreshStewardActions(item) {
+    const section = byId("memoryViewerStewardActions");
+    const button = byId("memoryViewerRemovePost");
+    const feedback = byId("memoryViewerRemoveFeedback");
+
+    if (!section || !button) return;
+
+    section.hidden = true;
+    button.disabled = false;
+    if (feedback) feedback.textContent = "";
+
+    const campId = String(item?.campId || "").trim();
+    if (
+      !campId ||
+      !window.DeerCampCloud ||
+      typeof window.DeerCampCloud.isCurrentUserSteward !== "function"
+    ) return;
+
+    const itemId = String(item?.id || "").trim();
+    const isSteward =
+      await window.DeerCampCloud.isCurrentUserSteward(campId);
+
+    const current = state.items[state.index];
+    if (!current || String(current.id || "").trim() !== itemId) return;
+
+    section.hidden = !isSteward;
+  }
+
+  async function removeCurrentPost() {
+    const item = state.items[state.index];
+    if (!item) throw new Error("No CampFeed post is currently selected.");
+
+    const campId = String(item.campId || "").trim();
+    const collection = String(item.source?.collection || "").trim();
+    const documentId = String(item.source?.documentId || "").trim();
+
+    if (!campId || collection !== "feedItems" || !documentId) {
+      throw new Error(
+        "This CampFeed post does not have a valid Firestore document reference."
+      );
+    }
+
+    if (
+      !window.DeerCampCloud ||
+      typeof window.DeerCampCloud.ensureReady !== "function" ||
+      typeof window.DeerCampCloud.isCurrentUserSteward !== "function"
+    ) {
+      throw new Error("DeerCamp cloud services are unavailable.");
+    }
+
+    const isSteward =
+      await window.DeerCampCloud.isCurrentUserSteward(campId);
+
+    if (!isSteward) {
+      throw new Error("Only the Camp Steward can remove CampFeed posts.");
+    }
+
+    const db = window.DeerCampCloud.ensureReady();
+    if (!db) {
+      throw new Error("DeerCamp cloud services could not initialize.");
+    }
+
+    const auth =
+      window.firebase && typeof firebase.auth === "function"
+        ? firebase.auth()
+        : null;
+
+    const user = auth ? auth.currentUser : null;
+    if (!user) {
+      throw new Error("Sign in as the Camp Steward to remove this post.");
+    }
+
+    const payload = {
+      published: false,
+      removedAtClient: new Date().toISOString(),
+      removedBy: String(user.uid || ""),
+      removedByLabel: "Camp Steward",
+      removedReason: "steward_removed"
+    };
+
+    if (firebase.firestore.FieldValue?.serverTimestamp) {
+      payload.removedAt =
+        firebase.firestore.FieldValue.serverTimestamp();
+    }
+
+    await db
+      .collection("feedItems")
+      .doc(documentId)
+      .set(payload, { merge: true });
+
+    state.items.splice(state.index, 1);
+
+    if (!state.items.length) {
+      close();
+      return true;
+    }
+
+    if (state.index >= state.items.length) {
+      state.index = state.items.length - 1;
+    }
+
+    renderCurrent();
+    return true;
+  }
+
   function renderTags(item) {
     const list = byId("memoryViewerTags");
     const section = byId("memoryViewerTagsSection");
@@ -435,9 +540,14 @@
     renderComments(item);
     renderTags(item);
     renderMetadata(item);
+    refreshStewardActions(item).catch(function (error) {
+      console.warn("Could not refresh Camp Steward actions.", error);
+    });
 
     const previous = byId("memoryViewerPrevious");
     const next = byId("memoryViewerNext");
+    const removePost = byId("memoryViewerRemovePost");
+    const removeFeedback = byId("memoryViewerRemoveFeedback");
     if (previous) {
       previous.disabled = state.items.length < 2;
       previous.textContent = "Previous";
@@ -503,10 +613,44 @@
     const closeButton = byId("universalViewerClose");
     const previous = byId("memoryViewerPrevious");
     const next = byId("memoryViewerNext");
+    const removePost = byId("memoryViewerRemovePost");
+    const removeFeedback = byId("memoryViewerRemoveFeedback");
 
     if (closeButton) closeButton.addEventListener("click", close);
     if (previous) previous.addEventListener("click", function () { move(-1); });
     if (next) next.addEventListener("click", function () { move(1); });
+
+    if (removePost) {
+      removePost.addEventListener("click", async function () {
+        if (!window.confirm("Remove this post from CampFeed?")) {
+          return;
+        }
+
+        removePost.disabled = true;
+
+        if (removeFeedback) {
+          removeFeedback.textContent = "Removing post...";
+        }
+
+        try {
+          await removeCurrentPost();
+
+          if (removeFeedback) {
+            removeFeedback.textContent = "";
+          }
+        } catch (error) {
+          console.error("CampFeed post could not be removed.", error);
+
+          if (removeFeedback) {
+            removeFeedback.textContent =
+              error.message ||
+              "CampFeed post could not be removed.";
+          }
+
+          removePost.disabled = false;
+        }
+      });
+    }
 
     if (dialog) {
       dialog.addEventListener("click", function (event) {
@@ -527,13 +671,10 @@
     showError,
     close,
     addComment,
+    removeCurrentPost,
     next: function () { move(1); },
     previous: function () { move(-1); }
   };
   window.DeerCampMemoryViewer = api;
   window.DeerCampUniversalViewer = api;
 })();
-
-
-
-

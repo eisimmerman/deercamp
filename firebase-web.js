@@ -212,6 +212,33 @@
       }
     },
 
+    async isCurrentUserSteward(campId) {
+      const cleanCampId = String(campId || "").trim();
+      if (!cleanCampId) return false;
+
+      const db = this.ensureReady();
+      if (!db) return false;
+
+      const user =
+        window.firebase &&
+        typeof firebase.auth === "function"
+          ? firebase.auth().currentUser
+          : null;
+
+      if (!user) return false;
+
+      try {
+        const snap =
+          await db.collection("campPrivate").doc(cleanCampId).get();
+        return snap.exists;
+      } catch (error) {
+        if (error?.code !== "permission-denied") {
+          console.warn("Could not verify Camp Steward access.", error);
+        }
+        return false;
+      }
+    },
+
     async getCamp(campId) {
       const cleanCampId = String(campId || "").trim();
       if (!cleanCampId) return null;
