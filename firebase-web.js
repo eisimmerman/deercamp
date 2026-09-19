@@ -377,7 +377,9 @@
                 : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : []),
               people: Array.isArray(cloud.dashboardPeople)
                 ? cloud.dashboardPeople
-                : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : []),
+                : (Array.isArray(cloud.people)
+                  ? cloud.people
+                  : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : [])),
               pendingInvites: Array.isArray(cloud.pendingInvites) ? cloud.pendingInvites : []
             };
 
