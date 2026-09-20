@@ -24,6 +24,14 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/campAccess/$(campId)/members/$(request.auth.uid)).data.memberUid == request.auth.uid
         );
     }
+    function isCampPublic(campId) {
+      return exists(/databases/$(database)/documents/camps/$(campId))
+        && (
+          get(/databases/$(database)/documents/camps/$(campId)).data.get("isPublic", false) == true
+          || get(/databases/$(database)/documents/camps/$(campId)).data.get("publishState", "") == "public"
+        );
+    }
+
 
     match /camps/{campId} {
       allow read: if true;
@@ -35,7 +43,7 @@ service cloud.firestore {
     }
 
     match /camps/{campId}/campfeed/{itemId} {
-      allow read: if true;
+      allow read: if isCampPublic(campId) || hasCampAccess(campId);
       allow create, update, delete: if false;
     }
 
@@ -134,7 +142,11 @@ service cloud.firestore {
           && request.resource.data.commentsUpdatedAtClient.size() <= 64;
       }
 
-      allow read: if resource.data.published == true;
+      allow read: if resource.data.published == true
+        && (
+          isCampPublic(resource.data.campId)
+          || hasCampAccess(resource.data.campId)
+        );
 
       allow create: if hasCampAccess(request.resource.data.campId)
         && request.resource.data.authorId == request.auth.uid

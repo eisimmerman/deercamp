@@ -314,6 +314,53 @@
     let camp = null;
     let source = "Local browser data";
 
+
+    // Give persisted Firebase Auth time to restore before
+    // attempting private camp hydration.
+    if (
+      window.firebase &&
+      typeof firebase.auth === "function"
+    ) {
+      try {
+        const auth = firebase.auth();
+
+        if (!auth.currentUser) {
+          await new Promise((resolve) => {
+            let settled = false;
+            let unsubscribe = null;
+
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+
+              if (typeof unsubscribe === "function") {
+                try {
+                  unsubscribe();
+                } catch (error) {}
+              }
+
+              resolve();
+            };
+
+            unsubscribe =
+              auth.onAuthStateChanged((user) => {
+                if (user) {
+                  finish();
+                }
+              });
+
+            // Signed-out visitors may continue after the bounded wait.
+            setTimeout(finish, 6000);
+          });
+        }
+      } catch (error) {
+        console.warn(
+          "Reusable room auth-state wait skipped.",
+          error
+        );
+      }
+    }
+
     try {
       if (
         window.DeerCampCloud &&

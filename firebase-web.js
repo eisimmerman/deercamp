@@ -333,54 +333,108 @@
       if (!cleanCampId) return null;
       const cloud = await this.getCamp(cleanCampId);
       if (!cloud || typeof cloud !== "object") return null;
+
+      let hydratedCamp = cloud;
       try {
         const scopedCampKey = scopedKey(cleanCampId, "campData");
         const scopedDashboardKey = scopedKey(cleanCampId, "dashboardSlim");
 
-        localStorage.setItem("campData", JSON.stringify(cloud));
-        localStorage.setItem(scopedCampKey, JSON.stringify(cloud));
+        const readStoredObject = (key) => {
+          try {
+            const raw = key ? localStorage.getItem(key) : "";
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed && typeof parsed === "object" ? parsed : {};
+          } catch (error) {
+            return {};
+          }
+        };
+
+        const scopedLocalCamp = readStoredObject(scopedCampKey);
+        const genericLocalCamp = readStoredObject("campData");
+
+        const matchingGenericCamp =
+          String(genericLocalCamp.campId || "").trim() === cleanCampId
+            ? genericLocalCamp
+            : {};
+
+        const existingLocalCamp =
+          Object.keys(scopedLocalCamp).length
+            ? scopedLocalCamp
+            : matchingGenericCamp;
+
+        const scopedSetupSeed =
+          readStoredObject(scopedKey(cleanCampId, "setupSeed"));
+
+        const campSetupSeed =
+          readStoredObject(`deercamp.setupSeed.${cleanCampId}`);
+
+        const lastSetupSeed =
+          readStoredObject("deercamp.lastCampSetupSeed");
+
+        const matchingLastSetupSeed =
+          String(lastSetupSeed.campId || "").trim() === cleanCampId
+            ? lastSetupSeed
+            : {};
+
+        const setupSeed =
+          Object.keys(scopedSetupSeed).length
+            ? scopedSetupSeed
+            : Object.keys(campSetupSeed).length
+              ? campSetupSeed
+              : matchingLastSetupSeed;
+
+        hydratedCamp = {
+          ...setupSeed,
+          ...existingLocalCamp,
+          ...cloud,
+          campId: cleanCampId
+        };
+
+        localStorage.setItem("campData", JSON.stringify(hydratedCamp));
+        localStorage.setItem(scopedCampKey, JSON.stringify(hydratedCamp));
         localStorage.setItem("deercamp.activeCampId", cleanCampId);
 
-        const hydratedDashboard = cloud.dashboardSlim && typeof cloud.dashboardSlim === "object"
+        const hydratedDashboard = hydratedCamp.dashboardSlim && typeof hydratedCamp.dashboardSlim === "object"
           ? {
-              ...cloud.dashboardSlim,
+              ...hydratedCamp.dashboardSlim,
               campId: cleanCampId,
-              pendingInvites: Array.isArray(cloud.dashboardSlim.pendingInvites)
-                ? cloud.dashboardSlim.pendingInvites
-                : (Array.isArray(cloud.pendingInvites) ? cloud.pendingInvites : []),
-              members: Array.isArray(cloud.dashboardSlim.members)
-                ? cloud.dashboardSlim.members
-                : (Array.isArray(cloud.dashboardMembers) ? cloud.dashboardMembers : []),
-              people: Array.isArray(cloud.dashboardSlim.people)
-                ? cloud.dashboardSlim.people
-                : (Array.isArray(cloud.dashboardPeople) ? cloud.dashboardPeople : [])
+              pendingInvites: Array.isArray(hydratedCamp.dashboardSlim.pendingInvites)
+                ? hydratedCamp.dashboardSlim.pendingInvites
+                : (Array.isArray(hydratedCamp.pendingInvites) ? hydratedCamp.pendingInvites : []),
+              members: Array.isArray(hydratedCamp.dashboardSlim.members)
+                ? hydratedCamp.dashboardSlim.members
+                : (Array.isArray(hydratedCamp.dashboardMembers) ? hydratedCamp.dashboardMembers : []),
+              people: Array.isArray(hydratedCamp.dashboardSlim.people)
+                ? hydratedCamp.dashboardSlim.people
+                : (Array.isArray(hydratedCamp.dashboardPeople) ? hydratedCamp.dashboardPeople : [])
             }
           : {
               campId: cleanCampId,
               camp: {
                 campId: cleanCampId,
-                name: cloud.name || cloud.campName || "",
-                city: cloud.city || "",
-                state: cloud.state || "",
-                zip: cloud.zip || "",
-                established: cloud.established || "",
-                summary: cloud.summary || cloud.about || "",
-                hero: cloud.hero || cloud.brandImage || cloud.brandingImage || "",
-                publishState: cloud.publishState || (cloud.isPublic ? "public" : "private")
+                name: hydratedCamp.name || hydratedCamp.campName || "",
+                city: hydratedCamp.city || "",
+                state: hydratedCamp.state || "",
+                zip: hydratedCamp.zip || "",
+                established: hydratedCamp.established || "",
+                summary: hydratedCamp.summary || hydratedCamp.about || "",
+                hero: hydratedCamp.hero || hydratedCamp.brandImage || hydratedCamp.brandingImage || "",
+                publishState: hydratedCamp.publishState || (hydratedCamp.isPublic ? "public" : "private")
               },
-              stewardName: cloud.stewardName || cloud.steward || "",
-              stewardEmail: cloud.stewardEmail || "",
-              sections: cloud.enabledSections || {},
-              selectedRecipeIds: Array.isArray(cloud.selectedRecipeIds) ? cloud.selectedRecipeIds : [],
-              members: Array.isArray(cloud.dashboardMembers)
-                ? cloud.dashboardMembers
-                : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : []),
-              people: Array.isArray(cloud.dashboardPeople)
-                ? cloud.dashboardPeople
-                : (Array.isArray(cloud.people)
-                  ? cloud.people
-                  : (Array.isArray(cloud.memberProfiles) ? cloud.memberProfiles : [])),
-              pendingInvites: Array.isArray(cloud.pendingInvites) ? cloud.pendingInvites : []
+              stewardName: hydratedCamp.stewardName || hydratedCamp.steward || "",
+              stewardEmail: hydratedCamp.stewardEmail || "",
+              sections: hydratedCamp.enabledSections || {},
+              selectedRecipeIds: Array.isArray(hydratedCamp.selectedRecipeIds) ? hydratedCamp.selectedRecipeIds : [],
+              members: Array.isArray(hydratedCamp.dashboardMembers)
+                ? hydratedCamp.dashboardMembers
+                : (Array.isArray(hydratedCamp.memberProfiles) ? hydratedCamp.memberProfiles : []),
+              people: Array.isArray(hydratedCamp.dashboardPeople)
+                ? hydratedCamp.dashboardPeople
+                : (Array.isArray(hydratedCamp.people)
+                  ? hydratedCamp.people
+                  : (Array.isArray(hydratedCamp.memberProfiles) ? hydratedCamp.memberProfiles : [])),
+              pendingInvites: Array.isArray(hydratedCamp.pendingInvites) ? hydratedCamp.pendingInvites : []
             };
 
         localStorage.setItem("deercamp.stewardDashboardSlim", JSON.stringify(hydratedDashboard));
@@ -389,7 +443,7 @@
       } catch (error) {
         console.warn("Could not cache Firestore camp locally.", error);
       }
-      return cloud;
+      return hydratedCamp;
     },
 
     subscribeToCamp(campId, onData) {
