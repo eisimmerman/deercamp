@@ -1,0 +1,40 @@
+DEERCAMP FIREBASE REGRESSION AUDIT
+Reviewed: 2026-09-21
+Branch: commercial-readiness/firestore-security-audit
+
+T-FB-001 — PASS
+Production and staging Firebase project aliases resolved correctly.
+default -> deercamp-47c12
+production -> deercamp-47c12
+staging -> deercamp-staging
+
+T-FB-002 — PASS
+Cloud Functions runtime build regenerated successfully from tracked runtime source.
+functions/runtime-src/index.js matched functions/lib/index.js by SHA-256.
+functions/runtime-src/steward-welcome-email.js matched functions/lib/steward-welcome-email.js by SHA-256.
+git status remained clean after build.
+
+T-FB-003 — PASS
+Current staging Hosting rewrites reached intended deployed HTTPS functions.
+GET requests returned expected application-level HTTP 405 responses for:
+- /api/send-steward-welcome
+- /api/create-checkout-session
+- /api/create-billing-portal-session
+- /api/stripe-webhook
+
+T-FB-004 — PASS
+Firestore emulator test using current firestore.rules verified:
+- user-a could read own campPrivate/camp-a
+- user-a was denied read of campPrivate/camp-b
+- user-a was denied write to campPrivate/camp-b
+
+T-FB-005 — PASS
+Firestore + Storage emulator test using current rules verified:
+- user-a could upload own media in camp-a
+- user-a could read own camp-a media
+- user-a was denied cross-camp read of camp-b media
+- user-a was denied overwrite of user-b media
+
+OVERALL RESULT
+All critical Firebase regression tests T-FB-001 through T-FB-005 passed.
+G-04 Firebase regression acceptance standard satisfied.
