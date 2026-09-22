@@ -88,7 +88,7 @@
 
     return {
       id,
-      room: audioUrl ? "Memory & Voice" : "CampFeed",
+      room: audioUrl ? "Memories Room" : "CampFeed",
       title,
       copy,
       meta: [
@@ -470,3 +470,4 @@
     );
   });
 })();
+
