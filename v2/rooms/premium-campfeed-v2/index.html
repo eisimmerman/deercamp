@@ -189,6 +189,59 @@
       <p id="premiumDialogMessage">
         This interaction is ready for its production workflow.
       </p>
+      <div id="premiumAuthForm" hidden>
+        <label for="premiumAuthEmail">Email</label>
+        <input
+          id="premiumAuthEmail"
+          type="email"
+          autocomplete="email"
+          placeholder="you@example.com"
+        />
+
+        <button
+          id="premiumAuthSendLink"
+          class="memory-viewer-nav-button"
+          type="button"
+        >
+          Send Sign-In Link
+        </button>
+
+        <p
+          id="premiumAuthFeedback"
+          class="memory-viewer-comment-feedback"
+          aria-live="polite"
+        ></p>
+      </div>
+      <div id="premiumPhotoShareForm" hidden>
+        <label for="premiumPhotoFile">Photo</label>
+        <input
+          id="premiumPhotoFile"
+          type="file"
+          accept="image/*"
+        />
+
+        <label for="premiumPhotoCaption">Caption</label>
+        <textarea
+          id="premiumPhotoCaption"
+          rows="4"
+          maxlength="1000"
+          placeholder="What happened?"
+        ></textarea>
+
+        <button
+          id="premiumPhotoPublish"
+          class="memory-viewer-nav-button"
+          type="button"
+        >
+          Share Photo
+        </button>
+
+        <p
+          id="premiumPhotoFeedback"
+          class="memory-viewer-comment-feedback"
+          aria-live="polite"
+        ></p>
+      </div>
     </div>
   </dialog>
 
@@ -268,20 +321,60 @@
                 error
               );
 
-              window.DeerCampUniversalViewer.showError(
-                error.message ||
-                "Live DeerCamp memories could not be loaded."
-              );
+              const currentUser =
+                window.DeerCampAuth &&
+                typeof window.DeerCampAuth.getCurrentUser === "function"
+                  ? window.DeerCampAuth.getCurrentUser()
+                  : null;
+
+              const permissionDenied =
+                error &&
+                (
+                  error.code === "permission-denied" ||
+                  String(error.message || "")
+                    .toLowerCase()
+                    .includes("insufficient permissions")
+                );
+
+              if (!currentUser && permissionDenied) {
+                showAuthDialog(
+                  "Sign in to view this private CampFeed."
+                );
+              } else {
+                window.DeerCampUniversalViewer.showError(
+                  error.message ||
+                  "Live DeerCamp memories could not be loaded."
+                );
+              }
             }
 
             return;
           }
 
           dialogTitle.textContent =
-            detail.label || "CampFeed Action";
+             detail.label || "CampFeed Action";
 
-          dialogMessage.textContent =
-            `The ${detail.action || "selected"} workflow will be connected next.`;
+           const photoForm =
+             document.getElementById("premiumPhotoShareForm");
+
+           if (
+             detail.type === "create" &&
+             detail.action === "photo-caption"
+           ) {
+             dialogMessage.textContent =
+               "Choose a photo, add an optional caption, and share it with your camp.";
+
+             if (photoForm) {
+               photoForm.hidden = false;
+             }
+           } else {
+             dialogMessage.textContent =
+               `The ${detail.action || "selected"} workflow will be connected next.`;
+
+             if (photoForm) {
+               photoForm.hidden = true;
+             }
+           }
 
           if (
             dialog &&
@@ -298,6 +391,474 @@
         }
       );
 
+      const photoFile =
+        document.getElementById("premiumPhotoFile");
+
+      const photoCaption =
+        document.getElementById("premiumPhotoCaption");
+
+      const photoPublish =
+        document.getElementById("premiumPhotoPublish");
+
+      const photoFeedback =
+        document.getElementById("premiumPhotoFeedback");
+
+      const authForm =
+        document.getElementById("premiumAuthForm");
+
+      const authEmail =
+        document.getElementById("premiumAuthEmail");
+
+      const authSendLink =
+        document.getElementById("premiumAuthSendLink");
+
+      const authFeedback =
+        document.getElementById("premiumAuthFeedback");
+
+      function showAuthDialog(message) {
+        if (dialogTitle) {
+          dialogTitle.textContent =
+            "Sign in to DeerCamp";
+        }
+
+        if (dialogMessage) {
+          dialogMessage.textContent =
+            message ||
+            "Sign in to view this private CampFeed.";
+        }
+
+        if (authForm) {
+          authForm.hidden = false;
+        }
+
+        const photoForm =
+          document.getElementById("premiumPhotoShareForm");
+
+        if (photoForm) {
+          photoForm.hidden = true;
+        }
+
+        if (
+          dialog &&
+          typeof dialog.showModal === "function" &&
+          !dialog.open
+        ) {
+          dialog.showModal();
+        }
+      }
+
+      if (authSendLink) {
+        authSendLink.addEventListener(
+          "click",
+          async function () {
+            const email =
+              String(
+                authEmail
+                  ? authEmail.value
+                  : ""
+              )
+                .trim()
+                .toLowerCase();
+
+            if (!email) {
+              if (authFeedback) {
+                authFeedback.textContent =
+                  "Enter your DeerCamp email.";
+              }
+
+              if (authEmail) {
+                authEmail.focus();
+              }
+
+              return;
+            }
+
+            authSendLink.disabled = true;
+
+            if (authFeedback) {
+              authFeedback.textContent =
+                "Sending sign-in link...";
+            }
+
+            try {
+              if (
+                !window.DeerCampAuth ||
+                typeof window.DeerCampAuth.sendEmailSignInLink !== "function"
+              ) {
+                throw new Error(
+                  "DeerCamp sign-in is unavailable."
+                );
+              }
+
+              await window.DeerCampAuth.sendEmailSignInLink(
+                email,
+                {
+                  returnUrl: window.location.href
+                }
+              );
+
+              if (authFeedback) {
+                authFeedback.textContent =
+                  "Sign-in link sent. Open the email link on this device.";
+              }
+            } catch (error) {
+              console.error(
+                "DeerCamp sign-in link could not be sent.",
+                error
+              );
+
+              if (authFeedback) {
+                authFeedback.textContent =
+                  error.message ||
+                  "Sign-in link could not be sent.";
+              }
+            } finally {
+              authSendLink.disabled = false;
+            }
+          }
+        );
+      }
+
+      async function completePendingEmailSignIn() {
+        if (
+          !window.DeerCampAuth ||
+          typeof window.DeerCampAuth.isEmailSignInLink !== "function" ||
+          !window.DeerCampAuth.isEmailSignInLink(window.location.href)
+        ) {
+          return null;
+        }
+
+        try {
+          const user =
+            await window.DeerCampAuth.completeEmailSignIn({
+              url: window.location.href
+            });
+
+          if (user) {
+            const cleanUrl =
+              new URL(window.location.href);
+
+            [
+              "apiKey",
+              "oobCode",
+              "mode",
+              "lang"
+            ].forEach(function (key) {
+              cleanUrl.searchParams.delete(key);
+            });
+
+            window.history.replaceState(
+              {},
+              document.title,
+              cleanUrl.pathname +
+                cleanUrl.search +
+                cleanUrl.hash
+            );
+          }
+
+          return user || null;
+        } catch (error) {
+          console.error(
+            "DeerCamp email sign-in could not be completed.",
+            error
+          );
+
+          showAuthDialog(
+            error.message ||
+            "The DeerCamp sign-in link could not be completed."
+          );
+
+          return null;
+        }
+      }
+      async function getSignedInUser() {
+        if (
+          !window.firebase ||
+          typeof firebase.auth !== "function"
+        ) {
+          throw new Error(
+            "Firebase Authentication is unavailable."
+          );
+        }
+
+        const auth =
+          firebase.auth();
+
+        let user =
+          auth.currentUser;
+
+        if (!user) {
+          user = await new Promise((resolve) => {
+            let settled = false;
+
+            const unsubscribe =
+              auth.onAuthStateChanged((nextUser) => {
+                if (settled || !nextUser) {
+                  return;
+                }
+
+                settled = true;
+
+                try {
+                  unsubscribe();
+                } catch (error) {}
+
+                resolve(nextUser);
+              });
+
+            setTimeout(() => {
+              if (settled) {
+                return;
+              }
+
+              settled = true;
+
+              try {
+                unsubscribe();
+              } catch (error) {}
+
+              resolve(auth.currentUser || null);
+            }, 3000);
+          });
+        }
+
+        if (!user || user.isAnonymous) {
+          throw new Error(
+            "Sign in before sharing to CampFeed."
+          );
+        }
+
+        return user;
+      }
+
+      function getPhotoAuthorName(user) {
+        const displayName =
+          String(user.displayName || "").trim();
+
+        if (displayName) {
+          return displayName;
+        }
+
+        const email =
+          String(user.email || "").trim();
+
+        if (email) {
+          return email
+            .split("@")[0]
+            .replace(/[._-]+/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .replace(/\b\w/g, function (character) {
+              return character.toUpperCase();
+            });
+        }
+
+        return "DeerCamp Member";
+      }
+
+      if (photoPublish) {
+        photoPublish.addEventListener(
+          "click",
+          async function () {
+            const file =
+              photoFile &&
+              photoFile.files &&
+              photoFile.files[0];
+
+            const caption =
+              String(
+                photoCaption
+                  ? photoCaption.value
+                  : ""
+              ).trim();
+
+            if (!file) {
+              if (photoFeedback) {
+                photoFeedback.textContent =
+                  "Choose a photo before sharing.";
+              }
+
+              return;
+            }
+
+            if (
+              file.type &&
+              !String(file.type).startsWith("image/")
+            ) {
+              if (photoFeedback) {
+                photoFeedback.textContent =
+                  "Choose an image file.";
+              }
+
+              return;
+            }
+
+            photoPublish.disabled = true;
+
+            if (photoFeedback) {
+              photoFeedback.textContent =
+                "Uploading photo...";
+            }
+
+            try {
+              const user =
+                await getSignedInUser();
+
+              const campId =
+                window.DeerCampPremiumEngine &&
+                typeof window.DeerCampPremiumEngine.getCampId === "function"
+                  ? window.DeerCampPremiumEngine.getCampId()
+                  : "";
+
+              if (!campId) {
+                throw new Error(
+                  "No active DeerCamp camp was found."
+                );
+              }
+
+              if (
+                !window.DeerCampStorage ||
+                typeof window.DeerCampStorage.uploadCampImageFilePair !== "function"
+              ) {
+                throw new Error(
+                  "DeerCamp photo upload is unavailable."
+                );
+              }
+
+              const entityId =
+                `web-${Date.now()}-${user.uid.slice(0, 8)}`;
+
+              const uploaded =
+                await window.DeerCampStorage.uploadCampImageFilePair({
+                  campId,
+                  folder: "campfeed",
+                  entityId,
+                  file
+                });
+
+              const imageUrl =
+                String(
+                  uploaded.displayUrl ||
+                  uploaded.thumbUrl ||
+                  ""
+                ).trim();
+
+              if (!imageUrl) {
+                throw new Error(
+                  "Photo upload did not return a Firebase Storage URL."
+                );
+              }
+
+              if (
+                !window.firebase ||
+                typeof firebase.firestore !== "function"
+              ) {
+                throw new Error(
+                  "Cloud Firestore is unavailable."
+                );
+              }
+
+              const authorName =
+                getPhotoAuthorName(user);
+
+              const createdAtMs =
+                Date.now();
+
+              const cleanCaption =
+                caption ||
+                "Photo shared from DeerCamp.";
+
+              const feedDoc = {
+                campId,
+                authorId: user.uid,
+                authorName,
+                author: authorName,
+                title: "Field Photo",
+                caption: cleanCaption,
+                body: cleanCaption,
+                titleSource: "fallback",
+                captionSource:
+                  caption ? "manual" : "fallback",
+                transcript: "",
+                transcriptPreview: "",
+                transcriptionStatus:
+                  "not_applicable",
+                transcriptionError: "",
+                generatedTitle: "",
+                generatedCaption: "",
+                imageUrl,
+                displayUrl:
+                  uploaded.displayUrl ||
+                  imageUrl,
+                thumbUrl:
+                  uploaded.thumbUrl ||
+                  imageUrl,
+                thumbnailUrl:
+                  uploaded.thumbUrl ||
+                  imageUrl,
+                mediaType: "photo",
+                type: "photo",
+                category: "field-note",
+                tags: [
+                  "Picture",
+                  "Field Memory",
+                  "Web"
+                ],
+                published: true,
+                source: "app",
+                localMemoryId: entityId,
+                createdAt:
+                  firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtMs,
+                clientCreatedAt:
+                  createdAtMs,
+                imagePath:
+                  uploaded.displayPath ||
+                  uploaded.thumbPath ||
+                  ""
+              };
+
+              const docRef =
+                await firebase
+                  .firestore()
+                  .collection("feedItems")
+                  .add(feedDoc);
+
+              if (!docRef || !docRef.id) {
+                throw new Error(
+                  "CampFeed publish was not confirmed."
+                );
+              }
+
+              if (photoFeedback) {
+                photoFeedback.textContent =
+                  "Photo shared to CampFeed.";
+              }
+
+              if (photoFile) {
+                photoFile.value = "";
+              }
+
+              if (photoCaption) {
+                photoCaption.value = "";
+              }
+            } catch (error) {
+              console.error(
+                "CampFeed photo could not be shared.",
+                error
+              );
+
+              if (photoFeedback) {
+                photoFeedback.textContent =
+                  error.message ||
+                  "Photo could not be shared. Please try again.";
+              }
+            } finally {
+              photoPublish.disabled = false;
+            }
+          }
+        );
+      }
       dialog.addEventListener(
         "click",
         async function (event) {
@@ -375,9 +936,10 @@
           "Universal Viewer is unavailable; continuing with the Premium Room Engine."
         );
       }
-
-      window.DeerCampPremiumEngine
-        .initialize()
+      completePendingEmailSignIn()
+        .then(function () {
+          return window.DeerCampPremiumEngine.initialize();
+        })
         .catch(function (error) {
           console.error(
             "Premium CampFeed V2 initialization failed.",
@@ -393,20 +955,6 @@
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

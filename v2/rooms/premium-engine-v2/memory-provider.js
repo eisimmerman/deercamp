@@ -17,6 +17,54 @@
     );
   }
 
+  async function waitForAuthRestore() {
+    if (
+      !window.firebase ||
+      typeof window.firebase.auth !== "function"
+    ) {
+      return null;
+    }
+
+    const auth =
+      window.firebase.auth();
+
+    if (auth.currentUser) {
+      return auth.currentUser;
+    }
+
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const unsubscribe =
+        auth.onAuthStateChanged((user) => {
+          if (settled) {
+            return;
+          }
+
+          settled = true;
+
+          try {
+            unsubscribe();
+          } catch (error) {}
+
+          resolve(user || null);
+        });
+
+      setTimeout(() => {
+        if (settled) {
+          return;
+        }
+
+        settled = true;
+
+        try {
+          unsubscribe();
+        } catch (error) {}
+
+        resolve(auth.currentUser || null);
+      }, 3000);
+    });
+  }
   function getAdapter() {
     const adapter =
       window.DeerCampFirestoreAdapter;
