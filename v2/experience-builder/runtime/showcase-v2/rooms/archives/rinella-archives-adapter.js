@@ -391,7 +391,7 @@
           event.stopImmediatePropagation();
 
           console.log(
-            "DXB Steve Archives View & Discover opened."
+            "DXB Steve Archives View opened."
           );
 
           openArchiveCollection();
