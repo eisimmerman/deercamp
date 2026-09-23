@@ -1,4 +1,4 @@
-(function(){
+﻿(function(){
   const cfg=window.ARCHIVE_ROOM_CONFIG||{routes:{},actions:{}};
   const viewer=window.DeerCampRoomModal?.create?.();
   const legacyChapters=[
@@ -1014,6 +1014,289 @@
   let shareRecordingUrl = "";
   let shareRecordingDuration = 0;
 
+  function getArchiveCampId(){
+    const direct =
+      String(
+        localStorage.getItem("deercamp.activeCampId") ||
+        ""
+      ).trim();
+
+    if(direct) return direct;
+
+    try{
+      const campData =
+        JSON.parse(
+          localStorage.getItem("campData") ||
+          "null"
+        );
+
+      return String(
+        campData?.campId ||
+        campData?.id ||
+        ""
+      ).trim();
+    }
+    catch(error){
+      return "";
+    }
+  }
+
+  async function getArchiveSignedInUser(){
+    if(
+      !window.firebase ||
+      typeof firebase.auth !== "function"
+    ){
+      throw new Error(
+        "Firebase Authentication is unavailable."
+      );
+    }
+
+    const auth = firebase.auth();
+
+    let user =
+      window.DeerCampAuth &&
+      typeof window.DeerCampAuth.getCurrentUser === "function"
+        ? window.DeerCampAuth.getCurrentUser()
+        : auth.currentUser;
+
+    if(!user){
+      user = await new Promise(resolve=>{
+        let settled = false;
+
+        const unsubscribe =
+          auth.onAuthStateChanged(nextUser=>{
+            if(settled || !nextUser) return;
+
+            settled = true;
+
+            try{
+              unsubscribe();
+            }
+            catch(error){}
+
+            resolve(nextUser);
+          });
+
+        window.setTimeout(()=>{
+          if(settled) return;
+
+          settled = true;
+
+          try{
+            unsubscribe();
+          }
+          catch(error){}
+
+          resolve(auth.currentUser || null);
+        },3000);
+      });
+    }
+
+    if(!user || user.isAnonymous){
+      throw new Error(
+        "Sign in before sharing a Voice Story."
+      );
+    }
+
+    return user;
+  }
+
+  function getArchiveAuthorName(user){
+    const displayName =
+      String(user?.displayName || "").trim();
+
+    if(displayName) return displayName;
+
+    const email =
+      String(user?.email || "").trim();
+
+    if(email){
+      return email
+        .split("@")[0]
+        .replace(/[._-]+/g," ")
+        .replace(/\s+/g," ")
+        .trim();
+    }
+
+    return "DeerCamp Member";
+  }
+
+  function getVoiceFileExtension(contentType){
+    const clean =
+      String(contentType || "").toLowerCase();
+
+    if(clean.includes("ogg")) return "ogg";
+    if(clean.includes("mp4")) return "m4a";
+
+    return "webm";
+  }
+
+  async function publishShareCampMemoryToFeed(name,image,duration){
+    if(!shareRecordingBlob){
+      throw new Error(
+        "No Voice Story recording is available."
+      );
+    }
+
+    const user =
+      await getArchiveSignedInUser();
+
+    const campId =
+      getArchiveCampId();
+
+    if(!campId){
+      throw new Error(
+        "No active DeerCamp camp was found."
+      );
+    }
+
+    if(
+      !window.DeerCampStorage ||
+      typeof window.DeerCampStorage.uploadBlob !== "function"
+    ){
+      throw new Error(
+        "DeerCamp voice upload is unavailable."
+      );
+    }
+
+    if(
+      !window.firebase ||
+      typeof firebase.firestore !== "function"
+    ){
+      throw new Error(
+        "Cloud Firestore is unavailable."
+      );
+    }
+
+    const entityId =
+      `web-voice-${Date.now()}-${user.uid.slice(0,8)}`;
+
+    const contentType =
+      shareRecordingBlob.type ||
+      "audio/webm";
+
+    const extension =
+      getVoiceFileExtension(contentType);
+
+    const audioPath =
+      `camps/${campId}/campfeed/${entityId}/voice.${extension}`;
+
+    const uploaded =
+      await window.DeerCampStorage.uploadBlob(
+        audioPath,
+        shareRecordingBlob,
+        {
+          contentType,
+          customMetadata:{
+            role:"voice",
+            campId,
+            folder:"campfeed",
+            entityId,
+            authorId:user.uid
+          }
+        }
+      );
+
+    const audioUrl =
+      String(uploaded?.url || "").trim();
+
+    if(!audioUrl){
+      throw new Error(
+        "Voice upload did not return a Firebase Storage URL."
+      );
+    }
+
+    const authorName =
+      getArchiveAuthorName(user);
+
+    const createdAtMs =
+      Date.now();
+
+    const durationSeconds =
+      Math.max(
+        Number(duration) || 0,
+        1
+      );
+
+    let imageUrl = "";
+
+    try{
+      const resolvedImage =
+        new URL(
+          String(image || ""),
+          window.location.href
+        );
+
+      imageUrl =
+        `${resolvedImage.pathname}${resolvedImage.search}${resolvedImage.hash}`;
+    }
+    catch(error){
+      imageUrl = "";
+    }
+
+    const feedDoc = {
+      campId,
+      authorId:user.uid,
+      authorName,
+      author:authorName,
+      title:String(name || "").trim() || "Voice Memory",
+      caption:"Voice Story shared from DeerCamp Archives.",
+      body:"Voice Story shared from DeerCamp Archives.",
+      titleSource:"manual",
+      captionSource:"fallback",
+      transcript:"",
+      transcriptPreview:"",
+      transcriptionStatus:"not_requested",
+      transcriptionError:"",
+      generatedTitle:"",
+      generatedCaption:"",
+      audioUrl,
+      audioPath:uploaded.path || audioPath,
+      audioContentType:
+        uploaded.contentType || contentType,
+      audioDurationMs:
+        Math.round(durationSeconds * 1000),
+      imageUrl,
+      displayUrl:imageUrl,
+      thumbUrl:imageUrl,
+      thumbnailUrl:imageUrl,
+      mediaType:imageUrl ? "photo-voice" : "voice",
+      type:imageUrl ? "photo-voice" : "voice",
+      category:"camp-memory",
+      room:"Memories Room",
+      tags:[
+        "Voice",
+        "Camp Memory",
+        "Web"
+      ],
+      published:true,
+      source:"app",
+      localMemoryId:entityId,
+      createdAt:
+        firebase.firestore.FieldValue.serverTimestamp(),
+      createdAtMs,
+      clientCreatedAt:createdAtMs
+    };
+
+    const docRef =
+      await firebase
+        .firestore()
+        .collection("feedItems")
+        .add(feedDoc);
+
+    if(!docRef || !docRef.id){
+      throw new Error(
+        "Voice Story publish was not confirmed."
+      );
+    }
+
+    return {
+      feedId:docRef.id,
+      audioUrl,
+      audioPath:uploaded.path || audioPath,
+      entityId
+    };
+  }
   function clearShareRecordingUrl(){
     if(shareRecordingUrl){
       URL.revokeObjectURL(shareRecordingUrl);
@@ -1391,9 +1674,41 @@
         });
 
       document
-        .querySelector("[data-share-save]")
-        ?.addEventListener("click",async()=>{
-          await saveShareCampMemory(name,image,duration);
+        .querySelectorAll("[data-share-save]")
+        .forEach(saveButton=>{
+          saveButton.addEventListener("click",async()=>{
+            saveButton.disabled = true;
+            saveButton.textContent = "Saving...";
+
+            try{
+              await saveShareCampMemory(
+                name,
+                image,
+                duration
+              );
+            }
+            catch(error){
+              console.error(
+                "Voice Story could not be published.",
+                error
+              );
+
+              saveButton.disabled = false;
+              saveButton.textContent = "Save to Archives";
+
+              viewer.open({
+                heading:"Voice Story Not Saved",
+                html:`<div class="artifact-memory-success">
+                  <p>
+                    ${String(
+                      error?.message ||
+                      "The Voice Story could not be saved."
+                    )}
+                  </p>
+                </div>`
+              });
+            }
+          });
         });
     },0);
   }
@@ -1401,12 +1716,22 @@
   async function saveShareCampMemory(name,image,duration){
     if(!shareRecordingBlob) return;
 
+    const published =
+      await publishShareCampMemoryToFeed(
+        name,
+        image,
+        duration
+      );
+
     await saveShareMemoryAudio(shareRecordingBlob);
 
     const saved = {
       name,
       image,
       duration,
+      feedId:published.feedId,
+      audioUrl:published.audioUrl,
+      audioPath:published.audioPath,
       savedAt:new Date().toISOString()
     };
 

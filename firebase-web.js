@@ -21,7 +21,10 @@
     const host = String(window.location.hostname || "").toLowerCase();
     return host === "deercamp-staging.web.app" ||
       host === "deercamp-staging.firebaseapp.com" ||
-      (host.includes("localhost") && String(window.location.search || "").includes("useStagingFirebase=true"));
+      (
+        (host === "localhost" || host === "127.0.0.1" || host === "::1") &&
+        String(window.location.search || "").includes("useStagingFirebase=true")
+      );
   }
 
   const firebaseConfig = isDeerCampStagingHost() ? stagingFirebaseConfig : productionFirebaseConfig;

@@ -120,7 +120,7 @@
         image,
         placeholder,
         item.audioUrl
-          ? "Voice memory â€” no photo was captured."
+          ? "Voice memory \u2014 no photo was captured."
           : "No photo is available for this memory.",
         ""
       );
