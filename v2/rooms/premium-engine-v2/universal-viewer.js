@@ -47,7 +47,14 @@
         item?.voiceUrl ||
         ""
       ),
-      transcript: String(item?.transcript || item?.copy || ""),
+      transcript: String(
+        item?.transcript ||
+        item?.story ||
+        item?.body ||
+        item?.caption ||
+        item?.copy ||
+        ""
+      ),
       campId: String(item?.campId || ""),
       source:
         item?.source && typeof item.source === "object"
@@ -137,7 +144,7 @@
 
     image.hidden = false;
     placeholder.hidden = false;
-    placeholder.textContent = "Loading memory photoâ€¦";
+    placeholder.textContent = "Loading memory photoÃ¢â‚¬Â¦";
 
     image.alt =
       item.imageAlt ||

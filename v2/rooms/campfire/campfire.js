@@ -386,6 +386,8 @@
     if (voiceForm) voiceForm.hidden = true;
   }
 
+  let campfireTextShareMode = "conversation";
+
   function openShareDialog(mode) {
     const dialog = byId("campfireDialog");
     const title = byId("campfireDialogTitle");
@@ -402,14 +404,24 @@
       feedback.textContent = "";
     }
 
-    if (mode === "conversation") {
+    if (
+      mode === "conversation" ||
+      mode === "memory"
+    ) {
+      campfireTextShareMode = mode;
+
       if (title) {
-        title.textContent = "Start a Conversation";
+        title.textContent =
+          mode === "memory"
+            ? "Share a Memory / Story"
+            : "Start a Conversation";
       }
 
       if (message) {
         message.textContent =
-          "Add a title and share a thought, story, question, or camp update.";
+          mode === "memory"
+            ? "Add a title and preserve a camp memory or story for your camp."
+            : "Add a title and share a thought, story, question, or camp update.";
       }
 
       const form = byId("campfireTextForm");
@@ -663,9 +675,16 @@
     const feedback = byId("campfireFeedback");
     const publishButton = byId("campfireTextPublish");
 
+    const isMemory =
+      campfireTextShareMode === "memory";
+
     const title =
       clean(titleInput && titleInput.value) ||
-      "CampFire Conversation";
+      (
+        isMemory
+          ? "CampFire Memory"
+          : "CampFire Conversation"
+      );
 
     const body =
       clean(bodyInput && bodyInput.value);
@@ -699,7 +718,7 @@
 
     if (feedback) {
       feedback.textContent =
-        "Sharing conversation...";
+        isMemory ? "Sharing memory..." : "Sharing conversation...";
     }
 
     if (publishButton) {
@@ -730,11 +749,11 @@
             transcript: "",
             transcriptPreview: "",
             mediaType: "text",
-            type: "conversation",
+            type: isMemory ? "memory" : "conversation",
             category: "campfire",
             tags: [
               "CampFire",
-              "Conversation",
+              isMemory ? "Memory" : "Conversation",
               "Web"
             ],
             published: true,
@@ -754,7 +773,7 @@
 
       if (feedback) {
         feedback.textContent =
-          "Conversation shared to CampFire.";
+          isMemory ? "Memory shared to CampFire." : "Conversation shared to CampFire.";
       }
 
       if (titleInput) {
@@ -1442,6 +1461,11 @@
 
       if (actionId === "share-photo") {
         openShareDialog("photo");
+        return;
+      }
+
+      if (actionId === "share-memory-story") {
+        openShareDialog("memory");
         return;
       }
 
