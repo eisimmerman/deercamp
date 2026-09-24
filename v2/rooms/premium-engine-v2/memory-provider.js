@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   const COLLECTION_NAME = "feedItems";

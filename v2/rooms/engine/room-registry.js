@@ -50,5 +50,48 @@
       { id: "campfeed", label: "CampFeed", route: "./index.html" }
     ]
   }
+,
+  campfire: {
+    id: "campfire",
+    name: "CampFire Room",
+    eyebrow: "DEERCAMP",
+    tagline: "Stories and conversations worth passing down.",
+    feedTitle: "CampFire",
+    viewActions: [
+      {
+        id: "latest-conversations",
+        label: "Latest Conversations",
+        description: "See the newest conversations around the campfire."
+      },
+      {
+        id: "voice-stories",
+        label: "Voice Stories",
+        description: "Listen to stories shared in the voices of camp members."
+      },
+      {
+        id: "photo-shares",
+        label: "Photo Shares",
+        description: "Browse photographs shared around the fire."
+      }
+    ],
+    createActions: [
+      {
+        id: "start-conversation",
+        label: "Start a Conversation"
+      },
+      {
+        id: "record-voice-story",
+        label: "Record a Voice Story"
+      }
+    ],
+    navigation: [
+      { id: "camp", label: "Camp", route: "../main-camp.html" },
+      { id: "archives", label: "Archives", route: "../archives/index.html" },
+      { id: "maps", label: "Maps", route: "../maps/index.html" },
+      { id: "campfire", label: "CampFire", route: "./index.html" },
+      { id: "memory", label: "Memories", route: "../memory/index.html" },
+      { id: "campfeed", label: "CampFeed", route: "../campfeed/index.html" }
+    ]
+  }
 };
 

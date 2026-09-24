@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  />
+
+  <title>CampFire Room | DeerCamp V2</title>
+
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-storage-compat.js"></script>
+  <script src="../../../firebase-web.js"></script>
+
+  <link rel="stylesheet" href="../shared/room-shell.css" />
+  <link rel="stylesheet" href="../premium-engine-v2/universal-viewer.css" />
+  <link rel="stylesheet" href="./campfire-room.css" />
+</head>
+
+<body>
+
+  <main
+    class="room-shell campfire-room"
+    aria-label="DeerCamp CampFire Room"
+  >
+
+    <section class="room-stage">
+
+      <img
+        class="room-art"
+        src="./campfire-room.png"
+        alt="DeerCamp CampFire Room"
+      >
+
+
+      <!-- VIEW -->
+
+      <button
+        class="room-hotspot hs-view hs-view-1"
+        type="button"
+        data-action-type="view"
+        data-action-id="latest-conversations"
+        aria-label="Latest Conversations"
+      ></button>
+
+      <button
+        class="room-hotspot hs-view hs-view-2"
+        type="button"
+        data-action-type="view"
+        data-action-id="voice-stories"
+        aria-label="Voice Stories"
+      ></button>
+
+      <button
+        class="room-hotspot hs-view hs-view-3"
+        type="button"
+        data-action-type="view"
+        data-action-id="photo-shares"
+        aria-label="Photo Shares"
+      ></button>
+
+      <button
+        class="room-hotspot hs-view hs-view-4"
+        type="button"
+        data-action-type="view"
+        data-action-id="by-member"
+        aria-label="By Member"
+      ></button>
+
+      <button
+        class="room-hotspot hs-view hs-view-5"
+        type="button"
+        data-action-type="view"
+        data-action-id="by-topic"
+        aria-label="By Topic"
+      ></button>
+
+      <button
+        class="room-hotspot hs-view hs-view-6"
+        type="button"
+        data-action-type="view"
+        data-action-id="search-campfire"
+        aria-label="Search CampFire"
+      ></button>
+
+
+      <!-- SHARE -->
+
+      <button
+        class="room-hotspot hs-share hs-share-1"
+        type="button"
+        data-action-type="share"
+        data-action-id="start-conversation"
+        aria-label="Start a Conversation"
+      ></button>
+
+      <button
+        class="room-hotspot hs-share hs-share-2"
+        type="button"
+        data-action-type="share"
+        data-action-id="record-voice-story"
+        aria-label="Record a Voice Story"
+      ></button>
+
+      <button
+        class="room-hotspot hs-share hs-share-3"
+        type="button"
+        data-action-type="share"
+        data-action-id="share-photo"
+        aria-label="Share a Photo"
+      ></button>
+
+      <button
+        class="room-hotspot hs-share hs-share-4"
+        type="button"
+        data-action-type="share"
+        data-action-id="share-memory-story"
+        aria-label="Share a Memory or Story"
+      ></button>
+
+      <button
+        class="room-hotspot hs-share hs-share-5"
+        type="button"
+        data-action-type="share"
+        data-action-id="post-announcement"
+        aria-label="Post an Announcement"
+      ></button>
+
+      <button
+        class="room-hotspot hs-share hs-share-6"
+        type="button"
+        data-action-type="share"
+        data-action-id="save-to-campfire"
+        aria-label="Save to CampFire"
+      ></button>
+
+    </section>
+
+
+    <nav
+      class="v2-room-navigation"
+      aria-label="DeerCamp rooms"
+    >
+      <a href="../main-camp.html" data-v2-room-link>Camp</a>
+      <a href="../archives/index.html" data-v2-room-link>Archives</a>
+      <a href="../maps/index.html" data-v2-room-link>Maps</a>
+
+      <a
+        href="./index.html"
+        aria-current="page"
+        data-v2-room-link
+      >
+        CampFire
+      </a>
+
+      <a href="../memory/index.html" data-v2-room-link>Memories</a>
+      <a href="../campfeed/index.html" data-v2-room-link>CampFeed</a>
+    </nav>
+
+  </main>
+
+<dialog id="universalViewer" class="universal-viewer" aria-label="DeerCamp Memory Viewer">
+    <div class="memory-viewer-shell">
+      <header class="memory-viewer-header">
+        <div>
+          <p id="memoryViewerKicker" class="memory-viewer-kicker">MEMORY VIEWER</p>
+          <h2 id="memoryViewerCollectionTitle" class="memory-viewer-collection-title">DeerCamp Memories</h2>
+        </div>
+        <button id="universalViewerClose" class="universal-viewer-close" type="button">Close</button>
+      </header>
+
+      <div id="memoryViewerBody" class="memory-viewer-body">
+        <div id="memoryViewerEmpty" class="memory-viewer-empty" hidden></div>
+        <div id="memoryViewerContent" class="memory-viewer-content">
+          <section class="memory-viewer-hero-column">
+            <div id="memoryViewerHeroFrame" class="memory-viewer-hero-frame">
+              <img id="memoryViewerHero" class="memory-viewer-hero" alt="" hidden />
+              <div id="memoryViewerHeroPlaceholder" class="memory-viewer-hero-placeholder">DeerCamp memory</div>
+            </div>
+          </section>
+
+          <section class="memory-viewer-detail-column">
+            <h2 id="memoryViewerItemTitle" class="memory-viewer-item-title">Memory title</h2>
+            <p id="memoryViewerSubtitle" class="memory-viewer-subtitle"></p>
+            <div class="memory-viewer-byline">
+              <span id="memoryViewerAuthor"></span>
+              <span id="memoryViewerRoom"></span>
+              <span id="memoryViewerTimestamp"></span>
+            </div>
+
+            <section
+              id="memoryViewerStewardActions"
+              class="memory-viewer-section"
+              hidden
+            >
+              <button
+                id="memoryViewerRemovePost"
+                class="memory-viewer-nav-button"
+                type="button"
+              >
+                Remove Post
+              </button>
+              <p
+                id="memoryViewerRemoveFeedback"
+                class="memory-viewer-comment-feedback"
+                aria-live="polite"
+              ></p>
+            </section>
+
+            <section id="memoryViewerAudioSection" class="memory-viewer-section" hidden>
+              <h3>Listen</h3>
+              <audio id="memoryViewerAudio" class="memory-viewer-audio" controls preload="metadata"></audio>
+            </section>
+
+            <section id="memoryViewerTranscriptSection" class="memory-viewer-section">
+              <h3>Story</h3>
+              <p id="memoryViewerTranscript" class="memory-viewer-transcript"></p>
+            </section>
+
+            <section id="memoryViewerCommentsSection" class="memory-viewer-section">
+              <h3>Camp Comments</h3>
+              <div id="memoryViewerComments" class="memory-viewer-comments"></div>
+
+              <div class="memory-viewer-comment-form">
+                <label for="memoryViewerCommentText">Add a comment</label>
+                <textarea
+                  id="memoryViewerCommentText"
+                  rows="3"
+                  maxlength="1000"
+                  placeholder="Add a comment about this CampFeed post."
+                ></textarea>
+                <button
+                  id="memoryViewerCommentSubmit"
+                  class="memory-viewer-nav-button"
+                  type="button"
+                >
+                  Add Comment
+                </button>
+                <p
+                  id="memoryViewerCommentFeedback"
+                  class="memory-viewer-comment-feedback"
+                  aria-live="polite"
+                ></p>
+              </div>
+            </section>
+
+            <section id="memoryViewerTagsSection" class="memory-viewer-section" hidden>
+              <h3>Tags</h3>
+              <div id="memoryViewerTags" class="memory-viewer-tags"></div>
+            </section>
+
+            <section id="memoryViewerMetadataSection" class="memory-viewer-section" hidden>
+              <h3>Memory Details</h3>
+              <div id="memoryViewerMetadata" class="memory-viewer-metadata"></div>
+            </section>
+          </section>
+        </div>
+      </div>
+
+      <footer class="memory-viewer-footer">
+        <button id="memoryViewerPrevious" class="memory-viewer-nav-button" type="button">â† Previous</button>
+        <span id="memoryViewerPosition" class="memory-viewer-position">1 of 1</span>
+        <button id="memoryViewerNext" class="memory-viewer-nav-button" type="button">Next â†’</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <dialog
+    id="campfireDialog"
+    class="campfire-dialog"
+  >
+    <form
+      method="dialog"
+      class="campfire-dialog-shell"
+    >
+      <header class="campfire-dialog-header">
+        <div>
+          <div class="campfire-dialog-kicker">
+            CAMPFIRE
+          </div>
+
+          <h2 id="campfireDialogTitle">
+            CampFire
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          id="campfireDialogClose"
+          class="campfire-dialog-close"
+          aria-label="Close"
+        >
+          Ãƒâ€”
+        </button>
+      </header>
+
+      <p
+        id="campfireDialogMessage"
+        class="campfire-dialog-message"
+      ></p>
+
+      <div
+        id="campfireTextForm"
+        class="campfire-form"
+        hidden
+      >
+        <label for="campfireTitle">
+          Title
+        </label>
+
+        <input
+          id="campfireTitle"
+          type="text"
+          maxlength="140"
+        />
+
+        <label for="campfireBody">
+          Story or thought
+        </label>
+
+        <textarea
+          id="campfireBody"
+          rows="6"
+          maxlength="4000"
+        ></textarea>
+
+        <button
+          id="campfireTextPublish"
+          type="button"
+          class="campfire-primary-button"
+        >
+          Share to CampFire
+        </button>
+      </div>
+
+      <div
+        id="campfirePhotoForm"
+        class="campfire-form"
+        hidden
+      >
+        <label for="campfirePhotoFile">
+          Photo
+        </label>
+
+        <input
+          id="campfirePhotoFile"
+          type="file"
+          accept="image/*"
+        />
+
+        <label for="campfirePhotoCaption">
+          Caption
+        </label>
+
+        <textarea
+          id="campfirePhotoCaption"
+          rows="4"
+          maxlength="1000"
+          placeholder="What happened?"
+        ></textarea>
+
+        <button
+          id="campfirePhotoPublish"
+          type="button"
+          class="campfire-primary-button"
+        >
+          Share Photo
+        </button>
+      </div>
+
+      <div
+        id="campfireVoiceForm"
+        class="campfire-form"
+        hidden
+      >
+        <label for="campfireVoiceTitle">
+          Story title
+        </label>
+
+        <input
+          id="campfireVoiceTitle"
+          type="text"
+          maxlength="140"
+          placeholder="Voice Story"
+        />
+
+        <label for="campfireVoiceBody">
+          Optional note
+        </label>
+
+        <textarea
+          id="campfireVoiceBody"
+          rows="3"
+          maxlength="1000"
+        ></textarea>
+
+        <button
+          id="campfireVoiceRecord"
+          type="button"
+          class="campfire-primary-button"
+        >
+          Start Recording
+        </button>
+
+        <audio
+          id="campfireVoicePreview"
+          controls
+          hidden
+        ></audio>
+
+        <button
+          id="campfireVoicePublish"
+          type="button"
+          class="campfire-primary-button"
+          disabled
+        >
+          Share Voice Story
+        </button>
+      </div>
+
+      <p
+        id="campfireFeedback"
+        class="campfire-feedback"
+        aria-live="polite"
+      ></p>
+    </form>
+  </dialog>
+
+  <script src="../premium-engine-v2/universal-viewer.js"></script>
+  <script src="../premium-engine-v2/firestore-adapter.js"></script>
+  <script src="../premium-engine-v2/viewer-state.js"></script>
+  <script src="../premium-engine-v2/memory-provider.js"></script>
+  <script src="../shared/room-navigation.js"></script>
+  <script src="./campfire.js"></script>
+
+</body>
+</html>
