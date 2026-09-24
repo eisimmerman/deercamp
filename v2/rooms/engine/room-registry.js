@@ -46,8 +46,9 @@
       { id: "archives", label: "Archives", route: "../archives/index.html" },
       { id: "maps", label: "Maps", route: "../maps/index.html" },
       { id: "campfire", label: "CampFire", route: "../campfire/index.html" },
-      { id: "memory", label: "Memory & Voice", route: "../memory/index.html" },
+      { id: "memory", label: "Memories", route: "../memory/index.html" },
       { id: "campfeed", label: "CampFeed", route: "./index.html" }
     ]
   }
 };
+
