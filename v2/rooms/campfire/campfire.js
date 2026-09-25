@@ -773,7 +773,7 @@
 
       if (feedback) {
         feedback.textContent =
-          isMemory ? "Memory shared to CampFire." : "Conversation shared to CampFire.";
+          isMemory ? "Memory shared to CampFire. View it in Latest Conversations." : "Conversation shared to CampFire.";
       }
 
       if (titleInput) {
@@ -958,7 +958,7 @@
 
       if (feedback) {
         feedback.textContent =
-          "Photo shared to CampFire.";
+          "Photo shared to CampFire. View it in Photo Shares.";
       }
 
       if (fileInput) {
@@ -1200,7 +1200,7 @@
 
       if (feedback) {
         feedback.textContent =
-          "Voice story shared to CampFire.";
+          "Voice story shared to Voice Stories. View it there.";
       }
 
       if (titleInput) {
