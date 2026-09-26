@@ -1,4 +1,4 @@
-﻿(function () {
+(function () {
   "use strict";
 
   function byId(id) {
@@ -202,6 +202,101 @@
     );
   }
 
+  function getDriveIdentity(item, index) {
+    return firstNonEmpty(
+      item?.id,
+      item?.driveId,
+      item?.linkedItemId,
+      item?.title,
+      item?.driveName,
+      item?.name,
+      `drive-${index}`
+    ).toLowerCase();
+  }
+
+  function collectDriveMaps(camp) {
+    const sources = [
+      camp?.deerDrivePosts,
+      camp?.deerDrives,
+      camp?.savedDeerDrives,
+      camp?.scoutDeerDrives
+    ];
+
+    const seen = new Set();
+    const result = [];
+
+    sources.forEach(source => {
+      if (!Array.isArray(source)) return;
+
+      source.forEach((item, index) => {
+        if (!item || typeof item !== "object") return;
+
+        const identity = getDriveIdentity(item, index);
+
+        if (seen.has(identity)) return;
+
+        seen.add(identity);
+        result.push(item);
+      });
+    });
+
+    return result;
+  }
+
+  function getDriveImage(item) {
+    const summary =
+      item?.savedSummary &&
+      typeof item.savedSummary === "object"
+        ? item.savedSummary
+        : {};
+
+    return firstNonEmpty(
+      item?.imageUrl,
+      item?.thumbnailUrl,
+      item?.thumbUrl,
+      item?.mapImageUrl,
+      item?.detailImageUrl,
+      item?.originalMapImageUrl,
+      item?.firebaseUrl,
+      item?.storageUrl,
+      item?.downloadUrl,
+      item?.downloadURL,
+      summary?.imageUrl,
+      summary?.thumbnailUrl,
+      summary?.thumbUrl,
+      summary?.mapImageUrl,
+      summary?.detailImageUrl,
+      summary?.originalMapImageUrl,
+      summary?.firebaseUrl,
+      summary?.storageUrl,
+      summary?.downloadUrl,
+      summary?.downloadURL,
+      item?.image,
+      item?.thumbnail,
+      item?.detailImage,
+      item?.originalMapImage
+    );
+  }
+
+  function getDriveRoutes(item) {
+    const summary =
+      item?.savedSummary &&
+      typeof item.savedSummary === "object"
+        ? item.savedSummary
+        : {};
+
+    const candidates = [
+      item?.routeSummaries,
+      item?.routes,
+      item?.routePaths,
+      item?.driveRoutes,
+      item?.accessRoutes,
+      summary?.routeSummaries
+    ];
+
+    return candidates.find(value => Array.isArray(value)) || [];
+  }
+
   function openDialog(title, message, useHtml = false) {
     const dialog = byId("mapsDialog");
     const titleElement = byId("mapsDialogTitle");
@@ -349,6 +444,148 @@
     );
   }
 
+  async function openDriveMaps() {
+    openDialog(
+      "Drive Maps",
+      '<div class="maps-loading">Loading saved drive maps...</div>',
+      true
+    );
+
+    const camp = await getCampData();
+    const drives = collectDriveMaps(camp);
+
+    if (!drives.length) {
+      openDialog(
+        "Drive Maps",
+        '<div class="maps-empty">' +
+          '<strong>No drive maps saved yet.</strong>' +
+          '<p>Create and save a Deer Drive to make it available here.</p>' +
+        '</div>',
+        true
+      );
+      return;
+    }
+
+    const cards = drives.map(item => {
+      const summary =
+        item?.savedSummary &&
+        typeof item.savedSummary === "object"
+          ? item.savedSummary
+          : {};
+
+      const title = firstNonEmpty(
+        item?.title,
+        item?.driveName,
+        item?.name,
+        summary?.driveName,
+        "Saved Deer Drive"
+      );
+
+      const notes = firstNonEmpty(
+        item?.notes,
+        item?.body,
+        item?.description,
+        summary?.notes,
+        "Drive details available."
+      );
+
+      const wind = firstNonEmpty(
+        item?.windLabel,
+        item?.wind,
+        summary?.windLabel
+      );
+
+      const image = getDriveImage(item);
+      const routes = getDriveRoutes(item);
+
+      const routeSummary = routes
+        .slice(0, 4)
+        .map((route, index) => {
+          const routeName = firstNonEmpty(
+            route?.name,
+            route?.title,
+            `Route ${index + 1}`
+          );
+
+          const miles = Number(route?.miles);
+          const direction = firstNonEmpty(route?.direction);
+
+          const details = [
+            Number.isFinite(miles) && miles > 0
+              ? `${miles.toFixed(2)} mi`
+              : "",
+            direction
+          ].filter(Boolean).join(" • ");
+
+          return `
+            <div class="maps-drive-route">
+              <strong>${esc(routeName)}</strong>
+              ${details ? `<span>${esc(details)}</span>` : ""}
+            </div>
+          `;
+        })
+        .join("");
+
+      return `
+        <article class="maps-drive-card">
+          ${
+            image
+              ? `<img
+                   class="maps-drive-thumb"
+                   src="${esc(image)}"
+                   alt="${esc(title)}">`
+              : ""
+          }
+
+          <div class="maps-drive-copy">
+            <div class="maps-drive-kicker">Deer Drive</div>
+            <h3>${esc(title)}</h3>
+
+            ${
+              wind
+                ? `<div class="maps-drive-tags">
+                     <span>${esc(wind)}</span>
+                   </div>`
+                : ""
+            }
+
+            <p class="maps-drive-notes">${esc(notes)}</p>
+
+            ${
+              routes.length
+                ? `<div class="maps-drive-route-count">
+                     ${routes.length} saved route${routes.length === 1 ? "" : "s"}
+                   </div>`
+                : ""
+            }
+
+            ${
+              routeSummary
+                ? `<div class="maps-drive-routes">
+                     ${routeSummary}
+                   </div>`
+                : ""
+            }
+          </div>
+        </article>
+      `;
+    }).join("");
+
+    openDialog(
+      "Drive Maps",
+      `
+        <div class="maps-stand-summary">
+          ${drives.length} saved drive${drives.length === 1 ? "" : "s"}
+        </div>
+
+        <div class="maps-drive-list">
+          ${cards}
+        </div>
+      `,
+      true
+    );
+  }
+
   function closeDialog() {
     const dialog = byId("mapsDialog");
 
@@ -366,6 +603,11 @@
 
     if (actionId === "stand-maps") {
       await openStandMaps();
+      return;
+    }
+
+    if (actionId === "drive-maps") {
+      await openDriveMaps();
       return;
     }
 
