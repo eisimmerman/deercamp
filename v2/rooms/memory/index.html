@@ -1,0 +1,234 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Memories Room | DeerCamp V2</title>
+
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
+  <script src="../../../firebase-web.js"></script>
+
+  <link rel="stylesheet" href="../premium-engine-v2/premium-engine.css?v=20260927-memory2" />
+  <link rel="stylesheet" href="../premium-engine-v2/universal-viewer.css?v=20260927-memory2" />
+
+  <style>
+    .memories-room-panel {
+      min-height: 720px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      padding: 48px 24px 110px;
+      box-sizing: border-box;
+      background: linear-gradient(180deg,#21160d,#0c0906);
+      color: #f2dfba;
+      text-align: center;
+    }
+    .memories-room-panel h1 { margin: 0; font-size: clamp(38px,7vw,68px); }
+    .memories-room-panel p { max-width: 680px; margin: 0; font-size: 20px; line-height: 1.45; }
+    .memories-actions { display:flex; flex-wrap:wrap; justify-content:center; gap:14px; margin-top:12px; }
+    .memories-actions button {
+      min-height:48px;
+      padding:0 22px;
+      border:1px solid #d8aa5b;
+      border-radius:8px;
+      background:#2b1d10;
+      color:#f7e5c0;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .memories-status { min-height:24px; font-family:Arial,sans-serif; }
+    #premiumRoomArtwork { display:none; }
+
+    #premiumHotspotLayer {
+      pointer-events: none;
+    }
+
+    #premiumHotspotLayer .premium-v2-hotspot,
+    #premiumHotspotLayer .premium-v2-nav {
+      pointer-events: auto;
+    }
+
+    #premiumHotspotLayer {
+      pointer-events: none;
+    }
+
+    #premiumHotspotLayer .premium-v2-hotspot,
+    #premiumHotspotLayer .premium-v2-nav {
+      pointer-events: auto;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="premium-v2-shell">
+    <section class="premium-v2-stage" aria-label="DeerCamp Memories Room">
+      <img id="premiumRoomArtwork" class="premium-v2-artwork" alt="" />
+
+      <div class="memories-room-panel">
+        <h1>Memories Room</h1>
+        <p>Relive the stories, voices, and photos that make your deer camp yours.</p>
+
+        <div class="memories-actions">
+          <button type="button" data-memory-mode="latest">All Memories</button>
+          <button type="button" data-memory-mode="voice">Voice Stories</button>
+          <button type="button" data-memory-mode="photos">Photos</button>
+        </div>
+
+        <p id="memoriesStatus" class="memories-status" aria-live="polite"></p>
+      </div>
+
+      <div id="premiumHotspotLayer" class="premium-v2-hotspot-layer" aria-label="Memories Room navigation"></div>
+    </section>
+
+    <div class="premium-v2-identity">
+      <strong id="premiumCampName">Loading camp...</strong>
+      <span id="premiumCampLocation"></span>
+    </div>
+
+    <span id="premiumCampId" hidden></span>
+    <span id="premiumDataSource" hidden></span>
+    <span id="premiumFirebaseProject" hidden></span>
+  </main>
+
+  <dialog id="universalViewer" class="universal-viewer" aria-label="DeerCamp Memory Viewer">
+    <div class="memory-viewer-shell">
+      <header class="memory-viewer-header">
+        <div>
+          <p id="memoryViewerKicker" class="memory-viewer-kicker">MEMORIES ROOM</p>
+          <h2 id="memoryViewerCollectionTitle" class="memory-viewer-collection-title">DeerCamp Memories</h2>
+        </div>
+        <button id="universalViewerClose" class="universal-viewer-close" type="button">Close</button>
+      </header>
+
+      <div id="memoryViewerBody" class="memory-viewer-body">
+        <div id="memoryViewerEmpty" class="memory-viewer-empty" hidden></div>
+        <div id="memoryViewerContent" class="memory-viewer-content">
+          <section class="memory-viewer-hero-column">
+            <div id="memoryViewerHeroFrame" class="memory-viewer-hero-frame">
+              <img id="memoryViewerHero" class="memory-viewer-hero" alt="" hidden />
+              <div id="memoryViewerHeroPlaceholder" class="memory-viewer-hero-placeholder">DeerCamp memory</div>
+            </div>
+          </section>
+
+          <section class="memory-viewer-detail-column">
+            <h2 id="memoryViewerItemTitle" class="memory-viewer-item-title">Memory title</h2>
+            <p id="memoryViewerSubtitle" class="memory-viewer-subtitle"></p>
+            <div class="memory-viewer-byline">
+              <span id="memoryViewerAuthor"></span>
+              <span id="memoryViewerRoom"></span>
+              <span id="memoryViewerTimestamp"></span>
+            </div>
+
+            <section id="memoryViewerStewardActions" class="memory-viewer-section" hidden>
+              <button id="memoryViewerRemovePost" class="memory-viewer-nav-button" type="button">Remove Post</button>
+              <p id="memoryViewerRemoveFeedback" class="memory-viewer-comment-feedback" aria-live="polite"></p>
+            </section>
+
+            <section id="memoryViewerAudioSection" class="memory-viewer-section" hidden>
+              <h3>Listen</h3>
+              <audio id="memoryViewerAudio" class="memory-viewer-audio" controls preload="metadata"></audio>
+            </section>
+
+            <section id="memoryViewerTranscriptSection" class="memory-viewer-section">
+              <h3>Story</h3>
+              <p id="memoryViewerTranscript" class="memory-viewer-transcript"></p>
+            </section>
+
+            <section id="memoryViewerCommentsSection" class="memory-viewer-section">
+              <h3>Camp Comments</h3>
+              <div id="memoryViewerComments" class="memory-viewer-comments"></div>
+            </section>
+
+            <section id="memoryViewerTagsSection" class="memory-viewer-section" hidden>
+              <h3>Tags</h3>
+              <div id="memoryViewerTags" class="memory-viewer-tags"></div>
+            </section>
+
+            <section id="memoryViewerMetadataSection" class="memory-viewer-section" hidden>
+              <h3>Memory Details</h3>
+              <div id="memoryViewerMetadata" class="memory-viewer-metadata"></div>
+            </section>
+          </section>
+        </div>
+      </div>
+
+      <footer class="memory-viewer-footer">
+        <button id="memoryViewerPrevious" class="memory-viewer-nav-button" type="button">&#8592; Previous</button>
+        <span id="memoryViewerPosition" class="memory-viewer-position">1 of 1</span>
+        <button id="memoryViewerNext" class="memory-viewer-nav-button" type="button">Next &#8594;</button>
+      </footer>
+    </div>
+  </dialog>
+
+  <script src="./room-config.js?v=20260927-memory2"></script>
+  <script src="../premium-engine-v2/premium-engine.js?v=20260927-memory2"></script>
+  <script src="../premium-engine-v2/universal-viewer.js?v=20260927-memory2"></script>
+  <script src="../premium-engine-v2/firestore-adapter.js?v=20260927-memory2"></script>
+  <script src="../premium-engine-v2/viewer-state.js?v=20260927-memory2"></script>
+  <script src="../premium-engine-v2/memory-provider.js?v=20260927-memory2"></script>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const status = document.getElementById("memoriesStatus");
+
+      async function openMemories(mode) {
+        try {
+          const campId = window.DeerCampPremiumEngine.getCampId();
+
+          status.textContent = "Loading memories...";
+
+          const result = await window.DeerCampMemoryProvider.load({
+            campId: campId,
+            mode: mode,
+            limit: 100
+          });
+
+          if (!result.items.length) {
+            status.textContent = "No memories found in this view yet.";
+            return;
+          }
+
+          status.textContent = "";
+
+          window.DeerCampUniversalViewer.show({
+            kicker: "MEMORIES ROOM",
+            title: mode === "voice" ? "Voice Stories" : mode === "photos" ? "Photos" : "All Memories",
+            items: result.items,
+            selectedIndex: 0,
+            context: {
+              campId: campId,
+              source: result.source,
+              collection: result.collection
+            }
+          });
+        } catch (error) {
+          console.error("Memories Room load failed.", error);
+          status.textContent = error.message || "Memories could not be loaded.";
+        }
+      }
+
+      document.querySelectorAll("[data-memory-mode]").forEach(function (button) {
+        button.addEventListener("click", function () {
+          openMemories(button.dataset.memoryMode || "latest");
+        });
+      });
+
+      if (window.DeerCampUniversalViewer && typeof window.DeerCampUniversalViewer.initialize === "function") {
+        window.DeerCampUniversalViewer.initialize();
+      }
+
+      if (window.DeerCampPremiumEngine && typeof window.DeerCampPremiumEngine.initialize === "function") {
+        window.DeerCampPremiumEngine.initialize();
+      }
+    })();
+  </script>
+</body>
+</html>
+
+

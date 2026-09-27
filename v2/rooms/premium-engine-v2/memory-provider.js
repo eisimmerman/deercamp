@@ -162,6 +162,8 @@
       )
     );
 
+    await waitForAuthRestore();
+
     const firestore = getFirestore();
     const adapter = getAdapter();
 
