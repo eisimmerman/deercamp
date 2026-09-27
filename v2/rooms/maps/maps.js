@@ -515,7 +515,7 @@
               ? `${miles.toFixed(2)} mi`
               : "",
             direction
-          ].filter(Boolean).join(" • ");
+          ].filter(Boolean).join(" \u2022 ");
 
           return `
             <div class="maps-drive-route">
@@ -586,6 +586,305 @@
     );
   }
 
+  async function waitForMapsAuthUser(timeoutMs = 3500) {
+    const auth =
+      window.DeerCampAuth &&
+      typeof window.DeerCampAuth.ensureReady === "function"
+        ? window.DeerCampAuth.ensureReady()
+        : null;
+
+    if (!auth) {
+      return null;
+    }
+
+    if (auth.currentUser) {
+      return auth.currentUser;
+    }
+
+    return await new Promise(resolve => {
+      let settled = false;
+
+      const finish = user => {
+        if (settled) return;
+        settled = true;
+
+        try {
+          unsubscribe();
+        } catch (error) {}
+
+        resolve(user || auth.currentUser || null);
+      };
+
+      const unsubscribe = auth.onAuthStateChanged(user => {
+        if (user) {
+          finish(user);
+        }
+      });
+
+      setTimeout(() => {
+        finish(auth.currentUser || null);
+      }, timeoutMs);
+    });
+  }
+  async function openDeerAnalytics() {
+    openDialog(
+      "Deer Analytics Map",
+      '<div class="maps-loading">Loading deer analytics...</div>',
+      true
+    );
+
+    const campId = getActiveCampId();
+
+    if (!campId) {
+      openDialog(
+        "Deer Analytics Map",
+        '<div class="maps-empty"><strong>No active camp found.</strong></div>',
+        true
+      );
+      return;
+    }
+
+    if (
+      !window.firebase ||
+      typeof window.firebase.firestore !== "function"
+    ) {
+      openDialog(
+        "Deer Analytics Map",
+        '<div class="maps-empty"><strong>Firestore is unavailable.</strong></div>',
+        true
+      );
+      return;
+    }
+
+    try {
+      const authUser = await waitForMapsAuthUser();
+
+      if (!authUser) {
+        throw new Error("MAPS_AUTH_REQUIRED");
+      }
+
+      const camp = await getCampData();
+      const stands = collectStandMaps(camp);
+
+      const snapshot = await window.firebase
+        .firestore()
+        .collection("camps")
+        .doc(campId)
+        .collection("campStats")
+        .limit(250)
+        .get();
+
+      const records = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...(doc.data() || {})
+      }));
+
+      if (!records.length) {
+        openDialog(
+          "Deer Analytics Map",
+          '<div class="maps-empty">' +
+            '<strong>No deer-count records yet.</strong>' +
+            '<p>CampStatsMgr sightings will appear here after they are synced.</p>' +
+          '</div>',
+          true
+        );
+        return;
+      }
+
+      function normalizeName(value) {
+        return String(value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+      }
+
+      function findStand(record) {
+        const standId = String(record.standId || "").trim();
+
+        if (standId) {
+          const byId = stands.find(stand =>
+            [
+              stand.id,
+              stand.standId,
+              stand.linkedItemId
+            ].some(value =>
+              String(value || "").trim() === standId
+            )
+          );
+
+          if (byId) return byId;
+        }
+
+        const name = normalizeName(record.standName);
+
+        return stands.find(stand =>
+          [
+            stand.title,
+            stand.name,
+            stand.standName
+          ].some(value =>
+            normalizeName(value) === name
+          )
+        ) || null;
+      }
+
+      const groups = new Map();
+
+      records.forEach(record => {
+        const stand = findStand(record);
+
+        const key = firstNonEmpty(
+          record.standId,
+          record.standName,
+          "unknown-stand"
+        );
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            stand,
+            name: firstNonEmpty(
+              stand?.title,
+              stand?.name,
+              record.standName,
+              "Unknown Stand"
+            ),
+            buckAm: 0,
+            doeAm: 0,
+            buckPm: 0,
+            doePm: 0,
+            total: 0
+          });
+        }
+
+        const group = groups.get(key);
+        const count = Number(record.count || 1);
+
+        if (
+          ["buckAm", "doeAm", "buckPm", "doePm"]
+            .includes(record.statType)
+        ) {
+          group[record.statType] += count;
+        }
+
+        group.total += count;
+      });
+
+      const sortedGroups = Array
+        .from(groups.values())
+        .sort((a, b) => b.total - a.total);
+
+      const grandTotals = sortedGroups.reduce(
+        (totals, group) => {
+          totals.total += group.total;
+          totals.buckAm += group.buckAm;
+          totals.doeAm += group.doeAm;
+          totals.buckPm += group.buckPm;
+          totals.doePm += group.doePm;
+          return totals;
+        },
+        {
+          total: 0,
+          buckAm: 0,
+          doeAm: 0,
+          buckPm: 0,
+          doePm: 0
+        }
+      );
+
+      const cards = sortedGroups.map(group => {
+        const coords = group.stand
+          ? getCoordinates(group.stand)
+          : { valid: false };
+
+        const mapLink = coords.valid
+          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+              `${coords.lat},${coords.lng}`
+            )}`
+          : "";
+
+        return `
+          <article class="maps-stand-card">
+            <div class="maps-stand-copy">
+              <div class="maps-stand-kicker">
+                Deer Analytics
+              </div>
+
+              <h3>${esc(group.name)}</h3>
+
+              <div class="maps-stand-tags">
+                <span>Total ${group.total}</span>
+                <span>Buck AM ${group.buckAm}</span>
+                <span>Doe AM ${group.doeAm}</span>
+                <span>Buck PM ${group.buckPm}</span>
+                <span>Doe PM ${group.doePm}</span>
+              </div>
+
+              ${
+                coords.valid
+                  ? `
+                    <p class="maps-stand-coords">
+                      ${coords.lat.toFixed(5)},
+                      ${coords.lng.toFixed(5)}
+                    </p>
+
+                    <a
+                      class="maps-stand-open"
+                      href="${mapLink}"
+                      target="_blank"
+                      rel="noopener noreferrer">
+                      Open Map
+                    </a>
+                  `
+                  : `
+                    <span class="maps-stand-no-map">
+                      Stand location unavailable
+                    </span>
+                  `
+              }
+            </div>
+          </article>
+        `;
+      }).join("");
+
+      openDialog(
+        "Deer Analytics Map",
+        `
+          <div class="maps-stand-summary">
+            ${grandTotals.total} total sightings
+            &nbsp;|&nbsp;
+            Buck AM ${grandTotals.buckAm}
+            &nbsp;&#8226;&nbsp;
+            Doe AM ${grandTotals.doeAm}
+            &nbsp;&#8226;&nbsp;
+            Buck PM ${grandTotals.buckPm}
+            &nbsp;&#8226;&nbsp;
+            Doe PM ${grandTotals.doePm}
+          </div>
+
+          <div class="maps-stand-list">
+            ${cards}
+          </div>
+        `,
+        true
+      );
+
+    } catch (error) {
+      console.error(
+        "Maps: Deer Analytics load failed.",
+        error
+      );
+
+      openDialog(
+        "Deer Analytics Map",
+        '<div class="maps-empty">' +
+          '<strong>Deer analytics could not load.</strong>' +
+          '<p>Confirm you are signed in to this camp and try again.</p>' +
+        '</div>',
+        true
+      );
+    }
+  }
+
   function closeDialog() {
     const dialog = byId("mapsDialog");
 
@@ -608,6 +907,11 @@
 
     if (actionId === "drive-maps") {
       await openDriveMaps();
+      return;
+    }
+
+    if (actionId === "deer-analytics") {
+      await openDeerAnalytics();
       return;
     }
 
