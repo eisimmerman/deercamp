@@ -1,4 +1,4 @@
-﻿(function(){
+(function(){
   const cfg=window.ARCHIVE_ROOM_CONFIG||{routes:{},actions:{}};
   const viewer=window.DeerCampRoomModal?.create?.();
   const legacyChapters=[
@@ -1997,5 +1997,5 @@
     el.addEventListener('click',()=>launch(el.dataset.archiveAction));
   });
   window.DeerCampRoomNavigation?.init?.(document,cfg.routes);
-  window.DeerCampRoomHover?.init?.(document);
+  // Production room: floating demo tooltips disabled.
 })();
