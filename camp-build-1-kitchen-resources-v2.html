@@ -4750,7 +4750,13 @@ function setupMemoryDictation(){
 if(document.getElementById('updateType')){
   populateMemberSelects();
   document.getElementById('updateType').addEventListener('change',e=>{ stopMemoryDictation(); setUpdatePanel(e.target.value); });
-  setUpdatePanel('photo');
+  const requestedUpdateType = String(new URLSearchParams(window.location.search || '').get('updateType') || '').trim().toLowerCase();
+  const initialUpdateType = ['photo','memory','recipe','tradition'].includes(requestedUpdateType) ? requestedUpdateType : 'photo';
+  document.getElementById('updateType').value = initialUpdateType;
+  setUpdatePanel(initialUpdateType);
+  if(requestedUpdateType){
+    setTimeout(()=>scrollToSectionById('campupdate'), 150);
+  }
   setupMemoryDictation();
   const updateRole = getCurrentSecurityRole();
   if(updateRole === 'member'){

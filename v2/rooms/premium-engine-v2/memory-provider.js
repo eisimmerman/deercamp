@@ -117,6 +117,78 @@
       });
   }
 
+  function mergeMemorySources() {
+    const byKey = new Map();
+
+    Array.from(arguments).forEach(function (source) {
+      (Array.isArray(source) ? source : []).forEach(function (item) {
+        if (!item) return;
+
+        const sourceCollection = String(
+          item.source && item.source.collection || ""
+        ).trim();
+
+        const documentId = String(
+          item.source && item.source.documentId ||
+          item.id ||
+          ""
+        ).trim();
+
+        const key = documentId
+          ? sourceCollection + "|" + documentId
+          : [
+              item.title || "",
+              item.heroImage && item.heroImage.url || "",
+              item.createdAtMs || ""
+            ].join("|");
+
+        const existing = byKey.get(key);
+
+        if (
+          !existing ||
+          Number(item.createdAtMs || 0) >=
+            Number(existing.createdAtMs || 0)
+        ) {
+          byKey.set(key, item);
+        }
+      });
+    });
+
+    return sortNewestFirst(Array.from(byKey.values()));
+  }
+
+  function adaptSnapshot(snapshot, adapter, sourceCollection) {
+    const items = [];
+
+    if (!snapshot || typeof snapshot.forEach !== "function") {
+      return items;
+    }
+
+    snapshot.forEach(function (documentSnapshot) {
+      const data = documentSnapshot.data() || {};
+
+      if (data.published === false) return;
+
+      const item = adapter.adaptFeedItem(
+        documentSnapshot.id,
+        data
+      );
+
+      item.source = Object.assign(
+        {},
+        item.source || {},
+        {
+          collection: sourceCollection,
+          documentId: documentSnapshot.id
+        }
+      );
+
+      items.push(item);
+    });
+
+    return items;
+  }
+
   async function runPrimaryQuery(
     firestore,
     campId,
@@ -188,26 +260,41 @@
       );
     }
 
-    const items = [];
-
-    snapshot.forEach(function (documentSnapshot) {
-      const data =
-        documentSnapshot.data() || {};
-
-      if (data.published === false) {
-        return;
-      }
-
-      items.push(
-        adapter.adaptFeedItem(
-          documentSnapshot.id,
-          data
-        )
+    const topLevelItems =
+      adaptSnapshot(
+        snapshot,
+        adapter,
+        COLLECTION_NAME
       );
-    });
+
+    let legacySnapshot = null;
+
+    try {
+      legacySnapshot = await firestore
+        .collection("camps")
+        .doc(campId)
+        .collection("campfeed")
+        .limit(limitCount)
+        .get();
+    } catch (error) {
+      console.warn(
+        "Legacy CampFeed memories could not load.",
+        error
+      );
+    }
+
+    const legacyItems =
+      adaptSnapshot(
+        legacySnapshot,
+        adapter,
+        "camps/" + campId + "/campfeed"
+      );
 
     const sorted =
-      sortNewestFirst(items);
+      mergeMemorySources(
+        topLevelItems,
+        legacyItems
+      );
 
     const filtered =
       applyMode(

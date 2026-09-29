@@ -7,6 +7,7 @@
 
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
   <script src="../../../firebase-web.js"></script>
 
@@ -41,7 +42,59 @@
       cursor:pointer;
     }
     .memories-status { min-height:24px; font-family:Arial,sans-serif; }
-    #premiumRoomArtwork { display:none; }
+    #premiumRoomArtwork {
+      display:block;
+      width:100%;
+      height:auto;
+      max-width:none;
+      max-height:none;
+      object-fit:contain;
+    }
+
+    .memories-room-panel {
+      display:none !important;
+    }
+
+    html,
+    body {
+      width:100%;
+      height:auto;
+      min-height:100%;
+      overflow-x:hidden;
+      overflow-y:auto;
+      background:#080604;
+    }
+
+    .premium-v2-shell {
+      width:min(1100px,82vw);
+      height:auto;
+      min-height:0;
+      margin:0 auto;
+      padding:18px 0 24px;
+      overflow:visible;
+    }
+
+    .premium-v2-stage {
+      position:relative;
+      display:block;
+      width:100%;
+      height:auto;
+      max-width:none;
+      max-height:none;
+      overflow:visible;
+    }
+
+    .premium-v2-identity {
+      display:none;
+    }
+
+    @media (max-width:700px) {
+      .premium-v2-shell {
+        width:calc(100vw - 12px);
+        margin:0 auto;
+        padding:6px 0 12px;
+      }
+    }
 
     #premiumHotspotLayer {
       pointer-events: none;
@@ -59,6 +112,115 @@
     #premiumHotspotLayer .premium-v2-hotspot,
     #premiumHotspotLayer .premium-v2-nav {
       pointer-events: auto;
+    }
+  
+    .memory-share-dialog {
+      width:min(820px, calc(100% - 24px));
+      height:auto;
+      max-height:90vh;
+    }
+
+    .memory-share-dialog .memory-viewer-shell {
+      min-height:min(620px, 86vh);
+      height:auto;
+    }
+
+    .memory-share-form-grid {
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:18px;
+    }
+
+    .memory-share-field {
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      color:#efc77f;
+      font-family:Arial,sans-serif;
+      font-size:.78rem;
+      font-weight:900;
+      letter-spacing:.06em;
+      text-transform:uppercase;
+    }
+
+    .memory-share-wide {
+      grid-column:1 / -1;
+    }
+
+    .memory-share-field input,
+    .memory-share-field textarea {
+      box-sizing:border-box;
+      width:100%;
+      border:1px solid rgba(232,190,119,.34);
+      border-radius:12px;
+      background:rgba(255,255,255,.055);
+      color:#f5e5c8;
+      padding:12px 14px;
+      font:600 1rem/1.45 Arial,sans-serif;
+      text-transform:none;
+      letter-spacing:normal;
+      outline:none;
+    }
+
+    .memory-share-field input:focus,
+    .memory-share-field textarea:focus {
+      border-color:#efc77f;
+      box-shadow:0 0 0 2px rgba(239,199,127,.12);
+    }
+
+    .memory-share-field input[readonly] {
+      opacity:.78;
+    }
+
+    .memory-share-field input[type="file"] {
+      cursor:pointer;
+    }
+
+    .memory-share-field textarea {
+      min-height:170px;
+      resize:vertical;
+    }
+
+    .memory-share-feedback {
+      min-height:22px;
+      margin:0;
+      color:#f5e5c8;
+      font:700 .9rem/1.4 Arial,sans-serif;
+    }
+
+    .memory-share-feedback[data-error="true"] {
+      color:#ffd0c8;
+    }
+
+    .memory-share-submit {
+      justify-self:end;
+      border-color:rgba(232,190,119,.7);
+      background:rgba(201,151,67,.16);
+    }
+
+    .memory-share-submit:disabled {
+      cursor:wait;
+      opacity:.58;
+    }
+
+    @media (max-width:760px) {
+      .memory-share-dialog {
+        width:calc(100% - 10px);
+        max-height:94vh;
+      }
+
+      .memory-share-dialog .memory-viewer-shell {
+        min-height:90vh;
+      }
+
+      .memory-share-form-grid {
+        grid-template-columns:1fr;
+        gap:14px;
+      }
+
+      .memory-share-wide {
+        grid-column:auto;
+      }
     }
   </style>
 </head>
@@ -94,6 +256,49 @@
     <span id="premiumFirebaseProject" hidden></span>
   </main>
 
+  <dialog id="memoryShareDialog" class="universal-viewer memory-share-dialog" aria-label="Share a DeerCamp Memory">
+    <form id="memoryShareForm" class="memory-viewer-shell">
+      <header class="memory-viewer-header">
+        <div>
+          <p class="memory-viewer-kicker">MEMORIES ROOM</p>
+          <h2 id="memoryShareTitle" class="memory-viewer-collection-title">Share Photo</h2>
+        </div>
+        <button id="memoryShareClose" class="universal-viewer-close" type="button">Close</button>
+      </header>
+
+      <div class="memory-viewer-body">
+        <div class="memory-share-form-grid">
+          <label class="memory-share-field">
+            <span>Submitted By</span>
+            <input id="memoryShareMember" type="text" readonly />
+          </label>
+
+          <label class="memory-share-field">
+            <span id="memoryShareTitleLabel">Picture Title</span>
+            <input id="memorySharePostTitle" type="text" maxlength="120" required />
+          </label>
+
+          <label class="memory-share-field memory-share-wide">
+            <span id="memoryShareFileLabel">Picture</span>
+            <input id="memoryShareFile" type="file" accept="image/*" required />
+          </label>
+
+          <label id="memoryShareBodyField" class="memory-share-field memory-share-wide">
+            <span id="memoryShareBodyLabel">Caption</span>
+            <textarea id="memoryShareBody" rows="7" maxlength="5000" placeholder="Add the story behind this memory..."></textarea>
+          </label>
+
+          <p id="memoryShareFeedback" class="memory-share-feedback memory-share-wide" aria-live="polite"></p>
+        </div>
+      </div>
+
+      <footer class="memory-viewer-footer">
+        <button id="memoryShareCancel" class="memory-viewer-nav-button" type="button">Cancel</button>
+        <span></span>
+        <button id="memoryShareSubmit" class="memory-viewer-nav-button memory-share-submit" type="submit">Share Photo</button>
+      </footer>
+    </form>
+  </dialog>
   <dialog id="universalViewer" class="universal-viewer" aria-label="DeerCamp Memory Viewer">
     <div class="memory-viewer-shell">
       <header class="memory-viewer-header">
@@ -189,11 +394,6 @@
             limit: 100
           });
 
-          if (!result.items.length) {
-            status.textContent = "No memories found in this view yet.";
-            return;
-          }
-
           status.textContent = "";
 
           window.DeerCampUniversalViewer.show({
@@ -213,6 +413,298 @@
         }
       }
 
+      const shareDialog = document.getElementById("memoryShareDialog");
+      const shareForm = document.getElementById("memoryShareForm");
+      const shareTitle = document.getElementById("memoryShareTitle");
+      const shareTitleLabel = document.getElementById("memoryShareTitleLabel");
+      const sharePostTitle = document.getElementById("memorySharePostTitle");
+      const shareFile = document.getElementById("memoryShareFile");
+      const shareFileLabel = document.getElementById("memoryShareFileLabel");
+      const shareBody = document.getElementById("memoryShareBody");
+      const shareBodyLabel = document.getElementById("memoryShareBodyLabel");
+      const shareMember = document.getElementById("memoryShareMember");
+      const shareFeedback = document.getElementById("memoryShareFeedback");
+      const shareSubmit = document.getElementById("memoryShareSubmit");
+      let shareMode = "photo";
+
+      function currentFirebaseUser() {
+        try {
+          return firebase.auth().currentUser || null;
+        } catch (error) {
+          return null;
+        }
+      }
+
+      function setShareFeedback(message, isError) {
+        shareFeedback.textContent = message || "";
+        shareFeedback.dataset.error = isError ? "true" : "false";
+      }
+
+      function closeShareDialog() {
+        if (shareDialog && shareDialog.open) {
+          shareDialog.close();
+        }
+      }
+
+      function openShareDialog(mode) {
+        shareMode = mode === "memory" ? "memory" : "photo";
+        shareForm.reset();
+        setShareFeedback("", false);
+
+        const user = currentFirebaseUser();
+        shareMember.value = user
+          ? (user.displayName || user.email || "DeerCamp Member")
+          : "Checking sign-in...";
+
+        if (!user && window.firebase && firebase.auth) {
+          const stopWatchingAuth = firebase.auth().onAuthStateChanged(function (resolvedUser) {
+            shareMember.value = resolvedUser
+              ? (resolvedUser.displayName || resolvedUser.email || "DeerCamp Member")
+              : "Sign-in required";
+
+            if (typeof stopWatchingAuth === "function") {
+              stopWatchingAuth();
+            }
+          });
+        }
+
+        if (shareMode === "photo") {
+          shareTitle.textContent = "Share Photo";
+          shareTitleLabel.textContent = "Picture Title";
+          shareFileLabel.textContent = "Picture";
+          shareBodyLabel.textContent = "Caption";
+          shareBody.placeholder = "Add the story behind this photo...";
+          shareFile.required = true;
+          shareSubmit.textContent = "Share Photo";
+        } else {
+          shareTitle.textContent = "Write Camp Story";
+          shareTitleLabel.textContent = "Story Title";
+          shareFileLabel.textContent = "Optional Picture";
+          shareBodyLabel.textContent = "Story";
+          shareBody.placeholder = "Write your camp story...";
+          shareFile.required = false;
+          shareSubmit.textContent = "Share Story";
+        }
+
+        shareBody.required = shareMode === "memory";
+        shareDialog.showModal();
+        setTimeout(function () {
+          sharePostTitle.focus();
+        }, 50);
+      }
+
+      async function uploadShareImage(file, campId, entityId) {
+        if (!file) return null;
+
+        if (
+          !window.DeerCampStorage ||
+          typeof window.DeerCampStorage.uploadCampImageFilePair !== "function"
+        ) {
+          throw new Error("DeerCamp image storage is not available.");
+        }
+
+        const uploaded = await window.DeerCampStorage.uploadCampImageFilePair({
+          campId: campId,
+          folder: "campfeed",
+          entityId: entityId,
+          file: file,
+          targets: {
+            display: {
+              maxSize: 1400,
+              quality: 0.78,
+              maxBytes: 320000
+            },
+            thumb: {
+              maxSize: 480,
+              quality: 0.68,
+              maxBytes: 80000
+            }
+          }
+        });
+
+        if (!uploaded || !(uploaded.displayUrl || uploaded.thumbUrl)) {
+          throw new Error("The picture upload did not return a usable image.");
+        }
+
+        return uploaded;
+      }
+
+      async function submitMemoryShare(event) {
+        event.preventDefault();
+
+        const user = currentFirebaseUser();
+        const campId = window.DeerCampPremiumEngine.getCampId();
+        const title = String(sharePostTitle.value || "").trim();
+        const body = String(shareBody.value || "").trim();
+        const file = shareFile.files && shareFile.files[0]
+          ? shareFile.files[0]
+          : null;
+
+        if (!user) {
+          setShareFeedback("Sign in to DeerCamp before sharing a memory.", true);
+          return;
+        }
+
+        if (!campId) {
+          setShareFeedback("The camp could not be identified.", true);
+          return;
+        }
+
+        if (!title) {
+          setShareFeedback("Add a title before sharing.", true);
+          return;
+        }
+
+        if (shareMode === "photo" && !file) {
+          setShareFeedback("Choose a picture before sharing.", true);
+          return;
+        }
+
+        if (shareMode === "memory" && !body) {
+          setShareFeedback("Write the camp story before sharing.", true);
+          return;
+        }
+
+        shareSubmit.disabled = true;
+        setShareFeedback(
+          shareMode === "photo"
+            ? "Uploading and sharing photo..."
+            : "Sharing camp story...",
+          false
+        );
+
+        try {
+          const createdAtMs = Date.now();
+          const entityId =
+            (shareMode === "photo" ? "photo-" : "memory-") +
+            createdAtMs;
+
+          const uploaded = file
+            ? await uploadShareImage(file, campId, entityId)
+            : null;
+
+          const authorName =
+            user.displayName ||
+            user.email ||
+            "DeerCamp Member";
+
+          const item = {
+            campId: campId,
+            authorId: user.uid,
+            author: authorName,
+            authorName: authorName,
+            authorEmail: user.email || "",
+            source: "app",
+            sourceRoom: "Memories Room",
+            room: "Memories Room",
+            published: true,
+            title: title,
+            mediaType: shareMode === "photo" ? "photo" : "memory",
+            type: shareMode === "photo" ? "photo" : "memory",
+            body: body,
+            story: body,
+            caption: shareMode === "photo" ? body : "",
+            tags: shareMode === "photo"
+              ? ["Picture", "CampUpdate"]
+              : uploaded
+                ? ["Memory / Story", "Picture", "CampUpdate"]
+                : ["Memory / Story", "CampUpdate"],
+            comments: [],
+            createdAt: new Date(createdAtMs).toISOString(),
+            createdAtMs: createdAtMs,
+            clientCreatedAt: new Date(createdAtMs).toISOString(),
+            platform: "web"
+          };
+
+          if (uploaded) {
+            item.imageUrl =
+              uploaded.displayUrl ||
+              uploaded.thumbUrl ||
+              "";
+            item.displayUrl =
+              uploaded.displayUrl ||
+              uploaded.thumbUrl ||
+              "";
+            item.thumbUrl =
+              uploaded.thumbUrl ||
+              uploaded.displayUrl ||
+              "";
+            item.storagePath =
+              uploaded.displayPath ||
+              "";
+            item.thumbPath =
+              uploaded.thumbPath ||
+              "";
+            item.storageProvider =
+              uploaded.storageProvider ||
+              "firebase";
+          }
+
+          await firebase
+            .firestore()
+            .collection("feedItems")
+            .doc(entityId)
+            .set(item);
+
+          setShareFeedback(
+            shareMode === "photo"
+              ? "Photo shared to DeerCamp."
+              : "Camp story shared to DeerCamp.",
+            false
+          );
+
+          setTimeout(function () {
+            closeShareDialog();
+            openMemories(shareMode === "photo" ? "photos" : "latest");
+          }, 500);
+        } catch (error) {
+          console.error("Memories Room share failed.", error);
+          setShareFeedback(
+            error && error.message
+              ? error.message
+              : "This memory could not be shared. Please try again.",
+            true
+          );
+        } finally {
+          shareSubmit.disabled = false;
+        }
+      }
+
+      document.getElementById("memoryShareClose").addEventListener("click", closeShareDialog);
+      document.getElementById("memoryShareCancel").addEventListener("click", closeShareDialog);
+      shareForm.addEventListener("submit", submitMemoryShare);
+
+      shareDialog.addEventListener("click", function (event) {
+        if (event.target === shareDialog) {
+          closeShareDialog();
+        }
+      });
+
+      document.addEventListener("deercamp:premium-action", function (event) {
+        const detail = event.detail || {};
+
+        if (detail.type === "view") {
+          openMemories(detail.action || "latest");
+          return;
+        }
+
+        if (detail.type !== "create") return;
+
+        if (detail.action === "photo-memory") {
+          openShareDialog("photo");
+          return;
+        }
+
+        if (detail.action === "camp-story") {
+          openShareDialog("memory");
+          return;
+        }
+
+        if (detail.action === "voice-memory") {
+          status.textContent = "Voice Memory recording is not available from this room yet.";
+        }
+      });
+
       document.querySelectorAll("[data-memory-mode]").forEach(function (button) {
         button.addEventListener("click", function () {
           openMemories(button.dataset.memoryMode || "latest");
@@ -230,5 +722,8 @@
   </script>
 </body>
 </html>
+
+
+
 
 
