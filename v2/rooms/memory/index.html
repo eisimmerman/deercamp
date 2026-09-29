@@ -122,7 +122,18 @@
 
     .memory-share-dialog .memory-viewer-shell {
       min-height:min(620px, 86vh);
-      height:auto;
+      height:min(86vh, 820px);
+      max-height:86vh;
+      overflow:hidden;
+    }
+
+    .memory-share-dialog .memory-viewer-body {
+      min-height:0;
+      overflow-y:auto;
+    }
+
+    .memory-share-dialog .memory-viewer-footer {
+      flex:0 0 auto;
     }
 
     .memory-share-form-grid {
@@ -288,6 +299,17 @@
             <textarea id="memoryShareBody" rows="7" maxlength="5000" placeholder="Add the story behind this memory..."></textarea>
           </label>
 
+          <section id="memoryVoiceRecorder" class="memory-share-field memory-share-wide" hidden>
+            <span>Voice Recording</span>
+            <div class="memory-voice-controls">
+              <button id="memoryVoiceRecord" class="memory-viewer-nav-button" type="button">Start Recording</button>
+              <button id="memoryVoiceStop" class="memory-viewer-nav-button" type="button" disabled>Stop</button>
+              <span id="memoryVoiceTimer" aria-live="polite">0:00</span>
+            </div>
+            <audio id="memoryVoicePreview" class="memory-viewer-audio" controls preload="metadata" hidden></audio>
+            <p id="memoryVoiceStatus" class="memory-share-feedback" aria-live="polite">Record a voice memory, then preview it before sharing.</p>
+          </section>
+
           <p id="memoryShareFeedback" class="memory-share-feedback memory-share-wide" aria-live="polite"></p>
         </div>
       </div>
@@ -425,7 +447,23 @@
       const shareMember = document.getElementById("memoryShareMember");
       const shareFeedback = document.getElementById("memoryShareFeedback");
       const shareSubmit = document.getElementById("memoryShareSubmit");
+      const voiceRecorderPanel = document.getElementById("memoryVoiceRecorder");
+      const voiceRecordButton = document.getElementById("memoryVoiceRecord");
+      const voiceStopButton = document.getElementById("memoryVoiceStop");
+      const voiceTimer = document.getElementById("memoryVoiceTimer");
+      const voicePreview = document.getElementById("memoryVoicePreview");
+      const voiceStatus = document.getElementById("memoryVoiceStatus");
+
       let shareMode = "photo";
+      let voiceMediaRecorder = null;
+      let voiceMediaStream = null;
+      let voiceChunks = [];
+      let voiceBlob = null;
+      let voicePreviewUrl = "";
+      let voiceStartedAt = 0;
+      let voiceDurationMs = 0;
+      let voiceTimerHandle = null;
+      let voiceRecordingGeneration = 0;
 
       function currentFirebaseUser() {
         try {
@@ -440,16 +478,79 @@
         shareFeedback.dataset.error = isError ? "true" : "false";
       }
 
+      function formatVoiceDuration(milliseconds) {
+        const totalSeconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = String(totalSeconds % 60).padStart(2, "0");
+        return minutes + ":" + seconds;
+      }
+
+      function stopVoiceTracks() {
+        if (voiceMediaStream) {
+          voiceMediaStream.getTracks().forEach(function (track) {
+            track.stop();
+          });
+        }
+        voiceMediaStream = null;
+      }
+
+      function clearVoiceTimer() {
+        if (voiceTimerHandle) {
+          clearInterval(voiceTimerHandle);
+          voiceTimerHandle = null;
+        }
+      }
+
+      function resetVoiceRecorder() {
+        voiceRecordingGeneration += 1;
+        clearVoiceTimer();
+
+        if (voiceMediaRecorder && voiceMediaRecorder.state !== "inactive") {
+          try {
+            voiceMediaRecorder.stop();
+          } catch (error) {
+            console.warn("Voice recorder could not be stopped during reset.", error);
+          }
+        }
+
+        stopVoiceTracks();
+        voiceMediaRecorder = null;
+        voiceChunks = [];
+        voiceBlob = null;
+        voiceStartedAt = 0;
+        voiceDurationMs = 0;
+
+        if (voicePreviewUrl) {
+          URL.revokeObjectURL(voicePreviewUrl);
+          voicePreviewUrl = "";
+        }
+
+        voiceTimer.textContent = "0:00";
+        voicePreview.removeAttribute("src");
+        voicePreview.hidden = true;
+        voiceRecordButton.disabled = false;
+        voiceStopButton.disabled = true;
+        voiceStatus.textContent = "Record a voice memory, then preview it before sharing.";
+      }
+
       function closeShareDialog() {
+        resetVoiceRecorder();
         if (shareDialog && shareDialog.open) {
           shareDialog.close();
         }
       }
 
       function openShareDialog(mode) {
-        shareMode = mode === "memory" ? "memory" : "photo";
+        shareMode = mode === "voice"
+          ? "voice"
+          : mode === "memory"
+            ? "memory"
+            : "photo";
+
+        resetVoiceRecorder();
         shareForm.reset();
         setShareFeedback("", false);
+        voiceRecorderPanel.hidden = shareMode !== "voice";
 
         const user = currentFirebaseUser();
         shareMember.value = user
@@ -468,6 +569,10 @@
           });
         }
 
+        const shareFileField = shareFile.closest("label");
+        shareFileField.hidden = shareMode === "voice";
+        shareFileField.style.display = shareMode === "voice" ? "none" : "";
+
         if (shareMode === "photo") {
           shareTitle.textContent = "Share Photo";
           shareTitleLabel.textContent = "Picture Title";
@@ -475,7 +580,16 @@
           shareBodyLabel.textContent = "Caption";
           shareBody.placeholder = "Add the story behind this photo...";
           shareFile.required = true;
+          shareBody.required = false;
           shareSubmit.textContent = "Share Photo";
+        } else if (shareMode === "voice") {
+          shareTitle.textContent = "Record Voice Memory";
+          shareTitleLabel.textContent = "Memory Title";
+          shareBodyLabel.textContent = "Story / Notes";
+          shareBody.placeholder = "Optional notes about this voice memory...";
+          shareFile.required = false;
+          shareBody.required = false;
+          shareSubmit.textContent = "Share Voice Memory";
         } else {
           shareTitle.textContent = "Write Camp Story";
           shareTitleLabel.textContent = "Story Title";
@@ -483,14 +597,120 @@
           shareBodyLabel.textContent = "Story";
           shareBody.placeholder = "Write your camp story...";
           shareFile.required = false;
+          shareBody.required = true;
           shareSubmit.textContent = "Share Story";
         }
-
-        shareBody.required = shareMode === "memory";
         shareDialog.showModal();
         setTimeout(function () {
           sharePostTitle.focus();
         }, 50);
+      }
+
+      function chooseVoiceMimeType() {
+        if (!window.MediaRecorder || typeof MediaRecorder.isTypeSupported !== "function") {
+          return "";
+        }
+
+        const candidates = [
+          "audio/webm;codecs=opus",
+          "audio/webm",
+          "audio/mp4",
+          "audio/ogg;codecs=opus"
+        ];
+
+        return candidates.find(function (type) {
+          return MediaRecorder.isTypeSupported(type);
+        }) || "";
+      }
+
+      async function startVoiceRecording() {
+        setShareFeedback("", false);
+
+        if (
+          !navigator.mediaDevices ||
+          typeof navigator.mediaDevices.getUserMedia !== "function" ||
+          !window.MediaRecorder
+        ) {
+          voiceStatus.textContent = "Voice recording is not supported by this browser.";
+          setShareFeedback("Voice recording is not supported by this browser.", true);
+          return;
+        }
+
+        resetVoiceRecorder();
+
+        try {
+          voiceStatus.textContent = "Requesting microphone access...";
+          voiceMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+          const mimeType = chooseVoiceMimeType();
+          const recordingGeneration = voiceRecordingGeneration;
+          voiceMediaRecorder = mimeType
+            ? new MediaRecorder(voiceMediaStream, { mimeType: mimeType })
+            : new MediaRecorder(voiceMediaStream);
+
+          voiceChunks = [];
+          voiceStartedAt = Date.now();
+
+          voiceMediaRecorder.addEventListener("dataavailable", function (event) {
+            if (event.data && event.data.size > 0) {
+              voiceChunks.push(event.data);
+            }
+          });
+
+          voiceMediaRecorder.addEventListener("stop", function () {
+            if (recordingGeneration !== voiceRecordingGeneration) return;
+            clearVoiceTimer();
+            voiceDurationMs = Math.max(0, Date.now() - voiceStartedAt);
+            stopVoiceTracks();
+
+            const recordedType =
+              voiceMediaRecorder && voiceMediaRecorder.mimeType
+                ? voiceMediaRecorder.mimeType
+                : (mimeType || "audio/webm");
+
+            voiceBlob = new Blob(voiceChunks, { type: recordedType });
+            voiceChunks = [];
+
+            if (voicePreviewUrl) {
+              URL.revokeObjectURL(voicePreviewUrl);
+            }
+
+            voicePreviewUrl = URL.createObjectURL(voiceBlob);
+            voicePreview.src = voicePreviewUrl;
+            voicePreview.hidden = false;
+            voiceTimer.textContent = formatVoiceDuration(voiceDurationMs);
+            voiceRecordButton.disabled = false;
+            voiceStopButton.disabled = true;
+            voiceStatus.textContent = voiceBlob.size
+              ? "Recording ready. Preview it, then share when satisfied."
+              : "No audio was captured. Please record again.";
+          });
+
+          voiceMediaRecorder.start(250);
+          voiceRecordButton.disabled = true;
+          voiceStopButton.disabled = false;
+          voiceStatus.textContent = "Recording...";
+
+          voiceTimerHandle = setInterval(function () {
+            voiceTimer.textContent = formatVoiceDuration(Date.now() - voiceStartedAt);
+          }, 250);
+        } catch (error) {
+          console.error("Voice recording could not start.", error);
+          clearVoiceTimer();
+          stopVoiceTracks();
+          voiceMediaRecorder = null;
+          voiceRecordButton.disabled = false;
+          voiceStopButton.disabled = true;
+          voiceStatus.textContent = "Microphone access was unavailable. Check browser permission and try again.";
+          setShareFeedback("Could not access the microphone.", true);
+        }
+      }
+
+      function stopVoiceRecording() {
+        if (voiceMediaRecorder && voiceMediaRecorder.state !== "inactive") {
+          voiceStatus.textContent = "Finishing recording...";
+          voiceMediaRecorder.stop();
+        }
       }
 
       async function uploadShareImage(file, campId, entityId) {
@@ -529,6 +749,47 @@
         return uploaded;
       }
 
+      async function uploadVoiceMemory(blob, campId, userId, entityId) {
+        if (!blob || !blob.size) {
+          throw new Error("Record a voice memory before sharing.");
+        }
+
+        if (
+          !window.DeerCampStorage ||
+          typeof window.DeerCampStorage.uploadBlob !== "function"
+        ) {
+          throw new Error("DeerCamp voice storage is not available.");
+        }
+
+        const contentType = String(blob.type || "audio/webm").toLowerCase();
+        const extension = contentType.includes("mp4")
+          ? "m4a"
+          : contentType.includes("ogg")
+            ? "ogg"
+            : "webm";
+
+        const path =
+          "feed/" +
+          campId +
+          "/" +
+          userId +
+          "/" +
+          entityId +
+          "/voice." +
+          extension;
+
+        return window.DeerCampStorage.uploadBlob(path, blob, {
+          contentType: blob.type || "audio/webm",
+          customMetadata: {
+            campId: campId,
+            authorId: userId,
+            memoryId: entityId,
+            sourceRoom: "Memories Room",
+            mediaType: "voice"
+          }
+        });
+      }
+
       async function submitMemoryShare(event) {
         event.preventDefault();
 
@@ -565,22 +826,37 @@
           return;
         }
 
+        if (shareMode === "voice" && (!voiceBlob || !voiceBlob.size)) {
+          setShareFeedback("Record a voice memory before sharing.", true);
+          return;
+        }
+
         shareSubmit.disabled = true;
         setShareFeedback(
           shareMode === "photo"
             ? "Uploading and sharing photo..."
-            : "Sharing camp story...",
+            : shareMode === "voice"
+              ? "Uploading and sharing voice memory..."
+              : "Sharing camp story...",
           false
         );
 
         try {
           const createdAtMs = Date.now();
           const entityId =
-            (shareMode === "photo" ? "photo-" : "memory-") +
+            (shareMode === "photo"
+              ? "photo-"
+              : shareMode === "voice"
+                ? "voice-"
+                : "memory-") +
             createdAtMs;
 
-          const uploaded = file
+          const uploaded = shareMode !== "voice" && file
             ? await uploadShareImage(file, campId, entityId)
+            : null;
+
+          const uploadedVoice = shareMode === "voice"
+            ? await uploadVoiceMemory(voiceBlob, campId, user.uid, entityId)
             : null;
 
           const authorName =
@@ -599,16 +875,26 @@
             room: "Memories Room",
             published: true,
             title: title,
-            mediaType: shareMode === "photo" ? "photo" : "memory",
-            type: shareMode === "photo" ? "photo" : "memory",
+            mediaType: shareMode === "photo"
+              ? "photo"
+              : shareMode === "voice"
+                ? "voice"
+                : "memory",
+            type: shareMode === "photo"
+              ? "photo"
+              : shareMode === "voice"
+                ? "voice"
+                : "memory",
             body: body,
             story: body,
             caption: shareMode === "photo" ? body : "",
             tags: shareMode === "photo"
               ? ["Picture", "CampUpdate"]
-              : uploaded
-                ? ["Memory / Story", "Picture", "CampUpdate"]
-                : ["Memory / Story", "CampUpdate"],
+              : shareMode === "voice"
+                ? ["Voice Memory", "CampUpdate"]
+                : uploaded
+                  ? ["Memory / Story", "Picture", "CampUpdate"]
+                  : ["Memory / Story", "CampUpdate"],
             comments: [],
             createdAt: new Date(createdAtMs).toISOString(),
             createdAtMs: createdAtMs,
@@ -640,6 +926,21 @@
               "firebase";
           }
 
+          if (uploadedVoice) {
+            item.audioUrl = uploadedVoice.url || "";
+            item.voiceUrl = uploadedVoice.url || "";
+            item.audioDurationMs = voiceDurationMs;
+            item.voiceDurationMs = voiceDurationMs;
+            item.audioContentType =
+              uploadedVoice.contentType ||
+              voiceBlob.type ||
+              "audio/webm";
+            item.voiceContentType = item.audioContentType;
+            item.audioStoragePath = uploadedVoice.path || "";
+            item.voiceStoragePath = uploadedVoice.path || "";
+            item.storageProvider = "firebase";
+          }
+
           await firebase
             .firestore()
             .collection("feedItems")
@@ -649,13 +950,21 @@
           setShareFeedback(
             shareMode === "photo"
               ? "Photo shared to DeerCamp."
-              : "Camp story shared to DeerCamp.",
+              : shareMode === "voice"
+                ? "Voice memory shared to DeerCamp."
+                : "Camp story shared to DeerCamp.",
             false
           );
 
           setTimeout(function () {
             closeShareDialog();
-            openMemories(shareMode === "photo" ? "photos" : "latest");
+            openMemories(
+              shareMode === "photo"
+                ? "photos"
+                : shareMode === "voice"
+                  ? "voice"
+                  : "latest"
+            );
           }, 500);
         } catch (error) {
           console.error("Memories Room share failed.", error);
@@ -673,6 +982,8 @@
       document.getElementById("memoryShareClose").addEventListener("click", closeShareDialog);
       document.getElementById("memoryShareCancel").addEventListener("click", closeShareDialog);
       shareForm.addEventListener("submit", submitMemoryShare);
+      voiceRecordButton.addEventListener("click", startVoiceRecording);
+      voiceStopButton.addEventListener("click", stopVoiceRecording);
 
       shareDialog.addEventListener("click", function (event) {
         if (event.target === shareDialog) {
@@ -701,7 +1012,8 @@
         }
 
         if (detail.action === "voice-memory") {
-          status.textContent = "Voice Memory recording is not available from this room yet.";
+          openShareDialog("voice");
+          return;
         }
       });
 
