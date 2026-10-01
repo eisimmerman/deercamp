@@ -215,7 +215,104 @@
     );
   }
 
+  function renderCampFeedStats() {
+    const entries =
+      mergeFeedSources(
+        topLevelEntries,
+        legacyEntries
+      );
+
+    const now = new Date();
+
+    const todayStart =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      ).getTime();
+
+    const weekStartDate =
+      new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+
+    const daysSinceMonday =
+      (weekStartDate.getDay() + 6) % 7;
+
+    weekStartDate.setDate(
+      weekStartDate.getDate() - daysSinceMonday
+    );
+
+    const weekStart =
+      weekStartDate.getTime();
+
+    let conversations = 0;
+    let voice = 0;
+    let photos = 0;
+    let thisWeek = 0;
+    let today = 0;
+
+    entries.forEach(function (entry) {
+      const hasVoice =
+        Boolean(entry.audioUrl);
+
+      const hasPhoto =
+        Boolean(entry.imageUrl);
+
+      if (hasVoice) {
+        voice += 1;
+      }
+
+      if (hasPhoto) {
+        photos += 1;
+      }
+
+      if (!hasVoice && !hasPhoto) {
+        conversations += 1;
+      }
+
+      const createdAtMs =
+        Number(entry.createdAtMs || 0);
+
+      if (
+        createdAtMs >= weekStart &&
+        createdAtMs <= now.getTime()
+      ) {
+        thisWeek += 1;
+      }
+
+      if (
+        createdAtMs >= todayStart &&
+        createdAtMs <= now.getTime()
+      ) {
+        today += 1;
+      }
+    });
+
+    const values = {
+      campfeedStatConversations: conversations,
+      campfeedStatVoice: voice,
+      campfeedStatPhotos: photos,
+      campfeedStatWeek: thisWeek,
+      campfeedStatToday: today
+    };
+
+    Object.keys(values).forEach(
+      function (id) {
+        const element =
+          document.getElementById(id);
+
+        if (element) {
+          element.textContent =
+            String(values[id]);
+        }
+      }
+    );
+  }
   function renderLiveFeed() {
+    renderCampFeedStats();
     const container =
       document.getElementById("roomFeed");
 
