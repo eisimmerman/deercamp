@@ -957,6 +957,17 @@
     const dialog = document.getElementById("premiumActionDialog");
     const dialogTitle = document.getElementById("premiumDialogTitle");
     const dialogMessage = document.getElementById("premiumDialogMessage");
+    const authForm = document.getElementById("premiumAuthForm");
+    const textForm = document.getElementById("campfeedTextForm");
+    const photoForm = document.getElementById("campfeedPhotoForm");
+    const voiceForm = document.getElementById("campfeedVoiceForm");
+    const memoryForm = document.getElementById("campfeedMemoryForm");
+
+    if (textForm) textForm.hidden = true;
+    if (photoForm) photoForm.hidden = true;
+    if (voiceForm) voiceForm.hidden = true;
+    if (memoryForm) memoryForm.hidden = true;
+    if (authForm) authForm.hidden = false;
 
     if (dialogTitle) dialogTitle.textContent = "Sign in to DeerCamp";
     if (dialogMessage) {
