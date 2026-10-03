@@ -129,6 +129,8 @@
       ].filter(Boolean).join(" \u2022 "),
       imageUrl,
       audioUrl,
+      mediaType: item.mediaType || "",
+      type: item.type || "",
       createdAtMs,
       published: item.published !== false
     };
@@ -251,25 +253,28 @@
     let conversations = 0;
     let voice = 0;
     let photos = 0;
+    let memories = 0;
     let thisWeek = 0;
     let today = 0;
 
     entries.forEach(function (entry) {
+      const isMemory =
+        String(entry.mediaType || "").toLowerCase() === "memory" ||
+        String(entry.type || "").toLowerCase() === "memory";
+
       const hasVoice =
         Boolean(entry.audioUrl);
 
       const hasPhoto =
         Boolean(entry.imageUrl);
 
-      if (hasVoice) {
+      if (isMemory) {
+        memories += 1;
+      } else if (hasVoice) {
         voice += 1;
-      }
-
-      if (hasPhoto) {
+      } else if (hasPhoto) {
         photos += 1;
-      }
-
-      if (!hasVoice && !hasPhoto) {
+      } else {
         conversations += 1;
       }
 
@@ -295,6 +300,7 @@
       campfeedStatConversations: conversations,
       campfeedStatVoice: voice,
       campfeedStatPhotos: photos,
+      campfeedStatMemories: memories,
       campfeedStatWeek: thisWeek,
       campfeedStatToday: today
     };
@@ -366,7 +372,10 @@
           ) {
             window.DeerCampUniversalViewer.show({
               kicker: "CAMPFEED",
-              title: "Photo Share",
+              title: (
+                String(entry.mediaType || "").toLowerCase() === "memory" ||
+                String(entry.type || "").toLowerCase() === "memory"
+              ) ? "Memory / Story" : "Photo Share",
               items: [entry],
               startIndex: 0
             });
@@ -416,6 +425,47 @@
           ) {
             event.preventDefault();
             openVoiceStory();
+          }
+        });
+      }
+      if (
+        !entry.imageUrl &&
+        !entry.audioUrl &&
+        (
+          String(entry.mediaType || "").toLowerCase() === "memory" ||
+          String(entry.type || "").toLowerCase() === "memory"
+        )
+      ) {
+        card.classList.add("campfeed-live-card-memory");
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute(
+          "aria-label",
+          "Open memory " + (entry.title || "Camp Memory")
+        );
+
+        const openMemoryStory = function () {
+          if (
+            window.DeerCampUniversalViewer &&
+            typeof window.DeerCampUniversalViewer.show === "function"
+          ) {
+            window.DeerCampUniversalViewer.show({
+              kicker: "CAMPFEED",
+              title: "Memory / Story",
+              items: [entry],
+              startIndex: 0
+            });
+          }
+        };
+
+        card.addEventListener("click", openMemoryStory);
+        card.addEventListener("keydown", function (event) {
+          if (
+            event.key === "Enter" ||
+            event.key === " "
+          ) {
+            event.preventDefault();
+            openMemoryStory();
           }
         });
       }
@@ -873,6 +923,15 @@
         );
         return;
       }
+      if (
+        detail.type === "create" &&
+        detail.action === "memory-story"
+      ) {
+        openCampFeedShareDialog(
+          "memory"
+        );
+        return;
+      }
       if (detail.type === "create") {
         alert(
           `Share action: ${detail.action}`
@@ -969,6 +1028,7 @@
   const campfeedTextForm = document.getElementById("campfeedTextForm");
   const campfeedPhotoForm = document.getElementById("campfeedPhotoForm");
   const campfeedVoiceForm = document.getElementById("campfeedVoiceForm");
+  const campfeedMemoryForm = document.getElementById("campfeedMemoryForm");
   const campfeedShareFeedback = document.getElementById("campfeedShareFeedback");
   const campfeedTextPublish = document.getElementById("campfeedTextPublish");
 
@@ -977,6 +1037,7 @@
     if (campfeedTextForm) campfeedTextForm.hidden = true;
     if (campfeedPhotoForm) campfeedPhotoForm.hidden = true;
     if (campfeedVoiceForm) campfeedVoiceForm.hidden = true;
+    if (campfeedMemoryForm) campfeedMemoryForm.hidden = true;
     if (campfeedShareFeedback) campfeedShareFeedback.textContent = "";
   }
 
@@ -1011,6 +1072,15 @@
           "Record a voice story, play it back, then share it with camp.";
       }
       if (campfeedVoiceForm) campfeedVoiceForm.hidden = false;
+    }
+
+    if (mode === "memory") {
+      if (title) title.textContent = "Share a Memory / Story";
+      if (message) {
+        message.textContent =
+          "Preserve a memory or story from your camp history for the people who share it.";
+      }
+      if (campfeedMemoryForm) campfeedMemoryForm.hidden = false;
     }
 
     if (
@@ -1712,6 +1782,142 @@
       }
     });
   }
+  const campfeedMemoryTitle =
+    document.getElementById("campfeedMemoryTitle");
+  const campfeedMemoryBody =
+    document.getElementById("campfeedMemoryBody");
+  const campfeedMemoryFile =
+    document.getElementById("campfeedMemoryFile");
+  const campfeedMemoryPublish =
+    document.getElementById("campfeedMemoryPublish");
+
+  if (campfeedMemoryPublish) {
+    campfeedMemoryPublish.addEventListener("click", async function () {
+      const title = String(campfeedMemoryTitle ? campfeedMemoryTitle.value : "").trim();
+      const body = String(campfeedMemoryBody ? campfeedMemoryBody.value : "").trim();
+      const file =
+        campfeedMemoryFile && campfeedMemoryFile.files && campfeedMemoryFile.files[0]
+          ? campfeedMemoryFile.files[0]
+          : null;
+
+      if (!title) {
+        if (campfeedShareFeedback) campfeedShareFeedback.textContent = "Add a title before sharing.";
+        return;
+      }
+
+      if (!body) {
+        if (campfeedShareFeedback) campfeedShareFeedback.textContent = "Write the camp story before sharing.";
+        return;
+      }
+
+      const user =
+        window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+
+      if (!user) {
+        showAuthDialog("Sign in to DeerCamp before sharing a memory.");
+        return;
+      }
+
+      const campId =
+        window.DeerCampPremiumEngine &&
+        typeof window.DeerCampPremiumEngine.getCampId === "function"
+          ? window.DeerCampPremiumEngine.getCampId()
+          : "";
+
+      if (!campId) {
+        if (campfeedShareFeedback) campfeedShareFeedback.textContent = "The camp could not be identified.";
+        return;
+      }
+
+      if (file && (!window.DeerCampStorage || typeof window.DeerCampStorage.uploadCampImageFilePair !== "function")) {
+        if (campfeedShareFeedback) campfeedShareFeedback.textContent = "DeerCamp image storage is not available.";
+        return;
+      }
+
+      campfeedMemoryPublish.disabled = true;
+      if (campfeedShareFeedback) campfeedShareFeedback.textContent = file ? "Uploading and sharing camp story..." : "Sharing camp story...";
+
+      try {
+        const createdAtMs = Date.now();
+        const entityId = "memory-" + createdAtMs;
+        let uploaded = null;
+
+        if (file) {
+          uploaded = await window.DeerCampStorage.uploadCampImageFilePair({
+            campId: campId,
+            folder: "campfeed",
+            entityId: entityId,
+            file: file,
+            targets: {
+              display: { maxSize: 1400, quality: 0.78, maxBytes: 320000 },
+              thumb: { maxSize: 480, quality: 0.68, maxBytes: 80000 }
+            }
+          });
+
+          if (!uploaded || !(uploaded.displayUrl || uploaded.thumbUrl)) {
+            throw new Error("The picture upload did not return a usable image.");
+          }
+        }
+
+        const authorName =
+          user.displayName || user.email || "DeerCamp Member";
+
+        const item = {
+          campId: campId,
+          authorId: user.uid,
+          author: authorName,
+          authorName: authorName,
+          authorEmail: user.email || "",
+          source: "app",
+          sourceRoom: "Memories Room",
+          room: "Memories Room",
+          published: true,
+          title: title,
+          mediaType: "memory",
+          type: "memory",
+          body: body,
+          story: body,
+          caption: "",
+          tags: uploaded
+            ? ["Memory / Story", "Picture", "CampUpdate"]
+            : ["Memory / Story", "CampUpdate"],
+          comments: [],
+          createdAt: new Date(createdAtMs).toISOString(),
+          createdAtMs: createdAtMs,
+          clientCreatedAt: new Date(createdAtMs).toISOString(),
+          platform: "web"
+        };
+
+        if (uploaded) {
+          item.imageUrl = uploaded.displayUrl || uploaded.thumbUrl || "";
+          item.displayUrl = uploaded.displayUrl || uploaded.thumbUrl || "";
+          item.thumbUrl = uploaded.thumbUrl || uploaded.displayUrl || "";
+          item.storagePath = uploaded.displayPath || "";
+          item.thumbPath = uploaded.thumbPath || "";
+          item.storageProvider = uploaded.storageProvider || "firebase";
+        }
+
+        await window.firebase.firestore().collection("feedItems").doc(entityId).set(item);
+
+        if (campfeedMemoryTitle) campfeedMemoryTitle.value = "";
+        if (campfeedMemoryBody) campfeedMemoryBody.value = "";
+        if (campfeedMemoryFile) campfeedMemoryFile.value = "";
+
+        if (campfeedShareFeedback) campfeedShareFeedback.textContent = "Memory / story shared to DeerCamp.";
+
+        if (authDialog && authDialog.open) authDialog.close();
+      } catch (error) {
+        console.error("CampFeed memory / story could not be shared.", error);
+        if (campfeedShareFeedback) {
+          campfeedShareFeedback.textContent =
+            error.message || "Memory / story could not be shared.";
+        }
+      } finally {
+        campfeedMemoryPublish.disabled = false;
+      }
+    });
+  }
+
   start().catch(function (error) {
     console.error(
       "CampFeed room initialization failed.",

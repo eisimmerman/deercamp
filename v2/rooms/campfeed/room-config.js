@@ -1,4 +1,4 @@
-﻿window.DEERCAMP_PREMIUM_ROOM = {
+window.DEERCAMP_PREMIUM_ROOM = {
   id: "campfeed",
   title: "CampFeed Room",
   artwork: "./campfeed-room.png",
@@ -19,7 +19,8 @@
 
     { id:"share-comment", label:"Start a Conversation", type:"create", action:"comment", x:52.2, y:70.8, width:31.1, height:1.8 },
     { id:"share-voice-story", label:"Record a Voice Story", type:"create", action:"voice-story", x:52.2, y:72.6, width:31.1, height:1.8 },
-    { id:"share-photo-caption", label:"Share a Photo", type:"create", action:"photo-caption", x:52.2, y:74.4, width:31.1, height:1.8 }
+    { id:"share-photo-caption", label:"Share a Photo", type:"create", action:"photo-caption", x:52.2, y:74.4, width:31.1, height:1.8 },
+    { id:"share-memory-story", label:"Share a Memory / Story", type:"create", action:"memory-story", x:52.2, y:76.2, width:31.1, height:1.8 }
   ],
   navHotspots: [
     { id:"nav-camp", label:"Back to Camp", route:"camp", x:6.2, y:93.9, width:13.7, height:2.6 },
