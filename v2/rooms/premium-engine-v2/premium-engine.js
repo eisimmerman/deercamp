@@ -165,6 +165,10 @@
         item.label || "Room action"
       );
 
+      if (item.status) {
+        button.dataset.status = item.status;
+      }
+
       applyPosition(button, item);
 
       button.addEventListener(

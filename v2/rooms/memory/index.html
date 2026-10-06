@@ -105,6 +105,42 @@
     #premiumHotspotLayer .premium-v2-nav {
       pointer-events: auto;
     }
+    /* Memories capability markers */
+    #premiumHotspotLayer .premium-v2-action[data-status]::after {
+      content:"";
+      position:absolute;
+      right:2.2%;
+      top:50%;
+      transform:translateY(-50%);
+      width:10px;
+      height:10px;
+      box-sizing:border-box;
+      pointer-events:none;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="available"]::after {
+      background:#69a96b;
+      border:1px solid #d8e8d2;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="emerging"]::after {
+      width:0;
+      height:0;
+      border-left:6px solid transparent;
+      border-right:6px solid transparent;
+      border-bottom:11px solid #d5b04c;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="future"]::after {
+      border:2px solid #8c8c8c;
+      border-radius:50%;
+      background:transparent;
+    }
+    /* Capability contract: only Available Memories actions are interactive. */
+    #premiumHotspotLayer .premium-v2-action:not([data-status="available"]) {
+      pointer-events:none;
+      cursor:default;
+    }
 
     #premiumHotspotLayer {
       pointer-events: none;
@@ -322,6 +358,49 @@
       </footer>
     </form>
   </dialog>
+  <dialog id="memoryAuthDialog" class="universal-viewer memory-share-dialog" aria-label="Sign in to DeerCamp">
+    <div class="memory-viewer-shell">
+      <header class="memory-viewer-header">
+        <div>
+          <p class="memory-viewer-kicker">MEMORIES ROOM</p>
+          <h2 class="memory-viewer-collection-title">Sign in to DeerCamp</h2>
+        </div>
+        <button id="memoryAuthClose" class="universal-viewer-close" type="button">Close</button>
+      </header>
+
+      <div class="memory-viewer-body">
+        <div class="memory-share-form-grid">
+          <p id="memoryAuthMessage" class="memory-share-feedback memory-share-wide">
+            Sign in to view this private DeerCamp.
+          </p>
+
+          <label class="memory-share-field memory-share-wide">
+            <span>Email</span>
+            <input
+              id="memoryAuthEmail"
+              type="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+            />
+          </label>
+
+          <p id="memoryAuthFeedback"
+             class="memory-share-feedback memory-share-wide"
+             aria-live="polite"></p>
+        </div>
+      </div>
+
+      <footer class="memory-viewer-footer">
+        <span></span>
+        <span></span>
+        <button id="memoryAuthSendLink"
+                class="memory-viewer-nav-button"
+                type="button">
+          Send Sign-In Link
+        </button>
+      </footer>
+    </div>
+  </dialog>
   <dialog id="universalViewer" class="universal-viewer" aria-label="DeerCamp Memory Viewer">
     <div class="memory-viewer-shell">
       <header class="memory-viewer-header">
@@ -400,11 +479,54 @@
   <script src="../premium-engine-v2/memory-provider.js?v=20260927-memory2"></script>
 
   <script>
-    (function () {
+    (async function () {
       "use strict";
 
       const status = document.getElementById("memoriesStatus");
 
+      async function completePendingEmailSignIn() {
+        if (
+          !window.DeerCampAuth ||
+          typeof window.DeerCampAuth.isEmailSignInLink !== "function" ||
+          !window.DeerCampAuth.isEmailSignInLink(window.location.href)
+        ) {
+          return null;
+        }
+
+        try {
+          const user = await window.DeerCampAuth.completeEmailSignIn({
+            url: window.location.href
+          });
+
+          if (user) {
+            const cleanUrl = new URL(window.location.href);
+
+            ["apiKey", "oobCode", "mode", "lang"].forEach(function (key) {
+              cleanUrl.searchParams.delete(key);
+            });
+
+            window.history.replaceState(
+              {},
+              document.title,
+              cleanUrl.pathname + cleanUrl.search + cleanUrl.hash
+            );
+          }
+
+          return user || null;
+        } catch (error) {
+          console.error(
+            "DeerCamp email sign-in could not be completed.",
+            error
+          );
+
+          openMemoryAuthDialog(
+            error.message ||
+            "The DeerCamp sign-in link could not be completed."
+          );
+
+          return null;
+        }
+      }
       async function openMemories(mode) {
         try {
           const campId = window.DeerCampPremiumEngine.getCampId();
@@ -432,7 +554,26 @@
           });
         } catch (error) {
           console.error("Memories Room load failed.", error);
-          status.textContent = error.message || "Memories could not be loaded.";
+
+          const permissionDenied =
+            error &&
+            (
+              String(error.code || "").includes("permission-denied") ||
+              String(error.message || "")
+                .toLowerCase()
+                .includes("insufficient permissions")
+            );
+
+          if (permissionDenied && !currentFirebaseUser()) {
+            status.textContent = "";
+            openMemoryAuthDialog(
+              "Sign in to view this private DeerCamp."
+            );
+            return;
+          }
+
+          status.textContent =
+            error.message || "Memories could not be loaded.";
         }
       }
 
@@ -474,6 +615,92 @@
         }
       }
 
+      function openMemoryAuthDialog(message) {
+        const dialog = document.getElementById("memoryAuthDialog");
+        const messageNode = document.getElementById("memoryAuthMessage");
+        const feedback = document.getElementById("memoryAuthFeedback");
+        const email = document.getElementById("memoryAuthEmail");
+
+        if (messageNode) {
+          messageNode.textContent =
+            message || "Sign in to view this private DeerCamp.";
+        }
+
+        if (feedback) {
+          feedback.textContent = "";
+        }
+
+        if (dialog && typeof dialog.showModal === "function" && !dialog.open) {
+          dialog.showModal();
+        }
+
+        setTimeout(function () {
+          if (email) email.focus();
+        }, 50);
+      }
+
+      function closeMemoryAuthDialog() {
+        const dialog = document.getElementById("memoryAuthDialog");
+
+        if (dialog && dialog.open) {
+          dialog.close();
+        }
+      }
+
+      async function sendMemorySignInLink() {
+        const email = document.getElementById("memoryAuthEmail");
+        const sendButton = document.getElementById("memoryAuthSendLink");
+        const feedback = document.getElementById("memoryAuthFeedback");
+
+        const cleanEmail = String(email ? email.value : "")
+          .trim()
+          .toLowerCase();
+
+        if (!cleanEmail) {
+          if (feedback) {
+            feedback.textContent = "Enter your DeerCamp email.";
+          }
+
+          if (email) email.focus();
+          return;
+        }
+
+        if (sendButton) sendButton.disabled = true;
+
+        if (feedback) {
+          feedback.textContent = "Sending sign-in link...";
+        }
+
+        try {
+          if (
+            !window.DeerCampAuth ||
+            typeof window.DeerCampAuth.sendEmailSignInLink !== "function"
+          ) {
+            throw new Error("DeerCamp sign-in is unavailable.");
+          }
+
+          await window.DeerCampAuth.sendEmailSignInLink(cleanEmail, {
+            returnUrl: window.location.href
+          });
+
+          if (feedback) {
+            feedback.textContent =
+              "Sign-in link sent. Open the email link on this device.";
+          }
+        } catch (error) {
+          console.error(
+            "DeerCamp Memories sign-in link could not be sent.",
+            error
+          );
+
+          if (feedback) {
+            feedback.textContent =
+              error.message || "Sign-in link could not be sent.";
+          }
+        } finally {
+          if (sendButton) sendButton.disabled = false;
+        }
+      }
       function setShareFeedback(message, isError) {
         shareFeedback.textContent = message || "";
         shareFeedback.dataset.error = isError ? "true" : "false";
@@ -992,6 +1219,34 @@
         }
       });
 
+      const memoryAuthDialog =
+        document.getElementById("memoryAuthDialog");
+      const memoryAuthClose =
+        document.getElementById("memoryAuthClose");
+      const memoryAuthSendLink =
+        document.getElementById("memoryAuthSendLink");
+
+      if (memoryAuthClose) {
+        memoryAuthClose.addEventListener(
+          "click",
+          closeMemoryAuthDialog
+        );
+      }
+
+      if (memoryAuthSendLink) {
+        memoryAuthSendLink.addEventListener(
+          "click",
+          sendMemorySignInLink
+        );
+      }
+
+      if (memoryAuthDialog) {
+        memoryAuthDialog.addEventListener("click", function (event) {
+          if (event.target === memoryAuthDialog) {
+            closeMemoryAuthDialog();
+          }
+        });
+      }
       document.addEventListener("deercamp:premium-action", function (event) {
         const detail = event.detail || {};
 
@@ -1023,6 +1278,8 @@
           openMemories(button.dataset.memoryMode || "latest");
         });
       });
+
+      await completePendingEmailSignIn();
 
       if (window.DeerCampUniversalViewer && typeof window.DeerCampUniversalViewer.initialize === "function") {
         window.DeerCampUniversalViewer.initialize();
