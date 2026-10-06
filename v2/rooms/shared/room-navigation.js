@@ -27,7 +27,7 @@
         el.addEventListener('click',()=>{
           const url=routes[key];
           if(url)location.href=url;
-          else window.DeerCampRoomToast?.show(`${el.getAttribute('aria-label')||'This room'} is a future Camp Boddington room.`);
+          else window.DeerCampRoomToast?.show(`${el.getAttribute('aria-label')||'This room'} is a future DeerCamp room.`);
         });
       });
     },

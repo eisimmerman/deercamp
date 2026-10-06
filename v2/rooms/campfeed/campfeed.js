@@ -759,6 +759,21 @@
       );
     }
 
+    document.addEventListener("deercamp:premium-ready", function (event) {
+      const identity = event.detail?.identity;
+      if (!identity?.name) return;
+
+      const badge = document.querySelector("[data-camp-identity]");
+      const name = document.querySelector("[data-camp-identity-name]");
+
+      if (badge) {
+        badge.setAttribute("aria-label", identity.name);
+      }
+
+      if (name) {
+        name.textContent = identity.name;
+      }
+    });
     await completePendingEmailSignIn();
 
     await window.DeerCampPremiumEngine.initialize();
