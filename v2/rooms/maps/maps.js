@@ -5,43 +5,6 @@
     return document.getElementById(id);
   }
 
-  const ACTIONS = {
-    "property-maps": {
-      title: "Property Maps",
-      message: "No Property Map has been saved for this camp yet."
-    },
-
-    "drive-maps": {
-      title: "Drive Maps",
-      message: "Drive Maps wiring is next."
-    },
-
-    "deer-analytics": {
-      title: "Deer Analytics Map",
-      message: "Deer Analytics Map wiring will follow Drive Maps."
-    },
-
-    "create-stand-map": {
-      title: "Create Stand Map",
-      message: "Create Stand Map selected."
-    },
-
-    "create-drive-map": {
-      title: "Create Drive Map",
-      message: "Create Drive Map selected."
-    },
-
-    "record-deer-count": {
-      title: "Record Deer Count",
-      message: "Record Deer Count selected."
-    },
-
-    "export-map": {
-      title: "Export Map",
-      message: "Export Map selected."
-    }
-  };
-
   function safeParse(value, fallback = null) {
     try {
       return value ? JSON.parse(value) : fallback;
@@ -99,6 +62,31 @@
     }
 
     return safeParse(localStorage.getItem("campData"), {}) || {};
+  }
+
+  async function openScoutBuilder(builder) {
+    const campId = getActiveCampId();
+    const camp = await getCampData();
+    const campName = firstNonEmpty(
+      camp?.campName,
+      camp?.name,
+      camp?.title,
+      camp?.campTitle,
+      camp?.camp,
+      "DeerCamp"
+    );
+    const url = new URL("../../../scout.html", window.location.href);
+
+    if (campId) url.searchParams.set("campId", campId);
+    url.searchParams.set("builder", builder === "drive" ? "drive" : "stand");
+    url.searchParams.set("campName", campName);
+
+    const currentParams = new URLSearchParams(window.location.search);
+    if (currentParams.get("useStagingFirebase") === "true") {
+      url.searchParams.set("useStagingFirebase", "true");
+    }
+
+    window.location.href = url.toString();
   }
 
   function getStandIdentity(item, index) {
@@ -885,6 +873,24 @@
     }
   }
 
+  function openRecordDeerCount() {
+    openDialog(
+      "Record Deer Count",
+      '<p>Record deer sightings in the <strong>Camp Field App</strong> using <strong>CampStatsMgr</strong>.</p>' +
+      '<p>Log Buck AM, Doe AM, Buck PM, and Doe PM counts by stand. Synced sightings will appear here in the <strong>Deer Analytics Map</strong>.</p>',
+      true
+    );
+  }
+
+  function openExportMap() {
+    openDialog(
+      "Export Map",
+      '<p>Choose the map you want to prepare in <strong>Scout Elite</strong>. From there, use <strong>Poster Preview</strong> and export the map as PDF or PNG.</p>' +
+      '<p><a class="maps-stand-open" href="#" data-scout-builder="stand">Stand Map</a> ' +
+      '<a class="maps-stand-open" href="#" data-scout-builder="drive">Drive Map</a></p>',
+      true
+    );
+  }
   function closeDialog() {
     const dialog = byId("mapsDialog");
 
@@ -894,11 +900,30 @@
   }
 
   document.addEventListener("click", async function (event) {
+    const scoutBuilderLink = event.target.closest("[data-scout-builder]");
+
+    if (scoutBuilderLink) {
+      event.preventDefault();
+      closeDialog();
+      await openScoutBuilder(scoutBuilderLink.dataset.scoutBuilder);
+      return;
+    }
+
     const button = event.target.closest("[data-action-id]");
 
     if (!button) return;
 
     const actionId = String(button.dataset.actionId || "");
+
+    if (actionId === "create-stand-map") {
+      await openScoutBuilder("stand");
+      return;
+    }
+
+    if (actionId === "create-drive-map") {
+      await openScoutBuilder("drive");
+      return;
+    }
 
     if (actionId === "stand-maps") {
       await openStandMaps();
@@ -915,14 +940,14 @@
       return;
     }
 
-    const action = ACTIONS[actionId];
+    if (actionId === "record-deer-count") {
+      openRecordDeerCount();
+      return;
+    }
 
-    if (!action) return;
-
-    openDialog(
-      action.title,
-      action.message
-    );
+    if (actionId === "export-map") {
+      openExportMap();
+    }
   });
 
   const closeButton = byId("mapsDialogClose");

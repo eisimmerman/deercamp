@@ -878,6 +878,7 @@ body.scout-preprint-layout.drive-poster-numbered .drive-name-map-label{display:n
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/12.19.0/firebase-storage-compat.js"></script>
 <script src="firebase-web.js"></script>
@@ -959,9 +960,13 @@ function getScoutCampIdForSecurity(){
   try { return String(new URLSearchParams(window.location.search).get('campId') || localStorage.getItem('deercamp.activeCampId') || '').trim(); }
   catch(error){ return String(localStorage.getItem('deercamp.activeCampId') || '').trim(); }
 }
+let scoutStewardVerified = false;
+let scoutSecurityResolved = false;
+
 function isScoutSteward(){
-  try { return window.DeerCampSecurity?.isSteward?.(getScoutCampIdForSecurity()) || false; } catch(error) { return false; }
+  return scoutSecurityResolved && scoutStewardVerified;
 }
+
 function requireScoutSteward(message = 'Only the Camp Steward can use Scout Elite builder controls.'){
   if(isScoutSteward()) return true;
   try { showScoutToast(message, 4200); } catch(error) {}
@@ -969,6 +974,7 @@ function requireScoutSteward(message = 'Only the Camp Steward can use Scout Elit
   if(status) status.textContent = message;
   return false;
 }
+
 function applyScoutSecurityMode(){
   if(isScoutSteward()) return;
   document.body.classList.remove('builder-stand','builder-drive');
@@ -981,7 +987,51 @@ function applyScoutSecurityMode(){
   const status = document.getElementById('status-bar');
   if(status) status.textContent = 'View-only Scout Map — only the Camp Steward can create, edit, save, or delete stands and drives.';
 }
-setTimeout(applyScoutSecurityMode, 0);
+
+async function resolveScoutSecurity(){
+  const campId = getScoutCampIdForSecurity();
+
+  const verify = async () => {
+    try {
+      scoutStewardVerified = Boolean(
+        campId &&
+        window.DeerCampCloud &&
+        typeof window.DeerCampCloud.isCurrentUserSteward === 'function' &&
+        await window.DeerCampCloud.isCurrentUserSteward(campId)
+      );
+    } catch(error) {
+      console.warn('Scout steward verification failed.', error);
+      scoutStewardVerified = false;
+    }
+
+    scoutSecurityResolved = true;
+    if(!scoutStewardVerified) applyScoutSecurityMode();
+  };
+
+  try {
+    if(window.firebase && typeof firebase.auth === 'function'){
+      let settled = false;
+      const unsubscribe = firebase.auth().onAuthStateChanged(async () => {
+        if(settled) return;
+        settled = true;
+        try { unsubscribe(); } catch(error) {}
+        await verify();
+      }, async error => {
+        console.warn('Scout Firebase Auth state failed.', error);
+        if(settled) return;
+        settled = true;
+        await verify();
+      });
+      return;
+    }
+  } catch(error) {
+    console.warn('Scout Firebase Auth initialization failed.', error);
+  }
+
+  await verify();
+}
+
+resolveScoutSecurity();
 
 function applyScoutBuilderMode(){
   const title = SCOUT_BUILDER_MODE === 'drive' ? 'Drive Builder' : 'Stand Builder';
