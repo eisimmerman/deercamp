@@ -102,54 +102,54 @@
       label: "Back to Camp",
       route: "camp",
       x: 7.3,
-      y: 91.5,
+      y: 95.3,
       width: 12.8,
-      height: 4.0
+      height: 3.5
     },
     {
       id: "nav-archives",
       label: "Archives Room",
       route: "archives",
       x: 20.6,
-      y: 91.5,
+      y: 95.3,
       width: 13.1,
-      height: 4.0
+      height: 3.5
     },
     {
       id: "nav-maps",
       label: "Maps Room",
       route: "maps",
       x: 34.8,
-      y: 91.5,
+      y: 95.3,
       width: 13.0,
-      height: 4.0
+      height: 3.5
     },
     {
       id: "nav-campfire",
       label: "CampFire Room",
       route: "campfire",
       x: 48.6,
-      y: 91.5,
+      y: 95.3,
       width: 13.1,
-      height: 4.0
+      height: 3.5
     },
     {
       id: "nav-memory",
       label: "Memories Room",
       route: "memory",
       x: 62.7,
-      y: 91.5,
+      y: 95.3,
       width: 14.9,
-      height: 4.0
+      height: 3.5
     },
     {
       id: "nav-campfeed",
       label: "CampFeed Room",
       route: "campfeed",
       x: 78.7,
-      y: 91.5,
+      y: 95.3,
       width: 14.2,
-      height: 4.0
+      height: 3.5
     }
   ]
 };
