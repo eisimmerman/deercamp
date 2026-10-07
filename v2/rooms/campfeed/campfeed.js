@@ -880,11 +880,6 @@
       const detail =
         event.detail || {};
 
-      console.log(
-        "CampFeed action selected:",
-        detail.type,
-        detail.action
-      );
 
       if (
         detail.type === "view" &&

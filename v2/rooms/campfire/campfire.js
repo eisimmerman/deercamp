@@ -1449,10 +1449,6 @@
         control.dataset.actionId || "";
 
 
-      console.log(
-        "CampFire action selected:",
-        actionId
-      );
 
       if (actionId === "start-conversation") {
         openShareDialog("conversation");
