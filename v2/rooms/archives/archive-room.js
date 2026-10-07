@@ -44,7 +44,6 @@
     legacyOverlay=null;
     document.body.classList.remove('legacy-open');
     document.removeEventListener('keydown',legacyKeys);
-    setTimeout(()=>pulseArtifacts(),280);
   }
 
   function legacyKeys(event){
