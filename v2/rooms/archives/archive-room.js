@@ -255,7 +255,7 @@
     });
     setTimeout(()=>{
       document.querySelectorAll('[data-artifact-view]').forEach(card=>card.addEventListener('click',()=>openArtifactDetail(card.dataset.artifactView)));
-      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); setTimeout(pulseAddPhoto,260); });
+      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); });
     },0);
   }
 
@@ -291,7 +291,7 @@
       actions.innerHTML='<button class="room-action-btn" type="button" data-artifact-back>Back to Artifacts</button><button class="room-action-btn primary" type="button" data-archive-close>Return Now</button>';
       document.querySelector('.artifact-demo')?.insertAdjacentElement('afterend',actions);
       document.querySelector('[data-artifact-back]')?.addEventListener('click',openArtifact);
-      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); setTimeout(pulseAddPhoto,260); });
+      document.querySelector('[data-archive-close]')?.addEventListener('click',()=>{ viewer.close(); });
     },0);
   }
 
