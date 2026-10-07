@@ -99,7 +99,7 @@
     return url.toString();
   }
 
-  function renderCamp(campId, camp, source) {
+  function renderCamp(campId, camp) {
     const dashboard =
       camp.dashboardSlim &&
       typeof camp.dashboardSlim === "object"
@@ -134,58 +134,38 @@
     const location =
       [city, state].filter(Boolean).join(", ");
 
-    const stewardName = firstNonEmpty(
-      camp.stewardName,
-      camp.campSteward,
-      dashboard.stewardName,
-      "Camp Steward"
+    const established = firstNonEmpty(
+      camp.established,
+      camp.campEstablished,
+      dashboardCamp.established
     );
 
     document.title =
-      `${campName} | DeerCamp V2`;
+      `${campName} | DeerCamp`;
 
     setText("campName", campName);
     setText("campLocation", location);
-    setText("campIdValue", campId);
-    setText("stewardValue", stewardName);
-    setText("dataSourceValue", source);
-
+    setText("tabletopCampName", campName);
     setText(
-      "firebaseProjectValue",
-      window.DEERCAMP_FIREBASE_PROJECT_ID ||
-        "Not connected"
+      "tabletopCampEstablished",
+      established ? `Est. ${established}` : ""
     );
 
     setText(
       "stageMessage",
-      `${campName} is connected. Archives is the first production room in this V2 build.`
+      "Select an object to enter a room."
     );
 
     document.getElementById("backLink").href =
       buildUrl("../index.html", campId);
 
-    document.getElementById("currentCampLink").href =
-      buildUrl("../../camp.html", campId);
+    document.querySelectorAll(".tabletop-hotspot").forEach(
+      function (hotspot) {
+        const href = hotspot.getAttribute("href");
 
-    document.getElementById("dashboardLink").href =
-      buildUrl(
-        "../../steward-dashboard.html",
-        campId
-      );
-
-    const archivesCard =
-      document.querySelector(
-        '[data-room="archives"]'
-      );
-
-    archivesCard.addEventListener(
-      "click",
-      function () {
-        window.location.href =
-          buildUrl(
-            "./archives/index.html",
-            campId
-          );
+        if (href) {
+          hotspot.href = buildUrl(href, campId);
+        }
       }
     );
   }
@@ -201,17 +181,7 @@
 
       setText(
         "stageMessage",
-        "Return to the V2 entry page and select a camp."
-      );
-
-      setText("campIdValue", "Missing");
-      setText("stewardValue", "Unavailable");
-      setText("dataSourceValue", "No camp data");
-
-      setText(
-        "firebaseProjectValue",
-        window.DEERCAMP_FIREBASE_PROJECT_ID ||
-          "Not connected"
+        "Return to the DeerCamp entry page and select a camp."
       );
 
       return;
@@ -271,27 +241,10 @@
         "The camp ID resolved, but no matching camp record was found."
       );
 
-      setText("campIdValue", campId);
-      setText("stewardValue", "Unavailable");
-      setText(
-        "dataSourceValue",
-        "No saved camp found"
-      );
-
-      setText(
-        "firebaseProjectValue",
-        window.DEERCAMP_FIREBASE_PROJECT_ID ||
-          "Not connected"
-      );
-
       return;
     }
 
-    renderCamp(
-      campId,
-      camp,
-      source
-    );
+    renderCamp(campId, camp);
   }
 
   initialize().catch(function (error) {
@@ -302,7 +255,7 @@
 
     setText(
       "stageMessage",
-      "The V2 main camp could not initialize. Check the browser console."
+      "The Main Camp could not initialize. Please try again."
     );
   });
 })();
