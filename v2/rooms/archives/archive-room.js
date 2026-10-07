@@ -1993,7 +1993,7 @@
   }
 
   document.querySelectorAll('[data-archive-action]').forEach(el=>{
-    el.addEventListener('click',()=>launch(el.dataset.archiveAction));
+    el.addEventListener('click',()=>{ if(el.dataset.status !== 'available') return; launch(el.dataset.archiveAction); });
   });
   window.DeerCampRoomNavigation?.init?.(document,cfg.routes);
   // Production room: floating demo tooltips disabled.
