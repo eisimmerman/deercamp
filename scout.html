@@ -33,7 +33,7 @@ header::-webkit-scrollbar{height:0;}
 .search-wrap{flex:1;min-width:180px;max-width:280px;position:relative;}
 .search-wrap input{width:100%;font-family:'IBM Plex Mono',monospace;font-size:.65rem;background:#140802;border:1px solid #4a3820;border-radius:5px;color:var(--cream);padding:6px 30px 6px 8px;outline:none;transition:border-color .15s;}
 .search-wrap input:focus{border-color:var(--moss);}
-.search-wrap input::placeholder{color:#4a3a20;}
+.search-wrap input::placeholder{color:#fff;opacity:1;}
 .sbtn{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--sage);cursor:pointer;font-size:.8rem;}
 .sbtn:hover{color:var(--amber);}
 .mode-group{display:flex;gap:3px;background:#140802;border:1px solid #3a2c1e;border-radius:6px;padding:3px;flex-shrink:0;}
@@ -162,7 +162,7 @@ body.scout-startup-ready #map::after{display:none!important;}
 .panel-toggle.active-helper{opacity:1;background:#1f7a68;color:#fff;border:1px solid #8ff5df;animation:helperPulse 1.15s infinite;filter:none;}
 .panel-toggle.inactive-helper{opacity:.14;filter:grayscale(.45) saturate(.35);}
 .panel-toggle-right{top:58px;right:0;border-radius:6px 0 0 6px;}
-.panel-toggle-left{top:108px;left:0;border-radius:0 6px 6px 0;}
+.panel-toggle-left{top:170px;left:0;border-radius:0 6px 6px 0;}
 .side-panel{position:fixed;top:50px;right:0;bottom:0;width:300px;background:var(--panel);border-left:2px solid var(--moss);z-index:900;display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease;}
 .side-panel.open{transform:translateX(0);}
 .side-panel.left{left:0;right:auto;border-left:none;border-right:2px solid var(--moss);transform:translateX(-100%);}
@@ -462,13 +462,13 @@ body.scout-preprint-layout.drive-poster-numbered .drive-name-map-label{display:n
   <div class="logo"><img class="scout-badge-logo" src="assets/branding/deercamp-scout-elite.png" alt="DeerCamp Scout Elite"><span class="logo-text-fallback">DeerCamp <em>Scout</em> <sup>ELITE</sup></span></div>
   <div class="vr"></div>
   <div class="search-wrap">
-    <input type="text" id="search-input" placeholder="Address or lat, lng…"/>
+    <input type="text" id="search-input" placeholder="1. Enter city, state or property address…"/>
     <button class="sbtn" onclick="doSearch()">🔍</button>
   </div>
   <div class="vr"></div>
   <div class="mode-group">
     <button class="mode-btn active" id="mode-view" onclick="setMode('view')">👁 View</button>
-    <button class="mode-btn builder-only stand-builder-only" id="mode-stand" onclick="setMode('stand')">📍 Stand Builder</button>
+    <button class="mode-btn builder-only stand-builder-only" id="mode-stand" title="After locating your property, click here, then click the map to place your stand." onclick="setMode('stand')">2. Stand Builder</button>
     <button class="mode-btn builder-only drive-builder-only" id="mode-deerdrivebuilder" title="Tap to Build" onclick="openDeerDriveBuilderFromToolbar()">1. Drive Builder</button>
     <button class="mode-btn builder-only drive-builder-only" id="mode-setdrive" onclick="toggleSetDrive()">2. Set Drive</button>
     <button class="mode-btn mr builder-only drive-builder-only" id="mode-route" onclick="autoDrawDeerDriveRoutes()">3. Auto-Draw Drive Route</button>
@@ -1035,6 +1035,8 @@ resolveScoutSecurity();
 
 function applyScoutBuilderMode(){
   const title = SCOUT_BUILDER_MODE === 'drive' ? 'Drive Builder' : 'Stand Builder';
+  const helperTitle = document.querySelector('.panel-hdr-title');
+  if(helperTitle) helperTitle.textContent = SCOUT_BUILDER_MODE === 'drive' ? 'DeerDrive Builder Helper' : 'DeerStand Builder Helper';
   document.title = `DeerCamp Scout Elite — ${title}`;
   const status = document.getElementById('status-bar');
   if(status){
@@ -1901,7 +1903,7 @@ let allLayers={};
 let mode='view', pendingLL=null, editingStandId=null;
 let deerDriveAnchor=null;
 let mapFrozen=false;
-let selWind='', selArrowFrom='', selArrowTo='';
+let selWinds=[], selArrowFrom='', selArrowTo='';
 let standPhotoDataUrl='';
 let standPhotoThumbDataUrl='';
 let standPhotoStorageMeta=null;
@@ -2095,9 +2097,9 @@ function campHasSavedDeerDrives(){
 }
 function clearStaleDeerDriveBuilderDraftIfNeeded(){
   const hasDraft = Boolean((drivers && drivers.length) || (standers && standers.length) || (deerDrivePlan && (deerDrivePlan.driveName || deerDrivePlan.savedDriveSummary || deerDrivePlan.driverCount || deerDrivePlan.standerCount || (Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length))));
-  if(hasDraft && !campHasSavedDeerDrives()){
+  if(hasDraft){
     clearDeerDriveBuilderDraft({silent:true, keepModalClosed:true});
-    document.getElementById('status-bar').innerHTML='Old DeerDrive Builder draft cleared. CampDeerDrives has no saved drives, so Scout is ready for a new drive.';
+    document.getElementById('status-bar').innerHTML='Unfinished DeerDrive Builder draft cleared. Scout is ready for a new drive.';
     return true;
   }
   return false;
@@ -2407,12 +2409,18 @@ function setRoleMarkersLocked(role, locked){
 function updateDeerDriveActionButtons(){
   const setBtn = document.getElementById('mode-setdrive');
   const routeBtn = document.getElementById('mode-route');
+  const saveBtn = document.getElementById('mode-save-drive');
+  const hasRoutes = Array.isArray(deerDrivePlan.autoRouteIds) && deerDrivePlan.autoRouteIds.length > 0;
+
   if(setBtn){
-    setBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
+    setBtn.classList.toggle('active', !!deerDrivePlan.isLocked && !hasRoutes);
     setBtn.textContent = '2. Set Drive';
   }
   if(routeBtn){
-    routeBtn.classList.toggle('active', !!deerDrivePlan.isLocked);
+    routeBtn.classList.toggle('active', !!deerDrivePlan.isLocked && !hasRoutes);
+  }
+  if(saveBtn){
+    saveBtn.classList.toggle('active', hasRoutes);
   }
 }
 function clearDeerDriveAutoRoutes(){
@@ -2925,12 +2933,12 @@ function stripEmbeddedMediaValue(value=''){
 function stripHeavyMediaFields(item){
   if(!item || typeof item !== 'object') return item;
   const next = Object.assign({}, item);
-  ['image','photo','thumbnail','detailImage','originalMapImage','heroImage','largeImage','fullImage','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
+  ['image','photo','thumbnail','detailImage','originalMapImage','imageUrl','thumbnailUrl','mapImageUrl','storageUrl','heroImage','largeImage','fullImage','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
     if(key in next && isDataImageUrl(next[key])) next[key] = '';
   });
   if(next.savedSummary && typeof next.savedSummary === 'object'){
     next.savedSummary = Object.assign({}, next.savedSummary);
-    ['image','thumbnail','detailImage','originalMapImage','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
+    ['image','thumbnail','detailImage','originalMapImage','imageUrl','thumbnailUrl','mapImageUrl','storageUrl','dataUrl','displayDataUrl','thumbDataUrl'].forEach(key=>{
       if(key in next.savedSummary && isDataImageUrl(next.savedSummary[key])) next.savedSummary[key] = '';
     });
   }
@@ -3011,8 +3019,14 @@ function safeSetCampDataForSave(scopedCampDataKey, nextCampData){
   let lastErr = null;
   for(const payload of attempts){
     try{
-      localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(payload));
-      if(scopedCampDataKey) localStorage.setItem(scopedCampDataKey, JSON.stringify(payload));
+      const json = JSON.stringify(payload);
+      if(scopedCampDataKey){
+        localStorage.setItem(scopedCampDataKey, json);
+        const genericPayload = compactCampPayloadForLocalStorage(payload);
+        localStorage.setItem(CAMP_DATA_KEY, JSON.stringify(genericPayload));
+      }else{
+        localStorage.setItem(CAMP_DATA_KEY, json);
+      }
       localStorage.setItem('deercamp.lastSavedDeerDrivePing', String(Date.now()));
       return {ok:true, data:payload};
     }catch(err){
@@ -3030,17 +3044,25 @@ function compactDrivePayloadForCloud(payload={}){
     next.thumbnail = stripImage(next.thumbnail);
     next.detailImage = stripImage(next.detailImage);
     next.originalMapImage = stripImage(next.originalMapImage);
+    next.imageUrl = stripImage(next.imageUrl);
+    next.thumbnailUrl = stripImage(next.thumbnailUrl);
+    next.mapImageUrl = stripImage(next.mapImageUrl);
+    next.storageUrl = stripImage(next.storageUrl);
     if(next.savedSummary && typeof next.savedSummary === 'object'){
       next.savedSummary = Object.assign({}, next.savedSummary, {
         thumbnail: stripImage(next.savedSummary.thumbnail),
         detailImage: stripImage(next.savedSummary.detailImage),
-        originalMapImage: stripImage(next.savedSummary.originalMapImage)
+        originalMapImage: stripImage(next.savedSummary.originalMapImage),
+        imageUrl: stripImage(next.savedSummary.imageUrl),
+        thumbnailUrl: stripImage(next.savedSummary.thumbnailUrl),
+        mapImageUrl: stripImage(next.savedSummary.mapImageUrl),
+        storageUrl: stripImage(next.savedSummary.storageUrl)
       });
     }
     return next;
   };
   const next = Object.assign({}, payload);
-  next.enabledSections = Object.assign({}, payload.enabledSections || {}, {campdeerdrives:true, deerdrives:true, campupdate:true});
+  next.enabledSections = Object.assign({}, payload.enabledSections || {}, {campdeerdrives:true, deerdrives:true});
   next.deerDrivePosts = (Array.isArray(payload.deerDrivePosts) ? payload.deerDrivePosts : []).map(compactDrive);
   next.deerDrives = (Array.isArray(payload.deerDrives) ? payload.deerDrives : next.deerDrivePosts).map(compactDrive);
   next.savedDeerDrives = (Array.isArray(payload.savedDeerDrives) ? payload.savedDeerDrives : next.deerDrivePosts).map(compactDrive);
@@ -3071,7 +3093,7 @@ async function persistDriveToCamp(){
   localStorage.setItem(ACTIVE_CAMP_KEY, activeCampId);
   const scopedCampDataKey = campScopeKey(activeCampId, 'campData');
   const baseCampData = safeParse(localStorage.getItem(scopedCampDataKey), genericCampData);
-  const contentSubmissions = Array.isArray(baseCampData.contentSubmissions) ? baseCampData.contentSubmissions.filter(Boolean) : [];
+
   const deerDrivePosts = Array.isArray(baseCampData.deerDrivePosts) ? baseCampData.deerDrivePosts.filter(Boolean) : (Array.isArray(baseCampData.deerDrives) ? baseCampData.deerDrives.filter(Boolean) : []);
   const timestampIso = new Date().toISOString();
   const timestampMs = Date.now();
@@ -3121,22 +3143,9 @@ async function persistDriveToCamp(){
   };
   const nextDeerDrivePosts = [driveEntry, ...deerDrivePosts.filter(item => String(item.id || '') !== driveId).map(trimOversizedSavedDriveImages)].slice(0, 8);
 
-  const updateEntry = {
-    id: `${driveId}-update`,
-    type: 'deerdrive',
-    title: `${getCurrentDriveName()} saved to CampDeerDrives`,
-    member: author,
-    summary: notes || `${routeSummaries.length} route${routeSummaries.length === 1 ? '' : 's'} posted to CampDeerDrives.`,
-    createdAt: timestampIso,
-    createdAtMs: timestampMs,
-    driveId,
-    windLabel: deerDrivePlan.windLabel || ''
-  };
-  const nextContentSubmissions = [updateEntry, ...contentSubmissions.filter(item => String(item.id || '') !== updateEntry.id)].slice(0, 30);
-
   const enabledSections = Object.assign({
     campfeed: true,
-    campupdate: true,
+
     calendar: true,
     traditions: true,
     camprecipes: true,
@@ -3144,14 +3153,14 @@ async function persistDriveToCamp(){
     campdeerdrives: true,
     deerdrives: true
   }, baseCampData.enabledSections || {});
-  enabledSections.campupdate = true;
+
   enabledSections.campdeerdrives = true;
   enabledSections.deerdrives = true;
 
   const nextCampData = Object.assign({}, baseCampData, {
     campId: activeCampId,
     enabledSections,
-    contentSubmissions: nextContentSubmissions,
+
     deerDrivePosts: nextDeerDrivePosts,
     deerDrives: nextDeerDrivePosts,
     savedDeerDrives: nextDeerDrivePosts,
@@ -3166,6 +3175,58 @@ async function persistDriveToCamp(){
   const found = verifyDrives.some(item => String(item.id || '') === driveId);
   return {ok:found || cloudWrote, driveId, campId:activeCampId, driveCount:verifyDrives.length};
 }
+async function publishDriveToCampFeed(isNewDrive){
+  if(!(window.firebase && typeof firebase.auth==='function' && typeof firebase.firestore==='function')) return false;
+
+  const user=firebase.auth().currentUser;
+  if(!user) return false;
+
+  const {activeCampId,baseCampData}=getScoutActiveCampData();
+  if(!activeCampId) return false;
+
+  const authorName=String(
+    user.displayName ||
+    baseCampData.stewardName ||
+    baseCampData.steward ||
+    user.email ||
+    'DeerCamp Member'
+  ).trim() || 'DeerCamp Member';
+
+  const createdAtMs=Date.now();
+  const driveName=String(getCurrentDriveName()||'Deer Drive').trim()||'Deer Drive';
+  const routeCount=getSavedDriveRoutes().length;
+  const wind=String(deerDrivePlan.windLabel||'').trim();
+  const notes=String(deerDrivePlan.savedDriveNotes||'').trim();
+  const body=notes || [
+    `${routeCount} route${routeCount===1?'':'s'} planned`,
+    wind ? `wind ${wind}` : ''
+  ].filter(Boolean).join(' - ');
+
+  await firebase.firestore().collection('feedItems').add({
+    campId:activeCampId,
+    room:'campfeed',
+    authorId:user.uid,
+    authorName,
+    author:authorName,
+    title:`${driveName} ${isNewDrive?'added to':'updated in'} Drive Maps`,
+    caption:body,
+    body,
+    story:body,
+    transcript:'',
+    transcriptPreview:'',
+    mediaType:'text',
+    type:'conversation',
+    category:'campfeed',
+    tags:['CampFeed','Deer Drive','Scout','Web'],
+    published:true,
+    source:'app',
+    createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+    createdAtMs,
+    clientCreatedAt:createdAtMs
+  });
+
+  return true;
+}
 async function commitSavedDriveSummary(){
   const saveBtn = document.getElementById('save-drive-confirm-btn');
   const saveStatus = document.getElementById('save-drive-status');
@@ -3175,6 +3236,7 @@ async function commitSavedDriveSummary(){
   }
   if(saveStatus) saveStatus.textContent = 'Saving drive...';
   try{
+    const isNewDrive = !deerDrivePlan.savedDriveSummary?.id;
     deerDrivePlan.savedDriveNotes = document.getElementById('save-drive-notes')?.value?.trim() || '';
     const savedImage = deerDrivePlan.savedDriveSummary?.thumbnail || await generateDeerDriveThumbnailDataUrl(760, 428);
     deerDrivePlan.savedDriveSummary = {
@@ -3197,8 +3259,14 @@ async function commitSavedDriveSummary(){
       if(saveStatus) saveStatus.textContent = msg;
       return;
     }
-    const msg = `Saved to CampDeerDrives (${posted.driveCount} saved).`;
-    document.getElementById('status-bar').innerHTML = `4. Save Drive posted ${getCurrentDriveName()} to CampUpdate and CampDeerDrives.`;
+    let feedPosted=false;
+    try{
+      feedPosted=await publishDriveToCampFeed(isNewDrive);
+    }catch(e){
+      console.warn('CampFeed deer drive activity post skipped.',e);
+    }
+    const msg = `Saved to CampDeerDrives (${posted.driveCount} saved).${feedPosted?' Posted to CampFeed.':' CampFeed notice did not post.'}`;
+    document.getElementById('status-bar').innerHTML = `4. Save Drive ${isNewDrive?'added':'updated'} ${getCurrentDriveName()} in Drive Maps.${feedPosted?' Posted to CampFeed.':' CampFeed notice did not post.'}`;
     if(saveStatus) saveStatus.textContent = msg;
     showScoutToast('Deer drive saved to CampDeerDrives');
     pingCampRefresh('deerdrive');
@@ -3439,6 +3507,7 @@ function autoDrawDeerDriveRoutes(){
   });
 
   deerDrivePlan.autoRouteIds = autoIds;
+  updateDeerDriveActionButtons();
   saveLocal();
   renderPanel();
   document.getElementById('status-bar').innerHTML='3. Auto-Draw Drive Route created the DeerDrive push routes with visible end arrows.';
@@ -3664,7 +3733,7 @@ function standPopupHTML(s){
   const actionAttr = escHtml(rawActionId);
   return`<div class="pu-name">${s.name}</div>
 <div class="pu-type">${c.emoji} ${c.label}${s.season?' · '+s.season:''}${tod}</div>
-${s.wind?`<div class="pu-wind">💨 Best wind from ${s.wind}</div>`:''}
+${((Array.isArray(s.winds)&&s.winds.length)||s.wind)?`<div class="pu-wind">💨 Best winds from ${escHtml((Array.isArray(s.winds)&&s.winds.length?s.winds:[s.wind]).filter(Boolean).join(", "))}</div>`:''}
 <div class="pu-notes">Access: ${ACCESS_LABELS[s.access||'good']||'Good'} · Pressure: ${PRESSURE_LABELS[s.pressure||'fresh']||'Fresh'} · Season Fit: ${SEASON_PHASE_LABELS[s.seasonPhase||'any']||'Any'}</div>
 ${s.notes?`<div class="pu-notes">${s.notes}</div>`:''}
 <div class="pu-coords">📍 ${s.lat.toFixed(5)}, ${s.lng.toFixed(5)}</div>
@@ -4103,7 +4172,8 @@ function getScoutActiveCampData(){
 }
 function makeStandPostSummary(s){
   const c=TYPE_CFG[s.type]||TYPE_CFG.treestand;
-  return [c.label, s.wind?`wind ${s.wind}`:'', s.tod?(TOD_LABELS[s.tod]||s.tod):'', (s.seasonPhase&&s.seasonPhase!=='any')?(SEASON_PHASE_LABELS[s.seasonPhase]||s.seasonPhase):''].filter(Boolean).join(' • ') || 'Stand saved from Scout.';
+  const winds=(Array.isArray(s.winds)&&s.winds.length?s.winds:[s.wind]).filter(dir=>dir&&dir!=='none');
+  return [c.label, winds.length?`winds ${winds.join(', ')}`:'', s.tod?(TOD_LABELS[s.tod]||s.tod):'', (s.seasonPhase&&s.seasonPhase!=='any')?(SEASON_PHASE_LABELS[s.seasonPhase]||s.seasonPhase):''].filter(Boolean).join(' • ') || 'Stand saved from Scout.';
 }
 async function persistStandToCamp(s){
   const {activeCampId, scopedCampDataKey, baseCampData}=getScoutActiveCampData();
@@ -4141,11 +4211,9 @@ async function persistStandToCamp(s){
   }
 
   const image=thumbUrl||displayUrl||(!hasDataImage(s.thumbnail)?String(s.thumbnail||'').trim():'');
-  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
+  const standEntry={id:standId,scoutId:s.id,title:s.name,body:s.notes||makeStandPostSummary(s),thumbnail:image,thumbUrl:thumbUrl||image,displayUrl:displayUrl||image,imageUrl:displayUrl||image,photo:photoMeta||null,type:s.type,standType:(TYPE_CFG[s.type]||TYPE_CFG.treestand).label,wind:s.wind||'',winds:Array.isArray(s.winds)?s.winds:[],access:s.access||'',pressure:s.pressure||'',season:s.season||s.seasonPhase||'',seasonPhase:s.seasonPhase||'',tod:s.tod||'',notes:s.notes||'',author,member:author,createdAt:nowIso,createdAtMs:nowMs,lat:s.lat,lng:s.lng,tags:['Deer Stand','Scout']};
   const existing=Array.isArray(baseCampData.deerStandPosts)?baseCampData.deerStandPosts.filter(Boolean):(Array.isArray(baseCampData.deerStands)?baseCampData.deerStands.filter(Boolean):[]);
-  const updateEntry={id:`${standId}-update`,type:'deerstand',title:`${s.name} saved to CampDeerStands`,member:author,summary:s.notes||makeStandPostSummary(s),createdAt:nowIso,createdAtMs:nowMs,standId};
-  const content=Array.isArray(baseCampData.contentSubmissions)?baseCampData.contentSubmissions.filter(Boolean):[];
-  const enabledSections=Object.assign({},baseCampData.enabledSections||{},{campdeerstands:true,stands:true,campupdate:true});
+  const enabledSections=Object.assign({},baseCampData.enabledSections||{},{campdeerstands:true,stands:true});
   const makeStandLists=(entry)=>{
     const standList=[entry,...existing.filter(item=>String(item.id||'')!==standId)].slice(0,24);
     const slimStandList=standList.map(item=>{const slim=Object.assign({},item); delete slim.thumbnail; delete slim.image; delete slim.photo; return slim;});
@@ -4182,7 +4250,7 @@ async function persistStandToCamp(s){
     return wrote||cloudWrote;
   };
   const {standList,slimStandList}=makeStandLists(standEntry);
-  const next=Object.assign({},baseCampData,{campId:activeCampId,enabledSections,deerStandPosts:standList,deerStands:slimStandList,contentSubmissions:[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,30)});
+  const next=Object.assign({},baseCampData,{campId:activeCampId,enabledSections,deerStandPosts:standList,deerStands:slimStandList});
   if(await writePayload(next)) return {posted:true,thumbnailSaved:Boolean(image),storageUploaded:Boolean(photoMeta&&photoMeta.storageProvider==='firebase')};
 
   const compact=Object.assign({},next,{
@@ -4190,7 +4258,6 @@ async function persistStandToCamp(s){
     campPhotoGallery:(Array.isArray(next.campPhotoGallery)?next.campPhotoGallery:[]).slice(0,6).map(stripHeavyMedia),
     deerDrivePosts:(Array.isArray(next.deerDrivePosts)?next.deerDrivePosts:[]).slice(0,12).map(compactDrive),
     deerDrives:(Array.isArray(next.deerDrives)?next.deerDrives:[]).slice(0,12).map(compactDrive),
-    contentSubmissions:(Array.isArray(next.contentSubmissions)?next.contentSubmissions:[]).slice(0,20)
   });
   if(await writePayload(compact)) return {posted:true,thumbnailSaved:Boolean(image),storageTrimmed:true,storageUploaded:Boolean(photoMeta&&photoMeta.storageProvider==='firebase')};
 
@@ -4204,7 +4271,6 @@ async function persistStandToCamp(s){
     enabledSections,
     deerStandPosts:noPhotoLists.standList.slice(0,12),
     deerStands:noPhotoLists.slimStandList.slice(0,12),
-    contentSubmissions:[updateEntry,...content.filter(item=>String(item.id||'')!==updateEntry.id)].slice(0,12),
     feedEntries:(Array.isArray(baseCampData.feedEntries)?baseCampData.feedEntries:[]).slice(0,4).map(stripHeavyMedia),
     campPhotoGallery:[],
     deerDrivePosts:(Array.isArray(baseCampData.deerDrivePosts)?baseCampData.deerDrivePosts:[]).slice(0,8).map(compactDrive),
@@ -4215,10 +4281,57 @@ async function persistStandToCamp(s){
   try{
     const pendingKey=campScopeKey(activeCampId,'pendingStandPosts')||'deercamp.pendingStandPosts';
     const pending=safeParse(localStorage.getItem(pendingKey),[]);
-    const nextPending=[{standEntry:noPhotoEntry,updateEntry,createdAt:nowIso},...(Array.isArray(pending)?pending:[])].slice(0,10);
+    const nextPending=[{standEntry:noPhotoEntry,createdAt:nowIso},...(Array.isArray(pending)?pending:[])].slice(0,10);
     localStorage.setItem(pendingKey,JSON.stringify(nextPending));
   }catch(e){}
   return {posted:false,postPending:true};
+}
+
+async function publishStandToCampFeed(s,isNewStand){
+  if(!(window.firebase && typeof firebase.auth==='function' && typeof firebase.firestore==='function')) return false;
+
+  const user=firebase.auth().currentUser;
+  if(!user) return false;
+
+  const {activeCampId,baseCampData}=getScoutActiveCampData();
+  if(!activeCampId) return false;
+
+  const authorName=String(
+    user.displayName ||
+    baseCampData.stewardName ||
+    baseCampData.steward ||
+    user.email ||
+    'DeerCamp Member'
+  ).trim() || 'DeerCamp Member';
+
+  const createdAtMs=Date.now();
+  const standName=String(s.name||'Stand').trim()||'Stand';
+  const body=makeStandPostSummary(s);
+
+  await firebase.firestore().collection('feedItems').add({
+    campId:activeCampId,
+    room:'campfeed',
+    authorId:user.uid,
+    authorName,
+    author:authorName,
+    title:`${standName} ${isNewStand?'added to':'updated in'} Stand Maps`,
+    caption:body,
+    body,
+    story:body,
+    transcript:'',
+    transcriptPreview:'',
+    mediaType:'text',
+    type:'conversation',
+    category:'campfeed',
+    tags:['CampFeed','Deer Stand','Scout','Web'],
+    published:true,
+    source:'app',
+    createdAt:firebase.firestore.FieldValue.serverTimestamp(),
+    createdAtMs,
+    clientCreatedAt:createdAtMs
+  });
+
+  return true;
 }
 
 function standDeleteIdentityValues(stand){
@@ -4293,7 +4406,7 @@ function openStandModal(stand=null){
   document.getElementById('f-access').value=stand?.access||'good';
   document.getElementById('f-pressure').value=stand?.pressure||'fresh';
   document.getElementById('f-season-phase').value=stand?.seasonPhase||'any';
-  selWind=stand?.wind||'';
+  selWinds=Array.isArray(stand?.winds) ? stand.winds.filter(Boolean) : (stand?.wind ? [stand.wind] : []);
   standPhotoStorageMeta=stand?.photoMeta||stand?.photo||null;
   const standPhotoObj=(stand?.photo&&typeof stand.photo==='object')?stand.photo:null;
   standPhotoDataUrl=standPhotoObj?.displayUrl||stand?.displayUrl||stand?.imageUrl||stand?.photoUrl||stand?.photo||stand?.image||stand?.thumbnail||'';
@@ -4301,7 +4414,7 @@ function openStandModal(stand=null){
   const photoInput=document.getElementById('f-stand-photo'); if(photoInput) photoInput.value='';
   const photoPreview=document.getElementById('stand-photo-preview'); const photoPreviewImg=document.getElementById('stand-photo-preview-img');
   if(standPhotoDataUrl&&photoPreview&&photoPreviewImg){photoPreviewImg.src=standPhotoDataUrl;photoPreview.classList.add('show');} else if(photoPreview){photoPreview.classList.remove('show');}
-  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===selWind));
+  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',selWinds.includes(b.dataset.dir)));
   document.getElementById('btn-del-stand').style.display=stand?'inline-flex':'none';
   const standFeedback=document.getElementById('stand-save-feedback');
   if(standFeedback){standFeedback.classList.remove('show');standFeedback.textContent='';}
@@ -4318,8 +4431,14 @@ function closeStandModal(){
   standPhotoDataUrl='';standPhotoThumbDataUrl='';
 }
 function pickWind(d){
-  selWind=d;
-  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',b.dataset.dir===d));
+  if(d==='none'){
+    selWinds=['none'];
+  }else{
+    selWinds=selWinds.filter(dir=>dir!=='none');
+    if(selWinds.includes(d)) selWinds=selWinds.filter(dir=>dir!==d);
+    else selWinds.push(d);
+  }
+  document.querySelectorAll('#stand-wind-picker .wpb').forEach(b=>b.classList.toggle('sel',selWinds.includes(b.dataset.dir)));
 }
 async function saveStand(){
   if(!requireScoutSteward('Only the Camp Steward can save deer stands.')) return;
@@ -4341,11 +4460,12 @@ async function saveStand(){
     const access=document.getElementById('f-access').value;
     const pressure=document.getElementById('f-pressure').value;
     const seasonPhase=document.getElementById('f-season-phase').value;
-    const wind=selWind;
+    const winds=selWinds.filter(dir=>dir && dir!=='none');
+    const wind=winds[0]||'';
     let savedStand=null;
     if(editingStandId!==null){
-      const s=stands.find(s=>s.id===editingStandId);
-      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(escHtml(getStandLabelText(s))); savedStand=s;}
+      const s=getStandByAnyId(editingStandId);
+      if(s){const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||s.thumbnail||s.photo||'';Object.assign(s,{name,type,notes,season,tod,wind,winds,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto}); allLayers[s.id]?.setIcon(makeIcon(type)); allLayers[s.id]?.setPopupContent(standPopupHTML(s)); if(allLayers[s.id]?.setTooltipContent) allLayers[s.id].setTooltipContent(escHtml(getStandLabelText(s))); savedStand=s;}
     } else {
       const ll=pendingLL||map.getCenter();
       if(!ll||typeof ll.lat!=='number'||typeof ll.lng!=='number'){
@@ -4354,12 +4474,17 @@ async function saveStand(){
         if(saveBtn) saveBtn.textContent='Save'; return;
       }
       const compactPhoto=standPhotoThumbDataUrl||standPhotoDataUrl||'';
-      const s={id:Date.now(),name,type,notes,season,tod,wind,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto,lat:ll.lat,lng:ll.lng};
+      const s={id:Date.now(),name,type,notes,season,tod,wind,winds,access,pressure,seasonPhase,photo:compactPhoto,thumbnail:compactPhoto,lat:ll.lat,lng:ll.lng};
       stands.push(s); addStandToMap(s); editingStandId=s.id; pendingLL=null; savedStand=s; try{map.panTo([s.lat,s.lng]);}catch(e){}
     }
     if(!savedStand) throw new Error('Stand object was not created.');
     let postResult={posted:false};
     try{postResult=await persistStandToCamp(savedStand);}catch(e){console.warn('Camp stand post failed.',e);}
+
+    let feedPosted=false;
+    if(postResult.posted){
+      try{feedPosted=await publishStandToCampFeed(savedStand,isNewStand);}catch(e){console.warn('CampFeed stand activity post skipped.',e);}
+    }
     const isEmbeddedStandImage=(value)=>/^data:image\//i.test(String(value||''));
     if(isEmbeddedStandImage(savedStand.photo)) savedStand.photo='';
     if(isEmbeddedStandImage(savedStand.thumbnail)) savedStand.thumbnail='';
@@ -4370,9 +4495,10 @@ async function saveStand(){
     setMode('view');
     const closeBtn=document.getElementById('stand-close-btn'); if(saveBtn) saveBtn.textContent='Saved ✓'; if(closeBtn) closeBtn.textContent='Close';
     if(feedback){
-      const campNote=postResult.posted?' Posted to CampUpdate and CampDeerStands.':(postResult.postPending?' Saved to the map. Camp section sync is pending because browser storage is full.':' Saved to the map. Camp section sync did not finish.');
+      const mapNote=postResult.posted?(isNewStand?' Added to Stand Maps.':' Updated in Stand Maps.'):(postResult.postPending?' Saved locally. Stand Maps sync is pending because browser storage is full.':' Saved locally. Stand Maps sync did not finish.');
+      const campNote=postResult.posted?(feedPosted?' Posted to CampFeed.':' CampFeed notice did not post.'):'';
       const photoNote=postResult.photoDropped?' Camp storage was tight, so the stand saved without the photo thumbnail.':(postResult.storageUploaded?' Photo uploaded to Firebase Storage and saved as a full-visible stand thumbnail.':(postResult.storageTrimmed?' Camp storage was trimmed and the compressed thumbnail was saved.':' Photo compressed and saved as a full-visible stand thumbnail.'));
-      feedback.innerHTML=`✅ <strong>Saved.</strong> ${name} has been added to the map.${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
+      feedback.innerHTML=`✅ <strong>Saved.</strong> ${name}.${mapNote}${campNote}${photoNote} Tap <strong>Close</strong> when done.`; feedback.classList.add('show');
     }
     document.getElementById('status-bar').innerHTML=`✅ Saved stand: ${name}`;
     if(recOpen) runRecommender();
@@ -5064,15 +5190,16 @@ function runRecommender(){
 
   const scored=stands.map(s=>{
     let score=0, reasons=[];
-    // Wind match: stand wind aligns with today's wind (deer scent goes away from stand)
-    if(s.wind){
-      const diff=windDiff(recWind, s.wind);
-      if(diff===0){score+=40;reasons.push('✅ Perfect wind match — your scent blows away from deer');}
-      else if(diff===1){score+=25;reasons.push('✅ Good wind — slightly off ideal');}
-      else if(diff===2){score+=10;reasons.push('⚠️ Marginal wind — partial scent concern');}
-      else if(diff>=3){score-=20;reasons.push('❌ Poor wind — scent likely reaching deer');}
+    // Wind match: score against every preferred wind saved for this stand.
+    const standWinds=(Array.isArray(s.winds)&&s.winds.length?s.winds:[s.wind]).filter(dir=>dir&&dir!=='none');
+    if(standWinds.length){
+      const diff=Math.min(...standWinds.map(dir=>windDiff(recWind,dir)));
+      if(diff===0){score+=40;reasons.push('Perfect wind match - your scent blows away from deer');}
+      else if(diff===1){score+=25;reasons.push('Good wind - slightly off ideal');}
+      else if(diff===2){score+=10;reasons.push('Marginal wind - partial scent concern');}
+      else if(diff>=3){score-=20;reasons.push('Poor wind - scent likely reaching deer');}
     } else {
-      score+=5;reasons.push('ℹ️ No wind preference set for this stand');
+      score+=5;reasons.push('No wind preference set for this stand');
     }
     // Time of day bonus (just general heuristic)
     if(s.tod==='morning') {score+=8;reasons.push('🌅 Morning stand');}
@@ -5137,37 +5264,25 @@ function togglePanel(side){
 }
 
 function getHelperPanelHTML(){
+  if(isScoutStandBuilder()){
+    return `<div style="padding:12px 12px 28px;color:var(--cream);font-size:.62rem;line-height:1.9">
+      <div style="margin-bottom:10px;"><strong>DeerStand Builder Helper</strong></div>
+      <div style="margin-bottom:6px;">1. Enter the property address or city/state to navigate to your location.</div>
+      <div style="margin-bottom:6px;">2. Zoom and pan to the exact stand location.</div>
+      <div style="margin-bottom:6px;">3. Tap Stand Builder on the menu bar.</div>
+      <div style="margin-bottom:6px;">4. Tap the map where you want to place the stand.</div>
+      <div style="margin-bottom:6px;">5. Enter the stand details and tap Save.</div>
+    </div>`;
+  }
+
   return `<div style="padding:12px 12px 28px;color:var(--cream);font-size:.62rem;line-height:1.9">
-    <div style="margin-bottom:10px;">To Build DeerDrive on DeerCamp Scout Elite</div>
-
-    <div style="margin-bottom:6px;">A. Type in property address or city/state to navigate map to location</div>
-    <div style="margin-bottom:10px;">B. Zoom in on location to create your deer drive</div>
-
-    <div style="margin-bottom:6px;">1. Tap DeerDrive Builder on Menu bar to:</div>
-    <div style="padding-left:16px;margin-bottom:10px;">
-      · Name your deer drive<br>
-      · Choose # of Drivers/Pushers (blue circles) &amp; Standers/Blockers (yellow circles) in the drive<br>
-      · Choose the Wind Direction on drive for From &amp; To<br>
-      · Tap Ok to drop pins onto the map<br>
-      · Drag D/P &amp; S/B pins into position
-    </div>
-
-    <div style="margin-bottom:6px;">2. Tap Set Drive button to freeze pins on deer drive location</div>
-    <div style="margin-bottom:6px;">3. Tap Auto-Draw Drive Route button to sketch D/P routes</div>
-    <div style="padding-left:16px;margin-bottom:14px;">· Tap Save Drive to post a CampUpdate entry and post to CampDeerDrives section</div>
-
-    <div style="height:1px;background:#5a4a30;margin:12px 0 14px;"></div>
-
-    <div style="margin-bottom:10px;">To Build your DeerStand on DeerCamp Scout Elite</div>
-
-    <div style="padding-left:16px;">
-      · Type in property address or city/state to navigate map to location<br>
-      · Zoom in on exact stand location<br>
-      · Tap 📍 Stand button on the Menu bar to change mouse pointer to a “+”<br>
-      · Tap map where you want to place stand<br>
-      · Enter stand details and tap Save.<br>
-      · Tapping Save will auto-post a CampUpdate entry and post to CampDeerDrives section
-    </div>
+    <div style="margin-bottom:10px;"><strong>DeerDrive Builder Helper</strong></div>
+    <div style="margin-bottom:6px;">A. Enter the property address or city/state to navigate to your location.</div>
+    <div style="margin-bottom:10px;">B. Zoom and pan to the location where you want to create your deer drive.</div>
+    <div style="margin-bottom:6px;">1. Tap Drive Builder on the menu bar to name the drive, choose Drivers/Pushers and Standers/Blockers, and select wind direction.</div>
+    <div style="margin-bottom:6px;">2. Tap Set Drive to freeze the pins in position.</div>
+    <div style="margin-bottom:6px;">3. Tap Auto-Draw Drive Route to sketch the route.</div>
+    <div style="margin-bottom:6px;">4. Tap Save Drive when finished.</div>
   </div>`;
 }
 function getPanelPreferredSide(){
