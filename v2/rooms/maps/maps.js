@@ -228,6 +228,32 @@
     ).toLowerCase();
   }
 
+  function buildScoutDriveUrl(item) {
+    const campId = getActiveCampId();
+    const driveId = firstNonEmpty(
+      item?.id,
+      item?.driveId,
+      item?.linkedItemId,
+      item?.savedSummary?.id,
+      item?.title,
+      item?.driveName,
+      item?.name
+    );
+    if (!driveId) return "";
+
+    const url = new URL("../../../scout.html", window.location.href);
+    if (campId) url.searchParams.set("campId", campId);
+    url.searchParams.set("builder", "drive");
+    url.searchParams.set("driveId", driveId);
+
+    const currentParams = new URLSearchParams(window.location.search);
+    if (currentParams.get("useStagingFirebase") === "true") {
+      url.searchParams.set("useStagingFirebase", "true");
+    }
+
+    return url.toString();
+  }
+
   function collectDriveMaps(camp) {
     const sources = [
       camp?.deerDrivePosts,
@@ -509,6 +535,7 @@
 
       const image = getDriveImage(item);
       const routes = getDriveRoutes(item);
+      const mapLink = buildScoutDriveUrl(item);
 
       const routeSummary = routes
         .slice(0, 4)
@@ -576,6 +603,16 @@
                 ? `<div class="maps-drive-routes">
                      ${routeSummary}
                    </div>`
+                : ""
+            }
+
+            ${
+              mapLink
+                ? `<a
+                     class="maps-stand-open"
+                     href="${mapLink}">
+                     Open Map
+                   </a>`
                 : ""
             }
           </div>
