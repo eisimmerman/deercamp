@@ -245,6 +245,10 @@
       gap:18px;
     }
 
+    .memory-share-field[hidden] {
+      display:none !important;
+    }
+
     .memory-share-field {
       display:flex;
       flex-direction:column;
@@ -413,6 +417,15 @@
             <span id="memoryShareBodyLabel">Caption</span>
             <textarea id="memoryShareBody" rows="7" maxlength="5000" placeholder="Add the story behind this memory..."></textarea>
           </label>
+
+          <section id="memoryDictationPanel" class="memory-share-field memory-share-wide" hidden>
+            <span>Voice-to-Text</span>
+            <div>
+              <button id="memoryDictateStart" class="memory-viewer-nav-button" type="button">Start Voice-to-Text</button>
+              <button id="memoryDictateStop" class="memory-viewer-nav-button" type="button" hidden>Stop</button>
+            </div>
+            <p id="memoryDictateStatus" class="memory-share-feedback" aria-live="polite">Voice-to-text creates editable story text before you share.</p>
+          </section>
 
           <section id="memoryVoiceRecorder" class="memory-share-field memory-share-wide" hidden>
             <span>Voice Recording</span>
@@ -667,6 +680,10 @@
       const shareMember = document.getElementById("memoryShareMember");
       const shareFeedback = document.getElementById("memoryShareFeedback");
       const shareSubmit = document.getElementById("memoryShareSubmit");
+      const dictationPanel = document.getElementById("memoryDictationPanel");
+      const dictateStartButton = document.getElementById("memoryDictateStart");
+      const dictateStopButton = document.getElementById("memoryDictateStop");
+      const dictateStatus = document.getElementById("memoryDictateStatus");
       const voiceRecorderPanel = document.getElementById("memoryVoiceRecorder");
       const voiceRecordButton = document.getElementById("memoryVoiceRecord");
       const voiceStopButton = document.getElementById("memoryVoiceStop");
@@ -675,6 +692,8 @@
       const voiceStatus = document.getElementById("memoryVoiceStatus");
 
       let shareMode = "photo";
+      let memoryRecognition = null;
+      let memoryRecognitionActive = false;
       let voiceMediaRecorder = null;
       let voiceMediaStream = null;
       let voiceChunks = [];
@@ -684,6 +703,106 @@
       let voiceDurationMs = 0;
       let voiceTimerHandle = null;
       let voiceRecordingGeneration = 0;
+
+      function getMemoryRecognitionConstructor() {
+        return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+      }
+
+      function setMemoryDictationStatus(message, isRecording) {
+        if (!dictateStatus) return;
+        dictateStatus.textContent = message;
+        dictateStatus.dataset.recording = isRecording ? "true" : "false";
+      }
+
+      function stopMemoryDictation() {
+        try {
+          if (memoryRecognition && memoryRecognitionActive) {
+            memoryRecognition.stop();
+          }
+        } catch (error) {}
+      }
+
+      function startMemoryDictation() {
+        const Recognition = getMemoryRecognitionConstructor();
+
+        if (!Recognition) {
+          dictateStartButton.disabled = true;
+          setMemoryDictationStatus(
+            "Voice-to-text is not supported in this browser. You can still type or paste the story.",
+            false
+          );
+          return;
+        }
+
+        try {
+          if (memoryRecognitionActive) return;
+
+          memoryRecognition = new Recognition();
+          memoryRecognition.lang = navigator.language || "en-US";
+          memoryRecognition.interimResults = true;
+          memoryRecognition.continuous = true;
+
+          const startingText = String(shareBody.value || "").trim();
+          let finalTranscript = startingText ? startingText + " " : "";
+
+          memoryRecognition.onstart = function () {
+            memoryRecognitionActive = true;
+            dictateStartButton.hidden = true;
+            dictateStopButton.hidden = false;
+            setMemoryDictationStatus(
+              "Listening... speak naturally, then stop and edit before sharing.",
+              true
+            );
+          };
+
+          memoryRecognition.onresult = function (event) {
+            let interimTranscript = "";
+
+            for (let i = event.resultIndex; i < event.results.length; i += 1) {
+              const transcript = event.results[i][0]
+                ? event.results[i][0].transcript
+                : "";
+
+              if (event.results[i].isFinal) {
+                finalTranscript += transcript.trim() + " ";
+              } else {
+                interimTranscript += transcript;
+              }
+            }
+
+            shareBody.value = (finalTranscript + interimTranscript).trimStart();
+          };
+
+          memoryRecognition.onerror = function (event) {
+            setMemoryDictationStatus(
+              "Voice-to-text stopped: " +
+                (event.error || "browser error") +
+                ". You can keep editing the story.",
+              false
+            );
+          };
+
+          memoryRecognition.onend = function () {
+            memoryRecognitionActive = false;
+            dictateStartButton.hidden = false;
+            dictateStopButton.hidden = true;
+            setMemoryDictationStatus(
+              "Voice-to-text stopped. Review and edit the story before sharing.",
+              false
+            );
+          };
+
+          memoryRecognition.start();
+        } catch (error) {
+          setMemoryDictationStatus(
+            "Voice-to-text could not start. You can still type or paste the story.",
+            false
+          );
+        }
+      }
+
+      dictateStartButton.addEventListener("click", startMemoryDictation);
+      dictateStopButton.addEventListener("click", stopMemoryDictation);
 
       function currentFirebaseUser() {
         try {
@@ -857,6 +976,11 @@
         shareForm.reset();
         setShareFeedback("", false);
         voiceRecorderPanel.hidden = shareMode !== "voice";
+        dictationPanel.hidden = shareMode !== "memory";
+        dictateStartButton.hidden = false;
+        dictateStopButton.hidden = true;
+        dictateStartButton.disabled = false;
+        setMemoryDictationStatus("Voice-to-text creates editable story text before you share.", false);
 
         const user = currentFirebaseUser();
         shareMember.value = user
@@ -900,8 +1024,8 @@
           shareTitle.textContent = "Write Camp Story";
           shareTitleLabel.textContent = "Story Title";
           shareFileLabel.textContent = "Optional Picture";
-          shareBodyLabel.textContent = "Story";
-          shareBody.placeholder = "Write your camp story...";
+          shareBodyLabel.textContent = "Speak or Type Story";
+          shareBody.placeholder = "Tell the story here, or use voice-to-text to create a draft you can edit before sharing.";
           shareFile.required = false;
           shareBody.required = true;
           shareSubmit.textContent = "Share Story";
