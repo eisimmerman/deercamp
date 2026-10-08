@@ -152,6 +152,32 @@
     };
   }
 
+  function buildScoutStandUrl(item) {
+    const campId = getActiveCampId();
+    const standId = firstNonEmpty(
+      item?.id,
+      item?.standId,
+      item?.campStandId,
+      item?.linkedItemId,
+      item?.scoutId,
+      item?.title,
+      item?.name
+    );
+    if (!standId) return "";
+
+    const url = new URL("../../../scout.html", window.location.href);
+    if (campId) url.searchParams.set("campId", campId);
+    url.searchParams.set("builder", "stand");
+    url.searchParams.set("standId", standId);
+
+    const currentParams = new URLSearchParams(window.location.search);
+    if (currentParams.get("useStagingFirebase") === "true") {
+      url.searchParams.set("useStagingFirebase", "true");
+    }
+
+    return url.toString();
+  }
+
   function labelize(value) {
     return String(value || "")
       .replace(/-/g, " ")
@@ -364,9 +390,7 @@
         : firstNonEmpty(item.location, "No coordinates saved");
 
       const mapLink = coords.valid
-        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-            `${coords.lat},${coords.lng}`
-          )}`
+        ? buildScoutStandUrl(item)
         : "";
 
       return `
