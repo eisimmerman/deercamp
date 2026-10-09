@@ -23,38 +23,53 @@ service firebase.storage {
       return isSteward(campId) || isMember(campId);
     }
 
+    function validImageUpload() {
+      return request.resource.size > 0
+        && request.resource.size <= 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|png|webp|heic)');
+    }
+
+    function validAudioUpload() {
+      return request.resource.size > 0
+        && request.resource.size <= 25 * 1024 * 1024
+        && request.resource.contentType.matches('audio/(webm|ogg|mp4|mpeg|wav|aac|x-m4a)(;.*)?');
+    }
     match /feed/{campId}/{uid}/{memoryId}/{fileName} {
       allow read: if hasCampAccess(campId);
 
       allow create, update: if hasCampAccess(campId)
-        && uid == request.auth.uid;
+        && uid == request.auth.uid
+        && (
+          (fileName == "photo.jpg" && validImageUpload())
+          || (fileName.matches("[A-Za-z0-9_-]+[.]m4a") && validAudioUpload())
+        );
 
       allow delete: if false;
     }
 
     match /camps/{campId}/campfeed/{entityId}/{fileName} {
       allow read: if hasCampAccess(campId);
-      allow create: if hasCampAccess(campId);
+      allow create: if hasCampAccess(campId) && (validImageUpload() || validAudioUpload());
       allow update: if false;
       allow delete: if false;
     }
 
     match /camps/{campId}/campfire/{entityId}/{fileName} {
       allow read: if hasCampAccess(campId);
-      allow create: if hasCampAccess(campId);
+      allow create: if hasCampAccess(campId) && (validImageUpload() || validAudioUpload());
       allow update: if false;
       allow delete: if false;
     }
 
     match /camps/{campId}/profile-photos/{entityId}/{fileName} {
       allow read: if hasCampAccess(campId);
-      allow create, update: if isSteward(campId);
+      allow create, update: if isSteward(campId) && validImageUpload();
       allow delete: if false;
     }
 
     match /camps/{campId}/members/{memberKey}/{fileName} {
       allow read: if hasCampAccess(campId);
-      allow create, update: if hasCampAccess(campId);
+      allow create, update: if hasCampAccess(campId) && validImageUpload();
       allow delete: if false;
     }
 
