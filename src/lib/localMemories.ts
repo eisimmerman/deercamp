@@ -365,7 +365,7 @@ export async function markMemoryPublished(
     transcriptionError: undefined,
     details:
       data.audioUrl || data.voiceUrl
-        ? "Published to CampFeed. Transcript is being prepared."
+        ? "Published to CampFeed."
         : "Published to CampFeed. Saved locally as backup.",
     publishedAt: Date.now(),
     publishError: undefined,
