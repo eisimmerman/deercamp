@@ -1050,10 +1050,28 @@
   const campfeedPhotoForm = document.getElementById("campfeedPhotoForm");
   const campfeedVoiceForm = document.getElementById("campfeedVoiceForm");
   const campfeedMemoryForm = document.getElementById("campfeedMemoryForm");
+  const campfeedPublishNotice = document.getElementById("campfeedPublishNotice");
+  const campfeedPublishNoticeText = document.getElementById("campfeedPublishNoticeText");
+  const campfeedPublishNoticeDismiss = document.getElementById("campfeedPublishNoticeDismiss");
+
+  function showCampFeedPublishNotice(message) {
+    if (!campfeedPublishNotice || !campfeedPublishNoticeText) return;
+    campfeedPublishNoticeText.textContent = message;
+    campfeedPublishNotice.hidden = false;
+    campfeedPublishNotice.style.setProperty("display", "flex", "important");
+  }
+
+  if (campfeedPublishNoticeDismiss) {
+    campfeedPublishNoticeDismiss.addEventListener("click", function () {
+      campfeedPublishNotice.hidden = true;
+      campfeedPublishNotice.style.display = "none";
+    });
+  }
   const campfeedShareFeedback = document.getElementById("campfeedShareFeedback");
   const campfeedTextPublish = document.getElementById("campfeedTextPublish");
 
   function hideCampFeedDialogForms() {
+    stopCampFeedMemoryDictation();
     if (premiumAuthForm) premiumAuthForm.hidden = true;
     if (campfeedTextForm) campfeedTextForm.hidden = true;
     if (campfeedPhotoForm) campfeedPhotoForm.hidden = true;
@@ -1063,6 +1081,10 @@
   }
 
   function openCampFeedShareDialog(mode) {
+    if (campfeedPublishNotice) {
+      campfeedPublishNotice.hidden = true;
+      campfeedPublishNotice.style.display = "none";
+    }
     const dialog = document.getElementById("premiumActionDialog");
     const title = document.getElementById("premiumDialogTitle");
     const message = document.getElementById("premiumDialogMessage");
@@ -1205,6 +1227,7 @@
         if (campfeedShareFeedback) {
           campfeedShareFeedback.textContent =
             "Conversation shared.";
+        showCampFeedPublishNotice("Conversation shared.");
         }
 
         if (authDialog && authDialog.open) {
@@ -1582,6 +1605,7 @@
         if (campfeedShareFeedback) {
           campfeedShareFeedback.textContent =
             "Photo shared.";
+        showCampFeedPublishNotice("Photo shared.");
         }
 
         if (authDialog && authDialog.open) {
@@ -1779,6 +1803,7 @@
         if (campfeedShareFeedback) {
           campfeedShareFeedback.textContent =
             "Voice story shared.";
+        showCampFeedPublishNotice("Voice story shared.");
         }
 
         resetCampFeedVoiceCapture();
@@ -1812,6 +1837,117 @@
   const campfeedMemoryPublish =
     document.getElementById("campfeedMemoryPublish");
 
+  const memoryDictateStart = document.getElementById("campfeedMemoryDictateStart");
+  const memoryDictateStop = document.getElementById("campfeedMemoryDictateStop");
+  const memoryDictateStatus = document.getElementById("campfeedMemoryDictateStatus");
+
+  let memoryRecognition = null;
+  let memoryRecognitionStarting = false;
+
+  function setMemoryDictateStatus(message) {
+    if (memoryDictateStatus) memoryDictateStatus.textContent = message;
+  }
+
+  function stopCampFeedMemoryDictation() {
+    if (!memoryRecognition) return;
+    const recognition = memoryRecognition;
+    memoryRecognition = null;
+    memoryRecognitionStarting = false;
+
+    try { recognition.abort(); } catch (error) {}
+
+    if (memoryDictateStart) memoryDictateStart.hidden = false;
+    if (memoryDictateStop) {
+      memoryDictateStop.hidden = true;
+      memoryDictateStop.disabled = false;
+    }
+    setMemoryDictateStatus("Voice-to-text stopped. Review and edit your story before sharing.");
+  }
+
+  if (memoryDictateStart && memoryDictateStop && campfeedMemoryBody) {
+    memoryDictateStart.addEventListener("click", function () {
+      const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+      if (!Recognition) {
+        setMemoryDictateStatus("Voice-to-text is not supported in this browser. You can still type your story.");
+        return;
+      }
+
+      if (memoryRecognition || memoryRecognitionStarting) return;
+
+      try {
+        memoryRecognitionStarting = true;
+        const recognition = new Recognition();
+        memoryRecognition = recognition;
+        recognition.lang = navigator.language || "en-US";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        const originalText = String(campfeedMemoryBody.value || "");
+        const prefix = originalText ? originalText.trimEnd() + " " : "";
+
+        recognition.onstart = function () {
+          if (memoryRecognition !== recognition) return;
+          memoryRecognitionStarting = false;
+          memoryDictateStart.hidden = true;
+          memoryDictateStop.hidden = false;
+          setMemoryDictateStatus("Listening... speak naturally, then stop and review your story.");
+        };
+
+        recognition.onresult = function (event) {
+          if (memoryRecognition !== recognition) return;
+
+          let transcript = "";
+          for (let i = 0; i < event.results.length; i += 1) {
+            const result = event.results[i];
+            if (result[0]) transcript += result[0].transcript.trim() + " ";
+          }
+
+          campfeedMemoryBody.value = (prefix + transcript).trimEnd().slice(0, 4000);
+        };
+
+        recognition.onerror = function (event) {
+          if (memoryRecognition !== recognition) return;
+          setMemoryDictateStatus(
+            "Voice-to-text error: " + (event.error || "browser error") +
+            ". You can continue editing your story."
+          );
+        };
+
+        recognition.onend = function () {
+          if (memoryRecognition !== recognition) return;
+          memoryRecognition = null;
+          memoryRecognitionStarting = false;
+          memoryDictateStart.hidden = false;
+          memoryDictateStop.hidden = true;
+          memoryDictateStop.disabled = false;
+          setMemoryDictateStatus("Voice-to-text stopped. Review and edit your story before sharing.");
+        };
+
+        recognition.start();
+      } catch (error) {
+        stopCampFeedMemoryDictation();
+        setMemoryDictateStatus("Voice-to-text could not start. You can still type your story.");
+      }
+    });
+
+    memoryDictateStop.addEventListener("click", function () {
+      if (!memoryRecognition) return;
+      memoryDictateStop.disabled = true;
+      setMemoryDictateStatus("Finishing transcription...");
+
+      try {
+        memoryRecognition.stop();
+      } catch (error) {
+        stopCampFeedMemoryDictation();
+      }
+    });
+  }
+
+  if (authDialog) {
+    authDialog.addEventListener("close", stopCampFeedMemoryDictation);
+    authDialog.addEventListener("cancel", stopCampFeedMemoryDictation);
+  }
   if (campfeedMemoryPublish) {
     campfeedMemoryPublish.addEventListener("click", async function () {
       const title = String(campfeedMemoryTitle ? campfeedMemoryTitle.value : "").trim();
@@ -1925,6 +2061,7 @@
         if (campfeedMemoryFile) campfeedMemoryFile.value = "";
 
         if (campfeedShareFeedback) campfeedShareFeedback.textContent = "Memory / story shared to DeerCamp.";
+        showCampFeedPublishNotice("Memory / story shared to DeerCamp.");
 
         if (authDialog && authDialog.open) authDialog.close();
       } catch (error) {

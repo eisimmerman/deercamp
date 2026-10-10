@@ -535,7 +535,8 @@
     setText("memoryViewerKicker", state.options.kicker || item.room || "MEMORY VIEWER");
     setText("memoryViewerCollectionTitle", state.options.title || "DeerCamp Memories");
     setText("memoryViewerItemTitle", item.title);
-    setText("memoryViewerSubtitle", item.subtitle);
+    const isMemoryStory = String(item.contentType || "").toLowerCase() === "memory";
+    setText("memoryViewerSubtitle", isMemoryStory ? "" : item.subtitle);
     setText("memoryViewerAuthor", item.author);
     setText("memoryViewerRoom", item.room);
     setText("memoryViewerTimestamp", item.timestamp);

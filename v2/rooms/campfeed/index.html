@@ -441,7 +441,10 @@
     #premiumActionDialog #campfeedTextPublish,
     #premiumActionDialog #campfeedPhotoPublish,
     #premiumActionDialog #campfeedVoiceRecord,
-    #premiumActionDialog #campfeedVoicePublish {
+    #premiumActionDialog #campfeedVoicePublish,
+    #premiumActionDialog #campfeedMemoryPublish,
+    #premiumActionDialog #campfeedMemoryDictateStart,
+    #premiumActionDialog #campfeedMemoryDictateStop {
       align-self: flex-start;
       min-height: 42px;
       margin-top: 6px;
@@ -460,9 +463,53 @@
       cursor: not-allowed;
     }
 
+    #premiumActionDialog .campfeed-dictation-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    #premiumActionDialog #campfeedMemoryDictateStatus {
+      margin: 6px 0;
+      font-size: 0.9em;
+      color: #f4e6c9;
+    }
+
     #premiumActionDialog #campfeedShareFeedback {
       min-height: 1.5em;
     }
+    /* CampFeed capability markers */
+    #premiumHotspotLayer .premium-v2-action[data-status]::after {
+      content:"";
+      position:absolute;
+      right:2.2%;
+      top:50%;
+      transform:translateY(-50%);
+      width:10px;
+      height:10px;
+      box-sizing:border-box;
+      pointer-events:none;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="available"]::after {
+      background:#69a96b;
+      border:1px solid #d8e8d2;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="emerging"]::after {
+      width:0;
+      height:0;
+      border-left:6px solid transparent;
+      border-right:6px solid transparent;
+      border-bottom:11px solid #d5b04c;
+    }
+
+    #premiumHotspotLayer .premium-v2-action[data-status="future"]::after {
+      border:2px solid #8c8c8c;
+      border-radius:50%;
+      background:transparent;
+    }
+
   </style>
 </head>
 
@@ -614,6 +661,10 @@
     </div>
   </dialog>
 
+  <div id="campfeedPublishNotice" role="status" aria-live="polite" hidden style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:10000;max-width:calc(100vw - 32px);width:max-content;padding:14px 20px;border:2px solid #c9a35c;border-radius:12px;background:#171b17;color:#f7e7b5;box-shadow:0 8px 28px rgba(0,0,0,.5);align-items:center;gap:16px;">
+    <span id="campfeedPublishNoticeText"></span>
+    <button id="campfeedPublishNoticeDismiss" type="button" style="padding:6px 12px;border:1px solid #c9a35c;border-radius:8px;background:transparent;color:inherit;cursor:pointer;">Dismiss</button>
+  </div>
   <dialog id="premiumActionDialog" class="premium-v2-dialog">
     <div class="premium-v2-dialog-card">
       <button id="premiumDialogClose" class="premium-v2-dialog-close" type="button">Close</button>
@@ -684,6 +735,13 @@
         <label for="campfeedMemoryBody">Story</label>
         <textarea id="campfeedMemoryBody" rows="6" maxlength="4000" placeholder="Write the camp memory or story you want preserved..."></textarea>
 
+        <div id="campfeedMemoryDictation">
+          <div class="campfeed-dictation-controls">
+            <button id="campfeedMemoryDictateStart" type="button">Start Voice-to-Text</button>
+            <button id="campfeedMemoryDictateStop" type="button" hidden>Stop</button>
+          </div>
+          <p id="campfeedMemoryDictateStatus" role="status" aria-live="polite">Speak your story, then review and edit the text before sharing.</p>
+        </div>
         <label for="campfeedMemoryFile">Optional Picture</label>
         <input id="campfeedMemoryFile" type="file" accept="image/*" />
 

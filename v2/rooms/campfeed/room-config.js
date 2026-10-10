@@ -13,14 +13,14 @@ window.DEERCAMP_PREMIUM_ROOM = {
   },
 
   hotspots: [
-    { id:"view-latest", label:"Latest Conversations", type:"view", action:"latest", x:17.0, y:70.8, width:30.7, height:1.8 },
-    { id:"view-voice", label:"Voice Stories", type:"view", action:"voice", x:17.0, y:72.6, width:30.7, height:1.8 },
-    { id:"view-photos", label:"Photo Shares", type:"view", action:"photos", x:17.0, y:74.4, width:30.7, height:1.8 },
+    { id:"view-latest", status:"available", label:"Latest Conversations", type:"view", action:"latest", x:17.0, y:70.8, width:30.7, height:1.8 },
+    { id:"view-voice", status:"available", label:"Voice Stories", type:"view", action:"voice", x:17.0, y:72.6, width:30.7, height:1.8 },
+    { id:"view-photos", status:"available", label:"Photo Shares", type:"view", action:"photos", x:17.0, y:74.4, width:30.7, height:1.8 },
 
-    { id:"share-comment", label:"Start a Conversation", type:"create", action:"comment", x:52.2, y:70.8, width:31.1, height:1.8 },
-    { id:"share-voice-story", label:"Record a Voice Story", type:"create", action:"voice-story", x:52.2, y:72.6, width:31.1, height:1.8 },
-    { id:"share-photo-caption", label:"Share a Photo", type:"create", action:"photo-caption", x:52.2, y:74.4, width:31.1, height:1.8 },
-    { id:"share-memory-story", label:"Share a Memory / Story", type:"create", action:"memory-story", x:52.2, y:76.2, width:31.1, height:1.8 }
+    { id:"share-comment", status:"available", label:"Start a Conversation", type:"create", action:"comment", x:52.2, y:70.8, width:31.1, height:1.8 },
+    { id:"share-voice-story", status:"available", label:"Record a Voice Story", type:"create", action:"voice-story", x:52.2, y:72.6, width:31.1, height:1.8 },
+    { id:"share-photo-caption", status:"available", label:"Share a Photo", type:"create", action:"photo-caption", x:52.2, y:74.4, width:31.1, height:1.8 },
+    { id:"share-memory-story", status:"available", label:"Share a Memory / Story", type:"create", action:"memory-story", x:52.2, y:76.2, width:31.1, height:1.8 }
   ],
   navHotspots: [
     { id:"nav-camp", label:"Back to Camp", route:"camp", x:6.2, y:93.9, width:13.7, height:2.6 },
