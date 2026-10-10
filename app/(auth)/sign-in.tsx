@@ -16,6 +16,7 @@ export default function SignInScreen() {
 
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const canSubmit = useMemo(() => {
@@ -93,11 +94,13 @@ export default function SignInScreen() {
       <TextInput
         value={pw}
         onChangeText={setPw}
-        secureTextEntry
+        secureTextEntry={!showPassword}
         placeholder="6+ characters"
         placeholderTextColor="rgba(255,255,255,0.35)"
         style={styles.input}
       />
+
+      <Pressable onPress={() => setShowPassword((current) => !current)} accessibilityRole="button" accessibilityLabel={showPassword ? "Hide password" : "Show password"} style={{ alignSelf: "flex-end", paddingVertical: 8, paddingHorizontal: 4 }}><Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>{showPassword ? "Hide password" : "Show password"}</Text></Pressable>
 
       <Pressable onPress={onForgotPassword} disabled={busy} style={{ alignSelf: 'flex-end', marginTop: 12, paddingVertical: 6 }}>
         <Text style={{ color: '#fff', fontWeight: '800', textDecorationLine: 'underline' }}>Forgot your password?</Text>
