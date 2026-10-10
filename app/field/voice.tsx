@@ -2,6 +2,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  TextInput,
+  ScrollView,
+  KeyboardAvoidingView,
   Alert,
   Image,
   Platform,
@@ -187,6 +190,8 @@ export default function FieldVoiceScreen() {
   const [helperCount, setHelperCount] = useState(0);
   const [activeCampId, setActiveCampIdState] = useState("");
   const [activeCampName, setActiveCampNameState] = useState("Camp Swede");
+  const [storyText, setStoryText] = useState('');
+  const [reviewMode, setReviewMode] = useState(false);
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
@@ -462,6 +467,7 @@ export default function FieldVoiceScreen() {
     await saveLocalMemory({
       id: memoryId,
       title: "Field Photo",
+      caption: storyText.trim() || undefined,
       details: "Photo saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
@@ -541,6 +547,7 @@ export default function FieldVoiceScreen() {
     const payload: any = {
       id: memoryId,
       title: "Field Memory",
+      caption: storyText.trim() || undefined,
       details: "Photo + voice saved locally. DeerCamp will publish it when service is available.",
       clientCreatedAt: now,
       authorId,
@@ -598,17 +605,14 @@ export default function FieldVoiceScreen() {
   }
 
   async function onTakePhoto() {
-    if (takingPhoto || saving || recordingComplete) return;
+    if (takingPhoto || saving || recordingComplete || reviewMode) return;
 
     try {
       setTakingPhoto(true);
       const photoUri = await takePhoto();
 
       if (photoOnly) {
-        setSaving(true);
-        const memoryId = await queuePhotoOnlyMemory(photoUri);
-        startImmediateUploadPass(memoryId);
-        router.replace("/(tabs)/memories");
+        setReviewMode(true);
       }
     } catch (error: any) {
       console.error("take photo failed:", error);
@@ -654,9 +658,7 @@ export default function FieldVoiceScreen() {
         });
       } catch {}
 
-      const memoryId = await queueVoiceMemory(capturedUri);
-      startImmediateUploadPass(memoryId);
-      router.replace("/(tabs)/memories");
+      setReviewMode(true);
     } catch (error: any) {
       console.error("stop and save recording failed:", error);
       Alert.alert("Save failed", error?.message ?? "Please try again.");
@@ -667,6 +669,24 @@ export default function FieldVoiceScreen() {
     }
   }
 
+  async function onPublishReview() {
+    if (saving || !reviewMode || !capturedUri.trim()) return;
+
+    try {
+      setSaving(true);
+      const memoryId = photoOnly
+        ? await queuePhotoOnlyMemory(capturedUri)
+        : await queueVoiceMemory(capturedUri);
+
+      startImmediateUploadPass(memoryId);
+      router.replace("/(tabs)/memories");
+    } catch (error: any) {
+      console.error("publish reviewed memory failed:", error);
+      Alert.alert("Save failed", error?.message ?? "Please try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
   function onGoBack() {
     clearSegmentTimer();
     router.replace("/(tabs)");
@@ -758,6 +778,33 @@ export default function FieldVoiceScreen() {
     );
   }
 
+  if (reviewMode) {
+    return (
+      <KeyboardAvoidingView style={{ flex: 1, backgroundColor: "#101713" }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingTop: 65, paddingBottom: 45 }}>
+          <Text style={{ color: "#E8D5A0", fontSize: 25, fontWeight: "700", marginBottom: 12 }}>Review Memory</Text>
+          <Text style={{ color: "#FFFFFF", marginBottom: 16 }}>Review your photo and add a story before publishing.</Text>
+          <Image source={{ uri: capturedUri }} style={{ width: "100%", height: 280, borderRadius: 12, marginBottom: 20 }} resizeMode="contain" />
+          <Text style={{ color: "#FFFFFF", fontSize: 16, marginBottom: 8 }}>Your Story (optional)</Text>
+          <TextInput
+            value={storyText}
+            onChangeText={setStoryText}
+            multiline
+            maxLength={2000}
+            placeholder="What would you like future generations to remember?"
+            placeholderTextColor="#999999"
+            style={{ minHeight: 120, padding: 14, borderRadius: 10, backgroundColor: "#FFFFFF", color: "#111111", textAlignVertical: "top", marginBottom: 22 }}
+          />
+          <Pressable onPress={onPublishReview} disabled={saving} style={{ backgroundColor: "#D8B76A", padding: 16, borderRadius: 10, alignItems: "center", marginBottom: 14 }}>
+            <Text style={{ color: "#111111", fontWeight: "700", fontSize: 17 }}>{saving ? "Saving..." : "Publish Memory"}</Text>
+          </Pressable>
+          <Pressable onPress={onGoBack} disabled={saving} style={{ padding: 14, alignItems: "center" }}>
+            <Text style={{ color: "#FFFFFF", fontSize: 16 }}>Discard</Text>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
   return (
     <View style={styles.screen}>
       <CameraView

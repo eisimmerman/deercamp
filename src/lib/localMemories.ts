@@ -20,6 +20,7 @@ export type LocalMemoryItem = {
   id: string;
   title?: string;
   details?: string;
+  caption?: string;
   clientCreatedAt: number;
   authorId: string;
   authorName?: string;
