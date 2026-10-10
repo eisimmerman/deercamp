@@ -1,4 +1,4 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 import { auth, db, storage } from "./firebase";
@@ -452,6 +452,43 @@ function buildFeedDoc(params: {
   return doc;
 }
 
+async function writeFeedDocIdempotently(
+  memoryId: string,
+  campId: string,
+  authorId: string,
+  feedDoc: Record<string, any>
+) {
+  const cleanMemoryId = String(memoryId || "").trim();
+  if (!cleanMemoryId || !campId || !authorId) {
+    throw new Error("CampFeed publish requires a memory, camp, and author id.");
+  }
+
+  const deterministicId = `memory-${encodeURIComponent(campId)}-${encodeURIComponent(authorId)}-${encodeURIComponent(cleanMemoryId)}`;
+  const feedRef = doc(db, "feedItems", deterministicId);
+
+  try {
+    await setDoc(feedRef, feedDoc);
+  } catch (error: any) {
+    if (error?.code !== "permission-denied") throw error;
+
+    // Recover only an existing, readable, matching, published post.
+    // A removed or inaccessible post must never be recreated.
+    const existing = await getDoc(feedRef);
+    if (!existing.exists()) throw error;
+
+    const data = existing.data();
+    if (
+      data.campId !== campId ||
+      data.authorId !== authorId ||
+      data.localMemoryId !== cleanMemoryId ||
+      data.published !== true
+    ) {
+      throw error;
+    }
+  }
+
+  return feedRef;
+}
 export async function publishUploadedMemoryToFeed(
   memory: PublishableMemory | LocalMemoryItem,
   options?: {
@@ -482,8 +519,10 @@ export async function publishUploadedMemoryToFeed(
     throw new Error("Memory is missing an uploaded photo URL.");
   }
 
-  const docRef = await addDoc(
-    collection(db, "feedItems"),
+  const docRef = await writeFeedDocIdempotently(
+    memory.id,
+    campId,
+    user.uid,
     buildFeedDoc({
       user,
       memory,
@@ -584,8 +623,10 @@ export async function publishMemoryToFeed(
     audioUrl = assertDownloadUrl(await getDownloadURL(audioRef), "Voice memory");
   }
 
-  const docRef = await addDoc(
-    collection(db, "feedItems"),
+  const docRef = await writeFeedDocIdempotently(
+    memory.id,
+    campId,
+    user.uid,
     buildFeedDoc({
       user,
       memory,
