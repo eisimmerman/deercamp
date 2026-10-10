@@ -92,6 +92,10 @@ export default function HomeScreen() {
           </Text>
         </View>
 
+        <Pressable onPress={() => router.push('/profile')} accessibilityLabel='Open account and profile' style={{ alignSelf: 'flex-end', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)', marginBottom: 16 }}>
+          <Text style={{ color: '#fff', fontWeight: '800' }}>Account</Text>
+        </Pressable>
+
         <View style={styles.moduleGrid}>
           <Pressable
             style={({ pressed }) => [
