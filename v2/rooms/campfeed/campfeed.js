@@ -59,6 +59,26 @@
         return character.toUpperCase();
       });
   }
+  function showCampfeedStoryDetails(entry) {
+    const story = String(entry.writtenStory || entry.copy || "").trim();
+    const transcript = String(entry.transcript || "").trim();
+    const storySection = document.getElementById("campfeedWrittenStorySection");
+    const storyText = document.getElementById("campfeedWrittenStory");
+    const transcriptSection = document.getElementById("memoryViewerTranscriptSection");
+    const transcriptHeading = transcriptSection && transcriptSection.querySelector("h3");
+    const subtitle = document.getElementById("memoryViewerSubtitle");
+
+    if (storySection && storyText) {
+      storyText.textContent = transcript ? story : "";
+      storySection.hidden = !(transcript && story);
+    }
+    if (transcriptHeading) {
+      transcriptHeading.textContent = transcript ? "Voice Transcript" : "Story";
+    }
+    if (subtitle && transcript && story) {
+      subtitle.textContent = "";
+    }
+  }
   function mapFeedDoc(doc) {
     const item =
       doc && typeof doc.data === "function"
@@ -121,6 +141,8 @@
       room: String(item.room || "").toLowerCase() === "campfeed" ? "CampFeed" : (audioUrl ? "Memories Room" : "CampFeed"),
       title,
       copy,
+      transcript: String(item.transcript || "").trim(),
+      transcriptPreview: String(item.transcriptPreview || "").trim(),
       author,
       when: formatFeedWhen(createdAtMs),
       meta: [
@@ -379,6 +401,8 @@
               items: [entry],
               startIndex: 0
             });
+            if (campfeedCollectionObserver) campfeedCollectionObserver.disconnect();
+            showCampfeedStoryDetails(entry);
           }
         };
 
@@ -414,6 +438,8 @@
               items: [entry],
               startIndex: 0
             });
+            if (campfeedCollectionObserver) campfeedCollectionObserver.disconnect();
+            showCampfeedStoryDetails(entry);
           }
         };
 
@@ -455,6 +481,8 @@
               items: [entry],
               startIndex: 0
             });
+            if (campfeedCollectionObserver) campfeedCollectionObserver.disconnect();
+            showCampfeedStoryDetails(entry);
           }
         };
 
@@ -814,6 +842,8 @@
     }
   };
 
+  let campfeedCollectionObserver = null;
+
   async function openCampFeedViewer(actionId) {
     const viewer =
       CAMPFEED_VIEWERS[actionId];
@@ -859,11 +889,12 @@
         limit: 50
       });
 
+    const collectionItems = result.items.map(function (item) { const raw = item.source && item.source.raw || {}; return Object.assign({}, item, { writtenStory: String(raw.story || raw.body || raw.caption || "").trim() }); });
     window.DeerCampUniversalViewer.show({
       kicker: "CAMPFEED",
       title: viewer.title,
-      items: result.items,
-      selectedIndex: 0,
+      items: collectionItems,
+      startIndex: 0,
       context: {
         campId,
         source: result.source,
@@ -872,6 +903,19 @@
         room: "campfeed"
       }
     });
+    if (campfeedCollectionObserver) campfeedCollectionObserver.disconnect();
+    const positionElement = document.getElementById("memoryViewerPosition");
+    if (positionElement) {
+      const syncCollectionStory = function () {
+        const match = /^(\d+) of (\d+)$/.exec(positionElement.textContent.trim());
+        if (!match || Number(match[2]) !== collectionItems.length) return;
+        const entry = collectionItems[Number(match[1]) - 1];
+        if (entry) showCampfeedStoryDetails(entry);
+      };
+      campfeedCollectionObserver = new MutationObserver(syncCollectionStory);
+      campfeedCollectionObserver.observe(positionElement, { childList: true, characterData: true, subtree: true });
+      syncCollectionStory();
+    }
   }
 
   document.addEventListener(

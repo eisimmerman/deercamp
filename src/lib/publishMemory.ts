@@ -502,7 +502,7 @@ export async function publishUploadedMemoryToFeed(
   const campId = resolvePublishCampId(options?.campId || memory.campId);
   const title = trimOrFallback(options?.defaultTitle || getMemoryTitle(memory), "Field Memory");
   const caption = trimOrFallback(
-    options?.defaultCaption || getMemoryCaption(memory),
+    String(memory.caption || "").trim() || options?.defaultCaption || getMemoryCaption(memory),
     "Captured in DeerCamp Field Mode."
   );
 

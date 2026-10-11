@@ -13,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
 import { auth } from "@/lib/firebase";
+import { getActiveCampId, getActiveCampName } from "@/lib/localMemories";
 
 let hasShownLaunchIntroThisSession = false;
 
@@ -20,6 +21,17 @@ export default function HomeScreen() {
   const router = useRouter();
   const user = auth.currentUser;
   const signedIn = !!user && !user.isAnonymous;
+  const [activeCampName, setActiveCampName] = React.useState("Loading camp...");
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadCamp() {
+      const campId = await getActiveCampId();
+      const campName = await getActiveCampName(campId);
+      if (mounted) setActiveCampName(campName || "Camp not identified");
+    }
+    void loadCamp();
+    return () => { mounted = false; };
+  }, []);
   const [showIntro, setShowIntro] = React.useState(false);
   const introOpacity = React.useRef(new Animated.Value(1)).current;
 
@@ -86,6 +98,7 @@ export default function HomeScreen() {
           <Text style={styles.brand}>DeerCamp</Text>
           <Text style={styles.appName}>CampFieldApp</Text>
           <Text style={styles.sectionLabel}>FIELD MODE</Text>
+          <Text style={styles.sectionLabel}>Current Camp: {activeCampName}</Text>
           <Text style={styles.headerText}>
             Capture camp memories and field stats with simple taps. DeerCamp
             handles saving, syncing, and posting behind the curtain.

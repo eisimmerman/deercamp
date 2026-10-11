@@ -5,10 +5,23 @@ import { useRouter } from "expo-router";
 import { signOut } from "firebase/auth";
 
 import { auth } from "@/lib/firebase";
+import { getActiveCampId, getActiveCampName } from "@/lib/localMemories";
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [activeCampName, setActiveCampName] = useState("Loading camp...");
+
+  React.useEffect(() => {
+    let mounted = true;
+    async function loadCamp() {
+      const campId = await getActiveCampId();
+      const campName = await getActiveCampName(campId);
+      if (mounted) setActiveCampName(campName || "Camp not identified");
+    }
+    void loadCamp();
+    return () => { mounted = false; };
+  }, []);
 
   const user = auth.currentUser;
 
@@ -22,7 +35,7 @@ export default function ProfileScreen() {
   }, [router]);
 
   const onSignOut = useCallback(() => {
-    Alert.alert("Sign out?", "You’ll need to sign in again to access DeerCamp.", [
+    Alert.alert("Sign out?", "You will need to sign in again to access DeerCamp.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
@@ -31,10 +44,10 @@ export default function ProfileScreen() {
           try {
             setBusy(true);
 
-            // ✅ Real Firebase sign-out
+            // Real Firebase sign-out
             await signOut(auth);
 
-            // ✅ Hard redirect to auth
+            // Hard redirect to auth
             router.replace("/(auth)/sign-in");
           } catch (e) {
             console.error("Sign out error:", e);
@@ -56,7 +69,12 @@ export default function ProfileScreen() {
         <Text style={styles.meta}>
           {user?.isAnonymous ? "Signed in (anonymous)" : "Signed in"}
         </Text>
+        <Text style={styles.meta}>Current Camp: {activeCampName}</Text>
       </View>
+
+      <Pressable style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]} onPress={() => router.replace('/(tabs)')} disabled={busy}>
+        <Text style={styles.btnGhostText}>Back to Home</Text>
+      </Pressable>
 
       <Pressable
         style={({ pressed }) => [styles.btn, styles.btnGhost, pressed && styles.pressed]}
@@ -71,7 +89,7 @@ export default function ProfileScreen() {
         onPress={onSignOut}
         disabled={busy}
       >
-        <Text style={styles.btnDangerText}>{busy ? "Signing out…" : "Sign Out"}</Text>
+        <Text style={styles.btnDangerText}>{busy ? "Signing out..." : "Sign Out"}</Text>
       </Pressable>
     </View>
   );
