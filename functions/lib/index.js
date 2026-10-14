@@ -1222,13 +1222,42 @@ exports.getMemberAccess = (0, https_1.onRequest)({
 
         const access = memberAccessSnap.data() || {};
         const memberUid = String(access.memberUid || "").trim();
+        const authorized = Boolean(memberUid && memberUid === user.uid);
+
+        if (!authorized) {
+            return sendJson(res, 200, {
+                authorized: false,
+                campId,
+                profileComplete: false,
+            });
+        }
+
+        let profileComplete = access.profileComplete === true;
+
+        if (!profileComplete && access.profileComplete === undefined) {
+            const campSnap = await db.collection("camps").doc(campId).get();
+            const profiles = campSnap.exists && Array.isArray(campSnap.data()?.memberProfiles)
+                ? campSnap.data().memberProfiles
+                : [];
+            const memberEmail = String(access.memberEmail || "").trim().toLowerCase();
+
+            profileComplete = profiles.some((profile) => {
+                const profileUid = String(profile?.memberUid || "").trim();
+                const profileEmail = String(profile?.email || "").trim().toLowerCase();
+                const matchesIdentity = profileUid
+                    ? profileUid === user.uid
+                    : Boolean(memberEmail && profileEmail === memberEmail);
+
+                return matchesIdentity &&
+                    profile.accepted === true &&
+                    Boolean(String(profile.profileUpdatedAt || "").trim());
+            });
+        }
 
         return sendJson(res, 200, {
-            authorized: Boolean(
-                memberUid &&
-                memberUid === String(user.uid || "").trim()
-            ),
+            authorized: true,
             campId,
+            profileComplete,
         });
     }
     catch (error) {
@@ -1343,7 +1372,15 @@ exports.syncMemberProfile = (0, https_1.onRequest)({
         const campRef = db.collection("camps").doc(campId);
 
         await db.runTransaction(async (transaction) => {
-            const campSnap = await transaction.get(campRef);
+            const [campSnap, currentAccessSnap] = await Promise.all([
+                transaction.get(campRef),
+                transaction.get(memberAccessRef),
+            ]);
+
+            if (!currentAccessSnap.exists ||
+                String(currentAccessSnap.data()?.memberUid || "").trim() !== user.uid) {
+                throw new Error("Trusted member access is required.");
+            }
 
             if (!campSnap.exists) {
                 const error = new Error("DeerCamp does not exist.");
@@ -1478,6 +1515,11 @@ exports.syncMemberProfile = (0, https_1.onRequest)({
                 pendingInvites,
                 dashboardSlim,
                 profileUpdatedAt: profile.profileUpdatedAt,
+            }, { merge: true });
+
+            transaction.set(memberAccessRef, {
+                profileComplete: true,
+                profileCompletedAt: profile.profileUpdatedAt,
             }, { merge: true });
         });
 

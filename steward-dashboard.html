@@ -730,7 +730,7 @@
         <button id="tierStatusBasicDriveBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Drive</button>
         <button id="tierStatusBasicStandBtn" class="btn btn-secondary" type="button" hidden>Add Basic Deer Stand</button>
         <button id="tierStatusPrimaryBtn" class="btn btn-primary" type="button">Upgrade to DC+</button>
-        <a id="tierStatusLiveLink" class="btn btn-secondary" href="camp.html">View Live Camp</a>
+        <a id="tierStatusLiveLink" class="btn btn-secondary" href="v2/rooms/main-camp.html">View Live Camp</a>
       </div>
     </section>
 
@@ -743,7 +743,7 @@
 
         <div class="mini-stats">
           <div class="mini-stat"><strong id="statMembers">0</strong><span>active members</span></div>
-          <div class="mini-stat"><strong id="statSections">0</strong><span>sections on</span></div>
+          <div class="mini-stat"><strong id="statSections">5</strong><span>V2 rooms</span></div>
           <div class="mini-stat"><strong id="statStatus">Private</strong><span>camp state</span></div>
         </div>
 
@@ -840,7 +840,7 @@
     </div>
 
     <div class="grid-2">
-      <section class="section-card" id="campSectionsCard">
+      <section class="section-card" id="campSectionsCard" hidden style="display:none !important">
         <div>
           <h3>3. Turn on Camp Sections</h3>
           <p class="helper">Toggle Sections On (button to right) or Off (button to left) to choose what content shows in your camp.</p>
@@ -857,7 +857,7 @@
         </div>
       </section>
 
-      <section class="section-card" id="campRulesBuilderCard">
+      <section class="section-card" id="campRulesBuilderCard" hidden style="display:none !important">
         <div>
           <h3>4. CampRules Builder</h3>
           <p class="helper">Build the camp rulebook, choose who can see it, and track who has agreed to the current version.</p>
@@ -948,7 +948,7 @@
         <button id="saveAllBtn" class="btn btn-primary" type="button">Save Dashboard Changes</button>
         <a id="backToBuildYourCamp" class="btn btn-soft" href="buildyourcamp.html">Back to Steward continuation</a>
         <span class="pill" id="dashboardStatePill">Private camp</span>
-        <a id="viewLiveCampBtn" class="btn btn-secondary" href="camp.html">View Live Camp</a>
+        <a id="viewLiveCampBtn" class="btn btn-secondary" href="v2/rooms/main-camp.html">View Live Camp</a>
         <a id="dashboardSupportBtn" class="btn btn-secondary" href="mailto:support@ourdeercamp.com">Contact Support</a>
       </div>
     </header>
@@ -2502,8 +2502,6 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         { key:"steward", label:"Add Steward email", note:"Return links and support are stronger.", done:Boolean(String(state.stewardEmail || "").trim()), target:"#memberList", completeLabel:"Steward Email Complete" },
         { key:"hero", label:"Add camp sign or photo", note:"The live camp has a visual identity.", done:hasMeaningfulHeroImage(), target:"#campHeroUpload", completeLabel:"Camp Sign Complete" },
         { key:"members", label:memberStepLabel, note:memberStepNote, done:membersCanProceed, target:"#memberList", completeLabel:(nonStewardMembers.length > 0 && missingMemberEmailCount > 0 ? "Add Other Members Later" : "Members Complete") },
-        { key:"sections", label:"Choose visible sections", note:"At least one camp section is turned on.", done:countVisibleSections(state.sections) > 0, target:"#sectionList", completeLabel:"Camp Sections Complete" },
-        { key:"rules", label:"Review CampRules", note:"Publish or review the camp rulebook before launch.", done:Boolean(checklistState.rulesReviewed === true || state.campRules?.publishedAt), target:"#campRulesBuilderCard", completeLabel:"CampRules Complete" },
         { key:"field", label:"Add 1 or more Stands/Drives", note:"Save at least one stand or drive, or choose Add Later.", done:fieldCardCount > 0 || checklistState.fieldCardsDeferred === true, target:"#basicFieldCardsSection", completeLabel:"Field Cards Complete" }
       ];
     }
@@ -2532,7 +2530,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       if (!action) return;
       const liveBtn = document.getElementById("viewLiveCampBtn");
       if (target === "#viewLiveCampBtn" && liveBtn) {
-        action.href = liveBtn.getAttribute("href") || "camp.html";
+        action.href = liveBtn.getAttribute("href") || "v2/rooms/main-camp.html";
         action.onclick = null;
         return;
       }
@@ -2734,7 +2732,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
           event.preventDefault();
           saveLaunchChecklistPatch({ fieldCardsDeferred:true, fieldCardsDeferredAt:new Date().toISOString() });
           renderLaunchChecklist();
-          showToast("Field cards marked complete for now. Next step: edit member emails.");
+          showToast("Field cards deferred. You can add stands or drives later.");
           focusLaunchTarget("#launchChecklistCard");
           return;
         }
@@ -2753,13 +2751,13 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
       document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
       document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
-      document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
+      document.getElementById("statSections").textContent = "5";
       document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
       document.getElementById("heroSubnote").textContent = state.stewardEmail
         ? `Return link available for ${state.stewardEmail}.`
         : "Add a Steward email later if you want a stronger return-link safety net.";
 
-      const campUrl = buildCampUrl("camp.html", state.campId);
+      const campUrl = buildCampUrl("v2/rooms/main-camp.html", state.campId);
       document.getElementById("viewLiveCampBtn").href = campUrl;
       document.getElementById("backToBuildYourCamp").href = buildCampUrl("buildyourcamp.html", state.campId);
 
@@ -3668,7 +3666,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
       document.getElementById("previewCampMeta").textContent = meta || "Add camp details here.";
       document.getElementById("dashboardStatePill").textContent = state.camp.publishState === "public" ? "Public camp" : "Private camp";
       document.getElementById("statMembers").textContent = String(state.members.filter(member => String(member.status || "Active").toLowerCase() === "active").length);
-      document.getElementById("statSections").textContent = String(countVisibleSections(state.sections));
+      document.getElementById("statSections").textContent = "5";
       document.getElementById("statStatus").textContent = state.camp.publishState === "public" ? "Public" : "Private";
       document.getElementById("campPrivacyLabel").textContent = state.camp.publishState === "public" ? "Camp Privacy - Off" : "Camp Privacy - On";
       const heroPath = resolveImagePath(state.camp.hero);
@@ -4240,7 +4238,7 @@ const scopedBillingOverride = safeParse(localStorage.getItem(campScopeKey(active
         basicFieldCardsSection.style.display = plus ? 'none' : '';
         basicFieldCardsSection.setAttribute('aria-hidden', plus ? 'true' : 'false');
       }
-      const liveUrl=buildCampUrl("camp.html", state.campId);
+      const liveUrl=buildCampUrl("v2/rooms/main-camp.html", state.campId);
       if(live) live.href=liveUrl;
       card.className='tier-status-card';
       let model;

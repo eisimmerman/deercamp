@@ -1621,6 +1621,7 @@
 
       return {
         authorized: payload?.authorized === true,
+        profileComplete: payload?.profileComplete === true,
         campId: String(payload?.campId || cleanCampId),
         authenticated: true
       };

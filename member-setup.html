@@ -1605,7 +1605,7 @@
       const campId = String(inviteBeforeRender.campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '').trim();
 
       if (type === 'used') {
-        const campHref = buildCampUrl('camp.html', campId);
+        const campHref = buildCampUrl('v2/rooms/main-camp.html', campId);
 
         title.textContent = "You're already in this DeerCamp";
         message.textContent = 'Verifying your member access...';
@@ -1935,7 +1935,7 @@
       const scopedDashboardKey = campScopeKey(invite.campId || getCampData().campId || localStorage.getItem(ACTIVE_CAMP_KEY) || '', 'dashboardSlim');
       if (scopedDashboardKey) safeSetJson(scopedDashboardKey, updatedDashboard, { leanFallback: true });
       safeSetJson(INVITE_KEY, { id: member.id, name: member.name, email: member.email, accepted: true, campId: invite.campId, inviteToken: invite.inviteToken });
-      try {
+      {
         const joinedCampId =
           invite.campId ||
           updatedCampData.campId ||
@@ -1943,20 +1943,19 @@
 
         let cloudSaved = false;
 
-        if (
-          window.DeerCampAuth &&
-          typeof DeerCampAuth.syncMemberProfile === 'function'
-        ) {
-          const syncResult = await withTimeout(
-            DeerCampAuth.syncMemberProfile(
-              joinedCampId,
-              member
-            ),
-            10000,
-            null
-          );
+        if (!window.DeerCampAuth || typeof DeerCampAuth.syncMemberProfile !== 'function') {
+          throw new Error('Secure member profile saving is unavailable. Please retry.');
+        }
 
-          cloudSaved = Boolean(syncResult?.ok);
+        const syncResult = await withTimeout(
+          DeerCampAuth.syncMemberProfile(joinedCampId, member),
+          10000,
+          null
+        );
+
+        cloudSaved = Boolean(syncResult?.ok);
+        if (!cloudSaved) {
+          throw new Error('Member profile was not saved to Firebase. Please retry Join Camp.');
         }
 
         if (
@@ -1965,7 +1964,8 @@
           window.DeerCampCloud &&
           typeof DeerCampCloud.saveMetricEvent === 'function'
         ) {
-          await withTimeout(
+          try {
+            await withTimeout(
             DeerCampCloud.saveMetricEvent(
               joinedCampId,
               'member_joined',
@@ -1978,10 +1978,11 @@
             ),
             10000,
             false
-          );
+            );
+          } catch (metricError) {
+            console.warn('Optional member joined metric skipped.', metricError);
+          }
         }
-      } catch (error) {
-        console.warn('Cloud save or member joined metric skipped.', error);
       }
       safeRemoveItem(wizardStorageKey);
     }
@@ -2014,7 +2015,7 @@
         }
 
         setMemberSecurityActor(invite, state.member, { verified: true });
-        window.location.href = buildCampUrl('camp.html', campId);
+        window.location.href = buildCampUrl('v2/rooms/main-camp.html', campId);
       } catch (error) {
         console.warn('Open Camp blocked because trusted member verification failed.', error);
 
@@ -2063,10 +2064,11 @@
         if (viewButton) viewButton.disabled = true;
         setSavePill('Joining — preparing profile...');
 
-        if (!(await withTimeout(validateInviteOrBlock(), 12000, true))) return;
+        if (!(await withTimeout(validateInviteOrBlock(), 12000, false))) { setSavePill('Member verification incomplete. Please retry Join Camp.'); return; }
 
         const invite = getInviteContext();
-        await withTimeout(mergeMemberIntoData(), 24000, null);
+        const profileSaved = await withTimeout(mergeMemberIntoData().then(() => true), 24000, false);
+        if (!profileSaved) throw new Error('Member profile synchronization did not complete. Please retry Join Camp.');
         const finalCampId =
           invite.campId ||
           getCampData().campId ||
@@ -2085,7 +2087,7 @@
         setMemberSecurityActor(invite, state.member, { verified: true });
 
         setSavePill('Joining — opening camp...');
-        window.location.href = buildCampUrl('camp.html', finalCampId);
+        window.location.href = buildCampUrl('v2/rooms/main-camp.html', finalCampId);
       } catch (error) {
         console.warn('Join Camp blocked because trusted member verification failed.', error);
 
@@ -2186,8 +2188,33 @@
     (async () => {
       try {
         const invite = getInviteContext();
-        if (!invite.campId || !invite.inviteToken) return;
-        await validateInviteOrBlock();
+        if (!invite.campId) return;
+        const returningUser = await new Promise(resolve => {
+          if (!window.firebase || !firebase.auth) { resolve(null); return; }
+          const unsubscribe = firebase.auth().onAuthStateChanged(
+            user => { unsubscribe(); resolve(user); },
+            error => { unsubscribe(); console.warn('Member auth initialization failed.', error); resolve(null); }
+          );
+        });
+        if (returningUser && window.DeerCampAuth) {
+          const returningAccess = await DeerCampAuth.getMemberAccess(invite.campId);
+          if (returningAccess?.authorized === true && returningAccess.profileComplete === true) {
+            setSavePill('Profile complete - opening your DeerCamp...');
+            window.location.replace(buildCampUrl('v2/rooms/main-camp.html', invite.campId));
+            return;
+          }
+        }
+        if (!invite.inviteToken) return;
+        const valid = await validateInviteOrBlock();
+        if (!valid) return;
+        const access = await DeerCampAuth.getMemberAccess(invite.campId);
+        if (access?.authorized === true && access.profileComplete === true) {
+          setSavePill('Profile complete — opening your DeerCamp...');
+          window.location.replace(buildCampUrl('v2/rooms/main-camp.html', invite.campId));
+          return;
+        }
+
+        setSavePill('Ready to complete your member profile.');
       } catch (error) {
         console.warn('Invite return check skipped.', error);
       }
